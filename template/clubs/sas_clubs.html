@@ -1,0 +1,475 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0">SAS Sport Clubs</h4>
+
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'clubs:club-list' %}">Clubs</a></li>
+                    <li class="breadcrumb-item active">SAS Clubs</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<!-- SAS Brand Header -->
+<div class="row">
+    <div class="col-12">
+        <div class="card bg-soft-warning">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-lg me-4">
+                        <span class="avatar-title rounded bg-warning text-white font-size-32">
+                            <i class="uil-trophy"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h4 class="text-warning mb-1">SAS Sport Clubs</h4>
+                        <p class="text-warning mb-2">Elite sporting merchandise and equipment from South African sport clubs</p>
+                        <p class="text-muted mb-0">Supporting local sport development with quality gear and professional equipment</p>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="d-flex flex-column text-center">
+                            <h3 class="text-warning mb-0">{{ clubs.count }}</h3>
+                            <small class="text-muted">Active Clubs</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters and Search -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-lg-6">
+                        <div class="search-box">
+                            <div class="position-relative">
+                                <input type="text" class="form-control" id="searchInput" placeholder="Search SAS clubs..." value="{{ current_search }}">
+                                <i class="uil-search search-icon"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <select class="form-control" id="sportFilter">
+                            <option value="">All Sports</option>
+                            {% for value, label in sport_tags %}
+                            <option value="{{ value }}" {% if current_sport == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-lg-2">
+                        <button type="button" class="btn btn-warning w-100" onclick="applyFilters()">
+                            <i class="uil-filter me-1"></i> Filter
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SAS Clubs Grid -->
+<div class="row" id="clubGrid">
+    {% for club in clubs %}
+    <div class="col-lg-4 col-md-6">
+        <div class="card sas-club-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="avatar-md me-3">
+                        {% if club.logo %}
+                        <img src="{{ club.logo.url }}" alt="{{ club.name }}" class="avatar-md rounded">
+                        {% else %}
+                        <span class="avatar-title rounded bg-warning text-white font-size-18">
+                            {{ club.name|first }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="flex-grow-1">
+                        <h5 class="mb-1">
+                            <a href="{% url 'clubs:club-detail' club.slug %}" class="text-dark">{{ club.name }}</a>
+                        </h5>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-warning font-size-11">SAS</span>
+                            <span class="badge bg-soft-primary text-primary font-size-11">
+                                <i class="uil-basketball me-1"></i>{{ club.sport_tag }}
+                            </span>
+                            <span class="badge bg-soft-success text-success font-size-11">
+                                <i class="uil-location-point me-1"></i>Local
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Club Stats with SAS Styling -->
+                <div class="sas-stats mb-3">
+                    <div class="row g-0">
+                        <div class="col-4">
+                            <div class="p-3 border-end border-warning bg-soft-warning text-center">
+                                <h5 class="mb-1 text-warning">{{ club.active_categories_count }}</h5>
+                                <p class="text-warning font-size-13 mb-0">Categories</p>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-3 border-end border-warning bg-soft-warning text-center">
+                                <h5 class="mb-1 text-warning">{{ club.total_products }}</h5>
+                                <p class="text-warning font-size-13 mb-0">Products</p>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-3 bg-soft-warning text-center">
+                                <h5 class="mb-1 text-warning">
+                                    <i class="uil-shield-check font-size-14"></i>
+                                </h5>
+                                <p class="text-warning font-size-13 mb-0">Verified</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Club Details -->
+                <div class="club-details">
+                    {% if club.contact_person %}
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="uil-user text-warning me-2"></i>
+                        <span class="text-muted font-size-13">{{ club.contact_person|truncatechars:20 }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if club.email %}
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="uil-envelope text-warning me-2"></i>
+                        <span class="text-muted font-size-13">{{ club.email|truncatechars:25 }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if club.website %}
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="uil-globe text-warning me-2"></i>
+                        <a href="{{ club.website }}" target="_blank" class="text-warning font-size-13">Visit Website</a>
+                    </div>
+                    {% endif %}
+                    
+                    {% if club.address %}
+                    <div class="d-flex align-items-start mb-2">
+                        <i class="uil-map-marker text-warning me-2 mt-1"></i>
+                        <span class="text-muted font-size-13">{{ club.address|truncatechars:40 }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- South African Pride Section -->
+                <div class="sa-pride mt-3 p-2 bg-soft-success rounded">
+                    <div class="d-flex align-items-center">
+                        <i class="uil-map text-success me-2"></i>
+                        <small class="text-success mb-0">
+                            <strong>Proudly South African</strong> - Supporting local sport development
+                        </small>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-top border-warning">
+                <div class="d-flex gap-2">
+                    <a href="{% url 'clubs:club-detail' club.slug %}" class="btn btn-warning btn-sm flex-grow-1">
+                        <i class="uil-eye me-1"></i> Explore Club
+                    </a>
+                    <button type="button" class="btn btn-soft-success btn-sm" data-bs-toggle="tooltip" title="Support Local">
+                        <i class="uil-heart"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <div class="avatar-xl mx-auto mb-4">
+                    <div class="avatar-title bg-soft-warning text-warning rounded-circle font-size-48">
+                        <i class="uil-trophy"></i>
+                    </div>
+                </div>
+                <h5>No SAS Clubs Found</h5>
+                <p class="text-muted">Try adjusting your search criteria or filters.</p>
+                <div class="d-flex gap-2 justify-content-center">
+                    <button type="button" class="btn btn-soft-warning" onclick="clearFilters()">
+                        <i class="uil-refresh me-1"></i> Clear Filters
+                    </button>
+                    <a href="{% url 'clubs:club-list' %}" class="btn btn-warning">
+                        <i class="uil-users-alt me-1"></i> View All Clubs
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <p class="text-muted">
+                    Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} SAS clubs
+                </p>
+            </div>
+            <nav>
+                <ul class="pagination pagination-rounded mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_sport %}&sport={{ current_sport }}{% endif %}">
+                            <i class="uil-angle-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for page_num in page_obj.paginator.page_range %}
+                        {% if page_num == page_obj.number %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_num }}</span>
+                        </li>
+                        {% elif page_num > page_obj.number|add:'-3' and page_num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_num }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_sport %}&sport={{ current_sport }}{% endif %}">{{ page_num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_sport %}&sport={{ current_sport }}{% endif %}">
+                            <i class="uil-angle-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- South African Sport Development Section -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card bg-warning">
+            <div class="card-body text-white">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h4 class="text-white mb-2">Supporting South African Sport</h4>
+                        <p class="mb-0">Every purchase from SAS clubs directly contributes to local sport development and community upliftment across South Africa.</p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <div class="bg-white bg-opacity-25 rounded p-2 mb-1">
+                                    <i class="uil-users-alt font-size-24"></i>
+                                </div>
+                                <small>Community</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="bg-white bg-opacity-25 rounded p-2 mb-1">
+                                    <i class="uil-trophy font-size-24"></i>
+                                </div>
+                                <small>Excellence</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="bg-white bg-opacity-25 rounded p-2 mb-1">
+                                    <i class="uil-heart font-size-24"></i>
+                                </div>
+                                <small>Pride</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Local Sport Benefits -->
+<div class="row mt-3">
+    <div class="col-md-4">
+        <div class="card border-success">
+            <div class="card-body text-center">
+                <div class="avatar-sm mx-auto mb-3">
+                    <span class="avatar-title bg-soft-success text-success rounded-circle">
+                        <i class="uil-users-alt font-size-20"></i>
+                    </span>
+                </div>
+                <h5 class="font-size-15">Community Development</h5>
+                <p class="text-muted mb-0">Supporting grassroots sport initiatives across South Africa</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-warning">
+            <div class="card-body text-center">
+                <div class="avatar-sm mx-auto mb-3">
+                    <span class="avatar-title bg-soft-warning text-warning rounded-circle">
+                        <i class="uil-graduation-cap font-size-20"></i>
+                    </span>
+                </div>
+                <h5 class="font-size-15">Youth Programs</h5>
+                <p class="text-muted mb-0">Investing in the next generation of South African athletes</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-info">
+            <div class="card-body text-center">
+                <div class="avatar-sm mx-auto mb-3">
+                    <span class="avatar-title bg-soft-info text-info rounded-circle">
+                        <i class="uil-chart-growth font-size-20"></i>
+                    </span>
+                </div>
+                <h5 class="font-size-15">Local Economy</h5>
+                <p class="text-muted mb-0">Boosting local businesses and sport infrastructure</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.sas-club-card {
+    transition: all 0.3s ease;
+    border: 2px solid #f1f1f1;
+}
+
+.sas-club-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 35px rgba(247, 184, 75, 0.2);
+    border-color: #f7b84b;
+}
+
+.search-box .search-icon {
+    position: absolute;
+    right: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 16px;
+    color: #74788d;
+}
+
+.avatar-md {
+    width: 64px;
+    height: 64px;
+}
+
+.avatar-md img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.sas-stats {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.bg-soft-warning { 
+    background-color: rgba(247, 184, 75, 0.1) !important; 
+}
+
+.bg-soft-success { 
+    background-color: rgba(52, 195, 143, 0.1) !important; 
+}
+
+.border-warning {
+    border-color: #f7b84b !important;
+}
+
+.border-success {
+    border-color: #34c38f !important;
+}
+
+.text-warning {
+    color: #f7b84b !important;
+}
+
+.text-success {
+    color: #34c38f !important;
+}
+
+.btn-warning {
+    background-color: #f7b84b;
+    border-color: #f7b84b;
+}
+
+.btn-soft-warning {
+    background-color: rgba(247, 184, 75, 0.1);
+    border-color: rgba(247, 184, 75, 0.1);
+    color: #f7b84b;
+}
+
+.btn-soft-warning:hover {
+    background-color: #f7b84b;
+    border-color: #f7b84b;
+    color: white;
+}
+
+.btn-soft-success {
+    background-color: rgba(52, 195, 143, 0.1);
+    border-color: rgba(52, 195, 143, 0.1);
+    color: #34c38f;
+}
+
+.btn-soft-success:hover {
+    background-color: #34c38f;
+    border-color: #34c38f;
+    color: white;
+}
+
+.sa-pride {
+    background: linear-gradient(135deg, rgba(52, 195, 143, 0.1) 0%, rgba(52, 195, 143, 0.05) 100%);
+}
+</style>
+
+<script>
+function applyFilters() {
+    const search = document.getElementById('searchInput').value;
+    const sport = document.getElementById('sportFilter').value;
+    
+    let url = new URL(window.location.origin + '{% url "clubs:sas-clubs" %}');
+    
+    if (search) url.searchParams.set('search', search);
+    if (sport) url.searchParams.set('sport', sport);
+    
+    window.location.href = url.toString();
+}
+
+function clearFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('sportFilter').value = '';
+    window.location.href = '{% url "clubs:sas-clubs" %}';
+}
+
+// Enable Enter key search
+document.getElementById('searchInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        applyFilters();
+    }
+});
+
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltips.map(function(tooltip) {
+        return new bootstrap.Tooltip(tooltip);
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,781 @@
+/* Clubs App Custom Styles */
+
+/* ============================================
+   Club Cards Styling
+   ============================================ */
+.club-card, .lotto-club-card, .sas-club-card, .product-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.club-card:hover, .lotto-club-card:hover, .sas-club-card:hover, .product-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    border-color: #dee2e6;
+}
+
+.lotto-club-card:hover {
+    border-color: #3abaf4;
+    box-shadow: 0 15px 40px rgba(58, 186, 244, 0.3);
+}
+
+.sas-club-card:hover {
+    border-color: #f7b84b;
+    box-shadow: 0 15px 40px rgba(247, 184, 75, 0.3);
+}
+
+/* ============================================
+   Avatar and Image Styling
+   ============================================ */
+.avatar-xs { width: 32px; height: 32px; }
+.avatar-sm { width: 40px; height: 40px; }
+.avatar-md { width: 64px; height: 64px; }
+.avatar-lg { width: 80px; height: 80px; }
+.avatar-xl { width: 96px; height: 96px; }
+
+.avatar-xs img, .avatar-sm img, .avatar-md img, .avatar-lg img, .avatar-xl img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: inherit;
+}
+
+.product-image {
+    height: 200px;
+    width: 100%;
+    object-fit: cover;
+    background-color: #f8f9fa;
+}
+
+/* ============================================
+   Search Box Styling
+   ============================================ */
+.search-box {
+    position: relative;
+}
+
+.search-box .search-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 16px;
+    color: #74788d;
+    z-index: 2;
+}
+
+.search-box .form-control {
+    padding-right: 40px;
+}
+
+.search-box .form-control:focus {
+    border-color: #556ee6;
+    box-shadow: 0 0 0 0.2rem rgba(85, 110, 230, 0.25);
+}
+
+/* ============================================
+   Badge Variations
+   ============================================ */
+.badge-soft-primary { 
+    background-color: rgba(85, 110, 230, 0.1); 
+    color: #556ee6; 
+    border: 1px solid rgba(85, 110, 230, 0.2);
+}
+
+.badge-soft-success { 
+    background-color: rgba(52, 195, 143, 0.1); 
+    color: #34c38f; 
+    border: 1px solid rgba(52, 195, 143, 0.2);
+}
+
+.badge-soft-warning { 
+    background-color: rgba(247, 184, 75, 0.1); 
+    color: #f7b84b; 
+    border: 1px solid rgba(247, 184, 75, 0.2);
+}
+
+.badge-soft-danger { 
+    background-color: rgba(243, 76, 124, 0.1); 
+    color: #f34c7c; 
+    border: 1px solid rgba(243, 76, 124, 0.2);
+}
+
+.badge-soft-info { 
+    background-color: rgba(58, 186, 244, 0.1); 
+    color: #3abaf4; 
+    border: 1px solid rgba(58, 186, 244, 0.2);
+}
+
+.badge-soft-secondary { 
+    background-color: rgba(116, 120, 141, 0.1); 
+    color: #74788d; 
+    border: 1px solid rgba(116, 120, 141, 0.2);
+}
+
+/* ============================================
+   Background Soft Colors
+   ============================================ */
+.bg-soft-primary { background-color: rgba(85, 110, 230, 0.1) !important; }
+.bg-soft-success { background-color: rgba(52, 195, 143, 0.1) !important; }
+.bg-soft-warning { background-color: rgba(247, 184, 75, 0.1) !important; }
+.bg-soft-danger { background-color: rgba(243, 76, 124, 0.1) !important; }
+.bg-soft-info { background-color: rgba(58, 186, 244, 0.1) !important; }
+.bg-soft-secondary { background-color: rgba(116, 120, 141, 0.1) !important; }
+
+/* ============================================
+   Stats Cards
+   ============================================ */
+.club-info, .lotto-stats, .sas-stats {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.lotto-stats {
+    background: linear-gradient(135deg, rgba(58, 186, 244, 0.1) 0%, rgba(58, 186, 244, 0.05) 100%);
+}
+
+.sas-stats {
+    background: linear-gradient(135deg, rgba(247, 184, 75, 0.1) 0%, rgba(247, 184, 75, 0.05) 100%);
+}
+
+/* ============================================
+   LOTTO Brand Colors
+   ============================================ */
+.text-lotto { color: #3abaf4 !important; }
+.bg-lotto { background-color: #3abaf4 !important; }
+.border-lotto { border-color: #3abaf4 !important; }
+
+.btn-lotto {
+    background-color: #3abaf4;
+    border-color: #3abaf4;
+    color: #fff;
+}
+
+.btn-lotto:hover {
+    background-color: #2a9fd4;
+    border-color: #2a9fd4;
+    color: #fff;
+}
+
+.btn-soft-lotto {
+    background-color: rgba(58, 186, 244, 0.1);
+    border-color: rgba(58, 186, 244, 0.1);
+    color: #3abaf4;
+}
+
+.btn-soft-lotto:hover {
+    background-color: #3abaf4;
+    border-color: #3abaf4;
+    color: #fff;
+}
+
+/* ============================================
+   SAS Brand Colors
+   ============================================ */
+.text-sas { color: #f7b84b !important; }
+.bg-sas { background-color: #f7b84b !important; }
+.border-sas { border-color: #f7b84b !important; }
+
+.btn-sas {
+    background-color: #f7b84b;
+    border-color: #f7b84b;
+    color: #fff;
+}
+
+.btn-sas:hover {
+    background-color: #f5a623;
+    border-color: #f5a623;
+    color: #fff;
+}
+
+.btn-soft-sas {
+    background-color: rgba(247, 184, 75, 0.1);
+    border-color: rgba(247, 184, 75, 0.1);
+    color: #f7b84b;
+}
+
+.btn-soft-sas:hover {
+    background-color: #f7b84b;
+    border-color: #f7b84b;
+    color: #fff;
+}
+
+/* ============================================
+   South African Pride Styling
+   ============================================ */
+.sa-pride {
+    background: linear-gradient(135deg, 
+        rgba(52, 195, 143, 0.1) 0%, 
+        rgba(52, 195, 143, 0.05) 50%,
+        rgba(247, 184, 75, 0.05) 100%);
+    border-left: 3px solid #34c38f;
+}
+
+/* ============================================
+   Responsive Grid Improvements
+   ============================================ */
+
+/* Mobile First - Base Styles (320px+) */
+.club-card, .lotto-club-card, .sas-club-card, .product-card {
+    margin-bottom: 1rem;
+}
+
+/* Ensure touch-friendly targets */
+.btn {
+    min-height: 44px;
+    min-width: 44px;
+}
+
+.btn-sm {
+    min-height: 38px;
+    min-width: 38px;
+    padding: 0.375rem 0.75rem;
+}
+
+/* Card body padding adjustments */
+.card-body {
+    padding: 1rem;
+}
+
+/* Avatar responsiveness */
+.avatar-md {
+    width: 48px;
+    height: 48px;
+}
+
+.avatar-lg {
+    width: 64px;
+    height: 64px;
+}
+
+/* Small Mobile Devices (320px - 575px) */
+@media (max-width: 575.98px) {
+    /* Typography scaling */
+    h1, .h1 { font-size: 1.75rem; }
+    h2, .h2 { font-size: 1.5rem; }
+    h3, .h3 { font-size: 1.25rem; }
+    h4, .h4 { font-size: 1.125rem; }
+    h5, .h5 { font-size: 1rem; }
+    
+    /* Page title improvements */
+    .page-title-box {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+    }
+    
+    .page-title-box .page-title-right {
+        order: -1;
+        margin-bottom: 0.5rem;
+    }
+    
+    .breadcrumb {
+        justify-content: center;
+        margin-bottom: 0;
+        font-size: 0.875rem;
+    }
+    
+    /* Search and filter improvements */
+    .search-box .form-control {
+        font-size: 16px; /* Prevent zoom on iOS */
+        height: 44px;
+    }
+    
+    .form-control, .form-select {
+        font-size: 16px;
+        height: 44px;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    /* Filter row stacking */
+    .filter-row .col-lg-4,
+    .filter-row .col-lg-3,
+    .filter-row .col-lg-2 {
+        margin-bottom: 0.75rem;
+    }
+    
+    /* Button improvements */
+    .btn {
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+        border-radius: 6px;
+    }
+    
+    .btn-group .btn {
+        padding: 0.5rem 0.75rem;
+    }
+    
+    /* Card improvements */
+    .club-card, .lotto-club-card, .sas-club-card {
+        margin-bottom: 1.5rem;
+    }
+    
+    .card-body {
+        padding: 1rem 0.875rem;
+    }
+    
+    .card-footer {
+        padding: 0.75rem 0.875rem;
+    }
+    
+    /* Avatar sizing for mobile */
+    .avatar-md {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .avatar-lg {
+        width: 56px;
+        height: 56px;
+    }
+    
+    /* Stats improvements */
+    .club-info .p-2, .lotto-stats .p-3, .sas-stats .p-3 {
+        padding: 0.75rem !important;
+    }
+    
+    /* Badge sizing */
+    .badge {
+        font-size: 0.75rem;
+        padding: 0.35em 0.65em;
+    }
+    
+    /* Pagination improvements */
+    .pagination .page-link {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Hide less important pagination numbers on mobile */
+    .pagination .page-item:not(.active):not(:first-child):not(:last-child):not(.disabled) {
+        display: none;
+    }
+    
+    /* Show only first, last, current, and adjacent pages */
+    .pagination .page-item.active,
+    .pagination .page-item.active + .page-item,
+    .pagination .page-item.active - .page-item {
+        display: block;
+    }
+}
+
+/* Mobile Portrait (576px - 767px) */
+@media (min-width: 576px) and (max-width: 767.98px) {
+    /* Restore some spacing for larger mobile */
+    .card-body {
+        padding: 1.25rem;
+    }
+    
+    .avatar-md {
+        width: 56px;
+        height: 56px;
+    }
+    
+    .avatar-lg {
+        width: 72px;
+        height: 72px;
+    }
+    
+    /* Better button sizing */
+    .btn {
+        padding: 0.5rem 1rem;
+    }
+    
+    /* Two-column layout for some filters */
+    .filter-responsive {
+        display: flex;
+        gap: 0.75rem;
+    }
+    
+    .filter-responsive .col-lg-4,
+    .filter-responsive .col-lg-3 {
+        flex: 1;
+    }
+}
+
+/* Tablet Portrait (768px - 991px) */
+@media (min-width: 768px) and (max-width: 991.98px) {
+    /* Restore full avatar sizes */
+    .avatar-md {
+        width: 64px;
+        height: 64px;
+    }
+    
+    .avatar-lg {
+        width: 80px;
+        height: 80px;
+    }
+    
+    /* Improved card layout */
+    .card-body {
+        padding: 1.5rem;
+    }
+    
+    /* Better stats layout */
+    .club-info, .lotto-stats, .sas-stats {
+        margin: 0;
+    }
+}
+
+/* Tablet Landscape / Small Desktop (992px - 1199px) */
+@media (min-width: 992px) and (max-width: 1199.98px) {
+    /* Optimize for 3-column layout */
+    .col-lg-4 {
+        flex: 0 0 33.333333%;
+        max-width: 33.333333%;
+    }
+}
+
+/* Large Desktop (1200px+) */
+@media (min-width: 1200px) {
+    /* Enhanced hover effects for desktop */
+    .club-card:hover, .lotto-club-card:hover, .sas-club-card:hover {
+        transform: translateY(-8px);
+    }
+    
+    /* Larger avatars for desktop */
+    .avatar-lg {
+        width: 96px;
+        height: 96px;
+    }
+}
+
+/* Ultra-wide screens (1400px+) */
+@media (min-width: 1400px) {
+    /* Consider 4-column layout for very wide screens */
+    .col-xxl-3 {
+        flex: 0 0 25%;
+        max-width: 25%;
+    }
+}
+
+/* ============================================
+   Responsive Navigation Improvements
+   ============================================ */
+@media (max-width: 991.98px) {
+    /* Improve mobile navigation */
+    .vertical-menu {
+        position: fixed;
+        left: -250px;
+        transition: left 0.3s ease;
+        z-index: 1050;
+    }
+    
+    .vertical-menu.show {
+        left: 0;
+    }
+    
+    /* Mobile header adjustments */
+    .navbar-header {
+        padding: 0.5rem 1rem;
+    }
+    
+    /* Search improvements */
+    .app-search {
+        width: 100%;
+        max-width: 300px;
+    }
+    
+    .dropdown-menu-lg {
+        left: 0 !important;
+        right: 0 !important;
+        transform: none !important;
+        width: 100%;
+        max-width: none;
+        margin: 0 1rem;
+    }
+}
+
+/* ============================================
+   Accessibility & Performance Improvements
+   ============================================ */
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+    .club-card, .lotto-club-card, .sas-club-card,
+    .btn, .pagination .page-link {
+        transition: none;
+    }
+    
+    .club-card:hover, .lotto-club-card:hover, .sas-club-card:hover {
+        transform: none;
+    }
+}
+
+/* High contrast mode improvements */
+@media (prefers-contrast: high) {
+    .club-card, .lotto-club-card, .sas-club-card {
+        border-width: 2px;
+        border-color: currentColor;
+    }
+    
+    .btn {
+        border-width: 2px;
+    }
+    
+    .badge {
+        border: 1px solid currentColor;
+    }
+}
+
+/* ============================================
+   Dashboard Improvements
+   ============================================ */
+.transition-hover {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Quick action cards */
+.card.bg-light:hover {
+    background-color: #f8f9fa !important;
+    border-color: #e9ecef;
+}
+
+/* Enhanced card shadows for depth */
+.card {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+   Mobile Navigation Enhancements
+   ============================================ */
+@media (max-width: 991.98px) {
+    /* Better mobile header spacing */
+    .navbar-header .d-flex {
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    /* Mobile search improvements */
+    .header-item {
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Dropdown positioning fixes */
+    .dropdown-menu {
+        margin-top: 0.5rem;
+    }
+    
+    /* Mobile sidebar improvements */
+    .main-content {
+        margin-left: 0;
+        transition: margin-left 0.3s ease;
+    }
+}
+
+/* ============================================
+   Focus and Accessibility Improvements
+   ============================================ */
+
+/* Skip link for accessibility */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.sr-only:active,
+.sr-only:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 0.5rem 1rem;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+    z-index: 100000;
+    background-color: #fff;
+    color: #000;
+    border: 2px solid #0066cc;
+}
+
+/* Enhanced focus states */
+.form-control:focus,
+.form-select:focus,
+.btn:focus {
+    outline: 2px solid #0066cc;
+    outline-offset: 2px;
+}
+
+/* Card focus improvements */
+.card:focus-within,
+.card:has(a:focus) {
+    outline: 2px solid #0066cc;
+    outline-offset: 2px;
+    border-radius: 8px;
+}
+
+/* Better link focus */
+a:focus {
+    outline: 2px solid #0066cc;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Remove default browser focus outline when custom outline is present */
+.form-control:focus,
+.form-select:focus,
+.btn:focus,
+a:focus {
+    outline: 2px solid #0066cc;
+    outline-offset: 2px;
+    box-shadow: none;
+}
+
+/* ============================================
+   Performance Optimizations
+   ============================================ */
+
+/* GPU acceleration for animations */
+.club-card,
+.lotto-club-card,
+.sas-club-card,
+.transition-hover {
+    will-change: transform;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+}
+
+/* Optimize images */
+img {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+}
+
+/* ============================================
+   Loading States
+   ============================================ */
+.loading-skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ============================================
+   Enhanced Form Styling
+   ============================================ */
+.form-control:focus {
+    border-color: #556ee6;
+    box-shadow: 0 0 0 0.2rem rgba(85, 110, 230, 0.25);
+}
+
+.form-select:focus {
+    border-color: #556ee6;
+    box-shadow: 0 0 0 0.2rem rgba(85, 110, 230, 0.25);
+}
+
+/* ============================================
+   Pagination Improvements
+   ============================================ */
+.pagination .page-link {
+    border-radius: 6px;
+    margin: 0 2px;
+    border: 1px solid #dee2e6;
+    transition: all 0.2s ease-in-out;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #556ee6;
+    border-color: #556ee6;
+    border-radius: 6px;
+}
+
+.pagination .page-link:hover {
+    background-color: #f8f9fa;
+    border-color: #556ee6;
+    color: #556ee6;
+}
+
+/* ============================================
+   Accessibility Improvements
+   ============================================ */
+.btn:focus {
+    box-shadow: 0 0 0 0.2rem rgba(85, 110, 230, 0.5);
+}
+
+.card:focus-within {
+    outline: 2px solid #556ee6;
+    outline-offset: 2px;
+}
+
+/* ============================================
+   Dark Mode Compatibility (Future)
+   ============================================ */
+@media (prefers-color-scheme: dark) {
+    .club-card, .lotto-club-card, .sas-club-card, .product-card {
+        background-color: #2a3042;
+        border-color: #3e4556;
+    }
+    
+    .text-dark {
+        color: #e9ecef !important;
+    }
+    
+    .text-muted {
+        color: #adb5bd !important;
+    }
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
+@media print {
+    .btn, .dropdown, .pagination {
+        display: none !important;
+    }
+    
+    .card {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+    
+    .club-card, .lotto-club-card, .sas-club-card {
+        box-shadow: none !important;
+        border: 1px solid #000 !important;
+    }
+}

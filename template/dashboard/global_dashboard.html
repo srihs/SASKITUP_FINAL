@@ -1,0 +1,277 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">Dashboard</h4>
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item active">Dashboard</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<!-- Welcome Section -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title mb-2">Welcome to SASKITUP Admin</h5>
+                        <p class="text-muted mb-0">Manage clubs, categories, and products from your centralized dashboard.</p>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <i class="uil-estate display-4 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row">
+    <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <span class="text-muted fw-medium">Total Clubs</span>
+                        <h4 class="mb-0">{{ total_clubs }}</h4>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="avatar-sm rounded-circle bg-primary-subtle">
+                            <span class="avatar-title bg-primary-subtle text-primary rounded-circle font-size-16">
+                                <i class="uil-users-alt" aria-hidden="true"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <span class="text-muted fw-medium">LOTTO Clubs</span>
+                        <h4 class="mb-0">{{ total_lotto_clubs }}</h4>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="avatar-sm rounded-circle bg-info-subtle">
+                            <span class="avatar-title bg-info-subtle text-info rounded-circle font-size-16">
+                                <i class="uil-lottery" aria-hidden="true"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <span class="text-muted fw-medium">SAS Clubs</span>
+                        <h4 class="mb-0">{{ total_sas_clubs }}</h4>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="avatar-sm rounded-circle bg-warning-subtle">
+                            <span class="avatar-title bg-warning-subtle text-warning rounded-circle font-size-16">
+                                <i class="uil-trophy" aria-hidden="true"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <span class="text-muted fw-medium">Total Products</span>
+                        <h4 class="mb-0">{{ total_products }}</h4>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="avatar-sm rounded-circle bg-success-subtle">
+                            <span class="avatar-title bg-success-subtle text-success rounded-circle font-size-16">
+                                <i class="uil-shopping-basket" aria-hidden="true"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row">
+    <div class="col-lg-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-4">Quick Actions</h5>
+                <div class="row">
+                    <div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 mb-3">
+                        <a href="{% url 'clubs:club-list' %}" class="text-decoration-none">
+                            <div class="card bg-light border-0 h-100 transition-hover">
+                                <div class="card-body text-center py-4">
+                                    <div class="avatar-sm mx-auto mb-3">
+                                        <span class="avatar-title rounded-circle bg-primary text-white font-size-16">
+                                            <i class="uil-users-alt" aria-hidden="true"></i>
+                                        </span>
+                                    </div>
+                                    <h6 class="mb-1">View All Clubs</h6>
+                                    <p class="text-muted mb-0 small">Browse and manage all clubs</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    
+                    <div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 mb-3">
+                        <a href="{% url 'clubs:dashboard' %}" class="text-decoration-none">
+                            <div class="card bg-light border-0 h-100 transition-hover">
+                                <div class="card-body text-center py-4">
+                                    <div class="avatar-sm mx-auto mb-3">
+                                        <span class="avatar-title rounded-circle bg-success text-white font-size-16">
+                                            <i class="uil-chart-line" aria-hidden="true"></i>
+                                        </span>
+                                    </div>
+                                    <h6 class="mb-1">Clubs Dashboard</h6>
+                                    <p class="text-muted mb-0 small">Detailed club analytics</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    
+                    <div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 mb-3">
+                        <a href="{% url 'clubs:lotto-clubs' %}" class="text-decoration-none">
+                            <div class="card bg-light border-0 h-100 transition-hover">
+                                <div class="card-body text-center py-4">
+                                    <div class="avatar-sm mx-auto mb-3">
+                                        <span class="avatar-title rounded-circle bg-info text-white font-size-16">
+                                            <i class="uil-lottery" aria-hidden="true"></i>
+                                        </span>
+                                    </div>
+                                    <h6 class="mb-1">LOTTO Clubs</h6>
+                                    <p class="text-muted mb-0 small">Manage LOTTO clubs</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    
+                    <div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 mb-3">
+                        <a href="{% url 'clubs:sas-clubs' %}" class="text-decoration-none">
+                            <div class="card bg-light border-0 h-100 transition-hover">
+                                <div class="card-body text-center py-4">
+                                    <div class="avatar-sm mx-auto mb-3">
+                                        <span class="avatar-title rounded-circle bg-warning text-white font-size-16">
+                                            <i class="uil-trophy" aria-hidden="true"></i>
+                                        </span>
+                                    </div>
+                                    <h6 class="mb-1">SAS Clubs</h6>
+                                    <p class="text-muted mb-0 small">Manage SAS clubs</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    
+                    <div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 mb-3">
+                        <div class="card bg-light border-0 h-100">
+                            <div class="card-body text-center py-4">
+                                <div class="avatar-sm mx-auto mb-3">
+                                    <span class="avatar-title rounded-circle bg-secondary text-white font-size-16">
+                                        <i class="uil-cog" aria-hidden="true"></i>
+                                    </span>
+                                </div>
+                                <h6 class="mb-1">Settings</h6>
+                                <p class="text-muted mb-0 small">System configuration</p>
+                                <small class="text-muted">(Coming Soon)</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 mb-3">
+                        <div class="card bg-light border-0 h-100">
+                            <div class="card-body text-center py-4">
+                                <div class="avatar-sm mx-auto mb-3">
+                                    <span class="avatar-title rounded-circle bg-dark text-white font-size-16">
+                                        <i class="uil-file-alt" aria-hidden="true"></i>
+                                    </span>
+                                </div>
+                                <h6 class="mb-1">Reports</h6>
+                                <p class="text-muted mb-0 small">Generate reports</p>
+                                <small class="text-muted">(Coming Soon)</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Status -->
+<div class="row">
+    <div class="col-lg-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-4">System Overview</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="mb-3">Club Distribution</h6>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>LOTTO Clubs</span>
+                            <span class="text-primary">{{ total_lotto_clubs }}</span>
+                        </div>
+                        <div class="progress mb-3" style="height: 6px;">
+                            <div class="progress-bar bg-primary" style="width: {% widthratio total_lotto_clubs total_clubs 100 %}%"></div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>SAS Clubs</span>
+                            <span class="text-success">{{ total_sas_clubs }}</span>
+                        </div>
+                        <div class="progress mb-3" style="height: 6px;">
+                            <div class="progress-bar bg-success" style="width: {% widthratio total_sas_clubs total_clubs 100 %}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="mb-3">Quick Stats</h6>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item border-0 px-0 d-flex justify-content-between">
+                                <span>Total Categories</span>
+                                <span class="badge bg-info">{{ total_categories }}</span>
+                            </li>
+                            <li class="list-group-item border-0 px-0 d-flex justify-content-between">
+                                <span>Active Products</span>
+                                <span class="badge bg-success">{{ total_products }}</span>
+                            </li>
+                            <li class="list-group-item border-0 px-0 d-flex justify-content-between">
+                                <span>System Status</span>
+                                <span class="badge bg-success">Online</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

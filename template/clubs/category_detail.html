@@ -1,0 +1,365 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0">{{ category.name }}</h4>
+
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'clubs:club-list' %}">Clubs</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'clubs:club-detail' category.club.slug %}">{{ category.club.name }}</a></li>
+                    <li class="breadcrumb-item active">{{ category.name }}</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<!-- Category Header -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-md me-4">
+                        {% if category.image %}
+                        <img src="{{ category.image.url }}" alt="{{ category.name }}" class="avatar-md rounded">
+                        {% else %}
+                        <span class="avatar-title rounded bg-soft-primary text-primary font-size-20">
+                            <i class="uil-folder-open"></i>
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="flex-grow-1">
+                        <h4 class="mb-1">{{ category.name }}</h4>
+                        <p class="text-muted mb-2">
+                            <a href="{% url 'clubs:club-detail' category.club.slug %}" class="text-primary">{{ category.club.name }}</a>
+                            <span class="badge {% if category.club.club_type == 'LOTTO' %}bg-info{% else %}bg-warning{% endif %} font-size-11 ms-2">
+                                {{ category.club.club_type }}
+                            </span>
+                        </p>
+                        {% if category.description %}
+                        <p class="text-muted mb-0">{{ category.description }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-soft-primary">
+                                <i class="uil-edit-alt me-1"></i> Edit Category
+                            </button>
+                            <a href="{% url 'clubs:club-detail' category.club.slug %}" class="btn btn-soft-secondary">
+                                <i class="uil-arrow-left me-1"></i> Back to Club
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Category Stats -->
+<div class="row">
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-primary text-primary rounded-3">
+                            <i class="uil-shopping-bag font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Total Products</p>
+                        <h4 class="mb-0">{{ products.count }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-success text-success rounded-3">
+                            <i class="uil-check-circle font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">In Stock</p>
+                        <h4 class="mb-0">{{ products|length }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-info text-info rounded-3">
+                            <i class="uil-dollar-sign font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Avg Price</p>
+                        <h4 class="mb-0">
+                            {% if average_price > 0 %}
+                                ${{ average_price|floatformat:0 }}
+                            {% else %}
+                                $0
+                            {% endif %}
+                        </h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-warning text-warning rounded-3">
+                            <i class="uil-calendar-alt font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Created</p>
+                        <h6 class="mb-0">{{ category.created_at|date:"M d, Y" }}</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Products Grid -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">Products in {{ category.name }}</h4>
+                <div class="flex-shrink-0">
+                    <div class="d-flex gap-2">
+                        <div class="dropdown">
+                            <button type="button" class="btn btn-sm btn-soft-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="uil-sort me-1"></i> Sort
+                            </button>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" href="#">Name (A-Z)</a>
+                                <a class="dropdown-item" href="#">Name (Z-A)</a>
+                                <a class="dropdown-item" href="#">Price (Low to High)</a>
+                                <a class="dropdown-item" href="#">Price (High to Low)</a>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-soft-primary">
+                            <i class="uil-plus me-1"></i> Add Product
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if products %}
+                <div class="row g-3">
+                    {% for product in products %}
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <div class="card product-card h-100">
+                            <div class="position-relative">
+                                {% if product.image %}
+                                <img src="{{ product.image.url }}" alt="{{ product.name }}" class="card-img-top product-image">
+                                {% else %}
+                                <div class="card-img-top bg-light d-flex align-items-center justify-content-center product-image">
+                                    <i class="uil-shopping-bag font-size-48 text-muted"></i>
+                                </div>
+                                {% endif %}
+                                
+                                {% if product.is_on_sale %}
+                                <span class="badge bg-danger position-absolute top-0 start-0 m-2">
+                                    -{{ product.discount_percentage }}%
+                                </span>
+                                {% endif %}
+                                
+                                <!-- Stock status badge -->
+                                <span class="badge position-absolute top-0 end-0 m-2 
+                                    {% if product.stock_status == 'instock' %}bg-success{% elif product.stock_status == 'onbackorder' %}bg-warning{% else %}bg-danger{% endif %}">
+                                    {{ product.get_stock_status_display }}
+                                </span>
+                                
+                                <!-- Variable product indicator -->
+                                {% if product.has_variations %}
+                                <span class="badge bg-info position-absolute" style="bottom: 5px; left: 5px;">
+                                    <i class="uil-layers font-size-10 me-1"></i>Variable
+                                </span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="card-body">
+                                <h5 class="card-title font-size-15 mb-1">
+                                    <a href="#" class="text-dark">{{ product.name|truncatechars:25 }}</a>
+                                </h5>
+                                
+                                {% if product.short_description %}
+                                <p class="text-muted font-size-13 mb-2">{{ product.short_description|truncatechars:60 }}</p>
+                                {% endif %}
+                                
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        {% if product.has_variations %}
+                                        <!-- Variable product price range -->
+                                        <h5 class="mb-0 text-dark">{{ product.price_range }}</h5>
+                                        <small class="text-muted">Variable pricing</small>
+                                        {% elif product.is_on_sale %}
+                                        <!-- Simple product on sale -->
+                                        <h5 class="mb-0 text-dark">${{ product.sale_price }}</h5>
+                                        <small class="text-muted text-decoration-line-through">${{ product.regular_price }}</small>
+                                        {% else %}
+                                        <!-- Simple product regular price -->
+                                        <h5 class="mb-0 text-dark">${{ product.price }}</h5>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if product.sku %}
+                                    <small class="text-muted">SKU: {{ product.sku|truncatechars:8 }}</small>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Variation information -->
+                                {% if product.has_variations %}
+                                <div class="mt-2">
+                                    <!-- Available sizes -->
+                                    {% if product.available_sizes %}
+                                    <div class="mb-1">
+                                        <small class="text-muted d-block">Sizes:</small>
+                                        {% for size in product.available_sizes %}
+                                        <span class="badge bg-soft-info text-info font-size-11 me-1">{{ size }}</span>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <!-- Available colors -->
+                                    {% if product.available_colors %}
+                                    <div class="mb-1">
+                                        <small class="text-muted d-block">Colors:</small>
+                                        {% for color in product.available_colors %}
+                                        <span class="badge bg-soft-warning text-warning font-size-11 me-1">{{ color }}</span>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <!-- Total variations stock -->
+                                    <div class="mt-1">
+                                        <small class="text-muted">
+                                            <i class="uil-layers font-size-12 me-1"></i>
+                                            {{ product.variations.count }} variation{{ product.variations.count|pluralize }} 
+                                            {% if product.total_stock %}
+                                                ({{ product.total_stock }} total in stock)
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                {% if product.tags %}
+                                <div class="mt-2">
+                                    {% for tag in product.tags|slice:":3" %}
+                                    <span class="badge bg-soft-primary text-primary font-size-11 me-1">{{ tag }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="card-footer bg-transparent border-top">
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-soft-primary btn-sm flex-grow-1">
+                                        <i class="uil-eye me-1"></i> View Details
+                                    </button>
+                                    <button type="button" class="btn btn-soft-secondary btn-sm" data-bs-toggle="tooltip" title="Edit Product">
+                                        <i class="uil-edit-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <div class="avatar-xl mx-auto mb-4">
+                        <div class="avatar-title bg-soft-secondary text-secondary rounded-circle font-size-48">
+                            <i class="uil-shopping-bag"></i>
+                        </div>
+                    </div>
+                    <h5>No Products Found</h5>
+                    <p class="text-muted">This category doesn't have any products yet.</p>
+                    <button type="button" class="btn btn-soft-primary">
+                        <i class="uil-plus me-1"></i> Add First Product
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.avatar-md {
+    width: 64px;
+    height: 64px;
+}
+
+.avatar-md img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.product-card {
+    transition: all 0.3s ease;
+    border: 1px solid #f1f1f1;
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    border-color: #ddd;
+}
+
+.product-image {
+    height: auto;
+    width: auto;
+    max-width: 100%;
+    max-height: 250px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto;
+}
+
+.bg-soft-primary { background-color: rgba(85, 110, 230, 0.1); }
+.bg-soft-success { background-color: rgba(52, 195, 143, 0.1); }
+.bg-soft-info { background-color: rgba(58, 186, 244, 0.1); }
+.bg-soft-warning { background-color: rgba(247, 184, 75, 0.1); }
+.bg-soft-secondary { background-color: rgba(116, 120, 141, 0.1); }
+
+.text-decoration-line-through {
+    text-decoration: line-through;
+}
+</style>
+
+<script>
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltips.map(function(tooltip) {
+        return new bootstrap.Tooltip(tooltip);
+    });
+});
+</script>
+{% endblock %}

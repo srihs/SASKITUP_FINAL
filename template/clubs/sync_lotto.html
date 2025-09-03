@@ -1,0 +1,586 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- CSRF Token for JavaScript -->
+<meta name="csrf-token" content="{{ csrf_token }}">
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0">LOTTO Clubs Sync</h4>
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'clubs:dashboard' %}">Clubs</a></li>
+                    <li class="breadcrumb-item active">LOTTO Sync</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Authentication Status Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Authentication Status</h5>
+                <div id="auth-status">
+                    {% if user.is_authenticated %}
+                        {% if user.is_staff %}
+                            <div class="alert alert-success">
+                                <i class="uil-check-circle"></i>
+                                <strong>Authenticated:</strong> You are logged in as <strong>{{ user.username }}</strong> with staff privileges.
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <i class="uil-exclamation-triangle"></i>
+                                <strong>Insufficient Privileges:</strong> You are logged in as <strong>{{ user.username }}</strong>, but need staff privileges to sync.
+                                <br><small>Please contact an administrator to grant staff access.</small>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-danger">
+                            <i class="uil-times-circle"></i>
+                            <strong>Not Authenticated:</strong> Please log in with staff credentials to access sync functionality.
+                            <div class="mt-3">
+                                <a href="{% url 'admin:login' %}?next={{ request.get_full_path }}" class="btn btn-primary btn-sm">
+                                    <i class="uil-sign-in-alt"></i> Login to Admin
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Current Stats -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="avatar-sm">
+                            <span class="avatar-title bg-primary rounded-circle font-size-20">
+                                <i class="uil-users-alt"></i>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h5 class="mb-0">{{ total_lotto_clubs }}</h5>
+                        <p class="text-muted mb-0">LOTTO Clubs</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="avatar-sm">
+                            <span class="avatar-title bg-success rounded-circle font-size-20">
+                                <i class="uil-folder"></i>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h5 class="mb-0">{{ total_lotto_categories }}</h5>
+                        <p class="text-muted mb-0">Categories</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="avatar-sm">
+                            <span class="avatar-title bg-info rounded-circle font-size-20">
+                                <i class="uil-box"></i>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h5 class="mb-0">{{ total_lotto_products }}</h5>
+                        <p class="text-muted mb-0">Products</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sync Control Panel -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">LOTTO Clubs Synchronization</h5>
+                <p class="text-muted">Sync LOTTO clubs data from WooCommerce API. This process will update club information, categories, and products.</p>
+                
+                <!-- Sync Controls -->
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <div class="d-flex flex-wrap gap-2">
+                            <button id="sync-btn" class="btn btn-primary" 
+                                    {% if not user.is_authenticated or not user.is_staff %}disabled{% endif %}>
+                                <i class="uil-sync me-2"></i>Start Sync
+                            </button>
+                            <button id="test-connection-btn" class="btn btn-outline-secondary"
+                                    {% if not user.is_authenticated or not user.is_staff %}disabled{% endif %}>
+                                <i class="uil-wifi me-2"></i>Test Connection
+                            </button>
+                            <button id="clear-log-btn" class="btn btn-outline-warning">
+                                <i class="uil-trash me-2"></i>Clear Log
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-md-end">
+                            <small class="text-muted">
+                                Last sync: <span id="last-sync-time">Not available</span>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                {% if not user.is_authenticated or not user.is_staff %}
+                <div class="alert alert-info mt-3">
+                    <i class="uil-info-circle"></i>
+                    <strong>Authentication Required:</strong> Sync controls are disabled because you need staff credentials. Please login first.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sync Progress -->
+<div class="row" id="sync-progress-row" style="display: none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Sync Progress</h5>
+                <div class="progress">
+                    <div id="sync-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                        0%
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <small id="sync-status-text">Preparing sync...</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sync Results -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0">Sync Log</h5>
+                    <div class="d-flex gap-2">
+                        <button id="refresh-log-btn" class="btn btn-sm btn-outline-primary">
+                            <i class="uil-refresh"></i>
+                        </button>
+                        <button id="download-log-btn" class="btn btn-sm btn-outline-success">
+                            <i class="uil-download-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="sync-log" class="border rounded p-3" style="height: 400px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 14px; background-color: #f8f9fa;">
+                    <div class="text-muted">
+                        <i class="uil-info-circle"></i> Sync log will appear here...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sync Statistics (Hidden until sync completes) -->
+<div class="row" id="sync-stats-row" style="display: none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Sync Statistics</h5>
+                <div class="row">
+                    <div class="col-md-2">
+                        <div class="text-center">
+                            <h4 class="text-success" id="clubs-created">0</h4>
+                            <small class="text-muted">Clubs Created</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="text-center">
+                            <h4 class="text-info" id="clubs-updated">0</h4>
+                            <small class="text-muted">Clubs Updated</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="text-center">
+                            <h4 class="text-success" id="categories-created">0</h4>
+                            <small class="text-muted">Categories Created</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="text-center">
+                            <h4 class="text-info" id="categories-updated">0</h4>
+                            <small class="text-muted">Categories Updated</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="text-center">
+                            <h4 class="text-success" id="products-created">0</h4>
+                            <small class="text-muted">Products Created</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="text-center">
+                            <h4 class="text-info" id="products-updated">0</h4>
+                            <small class="text-muted">Products Updated</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const syncBtn = document.getElementById('sync-btn');
+    const testConnectionBtn = document.getElementById('test-connection-btn');
+    const clearLogBtn = document.getElementById('clear-log-btn');
+    const syncLog = document.getElementById('sync-log');
+    const syncProgressRow = document.getElementById('sync-progress-row');
+    const syncProgressBar = document.getElementById('sync-progress-bar');
+    const syncStatusText = document.getElementById('sync-status-text');
+    const syncStatsRow = document.getElementById('sync-stats-row');
+
+    // CSRF token
+    const csrfToken = '{{ csrf_token }}';
+    
+    // Make CSRF token available globally for testing
+    window.djangoCSRFToken = csrfToken;
+
+    // Utility functions
+    function addLogEntry(message, type = 'info') {
+        const timestamp = new Date().toLocaleTimeString();
+        const typeClass = {
+            'info': 'text-info',
+            'success': 'text-success', 
+            'error': 'text-danger',
+            'warning': 'text-warning'
+        }[type] || 'text-muted';
+        
+        const entry = `<div class="${typeClass}">[${timestamp}] ${message}</div>`;
+        syncLog.innerHTML += entry;
+        syncLog.scrollTop = syncLog.scrollHeight;
+    }
+
+    function updateProgress(percent, status) {
+        syncProgressBar.style.width = percent + '%';
+        syncProgressBar.setAttribute('aria-valuenow', percent);
+        syncProgressBar.textContent = percent + '%';
+        syncStatusText.textContent = status;
+    }
+
+    function showProgress() {
+        syncProgressRow.style.display = 'block';
+    }
+
+    function hideProgress() {
+        syncProgressRow.style.display = 'none';
+    }
+
+    function updateStats(stats) {
+        document.getElementById('clubs-created').textContent = stats.clubs_created || 0;
+        document.getElementById('clubs-updated').textContent = stats.clubs_updated || 0;
+        document.getElementById('categories-created').textContent = stats.categories_created || 0;
+        document.getElementById('categories-updated').textContent = stats.categories_updated || 0;
+        document.getElementById('products-created').textContent = stats.products_created || 0;
+        document.getElementById('products-updated').textContent = stats.products_updated || 0;
+        syncStatsRow.style.display = 'block';
+    }
+
+    function resetUI() {
+        hideProgress();
+        syncStatsRow.style.display = 'none';
+        updateProgress(0, 'Ready');
+    }
+
+    // Test Connection
+    testConnectionBtn.addEventListener('click', async function() {
+        addLogEntry('Testing WooCommerce connection...', 'info');
+        testConnectionBtn.disabled = true;
+        testConnectionBtn.innerHTML = '<i class="uil-spin uil-sync me-2"></i>Testing...';
+
+        try {
+            const response = await fetch('{% url "clubs:test-sync-endpoint" %}', {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                addLogEntry('Connection test successful!', 'success');
+                if (data.debug_info.connection_test === true) {
+                    addLogEntry('✓ WooCommerce API connection verified', 'success');
+                } else {
+                    addLogEntry('⚠ WooCommerce API connection issue: ' + data.debug_info.connection_test, 'warning');
+                }
+                addLogEntry('✓ Database connection verified', 'success');
+                addLogEntry(`Database stats: ${data.debug_info.database_stats.total_clubs} clubs, ${data.debug_info.database_stats.lotto_clubs} LOTTO clubs`, 'info');
+            } else {
+                addLogEntry('Connection test failed: ' + data.error, 'error');
+            }
+        } catch (error) {
+            addLogEntry('Connection test failed: ' + error.message, 'error');
+        } finally {
+            testConnectionBtn.disabled = false;
+            testConnectionBtn.innerHTML = '<i class="uil-wifi me-2"></i>Test Connection';
+        }
+    });
+
+    // Global variables for polling
+    let currentJobId = null;
+    let pollingInterval = null;
+    let lastLogCount = 0;
+    let pollingRetries = 0;
+    let maxPollingRetries = 5;
+    let pollingTimeout = 300000; // 5 minutes timeout for polling
+    
+    // Polling function to check sync status
+    async function pollSyncStatus(jobId) {
+        try {
+            const response = await fetch(`/clubs/sync/status/${jobId}/`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Update progress
+                updateProgress(data.progress_percentage, data.current_step || 'Processing...');
+                
+                // Add only new log messages (avoid duplicates)
+                if (data.log_messages && data.log_messages.length > lastLogCount) {
+                    const newMessages = data.log_messages.slice(lastLogCount);
+                    newMessages.forEach(logEntry => {
+                        const timestamp = new Date(logEntry.timestamp).toLocaleTimeString();
+                        addLogEntry(`[${timestamp}] ${logEntry.message}`, logEntry.level);
+                    });
+                    lastLogCount = data.log_messages.length;
+                }
+                
+                // Check if job is finished
+                if (data.is_finished) {
+                    stopPolling();
+                    
+                    if (data.status === 'completed') {
+                        updateProgress(100, 'Sync completed successfully!');
+                        addLogEntry('LOTTO clubs synchronization completed successfully!', 'success');
+                        
+                        // Update stats
+                        if (data.stats) {
+                            updateStats(data.stats);
+                            addLogEntry(`Results: ${data.stats.clubs_created} clubs created, ${data.stats.clubs_updated} updated`, 'success');
+                            addLogEntry(`Categories: ${data.stats.categories_created} created, ${data.stats.categories_updated} updated`, 'success');
+                            addLogEntry(`Products: ${data.stats.products_created} created, ${data.stats.products_updated} updated`, 'success');
+                        }
+                        
+                        // Update last sync time
+                        document.getElementById('last-sync-time').textContent = new Date().toLocaleString();
+                        
+                    } else if (data.status === 'failed') {
+                        updateProgress(100, 'Sync failed');
+                        addLogEntry(`Sync failed: ${data.error_message}`, 'error');
+                        if (data.error_code) {
+                            addLogEntry(`Error code: ${data.error_code}`, 'error');
+                        }
+                    }
+                    
+                    // Re-enable sync button
+                    syncBtn.disabled = false;
+                    syncBtn.innerHTML = '<i class="uil-sync me-2"></i>Start Sync';
+                }
+            } else {
+                pollingRetries++;
+                addLogEntry(`Status check failed: ${data.error} (Attempt ${pollingRetries}/${maxPollingRetries})`, 'warning');
+                
+                if (pollingRetries >= maxPollingRetries) {
+                    addLogEntry('Maximum polling retries reached. Stopping status monitoring.', 'error');
+                    stopPolling();
+                    syncBtn.disabled = false;
+                    syncBtn.innerHTML = '<i class="uil-sync me-2"></i>Start Sync';
+                }
+            }
+            
+        } catch (error) {
+            pollingRetries++;
+            addLogEntry(`Status polling error: ${error.message} (Attempt ${pollingRetries}/${maxPollingRetries})`, 'warning');
+            
+            if (pollingRetries >= maxPollingRetries) {
+                addLogEntry('Connection to sync service lost. Please check sync status manually or refresh the page.', 'error');
+                stopPolling();
+                syncBtn.disabled = false;
+                syncBtn.innerHTML = '<i class="uil-sync me-2"></i>Start Sync';
+            }
+        }
+    }
+    
+    // Start polling for job status
+    function startPolling(jobId) {
+        currentJobId = jobId;
+        lastLogCount = 0; // Reset log count for new job
+        pollingRetries = 0; // Reset retry count
+        
+        pollingInterval = setInterval(() => {
+            pollSyncStatus(jobId);
+        }, 2000); // Poll every 2 seconds
+        
+        // Set overall timeout for polling
+        setTimeout(() => {
+            if (pollingInterval) {
+                addLogEntry('Sync operation timeout reached (5 minutes). Stopping status monitoring.', 'warning');
+                addLogEntry('The sync may still be running in the background. Please check back later.', 'info');
+                stopPolling();
+                syncBtn.disabled = false;
+                syncBtn.innerHTML = '<i class="uil-sync me-2"></i>Start Sync';
+            }
+        }, pollingTimeout);
+    }
+    
+    // Stop polling
+    function stopPolling() {
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+        }
+        currentJobId = null;
+    }
+
+    // Start Sync (Updated for async pattern)
+    syncBtn.addEventListener('click', async function() {
+        if (!confirm('Are you sure you want to start the LOTTO clubs synchronization?')) {
+            return;
+        }
+
+        addLogEntry('Starting LOTTO clubs synchronization...', 'info');
+        syncBtn.disabled = true;
+        syncBtn.innerHTML = '<i class="uil-spin uil-sync me-2"></i>Starting...';
+        
+        resetUI();
+        showProgress();
+        updateProgress(0, 'Initializing sync...');
+
+        try {
+            // Create a timeout promise
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Request timeout (30 seconds)')), 30000);
+            });
+            
+            // Race between fetch and timeout
+            const response = await Promise.race([
+                fetch('{% url "clubs:sync-lotto-clubs" %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json',
+                    }
+                }),
+                timeoutPromise
+            ]);
+
+            const data = await response.json();
+
+            if (data.success) {
+                updateProgress(5, 'Sync job started - monitoring progress...');
+                addLogEntry(`Sync job started with ID: ${data.job_id}`, 'info');
+                addLogEntry('Monitoring sync progress...', 'info');
+                
+                // Start polling for status updates
+                startPolling(data.job_id);
+                
+            } else {
+                updateProgress(100, 'Failed to start sync');
+                addLogEntry('Failed to start sync: ' + data.error, 'error');
+                
+                if (data.error_code) {
+                    addLogEntry('Error code: ' + data.error_code, 'error');
+                }
+                
+                // Handle specific errors
+                if (data.error_code === 'SYNC_ALREADY_RUNNING') {
+                    addLogEntry('Another sync is already running. Please wait for it to complete.', 'warning');
+                    // Try to poll the existing job
+                    if (data.job_id) {
+                        addLogEntry('Connecting to existing sync job...', 'info');
+                        startPolling(data.job_id);
+                        return; // Don't re-enable button yet
+                    }
+                }
+                
+                // Re-enable sync button on error
+                syncBtn.disabled = false;
+                syncBtn.innerHTML = '<i class="uil-sync me-2"></i>Start Sync';
+            }
+            
+        } catch (error) {
+            updateProgress(100, 'Connection failed');
+            addLogEntry('Network error: Unable to connect to the sync service', 'error');
+            addLogEntry('This usually indicates a timeout or connectivity issue', 'info');
+            addLogEntry('Error details: ' + error.message, 'error');
+            
+            // Re-enable sync button
+            syncBtn.disabled = false;
+            syncBtn.innerHTML = '<i class="uil-sync me-2"></i>Start Sync';
+        }
+    });
+
+    // Clear Log
+    clearLogBtn.addEventListener('click', function() {
+        syncLog.innerHTML = '<div class="text-muted"><i class="uil-info-circle"></i> Sync log cleared...</div>';
+        stopPolling(); // Stop any active polling
+        resetUI();
+        // Re-enable sync button if it was disabled
+        if (syncBtn.disabled) {
+            syncBtn.disabled = false;
+            syncBtn.innerHTML = '<i class="uil-sync me-2"></i>Start Sync';
+        }
+    });
+    
+    // Clean up polling on page unload
+    window.addEventListener('beforeunload', function() {
+        stopPolling();
+    });
+
+    // Auto-refresh connection status on page load
+    {% if user.is_authenticated and user.is_staff %}
+    setTimeout(() => {
+        testConnectionBtn.click();
+    }, 1000);
+    {% endif %}
+});
+</script>
+
+{% endblock %}

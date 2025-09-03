@@ -1,0 +1,377 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0">{{ club.name }}</h4>
+
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'clubs:club-list' %}">Clubs</a></li>
+                    <li class="breadcrumb-item active">{{ club.name }}</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<!-- Club Header -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-lg me-4">
+                        {% if club.logo %}
+                        <img src="{{ club.logo.url }}" alt="{{ club.name }}" class="avatar-lg rounded">
+                        {% else %}
+                        <span class="avatar-title rounded bg-soft-primary text-primary font-size-24">
+                            {{ club.name|first }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="flex-grow-1">
+                        <h4 class="mb-1">{{ club.name }}</h4>
+                        <div class="mb-2">
+                            <span class="badge {% if club.club_type == 'LOTTO' %}bg-info{% else %}bg-warning{% endif %} font-size-12 me-2">
+                                {{ club.club_type }}
+                            </span>
+                            <span class="badge bg-soft-primary text-primary font-size-12">
+                                <i class="uil-basketball me-1"></i>{{ club.sport_tag }}
+                            </span>
+                        </div>
+                        <p class="text-muted mb-0">{{ club.address|default:"No address provided" }}</p>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="dropdown">
+                            <button type="button" class="btn btn-soft-primary dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="uil-ellipsis-h me-1"></i> Actions
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end">
+                                <a class="dropdown-item" href="#">
+                                    <i class="uil-edit-alt me-1"></i> Edit Club
+                                </a>
+                                <a class="dropdown-item" href="#">
+                                    <i class="uil-sync me-1"></i> Sync Products
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item" href="{% url 'clubs:club-list' %}">
+                                    <i class="uil-arrow-left me-1"></i> Back to Clubs
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Club Stats -->
+<div class="row">
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-primary text-primary rounded-3">
+                            <i class="uil-folder font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Categories</p>
+                        <h4 class="mb-0">{{ categories.count }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-success text-success rounded-3">
+                            <i class="uil-shopping-bag font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Products</p>
+                        <h4 class="mb-0">{{ club.total_products }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-info text-info rounded-3">
+                            <i class="uil-user font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Contact</p>
+                        <h6 class="mb-0">{{ club.contact_person|default:"Not Available" }}</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-warning text-warning rounded-3">
+                            <i class="uil-globe font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Website</p>
+                        {% if club.website %}
+                        <a href="{{ club.website }}" target="_blank" class="text-primary font-size-14">Visit</a>
+                        {% else %}
+                        <span class="text-muted font-size-14">Not Available</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Club Categories -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">Club Categories</h4>
+                <div class="flex-shrink-0">
+                    <button type="button" class="btn btn-sm btn-soft-primary">
+                        <i class="uil-plus me-1"></i> Add Category
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if categories %}
+                <div class="row g-4">
+                    {% for category in categories %}
+                    <div class="col-xl-4 col-lg-6 col-md-6">
+                        <div class="card border h-100 category-card">
+                            <div class="card-body p-4">
+                                <div class="text-center mb-4">
+                                    <div class="category-image-container">
+                                        {% if category.image %}
+                                        <img src="{{ category.image.url }}" alt="{{ category.name }}" class="category-image rounded-3 shadow-sm">
+                                        {% else %}
+                                        <div class="category-placeholder rounded-3 shadow-sm">
+                                            <i class="uil-folder-open"></i>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="text-center">
+                                    <h5 class="font-size-16 mb-2">
+                                        <a href="{% url 'clubs:category-detail' category.slug %}" class="text-dark category-title">{{ category.name }}</a>
+                                    </h5>
+                                    <p class="text-muted font-size-14 mb-3">
+                                        <i class="uil-shopping-bag me-1"></i>{{ category.product_count }} product{{ category.product_count|pluralize }}
+                                    </p>
+                                    {% if category.description %}
+                                    <p class="text-muted font-size-13 mb-0">{{ category.description|truncatechars:120 }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="card-footer bg-transparent border-top text-center">
+                                <a href="{% url 'clubs:category-detail' category.slug %}" class="btn btn-soft-primary btn-sm px-4">
+                                    <i class="uil-eye me-1"></i> View Products
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <div class="avatar-xl mx-auto mb-4">
+                        <div class="avatar-title bg-soft-secondary text-secondary rounded-circle font-size-48">
+                            <i class="uil-folder-open"></i>
+                        </div>
+                    </div>
+                    <h5>No Categories Found</h5>
+                    <p class="text-muted">This club doesn't have any categories with products yet.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.avatar-lg {
+    width: 80px;
+    height: 80px;
+}
+
+.avatar-lg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-sm {
+    width: 40px;
+    height: 40px;
+}
+
+.avatar-sm img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-xs {
+    width: 32px;
+    height: 32px;
+}
+
+.avatar-xs img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Category Card Enhancements */
+.category-card {
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef !important;
+}
+
+.category-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;
+    border-color: #556ee6 !important;
+}
+
+.category-image-container {
+    position: relative;
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
+}
+
+.category-image {
+    width: 100%;
+    height: 300px;
+    min-height: 300px;
+    object-fit: cover;
+    transition: all 0.3s ease;
+    border: 3px solid #f8f9fa;
+}
+
+.category-image:hover {
+    transform: scale(1.02);
+    border-color: #556ee6;
+}
+
+.category-placeholder {
+    width: 100%;
+    height: 300px;
+    min-height: 300px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    border: 3px solid #f8f9fa;
+}
+
+.category-placeholder:hover {
+    background: linear-gradient(135deg, #556ee6 0%, #74b9ff 100%);
+    color: white;
+    transform: scale(1.02);
+}
+
+.category-placeholder i {
+    font-size: 4rem;
+    color: #74788d;
+    transition: all 0.3s ease;
+}
+
+.category-placeholder:hover i {
+    color: white;
+    transform: scale(1.1);
+}
+
+.category-title {
+    text-decoration: none;
+    transition: color 0.3s ease;
+    font-weight: 600;
+}
+
+.category-title:hover {
+    color: #556ee6 !important;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .category-image,
+    .category-placeholder {
+        height: 280px;
+        min-height: 280px;
+    }
+}
+
+@media (max-width: 992px) {
+    .category-image,
+    .category-placeholder {
+        height: 320px;
+        min-height: 320px;
+    }
+}
+
+@media (max-width: 768px) {
+    .category-image,
+    .category-placeholder {
+        height: 300px;
+        min-height: 300px;
+    }
+    
+    .category-card .card-body {
+        padding: 1.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .category-image,
+    .category-placeholder {
+        height: 280px;
+        min-height: 280px;
+    }
+    
+    .category-card .card-body {
+        padding: 1rem;
+    }
+}
+
+.badge-soft-success { background-color: rgba(52, 195, 143, 0.1); color: #34c38f; }
+.badge-soft-warning { background-color: rgba(247, 184, 75, 0.1); color: #f7b84b; }
+.badge-soft-danger { background-color: rgba(243, 76, 124, 0.1); color: #f34c7c; }
+.badge-soft-info { background-color: rgba(58, 186, 244, 0.1); color: #3abaf4; }
+.badge-soft-primary { background-color: rgba(85, 110, 230, 0.1); color: #556ee6; }
+.badge-soft-secondary { background-color: rgba(116, 120, 141, 0.1); color: #74788d; }
+
+.bg-soft-primary { background-color: rgba(85, 110, 230, 0.1); }
+.bg-soft-success { background-color: rgba(52, 195, 143, 0.1); }
+.bg-soft-info { background-color: rgba(58, 186, 244, 0.1); }
+.bg-soft-warning { background-color: rgba(247, 184, 75, 0.1); }
+.bg-soft-secondary { background-color: rgba(116, 120, 141, 0.1); }
+</style>
+{% endblock %}

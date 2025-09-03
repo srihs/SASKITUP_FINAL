@@ -1,0 +1,347 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0">Clubs Dashboard</h4>
+
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="javascript: void(0);">Clubs</a></li>
+                    <li class="breadcrumb-item active">Dashboard</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<!-- Statistics Cards -->
+<div class="row">
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex">
+                    <div class="flex-grow-1">
+                        <p class="text-truncate font-size-14 mb-2">Total Clubs</p>
+                        <h4 class="mb-2">{{ total_clubs }}</h4>
+                        <p class="text-muted mb-0">
+                            <span class="text-success fw-bold font-size-12 me-2">
+                                <i class="ri-arrow-right-up-line me-1 align-middle"></i>Active
+                            </span>
+                        </p>
+                    </div>
+                    <div class="avatar-sm">
+                        <span class="avatar-title bg-light text-primary rounded-3">
+                            <i class="uil-users-alt font-size-24"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex">
+                    <div class="flex-grow-1">
+                        <p class="text-truncate font-size-14 mb-2">LOTTO Clubs</p>
+                        <h4 class="mb-2">{{ total_lotto_clubs }}</h4>
+                        <p class="text-muted mb-0">
+                            <span class="text-info fw-bold font-size-12 me-2">
+                                <i class="mdi mdi-arrow-up-bold me-1 align-middle"></i>{{ total_lotto_clubs|floatformat:0 }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="avatar-sm">
+                        <span class="avatar-title bg-light text-info rounded-3">
+                            <i class="uil-lottery font-size-24"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex">
+                    <div class="flex-grow-1">
+                        <p class="text-truncate font-size-14 mb-2">SAS Clubs</p>
+                        <h4 class="mb-2">{{ total_sas_clubs }}</h4>
+                        <p class="text-muted mb-0">
+                            <span class="text-warning fw-bold font-size-12 me-2">
+                                <i class="mdi mdi-arrow-up-bold me-1 align-middle"></i>{{ total_sas_clubs|floatformat:0 }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="avatar-sm">
+                        <span class="avatar-title bg-light text-warning rounded-3">
+                            <i class="uil-trophy font-size-24"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex">
+                    <div class="flex-grow-1">
+                        <p class="text-truncate font-size-14 mb-2">Total Products</p>
+                        <h4 class="mb-2">{{ total_products }}</h4>
+                        <p class="text-muted mb-0">
+                            <span class="text-success fw-bold font-size-12 me-2">
+                                <i class="mdi mdi-arrow-up-bold me-1 align-middle"></i>Available
+                            </span>
+                        </p>
+                    </div>
+                    <div class="avatar-sm">
+                        <span class="avatar-title bg-light text-success rounded-3">
+                            <i class="uil-shopping-bag font-size-24"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end row -->
+
+<!-- Top Performing Clubs -->
+<div class="row">
+    <div class="col-xl-8">
+        <div class="card">
+            <div class="card-header align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">Top Performing Clubs</h4>
+                <div class="flex-shrink-0">
+                    <div class="dropdown card-header-dropdown">
+                        <a class="text-reset dropdown-btn" href="#" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <span class="fw-semibold text-uppercase font-size-12">Sort By:</span>
+                            <span class="text-muted">Products <i class="mdi mdi-chevron-down ms-1"></i></span>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <a class="dropdown-item" href="#">Products</a>
+                            <a class="dropdown-item" href="#">Categories</a>
+                            <a class="dropdown-item" href="#">Name</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-nowrap align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Club</th>
+                                <th scope="col">Type</th>
+                                <th scope="col">Sport</th>
+                                <th scope="col">Categories</th>
+                                <th scope="col">Products</th>
+                                <th scope="col" class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for club in top_clubs %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-xs me-3 flex-shrink-0">
+                                            {% if club.logo %}
+                                            <img src="{{ club.logo.url }}" alt="{{ club.name }}" class="img-fluid rounded-circle">
+                                            {% else %}
+                                            <span class="avatar-title rounded-circle bg-soft-primary text-primary">
+                                                {{ club.name|first }}
+                                            </span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <h5 class="font-size-14 mb-1">{{ club.name|truncatechars:25 }}</h5>
+                                            {% if club.contact_person %}
+                                            <p class="text-muted font-size-13 mb-0">{{ club.contact_person }}</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge {% if club.club_type == 'LOTTO' %}bg-info{% else %}bg-warning{% endif %} font-size-12">
+                                        {{ club.club_type }}
+                                    </span>
+                                </td>
+                                <td>{{ club.sport_tag }}</td>
+                                <td>{{ club.total_categories }}</td>
+                                <td>{{ club.total_products }}</td>
+                                <td class="text-end">
+                                    <div class="dropdown">
+                                        <a href="#" class="dropdown-toggle card-drop" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="mdi mdi-dots-horizontal font-size-18"></i>
+                                        </a>
+                                        <div class="dropdown-menu dropdown-menu-end">
+                                            <a class="dropdown-item" href="{% url 'clubs:club-detail' club.slug %}">
+                                                <i class="uil uil-eye font-size-16 text-secondary me-1"></i> View Details
+                                            </a>
+                                            <a class="dropdown-item" href="#">
+                                                <i class="uil uil-edit-alt font-size-16 text-secondary me-1"></i> Edit
+                                            </a>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">
+                                    <i class="uil-folder-open font-size-48 text-muted mb-3"></i><br>
+                                    No clubs found
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4">
+        <div class="card">
+            <div class="card-header align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">Recent Products</h4>
+                <div class="flex-shrink-0">
+                    <a href="#" class="btn btn-sm btn-soft-primary">
+                        View All <i class="mdi mdi-arrow-right align-middle"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div class="card-body">
+                <div class="pb-2">
+                    {% for product in recent_products %}
+                    <div class="d-flex align-items-center pb-2">
+                        <div class="avatar-xs me-3 flex-shrink-0">
+                            {% if product.image %}
+                            <img src="{{ product.image.url }}" alt="{{ product.name }}" class="img-fluid rounded">
+                            {% else %}
+                            <span class="avatar-title rounded bg-soft-primary text-primary font-size-16">
+                                <i class="uil-shopping-bag"></i>
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1">
+                            <h5 class="font-size-14 mb-0">{{ product.name|truncatechars:20 }}</h5>
+                            <p class="text-muted font-size-12 mb-0">{{ product.category.club.name }}</p>
+                        </div>
+                        <div class="flex-shrink-0 text-end">
+                            <h5 class="font-size-14 mb-0 text-dark">${{ product.price }}</h5>
+                            <p class="text-muted font-size-12 mb-0">
+                                <span class="badge badge-soft-{% if product.stock_status == 'instock' %}success{% elif product.stock_status == 'onbackorder' %}warning{% else %}danger{% endif %} font-size-10">
+                                    {{ product.get_stock_status_display }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-muted py-4">
+                        <i class="uil-shopping-bag font-size-48 text-muted mb-3"></i><br>
+                        No recent products
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end row -->
+
+<!-- Quick Actions -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">Quick Actions</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <a href="{% url 'clubs:club-list' %}" class="card border shadow-none">
+                            <div class="card-body text-center">
+                                <div class="avatar-sm mx-auto mb-3">
+                                    <span class="avatar-title rounded-circle bg-soft-primary text-primary font-size-18">
+                                        <i class="uil-users-alt"></i>
+                                    </span>
+                                </div>
+                                <h5 class="font-size-15 mb-1">View All Clubs</h5>
+                                <p class="text-muted mb-0">Browse all registered clubs</p>
+                            </div>
+                        </a>
+                    </div>
+
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <a href="{% url 'clubs:lotto-clubs' %}" class="card border shadow-none">
+                            <div class="card-body text-center">
+                                <div class="avatar-sm mx-auto mb-3">
+                                    <span class="avatar-title rounded-circle bg-soft-info text-info font-size-18">
+                                        <i class="uil-lottery"></i>
+                                    </span>
+                                </div>
+                                <h5 class="font-size-15 mb-1">LOTTO Clubs</h5>
+                                <p class="text-muted mb-0">View LOTTO sport clubs</p>
+                            </div>
+                        </a>
+                    </div>
+
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <a href="{% url 'clubs:sas-clubs' %}" class="card border shadow-none">
+                            <div class="card-body text-center">
+                                <div class="avatar-sm mx-auto mb-3">
+                                    <span class="avatar-title rounded-circle bg-soft-warning text-warning font-size-18">
+                                        <i class="uil-trophy"></i>
+                                    </span>
+                                </div>
+                                <h5 class="font-size-15 mb-1">SAS Clubs</h5>
+                                <p class="text-muted mb-0">View SAS sport clubs</p>
+                            </div>
+                        </a>
+                    </div>
+
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <a href="#" class="card border shadow-none">
+                            <div class="card-body text-center">
+                                <div class="avatar-sm mx-auto mb-3">
+                                    <span class="avatar-title rounded-circle bg-soft-success text-success font-size-18">
+                                        <i class="uil-plus-circle"></i>
+                                    </span>
+                                </div>
+                                <h5 class="font-size-15 mb-1">Add New Club</h5>
+                                <p class="text-muted mb-0">Register a new sport club</p>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end row -->
+
+<style>
+.card-drop:after {
+    display: none;
+}
+.avatar-xs img {
+    width: 32px;
+    height: 32px;
+    object-fit: cover;
+}
+.badge-soft-success { background-color: rgba(52, 195, 143, 0.1); color: #34c38f; }
+.badge-soft-warning { background-color: rgba(247, 184, 75, 0.1); color: #f7b84b; }
+.badge-soft-danger { background-color: rgba(243, 76, 124, 0.1); color: #f34c7c; }
+</style>
+{% endblock %}

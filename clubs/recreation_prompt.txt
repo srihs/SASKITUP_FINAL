@@ -1,0 +1,103 @@
+CLUBS SYSTEM RECREATION PROMPT
+
+Create a comprehensive Django clubs system with WooCommerce integration for LOTTO and SAS stores. Use agents throughout the implementation.
+
+REQUIREMENTS:
+
+1. DJANGO APP SETUP
+- Create 'clubs' Django app with MySQL database configuration
+- Models: Club, ClubCategory, Product, ProductVariation
+- Club fields: name, contact_person, email, website, address, club_type (LOTTO/SAS), sport_tag (Football), logo, woo_category_id, is_active
+- ClubCategory fields: name, woo_category_id, description, image, product_count, club relationship
+- Product fields: name, woo_product_id, price, description, image, sku, stock_status, category relationship
+- ProductVariation fields: product relationship, variation_type (size/color/material), variation_value, price_modifier, stock_quantity, sku_suffix
+- Add proper indexing, relationships, and model methods
+
+2. WOOCOMMERCE API INTEGRATION
+- Create WooCommerceService in clubs/services/woocommerce_service.py
+- Support LOTTO and SAS store configurations via environment variables
+- Implement error handling, retry logic, and connection testing
+- Handle image downloading and local storage in media folders (clubs/images/, categories/images/, products/images/)
+- Parse product variations (size, color attributes) from WooCommerce API
+
+3. INTELLIGENT SYNC SYSTEM
+- Create sync_lotto_clubs management command with intelligent change detection
+- Only update items when there are actual changes detected
+- Support product variations sync with size/color/material attributes
+- Implement async sync with background processing and real-time progress tracking
+- Add SyncJob model for tracking async operations with UUID, progress, statistics
+- Command options: --check-only, --verbose, --force-update
+- Parse products from Club Shops parent category (ID: 23)
+
+4. UI/UX IMPLEMENTATION
+- Create responsive, mobile-first design using Bootstrap
+- Global dashboard at root URL with navigation to clubs
+- Club listing page with filtering (LOTTO/SAS) and search functionality
+- LOTTO clubs page with stat tiles showing: Total Clubs, Active Categories, Available Products, Active Clubs
+- Remove breadcrumbs and promotional sections - keep clean layout with sync button at top
+- Club detail page with large category images (300x300px), remove contact/recent products sections
+- Category detail page showing products with auto-sized product images, price ranges, variation badges
+- Fix search functionality to use slugs not IDs, ensure typing works in search fields
+
+5. ASYNC SYNC WITH PROGRESS TRACKING
+- Implement background sync processing with immediate UI response
+- Add real-time progress monitoring with 2-second polling
+- SyncJob model for tracking progress, statistics, and logging
+- Frontend JavaScript with progress bars, live updates, and comprehensive error handling
+- Sync status endpoints: /clubs/sync/lotto/execute/, /clubs/sync/lotto/status/
+- Handle timeout issues and provide retry functionality
+
+6. ADMIN INTERFACE
+- Comprehensive Django admin for all models
+- Inline editing for ProductVariation within Product admin
+- Visual indicators, filtering, and bulk actions
+- Remove authentication requirements for testing purposes
+
+7. STATIC FILES & RESPONSIVE DESIGN
+- Fix static file serving issues (MIME types, 404 errors)
+- Implement proper Unicons and Material Design Icons
+- Mobile-first responsive CSS with proper breakpoints
+- Touch-friendly interface with 44px minimum touch targets
+- Bootstrap grid optimization: 4 cols desktop → 2 cols tablet → 1 col mobile
+
+8. TEMPLATE FIXES & OPTIMIZATIONS
+- Fix template syntax errors (proper Django filter chaining)
+- Handle annotation conflicts in views
+- Auto height/width for product images with max constraints
+- Display product variations as badges with price ranges
+- Remove unnecessary UI sections as specified
+
+9. ERROR HANDLING & DEBUGGING
+- Comprehensive logging throughout the system
+- Handle missing environment variables gracefully
+- Template error fixes and proper null handling
+- Database query optimization with change detection
+- Network error handling and timeout management
+
+10. FINAL SYSTEM FEATURES
+- No authentication required for testing
+- Stat tiles with real-time data
+- Intelligent sync that skips unchanged items
+- Product variations display with size/color badges
+- Async operations with progress feedback
+- Mobile-responsive design
+- Clean, professional UI aligned with existing theme
+
+IMPLEMENTATION NOTES:
+- Use agents for each major component (django-backend-expert, ui-theme-generator, tech-docs-writer)
+- MySQL database with proper migrations
+- Environment variables for WooCommerce API credentials
+- Error handling at every level
+- Performance optimization through change detection
+- Real-time user feedback during operations
+- Mobile-first, accessible design principles
+
+DELIVERABLES:
+- Fully functional clubs system
+- WooCommerce sync with variations support
+- Responsive UI with stat tiles and clean navigation
+- Async processing with progress tracking
+- Admin interface for management
+- Complete documentation
+
+This system should handle LOTTO clubs from WooCommerce, display them with proper categorization, support product variations, and provide excellent user experience across all devices.
