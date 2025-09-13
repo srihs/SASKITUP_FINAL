@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load club_extras %}
 {% load static %}
 
 {% block content %}
@@ -27,7 +28,7 @@
                 <div class="d-flex align-items-center">
                     <div class="avatar-lg me-4">
                         {% if club.logo %}
-                        <img src="{{ club.logo.url }}" alt="{{ club.name }}" class="avatar-lg rounded">
+                        <img src="{{ club.logo|proxy_image_url }}" alt="{{ club.name }}" class="avatar-lg rounded">
                         {% else %}
                         <span class="avatar-title rounded bg-soft-primary text-primary font-size-24">
                             {{ club.name|first }}
@@ -169,7 +170,7 @@
                                 <div class="text-center mb-4">
                                     <div class="category-image-container">
                                         {% if category.image %}
-                                        <img src="{{ category.image.url }}" alt="{{ category.name }}" class="category-image rounded-3 shadow-sm">
+                                        <img src="{{ category.image }}" alt="{{ category.name }}" class="category-image rounded-3 shadow-sm">
                                         {% else %}
                                         <div class="category-placeholder rounded-3 shadow-sm">
                                             <i class="uil-folder-open"></i>

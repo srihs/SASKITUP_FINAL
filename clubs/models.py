@@ -6,6 +6,8 @@ from django.core.validators import URLValidator
 from django.utils.text import slugify
 from django.utils import timezone
 
+# Import LOTTO-specific models
+from .models_lotto import LottoClub, LottoClubCategory, LottoProduct, LottoProductVariation
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +92,55 @@ class SyncJob(models.Model):
         self.progress_percentage = 0
         self.save(update_fields=['status', 'started_at', 'progress_percentage', 'updated_at'])
     
+    def is_stale(self, max_age_hours=2):
+        """Check if a running job is stale (running for too long)"""
+        if self.status != 'running':
+            return False
+        
+        start_time = self.started_at or self.created_at
+        if not start_time:
+            return True  # No start time is suspicious
+        
+        age = timezone.now() - start_time
+        return age.total_seconds() > (max_age_hours * 3600)
+    
+    def get_age_hours(self):
+        """Get the age of the job in hours"""
+        start_time = self.started_at or self.created_at
+        if not start_time:
+            return None
+        
+        age = timezone.now() - start_time
+        return age.total_seconds() / 3600
+    
+    @classmethod
+    def cleanup_stale_jobs(cls, max_age_hours=2):
+        """Clean up stale running jobs"""
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        cutoff_time = timezone.now() - timedelta(hours=max_age_hours)
+        
+        # Find stale running jobs
+        stale_jobs = cls.objects.filter(
+            status='running'
+        ).filter(
+            models.Q(started_at__lt=cutoff_time) |
+            models.Q(started_at__isnull=True, created_at__lt=cutoff_time)
+        )
+        
+        cleaned_count = 0
+        for job in stale_jobs:
+            age_hours = job.get_age_hours()
+            job.fail(
+                f'Job automatically cleaned up - was stuck in running state for {age_hours:.2f} hours',
+                'AUTO_CLEANUP'
+            )
+            job.add_log_message('Job was automatically cleaned up due to being stuck in running state', 'warning')
+            cleaned_count += 1
+        
+        return cleaned_count
+    
     def complete(self):
         """Mark job as completed"""
         self.status = 'completed'
@@ -157,7 +208,7 @@ class Club(models.Model):
     address = models.TextField(blank=True, null=True, help_text="Club physical address")
     club_type = models.CharField(max_length=10, choices=CLUB_TYPES, default='LOTTO', help_text="Type of club")
     sport_tag = models.CharField(max_length=50, choices=SPORT_TAGS, default='Football', help_text="Primary sport")
-    logo = models.ImageField(upload_to='clubs/images/', blank=True, null=True, help_text="Club logo image")
+    logo = models.URLField(blank=True, null=True, help_text="Club logo image URL")
     woo_category_id = models.PositiveIntegerField(unique=True, help_text="WooCommerce category ID")
     is_active = models.BooleanField(default=True, help_text="Whether the club is active")
     
@@ -202,7 +253,7 @@ class ClubCategory(models.Model):
     slug = models.SlugField(max_length=255, blank=True, help_text="URL-friendly name")
     woo_category_id = models.PositiveIntegerField(unique=True, help_text="WooCommerce category ID")
     description = models.TextField(blank=True, null=True, help_text="Category description")
-    image = models.ImageField(upload_to='categories/images/', blank=True, null=True, help_text="Category image")
+    image = models.URLField(blank=True, null=True, help_text="Category image URL")
     product_count = models.PositiveIntegerField(default=0, help_text="Number of products in this category")
     
     # Metadata
@@ -229,13 +280,60 @@ class ClubCategory(models.Model):
     
     def update_product_count(self):
         """Update the product count for this category"""
+        # Count products through the many-to-many relationship
         self.product_count = self.products.filter(stock_status__in=['instock', 'onbackorder']).count()
-        self.save(update_fields=['product_count'])
+        self.save(update_fields=['product_count', 'updated_at'])
+
+
+class ProductCategoryAssignment(models.Model):
+    """
+    Through model for Product-Category Many-to-Many relationship.
+    Stores additional metadata about the product-category assignment.
+    """
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='category_assignments')
+    category = models.ForeignKey(ClubCategory, on_delete=models.CASCADE, related_name='product_assignments')
+    
+    # Assignment metadata
+    is_primary = models.BooleanField(default=False, help_text="Is this the primary category for the product")
+    sort_order = models.PositiveIntegerField(default=0, help_text="Sort order within the category")
+    
+    # WooCommerce metadata
+    woo_category_id = models.PositiveIntegerField(help_text="WooCommerce category ID from API")
+    date_assigned = models.DateTimeField(auto_now_add=True, help_text="When product was assigned to category")
+    last_synced = models.DateTimeField(auto_now=True, help_text="Last sync with WooCommerce")
+    
+    class Meta:
+        unique_together = ['product', 'category']
+        verbose_name = "Product Category Assignment"
+        verbose_name_plural = "Product Category Assignments"
+        ordering = ['category', 'sort_order', 'product__name']
+        indexes = [
+            models.Index(fields=['product', 'is_primary']),
+            models.Index(fields=['category', 'sort_order']),
+            models.Index(fields=['woo_category_id']),
+            models.Index(fields=['date_assigned']),
+        ]
+    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Update the category's product count after assignment changes
+        self.category.update_product_count()
+    
+    def delete(self, *args, **kwargs):
+        category = self.category
+        super().delete(*args, **kwargs)
+        # Update the category's product count after assignment removal
+        category.update_product_count()
+    
+    def __str__(self):
+        primary_indicator = " (Primary)" if self.is_primary else ""
+        return f"{self.product.name} → {self.category.name}{primary_indicator}"
 
 
 class Product(models.Model):
     """
-    Model representing products within club categories
+    Model representing products that can belong to multiple club categories.
+    Supports WooCommerce multi-category architecture.
     """
     STOCK_STATUS_CHOICES = [
         ('instock', 'In Stock'),
@@ -243,14 +341,22 @@ class Product(models.Model):
         ('onbackorder', 'On Backorder'),
     ]
     
-    category = models.ForeignKey(ClubCategory, on_delete=models.CASCADE, related_name='products')
+    # Many-to-Many relationship with ClubCategory to support multi-category products
+    categories = models.ManyToManyField(
+        ClubCategory, 
+        through='ProductCategoryAssignment',
+        related_name='products',
+        help_text="Categories this product belongs to"
+    )
+    
+    # Core product fields
     name = models.CharField(max_length=255, help_text="Product name")
     slug = models.SlugField(max_length=255, blank=True, help_text="URL-friendly name")
     woo_product_id = models.PositiveIntegerField(unique=True, help_text="WooCommerce product ID")
     price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Product price")
     description = models.TextField(blank=True, null=True, help_text="Product description")
     short_description = models.TextField(blank=True, null=True, help_text="Short product description")
-    image = models.ImageField(upload_to='products/images/', blank=True, null=True, help_text="Product image")
+    image = models.URLField(blank=True, null=True, help_text="Product image URL")
     sku = models.CharField(max_length=100, blank=True, null=True, help_text="Stock Keeping Unit")
     stock_status = models.CharField(max_length=20, choices=STOCK_STATUS_CHOICES, default='instock')
     regular_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
@@ -267,20 +373,21 @@ class Product(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        ordering = ['category', 'name']
+        ordering = ['name']
         verbose_name = "Product"
         verbose_name_plural = "Products"
-        unique_together = ['category', 'name']
         indexes = [
-            models.Index(fields=['category', 'stock_status']),
+            models.Index(fields=['stock_status']),
             models.Index(fields=['woo_product_id']),
             models.Index(fields=['sku']),
             models.Index(fields=['price']),
+            models.Index(fields=['created_at']),
         ]
     
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(f"{self.category.club.name}-{self.category.name}-{self.name}")
+            # Generate slug from product name only since it can belong to multiple categories
+            self.slug = slugify(f"{self.name}-{self.woo_product_id}")
         
         # Ensure price is set correctly - prioritize sale_price, then price, then regular_price
         if self.sale_price and self.sale_price > 0:
@@ -293,17 +400,22 @@ class Product(models.Model):
         
         super().save(*args, **kwargs)
         
-        # Update parent category product count
-        self.category.update_product_count()
+        # Update product counts for all associated categories (handled by through model)
     
     def delete(self, *args, **kwargs):
-        category = self.category
+        # Get all associated categories before deletion
+        associated_categories = list(self.categories.all())
         super().delete(*args, **kwargs)
-        # Update parent category product count after deletion
-        category.update_product_count()
+        # Update product counts for all previously associated categories
+        for category in associated_categories:
+            category.update_product_count()
     
     def __str__(self):
-        return f"{self.category.club.name} - {self.name}"
+        # Get first category for display, or just product name if no categories
+        first_category = self.categories.first()
+        if first_category:
+            return f"{first_category.club.name} - {self.name}"
+        return self.name
     
     @property
     def is_on_sale(self):
@@ -323,27 +435,111 @@ class Product(models.Model):
         return self.variations.filter(is_active=True).exists()
     
     @property
+    def primary_category(self):
+        """Get the primary (first) category for this product"""
+        return self.categories.first()
+    
+    @property
+    def all_clubs(self):
+        """Get all clubs this product belongs to through its categories"""
+        return Club.objects.filter(categories__products=self).distinct()
+    
+    @property
+    def category_count(self):
+        """Get number of categories this product belongs to"""
+        return self.categories.count()
+    
+    def get_categories_by_club(self, club):
+        """Get all categories for this product within a specific club"""
+        return self.categories.filter(club=club)
+    
+    def belongs_to_club(self, club):
+        """Check if product belongs to a specific club through any category"""
+        return self.categories.filter(club=club).exists()
+    
+    def get_category_assignment(self, category):
+        """Get the ProductCategoryAssignment for a specific category"""
+        try:
+            return ProductCategoryAssignment.objects.get(product=self, category=category)
+        except ProductCategoryAssignment.DoesNotExist:
+            return None
+    
+    @property
     def is_variable_product(self):
         """Check if this is a variable product (same as has_variations)"""
         return self.has_variations
     
+    def _parse_variation_attributes(self):
+        """
+        Parse composite variation_value fields to extract individual attributes.
+        Handles both single and multi-dimensional variations.
+        
+        Returns dict with attribute type as key and set of values as value.
+        """
+        # Attribute priority order matching sync logic
+        attribute_priority = ['size', 'color', 'material', 'style', 'gender', 'age_group']
+        
+        # Dictionary to store parsed attributes
+        parsed_attributes = {attr: set() for attr in attribute_priority}
+        
+        # Get all active variations
+        variations = self.variations.filter(is_active=True, stock_quantity__gt=0)
+        
+        for variation in variations:
+            if not variation.variation_value:
+                continue
+            
+            # Split composite variation_value (e.g., "3XL - Turquoise" -> ["3XL", "Turquoise"])
+            components = [comp.strip() for comp in variation.variation_value.split(' - ')]
+            
+            # If it's a single component variation, use the variation_type
+            if len(components) == 1:
+                if variation.variation_type in attribute_priority:
+                    parsed_attributes[variation.variation_type].add(components[0])
+            else:
+                # Multi-dimensional variation - map components to attribute types
+                # Based on the sync logic priority order
+                for i, component in enumerate(components):
+                    if i < len(attribute_priority):
+                        attr_type = attribute_priority[i]
+                        parsed_attributes[attr_type].add(component)
+        
+        # Convert sets to sorted lists and filter out empty ones
+        result = {}
+        for attr_type, values in parsed_attributes.items():
+            if values:
+                result[attr_type] = sorted(list(values))
+        
+        return result
+    
     @property
     def available_sizes(self):
         """Get available sizes for this product"""
-        return self.variations.filter(
-            variation_type='size', 
-            is_active=True, 
-            stock_quantity__gt=0
-        ).values_list('variation_value', flat=True).distinct()
+        parsed = self._parse_variation_attributes()
+        return parsed.get('size', [])
     
     @property
     def available_colors(self):
         """Get available colors for this product"""
-        return self.variations.filter(
-            variation_type='color', 
-            is_active=True, 
-            stock_quantity__gt=0
-        ).values_list('variation_value', flat=True).distinct()
+        parsed = self._parse_variation_attributes()
+        return parsed.get('color', [])
+    
+    @property
+    def available_materials(self):
+        """Get available materials for this product"""
+        parsed = self._parse_variation_attributes()
+        return parsed.get('material', [])
+    
+    @property
+    def available_styles(self):
+        """Get available styles for this product"""
+        parsed = self._parse_variation_attributes()
+        return parsed.get('style', [])
+    
+    @property
+    def parsed_variation_attributes(self):
+        """Get all parsed variation attributes as a dictionary"""
+        return self._parse_variation_attributes()
     
     @property
     def variation_types(self):
@@ -472,11 +668,10 @@ class ProductVariation(models.Model):
     
     # Additional variation data from WooCommerce
     attributes = models.JSONField(blank=True, null=True, help_text="WooCommerce variation attributes")
-    image = models.ImageField(
-        upload_to='variations/images/', 
+    image = models.URLField(
         blank=True, 
         null=True, 
-        help_text="Variation-specific image"
+        help_text="Variation-specific image URL"
     )
     weight = models.CharField(max_length=50, blank=True, null=True, help_text="Variation weight")
     dimensions = models.JSONField(blank=True, null=True, help_text="Variation dimensions")
@@ -508,6 +703,17 @@ class ProductVariation(models.Model):
         super().save(*args, **kwargs)
     
     def __str__(self):
+        # Check if this is a multi-dimensional variation with attributes
+        if self.attributes and len(self.attributes) > 1:
+            # Show all attributes for multi-dimensional variations
+            attr_parts = []
+            for attr_name, attr_value in self.attributes.items():
+                if attr_value:
+                    attr_parts.append(f"{attr_name}:{attr_value}")
+            if attr_parts:
+                return f"{self.product.name} - {', '.join(attr_parts)}"
+        
+        # Fallback to standard display
         return f"{self.product.name} - {self.variation_type}: {self.variation_value}"
     
     @property
@@ -557,7 +763,8 @@ class ProductVariation(models.Model):
         """Get effective image URL for this variation"""
         effective_image = self.effective_image
         if effective_image:
-            return effective_image.url
+            # Since effective_image now returns a URL string, return it directly
+            return effective_image
         return None
     
     @property

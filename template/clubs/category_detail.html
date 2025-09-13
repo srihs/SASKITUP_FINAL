@@ -28,7 +28,7 @@
                 <div class="d-flex align-items-center">
                     <div class="avatar-md me-4">
                         {% if category.image %}
-                        <img src="{{ category.image.url }}" alt="{{ category.name }}" class="avatar-md rounded">
+                        <img src="{{ category.image }}" alt="{{ category.name }}" class="avatar-md rounded">
                         {% else %}
                         <span class="avatar-title rounded bg-soft-primary text-primary font-size-20">
                             <i class="uil-folder-open"></i>
@@ -174,7 +174,7 @@
                         <div class="card product-card h-100">
                             <div class="position-relative">
                                 {% if product.image %}
-                                <img src="{{ product.image.url }}" alt="{{ product.name }}" class="card-img-top product-image">
+                                <img src="{{ product.image }}" alt="{{ product.name }}" class="card-img-top product-image">
                                 {% else %}
                                 <div class="card-img-top bg-light d-flex align-items-center justify-content-center product-image">
                                     <i class="uil-shopping-bag font-size-48 text-muted"></i>

@@ -137,6 +137,14 @@
                                     {% if not user.is_authenticated or not user.is_staff %}disabled{% endif %}>
                                 <i class="uil-wifi me-2"></i>Test Connection
                             </button>
+                            <button id="check-locks-btn" class="btn btn-outline-info"
+                                    {% if not user.is_authenticated or not user.is_staff %}disabled{% endif %}>
+                                <i class="uil-search me-2"></i>Check Locks
+                            </button>
+                            <button id="clear-locks-btn" class="btn btn-outline-danger" style="display: none;"
+                                    {% if not user.is_authenticated or not user.is_staff %}disabled{% endif %}>
+                                <i class="uil-unlock me-2"></i>Clear Locks
+                            </button>
                             <button id="clear-log-btn" class="btn btn-outline-warning">
                                 <i class="uil-trash me-2"></i>Clear Log
                             </button>
@@ -262,6 +270,8 @@
 document.addEventListener('DOMContentLoaded', function() {
     const syncBtn = document.getElementById('sync-btn');
     const testConnectionBtn = document.getElementById('test-connection-btn');
+    const checkLocksBtn = document.getElementById('check-locks-btn');
+    const clearLocksBtn = document.getElementById('clear-locks-btn');
     const clearLogBtn = document.getElementById('clear-log-btn');
     const syncLog = document.getElementById('sync-log');
     const syncProgressRow = document.getElementById('sync-progress-row');
@@ -355,6 +365,136 @@ document.addEventListener('DOMContentLoaded', function() {
         } finally {
             testConnectionBtn.disabled = false;
             testConnectionBtn.innerHTML = '<i class="uil-wifi me-2"></i>Test Connection';
+        }
+    });
+
+    // Check Sync Locks
+    checkLocksBtn.addEventListener('click', async function() {
+        addLogEntry('Checking sync job status...', 'info');
+        checkLocksBtn.disabled = true;
+        checkLocksBtn.innerHTML = '<i class="uil-spin uil-sync me-2"></i>Checking...';
+
+        try {
+            const response = await fetch('{% url "clubs:sync-jobs-list" %}', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                addLogEntry(`Found ${data.jobs.length} recent sync jobs`, 'info');
+                
+                if (data.running_jobs_count > 0) {
+                    addLogEntry(`⚠ ${data.running_jobs_count} sync jobs currently running`, 'warning');
+                    
+                    // Show details of running/stale jobs
+                    let staleCount = 0;
+                    data.jobs.forEach(job => {
+                        if (job.status === 'running') {
+                            const ageText = job.age_hours ? `${job.age_hours}h` : 'unknown age';
+                            const staleIcon = job.is_stale ? '🔴' : '🟡';
+                            addLogEntry(`${staleIcon} ${job.sync_type.toUpperCase()} job running for ${ageText} - Progress: ${job.progress_percentage}%`, job.is_stale ? 'error' : 'warning');
+                            if (job.current_step) {
+                                addLogEntry(`   Current step: ${job.current_step}`, 'info');
+                            }
+                            if (job.is_stale) staleCount++;
+                        }
+                    });
+                    
+                    if (staleCount > 0) {
+                        addLogEntry(`🚨 ${staleCount} stale sync jobs detected (running >2 hours)`, 'error');
+                        clearLocksBtn.style.display = 'inline-block';
+                        clearLocksBtn.textContent = `Clear ${staleCount} Stale Jobs`;
+                    } else {
+                        addLogEntry('All running jobs appear to be active (< 2 hours)', 'success');
+                        clearLocksBtn.style.display = 'none';
+                    }
+                } else {
+                    addLogEntry('✓ No sync jobs currently running', 'success');
+                    clearLocksBtn.style.display = 'none';
+                }
+                
+                // Show recent completed jobs
+                const recentCompleted = data.jobs.filter(job => job.status === 'completed').slice(0, 3);
+                if (recentCompleted.length > 0) {
+                    addLogEntry(`Recent completed syncs:`, 'info');
+                    recentCompleted.forEach(job => {
+                        const completedTime = new Date(job.completed_at).toLocaleString();
+                        addLogEntry(`✓ ${job.sync_type.toUpperCase()} completed at ${completedTime} - ${job.total_created} created, ${job.total_updated} updated`, 'success');
+                    });
+                }
+                
+            } else {
+                addLogEntry('Failed to check sync jobs: ' + data.error, 'error');
+            }
+        } catch (error) {
+            addLogEntry('Lock check failed: ' + error.message, 'error');
+        } finally {
+            checkLocksBtn.disabled = false;
+            checkLocksBtn.innerHTML = '<i class="uil-search me-2"></i>Check Locks';
+        }
+    });
+
+    // Clear Sync Locks
+    clearLocksBtn.addEventListener('click', async function() {
+        if (!confirm('Are you sure you want to clear stuck sync locks? This will mark all stale running jobs as failed.')) {
+            return;
+        }
+
+        addLogEntry('Clearing stuck sync locks...', 'warning');
+        clearLocksBtn.disabled = true;
+        clearLocksBtn.innerHTML = '<i class="uil-spin uil-sync me-2"></i>Clearing...';
+
+        try {
+            const response = await fetch('{% url "clubs:clear-sync-locks" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    max_age_hours: 2,
+                    force: false
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                if (data.cleared_count > 0) {
+                    addLogEntry(`✓ Successfully cleared ${data.cleared_count} stuck sync jobs`, 'success');
+                    
+                    data.cleared_jobs.forEach(job => {
+                        addLogEntry(`   Cleared: ${job.sync_type.toUpperCase()} job (age: ${job.age_hours}h)`, 'info');
+                    });
+                    
+                    if (data.remaining_running_jobs > 0) {
+                        addLogEntry(`${data.remaining_running_jobs} sync jobs still running (not stale)`, 'info');
+                    } else {
+                        addLogEntry('All sync locks cleared! You can now start a new sync.', 'success');
+                    }
+                } else {
+                    addLogEntry('No stuck sync jobs found to clear', 'info');
+                }
+                
+                // Hide clear locks button and trigger lock check to refresh status
+                clearLocksBtn.style.display = 'none';
+                setTimeout(() => checkLocksBtn.click(), 1000);
+                
+            } else {
+                addLogEntry('Failed to clear sync locks: ' + data.error, 'error');
+                if (data.error_code === 'INSUFFICIENT_PRIVILEGES') {
+                    addLogEntry('You need admin/staff privileges to clear sync locks', 'error');
+                }
+            }
+        } catch (error) {
+            addLogEntry('Clear locks failed: ' + error.message, 'error');
+        } finally {
+            clearLocksBtn.disabled = false;
+            clearLocksBtn.innerHTML = '<i class="uil-unlock me-2"></i>Clear Locks';
         }
     });
 

@@ -1,10 +1,13 @@
 import logging
+import time
 from decimal import Decimal, InvalidOperation
+from datetime import datetime, timezone as dt_timezone
+from dateutil import parser as date_parser
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils.text import slugify
 from django.utils import timezone
-from clubs.models import Club, ClubCategory, Product, ProductVariation
+from clubs.models import Club, ClubCategory, Product, ProductVariation, ProductCategoryAssignment
 from clubs.services.woocommerce_service import WooCommerceService
 
 
@@ -12,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
-    help = 'Sync LOTTO clubs data from WooCommerce API'
+    help = 'Comprehensive sync of LOTTO clubs data from WooCommerce API with intelligent change detection'
     
     def add_arguments(self, parser):
         parser.add_argument(
@@ -20,7 +23,7 @@ class Command(BaseCommand):
             type=str,
             default='LOTTO',
             choices=['LOTTO', 'SAS'],
-            help='Store type to sync (LOTTO or SAS)'
+            help='Store type to sync (default: LOTTO)'
         )
         parser.add_argument(
             '--parent-category-id',
@@ -53,428 +56,524 @@ class Command(BaseCommand):
             type=int,
             help='Limit number of clubs to process'
         )
+        parser.add_argument(
+            '--skip-images',
+            action='store_true',
+            help='Skip image URL storage (deprecated - URLs are now stored directly)'
+        )
     
     def handle(self, *args, **options):
-        store_type = options['store_type']
-        parent_category_id = options['parent_category_id']
-        dry_run = options['dry_run']
-        force_update = options['force_update']
-        check_only = options['check_only']
-        verbose = options['verbose']
-        limit = options['limit']
+        """Main synchronization workflow with comprehensive error handling"""
+        self.store_type = options['store_type']
+        self.parent_category_id = options['parent_category_id']
+        self.dry_run = options['dry_run']
+        self.force_update = options['force_update']
+        self.check_only = options['check_only']
+        self.verbose = options['verbose']
+        self.limit = options['limit']
+        self.skip_images = options['skip_images']
         
-        # Store options for use in helper methods
-        self.verbose = verbose
-        self.check_only = check_only
+        # Ensure we're only working with LOTTO for this command
+        if self.store_type != 'LOTTO':
+            raise CommandError("This command only supports LOTTO store type. Use 'LOTTO' for --store-type.")
         
         self.stdout.write(
             self.style.SUCCESS(
-                f'Starting {store_type} clubs sync from WooCommerce...'
+                f'Starting {self.store_type} clubs comprehensive sync from WooCommerce...'
             )
         )
         
-        if dry_run:
+        if self.dry_run:
             self.stdout.write(self.style.WARNING('DRY RUN MODE - No changes will be made'))
-        elif check_only:
+        elif self.check_only:
             self.stdout.write(self.style.WARNING('CHECK ONLY MODE - Showing changes without applying them'))
         
+        start_time = time.time()
+        
         try:
-            # Initialize WooCommerce service
-            woo_service = WooCommerceService(store_type=store_type)
+            # Phase 1: Initialization
+            self._phase_1_initialization()
             
-            # Test connection
-            if not woo_service.test_connection():
-                raise CommandError(f'Failed to connect to {store_type} WooCommerce API')
-            
-            # Get categories with products
-            self.stdout.write('Fetching categories with products...')
-            categories = woo_service.get_categories_with_products(parent_id=parent_category_id)
+            # Phase 2: Data Retrieval
+            categories = self._phase_2_data_retrieval()
             
             if not categories:
                 self.stdout.write(self.style.WARNING('No categories with products found'))
                 return
             
             # Apply limit if specified
-            if limit:
-                categories = categories[:limit]
+            if self.limit:
+                categories = categories[:self.limit]
+                self.stdout.write(f'Limited to first {self.limit} clubs')
             
             self.stdout.write(f'Found {len(categories)} categories to process')
             
-            # Process each category as a club
-            clubs_created = 0
-            clubs_updated = 0
-            clubs_skipped = 0
-            categories_created = 0
-            categories_updated = 0
-            categories_skipped = 0
-            products_created = 0
-            products_updated = 0
-            products_skipped = 0
-            variations_created = 0
-            variations_updated = 0
-            variations_skipped = 0
+            # Phase 3: Processing with comprehensive statistics
+            stats = self._phase_3_processing(categories)
             
-            for i, category_data in enumerate(categories, 1):
-                self.stdout.write(f'\nProcessing club {i}/{len(categories)}: {category_data["name"]}')
-                
-                try:
-                    with transaction.atomic():
-                        # Process club
-                        club, club_result = self._process_club(
-                            category_data, store_type, woo_service, dry_run or check_only, force_update
-                        )
-                        
-                        if club_result == 'created':
-                            clubs_created += 1
-                        elif club_result == 'updated':
-                            clubs_updated += 1
-                        elif club_result == 'skipped':
-                            clubs_skipped += 1
-                        
-                        if not dry_run and not check_only and club:
-                            # Get subcategories for this club
-                            subcategories = woo_service.get_categories(parent_id=category_data['id'])
-                            
-                            for subcategory_data in subcategories:
-                                if subcategory_data.get('count', 0) > 0:  # Only process categories with products
-                                    category, category_result = self._process_club_category(
-                                        club, subcategory_data, woo_service, dry_run or check_only, force_update
-                                    )
-                                    
-                                    if category_result == 'created':
-                                        categories_created += 1
-                                    elif category_result == 'updated':
-                                        categories_updated += 1
-                                    elif category_result == 'skipped':
-                                        categories_skipped += 1
-                                    
-                                    # Get products for this category
-                                    products = woo_service.get_products_by_category(subcategory_data['id'])
-                                    
-                                    for product_data in products:
-                                        product, product_result = self._process_product(
-                                            category, product_data, woo_service, dry_run or check_only, force_update
-                                        )
-                                        
-                                        if product_result == 'created':
-                                            products_created += 1
-                                        elif product_result == 'updated':
-                                            products_updated += 1
-                                        elif product_result == 'skipped':
-                                            products_skipped += 1
-                                        
-                                        # Process variations if product is variable
-                                        if not (dry_run or check_only) and product and woo_service.is_variable_product(product_data):
-                                            var_created, var_updated, var_skipped = self._process_product_variations(
-                                                product, product_data, woo_service, force_update
-                                            )
-                                            variations_created += var_created
-                                            variations_updated += var_updated
-                                            variations_skipped += var_skipped
-                            
-                            # If no subcategories, process products directly under the main category
-                            if not subcategories:
-                                category, category_result = self._process_club_category(
-                                    club, category_data, woo_service, dry_run or check_only, force_update
-                                )
-                                
-                                if category_result == 'created':
-                                    categories_created += 1
-                                elif category_result == 'updated':
-                                    categories_updated += 1
-                                elif category_result == 'skipped':
-                                    categories_skipped += 1
-                                
-                                products = woo_service.get_products_by_category(category_data['id'])
-                                
-                                for product_data in products:
-                                    product, product_result = self._process_product(
-                                        category, product_data, woo_service, dry_run or check_only, force_update
-                                    )
-                                    
-                                    if product_result == 'created':
-                                        products_created += 1
-                                    elif product_result == 'updated':
-                                        products_updated += 1
-                                    elif product_result == 'skipped':
-                                        products_skipped += 1
-                                    
-                                    # Process variations if product is variable
-                                    if not (dry_run or check_only) and product and woo_service.is_variable_product(product_data):
-                                        var_created, var_updated, var_skipped = self._process_product_variations(
-                                            product, product_data, woo_service, force_update
-                                        )
-                                        variations_created += var_created
-                                        variations_updated += var_updated
-                                        variations_skipped += var_skipped
-                
-                except Exception as e:
-                    logger.error(f"Error processing club {category_data['name']}: {str(e)}")
-                    self.stdout.write(
-                        self.style.ERROR(f'Error processing club {category_data["name"]}: {str(e)}')
-                    )
-                    continue
+            # Generate comprehensive sync summary
+            self._generate_sync_summary(stats, start_time)
             
-            # Print summary
-            self.stdout.write(self.style.SUCCESS('\n=== SYNC SUMMARY ==='))
-            self.stdout.write(f'Clubs created: {clubs_created}')
-            self.stdout.write(f'Clubs updated: {clubs_updated}')
-            self.stdout.write(f'Clubs skipped (no changes): {clubs_skipped}')
-            self.stdout.write(f'Categories created: {categories_created}')
-            self.stdout.write(f'Categories updated: {categories_updated}')
-            self.stdout.write(f'Categories skipped (no changes): {categories_skipped}')
-            self.stdout.write(f'Products created: {products_created}')
-            self.stdout.write(f'Products updated: {products_updated}')
-            self.stdout.write(f'Products skipped (no changes): {products_skipped}')
-            self.stdout.write(f'Variations created: {variations_created}')
-            self.stdout.write(f'Variations updated: {variations_updated}')
-            self.stdout.write(f'Variations skipped (no changes): {variations_skipped}')
-            
-            total_operations = clubs_created + clubs_updated + categories_created + categories_updated + products_created + products_updated + variations_created + variations_updated
-            total_skipped = clubs_skipped + categories_skipped + products_skipped + variations_skipped
-            
-            if total_skipped > 0:
-                efficiency = (total_skipped / (total_operations + total_skipped)) * 100 if (total_operations + total_skipped) > 0 else 0
-                self.stdout.write(f'\nSync efficiency: {efficiency:.1f}% of items skipped (no changes needed)')
-            
-            if dry_run:
-                self.stdout.write(self.style.WARNING('DRY RUN COMPLETED - No changes were made'))
-            elif check_only:
-                self.stdout.write(self.style.WARNING('CHECK ONLY COMPLETED - No changes were made'))
-            else:
-                self.stdout.write(self.style.SUCCESS('Sync completed successfully!'))
-                
         except Exception as e:
             logger.error(f"Command failed: {str(e)}")
             raise CommandError(f'Sync failed: {str(e)}')
     
-    def _process_club(self, category_data, store_type, woo_service, dry_run, force_update):
-        """Process a club from category data with intelligent change detection"""
-        woo_category_id = category_data['id']
+    def _phase_1_initialization(self):
+        """Phase 1: Initialize WooCommerce service and test connection"""
+        self.stdout.write('Phase 1: Initializing WooCommerce service...')
         
-        if dry_run:
-            self.stdout.write(f'  [DRY RUN] Would process club: {category_data["name"]}')
-            return None, 'created'
+        try:
+            self.woo_service = WooCommerceService(store_type=self.store_type)
+            
+            # Test API connection
+            if not self.woo_service.test_connection():
+                raise CommandError(f'Failed to connect to {self.store_type} WooCommerce API')
+            
+            self.stdout.write(self.style.SUCCESS('✓ Successfully connected to WooCommerce API'))
+            
+        except Exception as e:
+            logger.error(f"Phase 1 failed: {str(e)}")
+            raise CommandError(f'Initialization failed: {str(e)}')
+    
+    def _phase_2_data_retrieval(self):
+        """Phase 2: Retrieve categories with products from WooCommerce"""
+        self.stdout.write('Phase 2: Fetching categories with products...')
+        
+        try:
+            categories = self.woo_service.get_categories_with_products(parent_id=self.parent_category_id)
+            self.stdout.write(self.style.SUCCESS(f'✓ Retrieved {len(categories)} categories with products'))
+            return categories
+            
+        except Exception as e:
+            logger.error(f"Phase 2 failed: {str(e)}")
+            raise CommandError(f'Data retrieval failed: {str(e)}')
+    
+    def _phase_3_processing(self, categories):
+        """Phase 3: Process all clubs, categories, products, and variations"""
+        self.stdout.write('Phase 3: Processing clubs, categories, products, and variations...')
+        
+        # Initialize comprehensive statistics
+        stats = {
+            'clubs_created': 0, 'clubs_updated': 0, 'clubs_skipped': 0,
+            'categories_created': 0, 'categories_updated': 0, 'categories_skipped': 0,
+            'products_created': 0, 'products_updated': 0, 'products_skipped': 0,
+            'variations_created': 0, 'variations_updated': 0, 'variations_skipped': 0,
+            'errors': 0
+        }
+        
+        for i, category_data in enumerate(categories, 1):
+            self.stdout.write(f'\nProcessing club {i}/{len(categories)}: {category_data["name"]}')
+            
+            try:
+                with transaction.atomic():
+                    # Process club (atomic per club for error recovery)
+                    club_stats = self._process_club(category_data)
+                    self._update_stats(stats, club_stats, 'clubs')
+                    
+                    # Only proceed if we have a club to work with
+                    if club_stats['club'] and not (self.dry_run or self.check_only):
+                        # Process categories and products for this club
+                        club_processing_stats = self._process_club_content(club_stats['club'], category_data)
+                        self._update_stats(stats, club_processing_stats, 'all')
+                
+            except Exception as e:
+                stats['errors'] += 1
+                logger.error(f"Error processing club {category_data['name']}: {str(e)}")
+                self.stdout.write(
+                    self.style.ERROR(f'Error processing club {category_data["name"]}: {str(e)}')
+                )
+                # Continue processing other clubs despite individual failures
+                continue
+        
+        return stats
+    
+    def _process_club(self, category_data):
+        """Process WooCommerce category as Club with comprehensive change detection"""
+        woo_category_id = category_data['id']
+        club_name = category_data['name']
+        
+        if self.dry_run:
+            self.stdout.write(f'  [DRY RUN] Would process club: {club_name}')
+            return {'result': 'created', 'club': None}
         
         # Check if club already exists
         existing_club = Club.objects.filter(woo_category_id=woo_category_id).first()
         
-        # Prepare new club data
+        # Prepare comprehensive club data
         new_club_data = {
-            'name': category_data['name'],
-            'club_type': store_type,
+            'name': club_name,
+            'slug': slugify(club_name),
+            'club_type': 'LOTTO',  # Always LOTTO for this model
+            'sport_tag': self._determine_sport_tag(club_name),
             'woo_category_id': woo_category_id,
             'is_active': True,
         }
         
-        # Handle image URL for comparison
+        # Extract additional data if available
+        if category_data.get('description'):
+            new_club_data['contact_person'] = category_data['description'][:100]  # Limit length
+        
+        # Handle logo image URL
         image_url = category_data.get('image', {}).get('src') if category_data.get('image') else None
+        if image_url:
+            new_club_data['logo'] = self.woo_service.get_image_url(image_url)
         
         if existing_club:
-            if not force_update:
-                # Detect changes
+            if not self.force_update:
+                # Intelligent change detection
                 changes = self._detect_club_changes(existing_club, new_club_data, image_url)
                 
                 if not changes:
                     if self.verbose:
                         self.stdout.write(f'  Club unchanged: {existing_club.name}')
-                    return existing_club, 'skipped'
+                    return {'result': 'skipped', 'club': existing_club}
                 
-                if self.verbose:
+                if self.verbose or self.check_only:
                     self.stdout.write(f'  Club changes detected for {existing_club.name}:')
                     for field, (old_val, new_val) in changes.items():
                         self.stdout.write(f'    - {field}: "{old_val}" → "{new_val}"')
+                
+                if self.check_only:
+                    return {'result': 'would_update', 'club': existing_club}
             
             # Update existing club
-            updated = self._update_club_if_changed(existing_club, new_club_data, image_url, woo_service)
+            updated = self._update_club_if_changed(existing_club, new_club_data, image_url)
             
-            if updated or force_update:
-                self.stdout.write(f'  Updated club: {existing_club.name}')
-                return existing_club, 'updated'
+            if updated or self.force_update:
+                self.stdout.write(f'  ✓ Updated club: {existing_club.name}')
+                return {'result': 'updated', 'club': existing_club}
             else:
-                self.stdout.write(f'  Club unchanged: {existing_club.name}')
-                return existing_club, 'skipped'
+                return {'result': 'skipped', 'club': existing_club}
         else:
             # Create new club
+            if self.check_only:
+                self.stdout.write(f'  [CHECK] Would create club: {club_name}')
+                return {'result': 'would_create', 'club': None}
+            
+            # Handle logo URL for new clubs
             if image_url:
-                image_result = woo_service.download_image(
-                    image_url,
-                    'clubs',
-                    f"{slugify(category_data['name'])}-logo.jpg"
-                )
-                if image_result:
-                    filename, content_file = image_result
-                    new_club_data['logo'] = content_file
+                validated_url = self.woo_service.get_image_url(image_url)
+                if validated_url:
+                    new_club_data['logo'] = validated_url
+                    self.stdout.write(f'    ✓ Set logo URL: {validated_url}')
+                else:
+                    self.stdout.write(f'    ⚠ Invalid logo URL for {club_name}')
             
             club = Club.objects.create(**new_club_data)
-            self.stdout.write(f'  Created club: {club.name}')
-            return club, 'created'
+            self.stdout.write(f'  ✓ Created club: {club.name}')
+            return {'result': 'created', 'club': club}
     
-    def _process_club_category(self, club, category_data, woo_service, dry_run, force_update):
-        """Process a club category with intelligent change detection"""
-        woo_category_id = category_data['id']
+    def _process_club_content(self, club, category_data):
+        """Process categories and products for a club"""
+        stats = {
+            'categories_created': 0, 'categories_updated': 0, 'categories_skipped': 0,
+            'products_created': 0, 'products_updated': 0, 'products_skipped': 0,
+            'variations_created': 0, 'variations_updated': 0, 'variations_skipped': 0
+        }
         
-        if dry_run:
-            self.stdout.write(f'    [DRY RUN] Would process category: {category_data["name"]}')
-            return None, 'created'
+        try:
+            # Get subcategories for this club
+            subcategories = self.woo_service.get_categories(parent_id=category_data['id'])
+            
+            if subcategories:
+                # Process each subcategory
+                for subcategory_data in subcategories:
+                    if subcategory_data.get('count', 0) > 0:  # Only categories with products
+                        category_stats = self._process_club_category(club, subcategory_data)
+                        self._update_stats(stats, category_stats, 'categories')
+                        
+                        if category_stats['category']:
+                            product_stats = self._process_category_products(
+                                category_stats['category'], subcategory_data['id']
+                            )
+                            # Update product and variation statistics directly
+                            for key in ['products_created', 'products_updated', 'products_skipped',
+                                       'variations_created', 'variations_updated', 'variations_skipped']:
+                                if key in product_stats:
+                                    stats[key] += product_stats[key]
+            else:
+                # No subcategories - process products directly under main category
+                category_stats = self._process_club_category(club, category_data)
+                self._update_stats(stats, category_stats, 'categories')
+                
+                if category_stats['category']:
+                    product_stats = self._process_category_products(
+                        category_stats['category'], category_data['id']
+                    )
+                    # Update product and variation statistics directly
+                    for key in ['products_created', 'products_updated', 'products_skipped',
+                               'variations_created', 'variations_updated', 'variations_skipped']:
+                        if key in product_stats:
+                            stats[key] += product_stats[key]
+        
+        except Exception as e:
+            logger.error(f"Error processing content for club {club.name}: {str(e)}")
+            raise
+        
+        return stats
+    
+    def _process_club_category(self, club, category_data):
+        """Process subcategory as ClubCategory with comprehensive change detection"""
+        woo_category_id = category_data['id']
+        category_name = category_data['name']
         
         # Check if category already exists
         existing_category = ClubCategory.objects.filter(woo_category_id=woo_category_id).first()
         
-        # Prepare new category data
+        # Prepare comprehensive category data
         new_category_data = {
             'club': club,
-            'name': category_data['name'],
+            'name': category_name,
+            'slug': slugify(f"{club.name}-{category_name}"),
             'woo_category_id': woo_category_id,
             'description': category_data.get('description', ''),
             'product_count': category_data.get('count', 0),
         }
         
-        # Handle image URL for comparison
+        # Handle category image URL
         image_url = category_data.get('image', {}).get('src') if category_data.get('image') else None
+        if image_url:
+            new_category_data['image'] = self.woo_service.get_image_url(image_url)
         
         if existing_category:
-            if not force_update:
-                # Detect changes
+            if not self.force_update:
+                # Intelligent change detection
                 changes = self._detect_category_changes(existing_category, new_category_data, image_url)
                 
                 if not changes:
                     if self.verbose:
                         self.stdout.write(f'    Category unchanged: {existing_category.name}')
-                    return existing_category, 'skipped'
+                    return {'result': 'skipped', 'category': existing_category}
                 
-                if self.verbose:
+                if self.verbose or self.check_only:
                     self.stdout.write(f'    Category changes detected for {existing_category.name}:')
                     for field, (old_val, new_val) in changes.items():
                         self.stdout.write(f'      - {field}: "{old_val}" → "{new_val}"')
+                
+                if self.check_only:
+                    return {'result': 'would_update', 'category': existing_category}
             
             # Update existing category
-            updated = self._update_category_if_changed(existing_category, new_category_data, image_url, woo_service)
+            updated = self._update_category_if_changed(existing_category, new_category_data, image_url)
             
-            if updated or force_update:
-                self.stdout.write(f'    Updated category: {existing_category.name}')
-                return existing_category, 'updated'
+            if updated or self.force_update:
+                self.stdout.write(f'    ✓ Updated category: {existing_category.name}')
+                return {'result': 'updated', 'category': existing_category}
             else:
-                self.stdout.write(f'    Category unchanged: {existing_category.name}')
-                return existing_category, 'skipped'
+                return {'result': 'skipped', 'category': existing_category}
         else:
             # Create new category
+            if self.check_only:
+                self.stdout.write(f'    [CHECK] Would create category: {category_name}')
+                return {'result': 'would_create', 'category': None}
+            
+            # Handle category image URL for new categories
             if image_url:
-                image_result = woo_service.download_image(
-                    image_url,
-                    'categories',
-                    f"{slugify(f'{club.name}-{category_data['name']}')}category.jpg"
-                )
-                if image_result:
-                    filename, content_file = image_result
-                    new_category_data['image'] = content_file
+                validated_url = self.woo_service.get_image_url(image_url)
+                if validated_url:
+                    new_category_data['image'] = validated_url
+                    self.stdout.write(f'      ✓ Set category image URL: {validated_url}')
+                else:
+                    self.stdout.write(f'      ⚠ Invalid category image URL for {category_name}')
             
             category = ClubCategory.objects.create(**new_category_data)
-            self.stdout.write(f'    Created category: {category.name}')
-            return category, 'created'
+            self.stdout.write(f'    ✓ Created category: {category.name}')
+            return {'result': 'created', 'category': category}
     
-    def _process_product(self, category, product_data, woo_service, dry_run, force_update):
-        """Process a product with intelligent change detection"""
-        woo_product_id = product_data['id']
-        
-        if dry_run:
-            self.stdout.write(f'      [DRY RUN] Would process product: {product_data["name"]}')
-            return None, 'created'
-        
-        # Check if product already exists
-        existing_product = Product.objects.filter(woo_product_id=woo_product_id).first()
-        
-        # Parse prices with proper decimal handling
-        price_data = self._parse_product_prices(product_data)
-        
-        # Prepare new product data
-        new_product_data = {
-            'category': category,
-            'name': product_data['name'],
-            'woo_product_id': woo_product_id,
-            'price': price_data['price'],
-            'regular_price': price_data['regular_price'],
-            'sale_price': price_data['sale_price'],
-            'description': product_data.get('description', ''),
-            'short_description': product_data.get('short_description', ''),
-            'sku': product_data.get('sku', ''),
-            'stock_status': product_data.get('stock_status', 'instock'),
-            'weight': product_data.get('weight', ''),
-            'dimensions': product_data.get('dimensions', {}),
-            'tags': [tag['name'] for tag in product_data.get('tags', [])],
-            'attributes': product_data.get('attributes', []),
+    def _process_category_products(self, category, category_id):
+        """Process all products for a category"""
+        stats = {
+            'products_created': 0, 'products_updated': 0, 'products_skipped': 0,
+            'variations_created': 0, 'variations_updated': 0, 'variations_skipped': 0
         }
         
-        # Handle image URL for comparison
+        try:
+            # Get products for this category
+            products = self.woo_service.get_products_by_category(category_id)
+            
+            if not products:
+                if self.verbose:
+                    self.stdout.write(f'      No products found for category: {category.name}')
+                return stats
+            
+            self.stdout.write(f'      Processing {len(products)} products for category: {category.name}')
+            
+            for product_data in products:
+                try:
+                    # Process individual product
+                    product_stats = self._process_product(category, product_data)
+                    self._update_stats(stats, product_stats, 'products')
+                    
+                    # Process variations if product is variable and we have a product
+                    if (product_stats['product'] and 
+                        self.woo_service.is_variable_product(product_data) and 
+                        not (self.dry_run or self.check_only)):
+                        
+                        variation_stats = self._process_product_variations(
+                            product_stats['product'], product_data
+                        )
+                        # Update variation statistics directly since _process_product_variations returns count dict
+                        stats['variations_created'] += variation_stats['variations_created']
+                        stats['variations_updated'] += variation_stats['variations_updated']
+                        stats['variations_skipped'] += variation_stats['variations_skipped']
+                
+                except Exception as e:
+                    logger.error(f"Error processing product {product_data.get('name', 'unknown')}: {str(e)}")
+                    self.stdout.write(
+                        self.style.ERROR(f'        Error processing product: {str(e)}')
+                    )
+                    continue
+        
+        except Exception as e:
+            logger.error(f"Error processing products for category {category.name}: {str(e)}")
+            raise
+        
+        return stats
+    
+    def _process_product(self, category, product_data):
+        """Process product with multi-category support and comprehensive change detection"""
+        woo_product_id = product_data['id']
+        product_name = product_data['name']
+        
+        if self.dry_run:
+            self.stdout.write(f'        [DRY RUN] Would process product: {product_name}')
+            return {'result': 'created', 'product': None}
+        
+        # Check if product already exists (by WooCommerce ID)
+        existing_product = Product.objects.filter(woo_product_id=woo_product_id).first()
+        
+        # Parse comprehensive product data (without category field)
+        new_product_data = self._parse_comprehensive_product_data(product_data)
+        
+        # Handle primary product image URL
         images = product_data.get('images', [])
         image_url = images[0]['src'] if images else None
+        if image_url:
+            new_product_data['image'] = self.woo_service.get_image_url(image_url)
         
         if existing_product:
-            if not force_update:
-                # Detect changes
+            if not self.force_update:
+                # Comprehensive change detection for ALL fields
                 changes = self._detect_product_changes(existing_product, new_product_data, image_url)
                 
                 if not changes:
                     if self.verbose:
-                        self.stdout.write(f'      Product unchanged: {existing_product.name}')
-                    return existing_product, 'skipped'
+                        self.stdout.write(f'        Product unchanged: {existing_product.name}')
+                    # Still need to ensure category assignment exists
+                    self._ensure_product_category_assignment(existing_product, category, product_data)
+                    return {'result': 'skipped', 'product': existing_product}
                 
-                if self.verbose:
-                    self.stdout.write(f'      Product changes detected for {existing_product.name}:')
+                if self.verbose or self.check_only:
+                    self.stdout.write(f'        Product changes detected for {existing_product.name}:')
                     for field, (old_val, new_val) in changes.items():
                         if field in ['price', 'regular_price', 'sale_price']:
-                            self.stdout.write(f'        - {field}: {old_val} → {new_val}')
+                            self.stdout.write(f'          - {field}: {old_val} → {new_val}')
                         else:
                             old_str = str(old_val)[:50] + '...' if len(str(old_val)) > 50 else str(old_val)
                             new_str = str(new_val)[:50] + '...' if len(str(new_val)) > 50 else str(new_val)
-                            self.stdout.write(f'        - {field}: "{old_str}" → "{new_str}"')
+                            self.stdout.write(f'          - {field}: "{old_str}" → "{new_str}"')
+                
+                if self.check_only:
+                    return {'result': 'would_update', 'product': existing_product}
             
             # Update existing product
-            updated = self._update_product_if_changed(existing_product, new_product_data, image_url, woo_service)
+            updated = self._update_product_if_changed(existing_product, new_product_data, image_url)
             
-            if updated or force_update:
-                self.stdout.write(f'      Updated product: {existing_product.name}')
-                return existing_product, 'updated'
+            # Ensure category assignment exists
+            self._ensure_product_category_assignment(existing_product, category, product_data)
+            
+            if updated or self.force_update:
+                self.stdout.write(f'        ✓ Updated product: {existing_product.name}')
+                return {'result': 'updated', 'product': existing_product}
             else:
                 if self.verbose:
-                    self.stdout.write(f'      Product unchanged: {existing_product.name}')
-                return existing_product, 'skipped'
+                    self.stdout.write(f'        Product unchanged: {existing_product.name}')
+                return {'result': 'skipped', 'product': existing_product}
         else:
             # Create new product
-            if image_url:
-                image_result = woo_service.download_image(
-                    image_url,
-                    'products',
-                    f"{slugify(f'{category.club.name}-{product_data['name']}')}product.jpg"
-                )
-                if image_result:
-                    filename, content_file = image_result
-                    new_product_data['image'] = content_file
+            if self.check_only:
+                self.stdout.write(f'        [CHECK] Would create product: {product_name}')
+                return {'result': 'would_create', 'product': None}
             
+            # Handle product image URL for new products  
+            if image_url:
+                validated_url = self.woo_service.get_image_url(image_url)
+                if validated_url:
+                    new_product_data['image'] = validated_url
+                    if self.verbose:
+                        self.stdout.write(f'          ✓ Set product image URL: {validated_url}')
+                else:
+                    if self.verbose:
+                        self.stdout.write(f'          ⚠ Invalid product image URL for {product_name}')
+            
+            # Create product without categories first
             product = Product.objects.create(**new_product_data)
-            self.stdout.write(f'      Created product: {product.name}')
-            return product, 'created'
+            
+            # Create category assignment
+            self._create_product_category_assignment(product, category, product_data, is_primary=True)
+            
+            self.stdout.write(f'        ✓ Created product: {product.name}')
+            return {'result': 'created', 'product': product}
+    
+    def _parse_comprehensive_product_data(self, product_data):
+        """Parse product data for regular Product model fields only (no category field)"""
+        # Parse comprehensive pricing
+        price_data = self._parse_product_prices(product_data)
+        
+        # Build product data with only fields that exist in regular Product model
+        return {
+            # Core fields
+            'name': product_data['name'],
+            'slug': slugify(f"{product_data['name']}-{product_data['id']}"),
+            'woo_product_id': product_data['id'],
+            
+            # Pricing
+            'price': price_data['price'],
+            'regular_price': price_data['regular_price'],
+            'sale_price': price_data['sale_price'],
+            
+            # Content
+            'description': product_data.get('description', ''),
+            'short_description': product_data.get('short_description', ''),
+            'sku': product_data.get('sku', ''),
+            
+            # Inventory
+            'stock_status': product_data.get('stock_status', 'instock'),
+            
+            # Shipping
+            'weight': product_data.get('weight', ''),
+            'dimensions': product_data.get('dimensions', {}),
+            
+            # Enhanced fields (JSON fields that exist in regular model)
+            'tags': product_data.get('tags', []),
+            'attributes': product_data.get('attributes', []),
+        }
     
     def _parse_product_prices(self, product_data):
-        """Parse and validate product prices from WooCommerce data"""
+        """Parse and validate product prices from WooCommerce data with comprehensive error handling"""
         try:
             # Get the main price from WooCommerce (this is the actual selling price)
             woo_price = product_data.get('price', '0') or '0'
-            price = Decimal(woo_price) if woo_price else Decimal('0')
+            price = Decimal(str(woo_price)) if woo_price else Decimal('0')
             
             # Parse regular_price (original price before discount)
             woo_regular_price = product_data.get('regular_price', '') or '0'
-            regular_price = Decimal(woo_regular_price) if woo_regular_price else price
+            regular_price = Decimal(str(woo_regular_price)) if woo_regular_price else price
             
             # Parse sale_price (discounted price)
             woo_sale_price = product_data.get('sale_price', '')
-            sale_price = Decimal(woo_sale_price) if woo_sale_price else None
+            sale_price = Decimal(str(woo_sale_price)) if woo_sale_price else None
             
-            # If we still don't have a valid price, use regular_price as fallback
+            # Validate and correct pricing logic
             if price == 0 and regular_price > 0:
                 price = regular_price
+            
+            # Ensure sale price is valid
+            if sale_price and regular_price and sale_price >= regular_price:
+                sale_price = None  # Invalid sale price
                 
-        except (InvalidOperation, ValueError):
+        except (InvalidOperation, ValueError, TypeError) as e:
+            logger.warning(f"Price parsing error for product {product_data.get('name', 'unknown')}: {e}")
             regular_price = Decimal('0')
             sale_price = None
             price = Decimal('0')
@@ -485,455 +584,742 @@ class Command(BaseCommand):
             'sale_price': sale_price,
         }
     
+    def _parse_woo_date(self, date_string):
+        """Parse WooCommerce date with multiple methods and proper error handling"""
+        if not date_string:
+            return None
+        
+        try:
+            # Try parsing with dateutil (handles most ISO formats)
+            parsed_date = date_parser.parse(date_string)
+            
+            # Ensure timezone awareness
+            if parsed_date.tzinfo is None:
+                parsed_date = parsed_date.replace(tzinfo=dt_timezone.utc)
+            
+            return parsed_date
+            
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Date parsing failed for '{date_string}': {e}")
+            return None
+    
+    def _dates_significantly_different(self, date1, date2, tolerance_seconds=60):
+        """Check if two dates are significantly different (accounting for minor time differences)"""
+        if date1 is None and date2 is None:
+            return False
+        if date1 is None or date2 is None:
+            return True
+        
+        try:
+            # Convert to timestamp for comparison
+            timestamp1 = date1.timestamp() if hasattr(date1, 'timestamp') else 0
+            timestamp2 = date2.timestamp() if hasattr(date2, 'timestamp') else 0
+            
+            return abs(timestamp1 - timestamp2) > tolerance_seconds
+        except (AttributeError, TypeError):
+            return True
+    
+    def _process_product_variations(self, product, product_data):
+        """Process variations with deduplication and intelligent image selection"""
+        stats = {
+            'variations_created': 0, 'variations_updated': 0, 'variations_skipped': 0
+        }
+        
+        try:
+            # Get variations from WooCommerce
+            variations_data = self.woo_service.get_product_variations(product_data['id'])
+            
+            if not variations_data:
+                if self.verbose:
+                    self.stdout.write(f'          No variations found for product: {product.name}')
+                return stats
+            
+            self.stdout.write(f'          Processing {len(variations_data)} variations for: {product.name}')
+            
+            # Track processed variations by woo_variation_id to avoid true duplicates
+            processed_variation_ids = set()
+            
+            for variation_data in variations_data:
+                try:
+                    # Skip if this WooCommerce variation ID has already been processed
+                    woo_variation_id = variation_data.get('id', 0)
+                    if woo_variation_id in processed_variation_ids:
+                        if self.verbose:
+                            self.stdout.write(f'            Skipping duplicate WooCommerce variation ID: {woo_variation_id}')
+                        stats['variations_skipped'] += 1
+                        continue
+                    
+                    processed_variation_ids.add(woo_variation_id)
+                    
+                    # Extract comprehensive variation data with multi-dimensional support
+                    extracted_data = self._extract_multi_dimensional_variation_data(variation_data, product_data)
+                    
+                    # Process individual variation
+                    variation_stats = self._process_individual_variation(
+                        product, variation_data, product_data, extracted_data
+                    )
+                    # Update variation statistics directly
+                    result = variation_stats['result']
+                    if result in ['created', 'would_create']:
+                        stats['variations_created'] += 1
+                    elif result in ['updated', 'would_update']:
+                        stats['variations_updated'] += 1
+                    elif result == 'skipped':
+                        stats['variations_skipped'] += 1
+                
+                except Exception as e:
+                    # Handle case where variation_data is not a dict
+                    if isinstance(variation_data, dict):
+                        variation_id = variation_data.get('id', 'unknown')
+                    else:
+                        variation_id = f"invalid_data_type_{type(variation_data).__name__}"
+                    
+                    logger.error(f"Error processing variation {variation_id}: {str(e)}")
+                    self.stdout.write(
+                        self.style.ERROR(f'            Error processing variation {variation_id}: {str(e)}')
+                    )
+                    stats['variations_skipped'] += 1
+                    continue
+        
+        except Exception as e:
+            logger.error(f"Error processing variations for product {product.name}: {str(e)}")
+            self.stdout.write(
+                self.style.ERROR(f'          Error processing variations for {product.name}: {str(e)}')
+            )
+        
+        return stats
+    
+    def _extract_multi_dimensional_variation_data(self, variation_data, product_data=None):
+        """
+        Extract variation data with proper multi-dimensional support.
+        Creates consistent composite variation_value for variations with multiple attributes.
+        """
+        # Get the base extraction from WooCommerce service
+        base_data = self.woo_service.extract_variation_data(variation_data, product_data)
+        
+        # Get all attributes for this variation
+        attributes = base_data.get('attributes', {})
+        
+        if not attributes:
+            # No attributes, return base data as-is but ensure we have valid variation_value
+            if not base_data.get('variation_value'):
+                base_data['variation_value'] = f"variation-{base_data.get('woo_variation_id', 'unknown')}"
+                base_data['variation_type'] = 'other'
+            return base_data
+        
+        # Filter out empty/None attribute values for consistency
+        valid_attributes = {}
+        for attr_name, attr_value in attributes.items():
+            if attr_value and str(attr_value).strip():
+                valid_attributes[attr_name] = str(attr_value).strip()
+        
+        if not valid_attributes:
+            # No valid attributes, use fallback
+            base_data['variation_value'] = f"variation-{base_data.get('woo_variation_id', 'unknown')}"
+            base_data['variation_type'] = 'other'
+            return base_data
+        
+        # Sort attributes by priority for consistent ordering
+        attribute_priority = ['size', 'color', 'material', 'style', 'gender', 'age_group']
+        
+        # Sort attributes by priority, then alphabetically for unknown types
+        sorted_attrs = []
+        for priority_attr in attribute_priority:
+            if priority_attr in valid_attributes:
+                sorted_attrs.append((priority_attr, valid_attributes[priority_attr]))
+        
+        # Add any remaining attributes not in priority list (sorted alphabetically)
+        remaining_attrs = [(k, v) for k, v in valid_attributes.items() if k not in attribute_priority]
+        remaining_attrs.sort()  # Sort alphabetically for consistency
+        sorted_attrs.extend(remaining_attrs)
+        
+        if sorted_attrs:
+            # Create composite variation_value with consistent formatting
+            if len(sorted_attrs) == 1:
+                # Single attribute - use the value directly
+                variation_value = sorted_attrs[0][1]
+            else:
+                # Multiple attributes - create composite (e.g., "3XL - Turquoise")
+                variation_value = ' - '.join([attr_value for attr_name, attr_value in sorted_attrs])
+            
+            # Use the primary attribute type (first in priority order) as variation_type
+            primary_type = sorted_attrs[0][0]
+            
+            # Update the extracted data with consistent formatting
+            base_data['variation_type'] = primary_type
+            base_data['variation_value'] = variation_value
+            
+            if self.verbose and len(sorted_attrs) > 1:
+                attr_summary = ', '.join([f"{name}={value}" for name, value in sorted_attrs])
+                self.stdout.write(f'            Multi-dimensional variation: {variation_value} ({attr_summary})')
+        else:
+            # Fallback case
+            base_data['variation_value'] = f"variation-{base_data.get('woo_variation_id', 'unknown')}"
+            base_data['variation_type'] = 'other'
+        
+        return base_data
+    
+    def _ensure_product_category_assignment(self, product, category, product_data):
+        """Ensure product is assigned to category with proper metadata"""
+        # Check if assignment already exists
+        assignment, created = ProductCategoryAssignment.objects.get_or_create(
+            product=product,
+            category=category,
+            defaults={
+                'woo_category_id': category.woo_category_id,
+                'is_primary': not product.categories.exists(),  # First category becomes primary
+                'sort_order': 0,
+            }
+        )
+        
+        if created and self.verbose:
+            primary_text = " (Primary)" if assignment.is_primary else ""
+            self.stdout.write(f'          ✓ Assigned to category: {category.name}{primary_text}')
+        
+        return assignment
+    
+    def _create_product_category_assignment(self, product, category, product_data, is_primary=False):
+        """Create a new product-category assignment"""
+        assignment = ProductCategoryAssignment.objects.create(
+            product=product,
+            category=category,
+            woo_category_id=category.woo_category_id,
+            is_primary=is_primary,
+            sort_order=0,
+        )
+        
+        if self.verbose:
+            primary_text = " (Primary)" if is_primary else ""
+            self.stdout.write(f'          ✓ Assigned to category: {category.name}{primary_text}')
+        
+        return assignment
+    
+    def _process_individual_variation(self, product, variation_data, product_data, extracted_data):
+        """Process individual product variation with intelligent change detection and duplicate prevention"""
+        woo_variation_id = extracted_data['woo_variation_id']
+        variation_type = extracted_data['variation_type']
+        variation_value = extracted_data['variation_value']
+        
+        # Check if variation already exists by WooCommerce ID first
+        existing_variation = ProductVariation.objects.filter(
+            woo_variation_id=woo_variation_id
+        ).first()
+        
+        # If not found by WooCommerce ID, check by unique constraint to handle duplicates
+        if not existing_variation:
+            existing_variation = ProductVariation.objects.filter(
+                product=product,
+                variation_type=variation_type,
+                variation_value=variation_value
+            ).first()
+        
+        # Prepare comprehensive variation data
+        new_variation_data = {
+            'product': product,
+            'variation_type': variation_type,
+            'variation_value': variation_value,
+            'price_modifier': extracted_data['price_modifier'],
+            'stock_quantity': extracted_data['stock_quantity'],
+            'sku_suffix': extracted_data['sku_suffix'],
+            'woo_variation_id': woo_variation_id,
+            'is_active': extracted_data['is_active'],
+            'attributes': extracted_data['attributes'],
+            'weight': extracted_data['weight'],
+            'dimensions': extracted_data['dimensions'],
+        }
+        
+        # Get intelligent image data
+        image_data = extracted_data.get('image_data', {})
+        image_url = None
+        
+        # Use intelligent image selection from WooCommerce service
+        if image_data.get('should_use_variation_image') and image_data.get('variation_image_url'):
+            image_url = image_data['variation_image_url']
+        elif image_data.get('fallback_image_url'):
+            image_url = image_data['fallback_image_url']
+        
+        if self.verbose and image_data.get('image_strategy'):
+            strategy = image_data['image_strategy']
+            self.stdout.write(f'            Image strategy for {extracted_data["variation_value"]}: {strategy}')
+        
+        if existing_variation:
+            if not self.force_update:
+                # Intelligent change detection
+                changes = self._detect_variation_changes(existing_variation, new_variation_data, image_url)
+                
+                if not changes:
+                    if self.verbose:
+                        self.stdout.write(f'            Variation unchanged: {existing_variation.variation_value}')
+                    return {'result': 'skipped', 'variation': existing_variation}
+                
+                if self.verbose or self.check_only:
+                    self.stdout.write(f'            Variation changes detected for {existing_variation.variation_value}:')
+                    for field, (old_val, new_val) in changes.items():
+                        self.stdout.write(f'              - {field}: "{old_val}" → "{new_val}"')
+                
+                if self.check_only:
+                    return {'result': 'would_update', 'variation': existing_variation}
+            
+            # Update existing variation
+            updated = self._update_variation_if_changed(existing_variation, new_variation_data, image_url)
+            
+            if updated or self.force_update:
+                self.stdout.write(f'            ✓ Updated variation: {existing_variation.variation_value}')
+                return {'result': 'updated', 'variation': existing_variation}
+            else:
+                if self.verbose:
+                    self.stdout.write(f'            Variation unchanged: {existing_variation.variation_value}')
+                return {'result': 'skipped', 'variation': existing_variation}
+        else:
+            # Create new variation with intelligent image handling and duplicate prevention
+            if self.check_only:
+                self.stdout.write(f'            [CHECK] Would create variation: {extracted_data["variation_value"]}')
+                return {'result': 'would_create', 'variation': None}
+            
+            if image_url:
+                validated_url = self.woo_service.get_image_url(image_url)
+                if validated_url:
+                    new_variation_data['image'] = validated_url
+                    if self.verbose:
+                        self.stdout.write(f'            ✓ Set variation image URL: {validated_url}')
+                else:
+                    if self.verbose:
+                        self.stdout.write(f'            ⚠ Invalid variation image URL for {extracted_data["variation_value"]}')
+            
+            # Use get_or_create to avoid duplicate entries based on unique constraint
+            try:
+                variation, created = ProductVariation.objects.get_or_create(
+                    product=product,
+                    variation_type=variation_type,
+                    variation_value=variation_value,
+                    defaults=new_variation_data
+                )
+                
+                if created:
+                    self.stdout.write(f'            ✓ Created variation: {variation.variation_value}')
+                    return {'result': 'created', 'variation': variation}
+                else:
+                    # Found existing variation by unique constraint, update WooCommerce ID if different
+                    if variation.woo_variation_id != woo_variation_id:
+                        if self.verbose:
+                            self.stdout.write(f'            ⚠ Found existing variation with different WooCommerce ID: {variation.woo_variation_id} vs {woo_variation_id}')
+                        
+                        # Check if the new WooCommerce ID is already taken by another variation
+                        conflicting_variation = ProductVariation.objects.filter(
+                            woo_variation_id=woo_variation_id
+                        ).exclude(id=variation.id).first()
+                        
+                        if conflicting_variation:
+                            if self.verbose:
+                                self.stdout.write(f'            ⚠ WooCommerce ID {woo_variation_id} already taken by variation: {conflicting_variation.variation_value}')
+                            # Use a temporary high ID to avoid conflict (will be resolved in future syncs)
+                            temp_id = 9999990000 + conflicting_variation.id  # Unique temporary ID
+                            conflicting_variation.woo_variation_id = temp_id
+                            conflicting_variation.save(update_fields=['woo_variation_id'])
+                            if self.verbose:
+                                self.stdout.write(f'            ⚠ Assigned temporary ID {temp_id} to conflicting variation')
+                        
+                        variation.woo_variation_id = woo_variation_id
+                        variation.save(update_fields=['woo_variation_id'])
+                    
+                    # Check for other changes and update if needed
+                    updated = self._update_variation_if_changed(variation, new_variation_data, image_url)
+                    
+                    if updated:
+                        self.stdout.write(f'            ✓ Updated existing variation: {variation.variation_value}')
+                        return {'result': 'updated', 'variation': variation}
+                    else:
+                        if self.verbose:
+                            self.stdout.write(f'            Variation unchanged: {variation.variation_value}')
+                        return {'result': 'skipped', 'variation': variation}
+                        
+            except Exception as e:
+                logger.error(f"Error creating/updating variation {variation_value}: {str(e)}")
+                self.stdout.write(
+                    self.style.ERROR(f'            Error creating/updating variation {variation_value}: {str(e)}')
+                )
+                return {'result': 'skipped', 'variation': None}
+    
+    def _determine_sport_tag(self, club_name):
+        """Intelligently determine sport tag from club name"""
+        club_name_lower = club_name.lower()
+        
+        # Sport keywords mapping
+        sport_keywords = {
+            'Football': ['fc', 'football', 'united', 'city', 'town', 'rovers', 'wanderers', 'athletic'],
+            'Rugby': ['rugby', 'rfc', 'bulls', 'stormers', 'sharks'],
+            'Cricket': ['cricket', 'cc', 'eagles', 'cobras'],
+            'Basketball': ['basketball', 'giants', 'suns'],
+            'Tennis': ['tennis', 'tc'],
+            'Hockey': ['hockey', 'hc'],
+            'Netball': ['netball', 'nc'],
+        }
+        
+        for sport, keywords in sport_keywords.items():
+            if any(keyword in club_name_lower for keyword in keywords):
+                return sport
+        
+        return 'Football'  # Default fallback
+    
     def _detect_club_changes(self, existing_club, new_data, new_image_url):
-        """Detect changes in club data"""
+        """Intelligent change detection for club data"""
         changes = {}
         
         # Check basic fields
-        if existing_club.name != new_data['name']:
-            changes['name'] = (existing_club.name, new_data['name'])
+        comparable_fields = ['name', 'sport_tag', 'contact_person', 'email', 'website', 'address', 'is_active']
         
-        if existing_club.club_type != new_data['club_type']:
-            changes['club_type'] = (existing_club.club_type, new_data['club_type'])
-        
-        if existing_club.is_active != new_data['is_active']:
-            changes['is_active'] = (existing_club.is_active, new_data['is_active'])
+        for field in comparable_fields:
+            if field in new_data:
+                current_value = getattr(existing_club, field, None)
+                new_value = new_data[field]
+                
+                if current_value != new_value:
+                    changes[field] = (current_value, new_value)
         
         # Check image URL change
         if new_image_url:
-            current_image_name = existing_club.logo.name if existing_club.logo else None
-            if self._has_image_changed(current_image_name, new_image_url):
-                changes['logo'] = ('current image', 'new image from WooCommerce')
+            current_image_url = existing_club.logo if existing_club.logo else None
+            if current_image_url != new_image_url:
+                changes['logo'] = (current_image_url, new_image_url)
         elif existing_club.logo:
-            changes['logo'] = ('current image', 'no image')
+            changes['logo'] = (existing_club.logo, None)
         
         return changes
     
     def _detect_category_changes(self, existing_category, new_data, new_image_url):
-        """Detect changes in category data"""
+        """Intelligent change detection for category data"""
         changes = {}
         
         # Check basic fields
-        if existing_category.name != new_data['name']:
-            changes['name'] = (existing_category.name, new_data['name'])
+        comparable_fields = ['name', 'description', 'product_count']
         
-        if existing_category.description != new_data['description']:
-            changes['description'] = (existing_category.description or '', new_data['description'])
-        
-        if existing_category.product_count != new_data['product_count']:
-            changes['product_count'] = (existing_category.product_count, new_data['product_count'])
+        for field in comparable_fields:
+            if field in new_data:
+                current_value = getattr(existing_category, field, None)
+                new_value = new_data[field]
+                
+                if current_value != new_value:
+                    changes[field] = (current_value, new_value)
         
         # Check image URL change
         if new_image_url:
-            current_image_name = existing_category.image.name if existing_category.image else None
-            if self._has_image_changed(current_image_name, new_image_url):
-                changes['image'] = ('current image', 'new image from WooCommerce')
+            current_image_url = existing_category.image if existing_category.image else None
+            if current_image_url != new_image_url:
+                changes['image'] = (current_image_url, new_image_url)
         elif existing_category.image:
-            changes['image'] = ('current image', 'no image')
+            changes['image'] = (existing_category.image, None)
         
         return changes
     
     def _detect_product_changes(self, existing_product, new_data, new_image_url):
-        """Detect changes in product data"""
+        """Change detection for regular Product model fields only"""
         changes = {}
         
-        # Check basic fields
-        if existing_product.name != new_data['name']:
-            changes['name'] = (existing_product.name, new_data['name'])
+        # Define comparable fields that exist in regular Product model
+        comparable_fields = [
+            'name', 'price', 'regular_price', 'sale_price', 'description', 
+            'short_description', 'sku', 'stock_status', 'weight'
+        ]
         
-        if existing_product.sku != new_data['sku']:
-            changes['sku'] = (existing_product.sku or '', new_data['sku'])
+        for field in comparable_fields:
+            if field in new_data:
+                current_value = getattr(existing_product, field, None)
+                new_value = new_data[field]
+                
+                # Special handling for decimal fields
+                if field in ['price', 'regular_price', 'sale_price']:
+                    try:
+                        if current_value != new_value:
+                            changes[field] = (current_value, new_value)
+                    except Exception:
+                        # If comparison fails, assume changed
+                        changes[field] = (current_value, new_value)
+                # Standard comparison for other fields
+                elif current_value != new_value:
+                    changes[field] = (current_value, new_value)
         
-        if existing_product.stock_status != new_data['stock_status']:
-            changes['stock_status'] = (existing_product.stock_status, new_data['stock_status'])
+        # Check JSON fields that exist in regular model
+        json_fields = ['dimensions', 'tags', 'attributes']
         
-        if existing_product.weight != new_data['weight']:
-            changes['weight'] = (existing_product.weight or '', new_data['weight'])
-        
-        # Check prices with proper decimal comparison
-        if existing_product.price != new_data['price']:
-            changes['price'] = (existing_product.price, new_data['price'])
-        
-        if existing_product.regular_price != new_data['regular_price']:
-            changes['regular_price'] = (existing_product.regular_price, new_data['regular_price'])
-        
-        # Handle sale_price - both could be None
-        if existing_product.sale_price != new_data['sale_price']:
-            changes['sale_price'] = (existing_product.sale_price, new_data['sale_price'])
-        
-        # Check descriptions
-        if existing_product.description != new_data['description']:
-            changes['description'] = (existing_product.description or '', new_data['description'])
-        
-        if existing_product.short_description != new_data['short_description']:
-            changes['short_description'] = (existing_product.short_description or '', new_data['short_description'])
-        
-        # Check JSON fields
-        if existing_product.dimensions != new_data['dimensions']:
-            changes['dimensions'] = (existing_product.dimensions or {}, new_data['dimensions'])
-        
-        if existing_product.tags != new_data['tags']:
-            changes['tags'] = (existing_product.tags or [], new_data['tags'])
-        
-        if existing_product.attributes != new_data['attributes']:
-            changes['attributes'] = (existing_product.attributes or [], new_data['attributes'])
+        for field in json_fields:
+            if field in new_data:
+                current_value = getattr(existing_product, field, None)
+                new_value = new_data[field]
+                
+                # Simple comparison for JSON fields
+                if str(current_value) != str(new_value):
+                    changes[field] = (current_value, new_value)
         
         # Check image URL change
         if new_image_url:
-            current_image_name = existing_product.image.name if existing_product.image else None
-            if self._has_image_changed(current_image_name, new_image_url):
-                changes['image'] = ('current image', 'new image from WooCommerce')
+            current_image_url = existing_product.image if existing_product.image else None
+            if current_image_url != new_image_url:
+                changes['image'] = (current_image_url, new_image_url)
         elif existing_product.image:
-            changes['image'] = ('current image', 'no image')
+            changes['image'] = (existing_product.image, None)
         
         return changes
     
-    def _has_image_changed(self, current_image_name, new_image_url):
-        """Check if image has changed by comparing URL components"""
-        if not current_image_name and not new_image_url:
-            return False
-        if not current_image_name or not new_image_url:
-            return True
+    def _detect_variation_changes(self, existing_variation, new_data, new_image_url):
+        """Intelligent change detection for variation data"""
+        changes = {}
         
-        # Extract filename from new URL for comparison
-        import os
-        from urllib.parse import urlparse
+        # Check basic fields
+        comparable_fields = ['variation_type', 'variation_value', 'price_modifier', 'stock_quantity',
+                           'sku_suffix', 'is_active', 'weight']
         
-        try:
-            parsed_url = urlparse(new_image_url)
-            new_filename = os.path.basename(parsed_url.path)
-            current_filename = os.path.basename(current_image_name)
-            
-            # Simple heuristic: if filenames are very different, assume change
-            # This is imperfect but better than always re-downloading
-            return new_filename not in current_filename and current_filename not in new_filename
-        except:
-            # If we can't parse, assume it changed to be safe
-            return True
+        for field in comparable_fields:
+            if field in new_data:
+                current_value = getattr(existing_variation, field, None)
+                new_value = new_data[field]
+                
+                # Special handling for decimal fields
+                if field == 'price_modifier':
+                    try:
+                        if current_value != new_value:
+                            changes[field] = (current_value, new_value)
+                    except Exception:
+                        changes[field] = (current_value, new_value)
+                elif current_value != new_value:
+                    changes[field] = (current_value, new_value)
+        
+        # Check JSON fields
+        json_fields = ['attributes', 'dimensions']
+        for field in json_fields:
+            if field in new_data:
+                current_value = getattr(existing_variation, field, None)
+                new_value = new_data[field]
+                
+                if str(current_value) != str(new_value):
+                    changes[field] = (current_value, new_value)
+        
+        # Check variation image URL change
+        if new_image_url:
+            current_image_url = existing_variation.image if existing_variation.image else None
+            if current_image_url != new_image_url:
+                changes['image'] = (current_image_url, new_image_url)
+        elif existing_variation.image:
+            changes['image'] = (existing_variation.image, None)
+        
+        return changes
     
-    def _update_club_if_changed(self, existing_club, new_data, new_image_url, woo_service):
+    # Image change detection methods removed - URLs are compared directly
+    
+    def _update_club_if_changed(self, existing_club, new_data, new_image_url):
         """Update club only if there are actual changes"""
         updated = False
         
         # Update basic fields
         for field, value in new_data.items():
-            if field != 'logo' and getattr(existing_club, field) != value:
+            if field != 'logo' and hasattr(existing_club, field) and getattr(existing_club, field) != value:
                 setattr(existing_club, field, value)
                 updated = True
         
-        # Handle logo update
-        if new_image_url and self._has_image_changed(
-            existing_club.logo.name if existing_club.logo else None, new_image_url
-        ):
-            image_result = woo_service.download_image(
-                new_image_url,
-                'clubs',
-                f"{slugify(new_data['name'])}-logo.jpg"
-            )
-            if image_result:
-                filename, content_file = image_result
-                existing_club.logo = content_file
+        # Handle logo URL update
+        current_logo_url = existing_club.logo if existing_club.logo else None
+        if new_image_url and current_logo_url != new_image_url:
+            validated_url = self.woo_service.get_image_url(new_image_url)
+            if validated_url:
+                existing_club.logo = validated_url
                 updated = True
+                if self.verbose:
+                    self.stdout.write(f'    ✓ Updated logo URL: {validated_url}')
+            else:
+                if self.verbose:
+                    self.stdout.write(f'    ⚠ Invalid logo URL for {existing_club.name}')
         
         if updated:
             existing_club.save()
         
         return updated
     
-    def _update_category_if_changed(self, existing_category, new_data, new_image_url, woo_service):
+    def _update_category_if_changed(self, existing_category, new_data, new_image_url):
         """Update category only if there are actual changes"""
         updated = False
         
         # Update basic fields
         for field, value in new_data.items():
-            if field != 'image' and getattr(existing_category, field) != value:
+            if field != 'image' and hasattr(existing_category, field) and getattr(existing_category, field) != value:
                 setattr(existing_category, field, value)
                 updated = True
         
-        # Handle image update
-        if new_image_url and self._has_image_changed(
-            existing_category.image.name if existing_category.image else None, new_image_url
-        ):
-            image_result = woo_service.download_image(
-                new_image_url,
-                'categories',
-                f"{slugify(f'{existing_category.club.name}-{new_data['name']}')}category.jpg"
-            )
-            if image_result:
-                filename, content_file = image_result
-                existing_category.image = content_file
+        # Handle category image URL update
+        current_image_url = existing_category.image if existing_category.image else None
+        if new_image_url and current_image_url != new_image_url:
+            validated_url = self.woo_service.get_image_url(new_image_url)
+            if validated_url:
+                existing_category.image = validated_url
                 updated = True
+                if self.verbose:
+                    self.stdout.write(f'      ✓ Updated category image URL: {validated_url}')
+            else:
+                if self.verbose:
+                    self.stdout.write(f'      ⚠ Invalid category image URL for {existing_category.name}')
         
         if updated:
             existing_category.save()
         
         return updated
     
-    def _update_product_if_changed(self, existing_product, new_data, new_image_url, woo_service):
+    def _update_product_if_changed(self, existing_product, new_data, new_image_url):
         """Update product only if there are actual changes"""
         updated = False
         
         # Update basic fields
         for field, value in new_data.items():
-            if field != 'image' and getattr(existing_product, field) != value:
+            if field != 'image' and hasattr(existing_product, field) and getattr(existing_product, field) != value:
                 setattr(existing_product, field, value)
                 updated = True
         
-        # Handle image update
-        if new_image_url and self._has_image_changed(
-            existing_product.image.name if existing_product.image else None, new_image_url
-        ):
-            image_result = woo_service.download_image(
-                new_image_url,
-                'products',
-                f"{slugify(f'{existing_product.category.club.name}-{new_data['name']}')}product.jpg"
-            )
-            if image_result:
-                filename, content_file = image_result
-                existing_product.image = content_file
+        # Handle product image URL update
+        current_image_url = existing_product.image if existing_product.image else None
+        if new_image_url and current_image_url != new_image_url:
+            validated_url = self.woo_service.get_image_url(new_image_url)
+            if validated_url:
+                existing_product.image = validated_url
                 updated = True
+                if self.verbose:
+                    self.stdout.write(f'          ✓ Updated product image URL: {validated_url}')
+            else:
+                if self.verbose:
+                    self.stdout.write(f'          ⚠ Invalid product image URL for {existing_product.name}')
         
         if updated:
-            # Only update the timestamp if we actually made changes
             existing_product.save()
         
         return updated
     
-    def _process_product_variations(self, product, product_data, woo_service, force_update):
-        """Process variations for a variable product"""
-        variations_created = 0
-        variations_updated = 0
-        variations_skipped = 0
-        
-        try:
-            # Get variations from WooCommerce
-            variations_data = woo_service.get_product_variations(product_data['id'])
-            
-            if not variations_data:
-                if self.verbose:
-                    self.stdout.write(f'        No variations found for product: {product.name}')
-                return variations_created, variations_updated, variations_skipped
-            
-            self.stdout.write(f'        Processing {len(variations_data)} variations for: {product.name}')
-            
-            # Track processed variations to avoid duplicates
-            processed_variations = set()
-            
-            for variation_data in variations_data:
-                try:
-                    # Extract variation data
-                    extracted_data = woo_service.extract_variation_data(variation_data, product_data)
-                    woo_variation_id = extracted_data['woo_variation_id']
-                    
-                    # Create unique key for deduplication
-                    variation_key = (
-                        extracted_data['variation_type'],
-                        extracted_data['variation_value']
-                    )
-                    
-                    # Skip if we've already processed this variation type/value combination
-                    if variation_key in processed_variations:
-                        if self.verbose:
-                            self.stdout.write(f'          Skipping duplicate variation: {extracted_data["variation_type"]} = {extracted_data["variation_value"]}')
-                        continue
-                    
-                    processed_variations.add(variation_key)
-                    
-                    # Check if variation already exists
-                    existing_variation = ProductVariation.objects.filter(
-                        woo_variation_id=woo_variation_id
-                    ).first()
-                    
-                    # Prepare new variation data
-                    new_variation_data = {
-                        'product': product,
-                        'variation_type': extracted_data['variation_type'],
-                        'variation_value': extracted_data['variation_value'],
-                        'price_modifier': extracted_data['price_modifier'],
-                        'stock_quantity': extracted_data['stock_quantity'],
-                        'sku_suffix': extracted_data['sku_suffix'],
-                        'woo_variation_id': woo_variation_id,
-                        'is_active': extracted_data['is_active'],
-                        'attributes': extracted_data['attributes'],
-                        'weight': extracted_data['weight'],
-                        'dimensions': extracted_data['dimensions'],
-                    }
-                    
-                    # Get image data using intelligent logic
-                    image_data = extracted_data.get('image_data', {})
-                    image_url = None
-                    
-                    # Use intelligent image selection from WooCommerce service
-                    if image_data.get('should_use_variation_image') and image_data.get('variation_image_url'):
-                        image_url = image_data['variation_image_url']
-                    elif image_data.get('fallback_image_url'):
-                        image_url = image_data['fallback_image_url']
-                    
-                    if self.verbose and image_data.get('image_strategy'):
-                        strategy = image_data['image_strategy']
-                        self.stdout.write(f'          Image strategy for {extracted_data["variation_value"]}: {strategy}')
-                    
-                    if existing_variation:
-                        if not force_update:
-                            # Detect changes
-                            changes = self._detect_variation_changes(existing_variation, new_variation_data, image_url)
-                            
-                            if not changes:
-                                if self.verbose:
-                                    self.stdout.write(f'          Variation unchanged: {existing_variation.variation_value}')
-                                variations_skipped += 1
-                                continue
-                            
-                            if self.verbose:
-                                self.stdout.write(f'          Variation changes detected for {existing_variation.variation_value}:')
-                                for field, (old_val, new_val) in changes.items():
-                                    self.stdout.write(f'            - {field}: "{old_val}" → "{new_val}"')
-                        
-                        # Update existing variation
-                        updated = self._update_variation_if_changed(existing_variation, new_variation_data, image_url, woo_service)
-                        
-                        if updated or force_update:
-                            self.stdout.write(f'          Updated variation: {existing_variation.variation_value}')
-                            variations_updated += 1
-                        else:
-                            if self.verbose:
-                                self.stdout.write(f'          Variation unchanged: {existing_variation.variation_value}')
-                            variations_skipped += 1
-                    else:
-                        # Create new variation with intelligent image handling
-                        if image_url:
-                            # Use the WooCommerce service's intelligent variation image download
-                            image_result = woo_service.download_variation_image(
-                                variation_data,
-                                product_data,
-                                product.name,
-                                extracted_data['variation_value']
-                            )
-                            if image_result:
-                                filename, content_file = image_result
-                                new_variation_data['image'] = content_file
-                                if self.verbose:
-                                    self.stdout.write(f'          Downloaded variation image: {filename}')
-                        
-                        variation = ProductVariation.objects.create(**new_variation_data)
-                        self.stdout.write(f'          Created variation: {variation.variation_value}')
-                        variations_created += 1
-                
-                except Exception as e:
-                    logger.error(f"Error processing variation {variation_data.get('id', 'unknown')}: {str(e)}")
-                    self.stdout.write(
-                        self.style.ERROR(f'          Error processing variation: {str(e)}')
-                    )
-                    continue
-        
-        except Exception as e:
-            logger.error(f"Error processing variations for product {product.name}: {str(e)}")
-            self.stdout.write(
-                self.style.ERROR(f'        Error processing variations for {product.name}: {str(e)}')
-            )
-        
-        return variations_created, variations_updated, variations_skipped
-    
-    def _detect_variation_changes(self, existing_variation, new_data, new_image_url):
-        """Detect changes in variation data"""
-        changes = {}
-        
-        # Check basic fields
-        if existing_variation.variation_type != new_data['variation_type']:
-            changes['variation_type'] = (existing_variation.variation_type, new_data['variation_type'])
-        
-        if existing_variation.variation_value != new_data['variation_value']:
-            changes['variation_value'] = (existing_variation.variation_value, new_data['variation_value'])
-        
-        if existing_variation.price_modifier != new_data['price_modifier']:
-            changes['price_modifier'] = (existing_variation.price_modifier, new_data['price_modifier'])
-        
-        if existing_variation.stock_quantity != new_data['stock_quantity']:
-            changes['stock_quantity'] = (existing_variation.stock_quantity, new_data['stock_quantity'])
-        
-        if existing_variation.sku_suffix != new_data['sku_suffix']:
-            changes['sku_suffix'] = (existing_variation.sku_suffix or '', new_data['sku_suffix'])
-        
-        if existing_variation.is_active != new_data['is_active']:
-            changes['is_active'] = (existing_variation.is_active, new_data['is_active'])
-        
-        if existing_variation.weight != new_data['weight']:
-            changes['weight'] = (existing_variation.weight or '', new_data['weight'])
-        
-        # Check JSON fields
-        if existing_variation.attributes != new_data['attributes']:
-            changes['attributes'] = (existing_variation.attributes or {}, new_data['attributes'])
-        
-        if existing_variation.dimensions != new_data['dimensions']:
-            changes['dimensions'] = (existing_variation.dimensions or {}, new_data['dimensions'])
-        
-        # Intelligent image change detection
-        if new_image_url:
-            current_image_name = existing_variation.image.name if existing_variation.image else None
-            if self._has_variation_image_changed(existing_variation, current_image_name, new_image_url):
-                changes['image'] = ('current image', 'new image from WooCommerce')
-        elif existing_variation.image:
-            changes['image'] = ('current image', 'no image')
-        
-        return changes
-    
-    def _update_variation_if_changed(self, existing_variation, new_data, new_image_url, woo_service):
+    def _update_variation_if_changed(self, existing_variation, new_data, new_image_url):
         """Update variation only if there are actual changes"""
         updated = False
         
         # Update basic fields
         for field, value in new_data.items():
-            if field != 'image' and getattr(existing_variation, field) != value:
+            if field != 'image' and hasattr(existing_variation, field) and getattr(existing_variation, field) != value:
                 setattr(existing_variation, field, value)
                 updated = True
         
-        # Handle image update with intelligent logic
-        if new_image_url and self._has_image_changed(
-            existing_variation.image.name if existing_variation.image else None, new_image_url
-        ):
-            # Get the variation data from WooCommerce to use intelligent image handling
-            # We need to reconstruct some data for the intelligent download method
-            variation_data = {
-                'image': {'src': new_image_url} if new_image_url else None,
-                'attributes': new_data.get('attributes', {})
-            }
-            
-            product_data = {
-                'images': [{'src': existing_variation.product.image.url}] if existing_variation.product.image else []
-            }
-            
-            image_result = woo_service.download_variation_image(
-                variation_data,
-                product_data,
-                existing_variation.product.name,
-                new_data['variation_value']
-            )
-            if image_result:
-                filename, content_file = image_result
-                existing_variation.image = content_file
+        # Handle variation image URL update
+        current_image_url = existing_variation.image if existing_variation.image else None
+        if new_image_url and current_image_url != new_image_url:
+            validated_url = self.woo_service.get_image_url(new_image_url)
+            if validated_url:
+                existing_variation.image = validated_url
                 updated = True
+                if self.verbose:
+                    self.stdout.write(f'            ✓ Updated variation image URL: {validated_url}')
+            else:
+                if self.verbose:
+                    self.stdout.write(f'            ⚠ Invalid variation image URL for {existing_variation.variation_value}')
         
         if updated:
             existing_variation.save()
         
         return updated
     
-    def _has_variation_image_changed(self, existing_variation, current_image_name, new_image_url):
-        """Check if variation image has changed with intelligent logic"""
-        # For variation types that should have unique images (color, style, material),
-        # be more sensitive to changes
-        if existing_variation.variation_type in ['color', 'style', 'material']:
-            return self._has_image_changed(current_image_name, new_image_url)
+    def _update_stats(self, main_stats, operation_stats, operation_type):
+        """Update main statistics with operation results"""
+        if operation_type == 'clubs':
+            result = operation_stats['result']
+            if result in ['created', 'would_create']:
+                main_stats['clubs_created'] += 1
+            elif result in ['updated', 'would_update']:
+                main_stats['clubs_updated'] += 1
+            elif result == 'skipped':
+                main_stats['clubs_skipped'] += 1
         
-        # For size/gender variations, only update if significantly different
-        if not current_image_name and new_image_url:
-            return True  # No current image but new one available
+        elif operation_type == 'categories':
+            result = operation_stats['result']
+            if result in ['created', 'would_create']:
+                main_stats['categories_created'] += 1
+            elif result in ['updated', 'would_update']:
+                main_stats['categories_updated'] += 1
+            elif result == 'skipped':
+                main_stats['categories_skipped'] += 1
         
-        if current_image_name and not new_image_url:
-            return True  # Had image but no longer available
+        elif operation_type == 'products':
+            result = operation_stats['result']
+            if result in ['created', 'would_create']:
+                main_stats['products_created'] += 1
+            elif result in ['updated', 'would_update']:
+                main_stats['products_updated'] += 1
+            elif result == 'skipped':
+                main_stats['products_skipped'] += 1
+    
+    def _generate_sync_summary(self, stats, start_time):
+        """Generate comprehensive sync summary with efficiency metrics"""
+        end_time = time.time()
+        duration = end_time - start_time
         
-        if not current_image_name and not new_image_url:
-            return False  # No change
+        self.stdout.write(self.style.SUCCESS('\n' + '='*50))
+        self.stdout.write(self.style.SUCCESS('COMPREHENSIVE SYNC SUMMARY'))
+        self.stdout.write(self.style.SUCCESS('='*50))
         
-        # Both exist, check if different using more stringent criteria for size variations
-        return self._has_image_changed(current_image_name, new_image_url)
+        # Basic statistics
+        self.stdout.write(f'Duration: {duration:.2f} seconds')
+        self.stdout.write('')
+        
+        # Club statistics
+        self.stdout.write('CLUBS:')
+        self.stdout.write(f'  Created: {stats["clubs_created"]}')
+        self.stdout.write(f'  Updated: {stats["clubs_updated"]}')
+        self.stdout.write(f'  Skipped (no changes): {stats["clubs_skipped"]}')
+        
+        # Category statistics
+        self.stdout.write('\nCATEGORIES:')
+        self.stdout.write(f'  Created: {stats["categories_created"]}')
+        self.stdout.write(f'  Updated: {stats["categories_updated"]}')
+        self.stdout.write(f'  Skipped (no changes): {stats["categories_skipped"]}')
+        
+        # Product statistics
+        self.stdout.write('\nPRODUCTS:')
+        self.stdout.write(f'  Created: {stats["products_created"]}')
+        self.stdout.write(f'  Updated: {stats["products_updated"]}')
+        self.stdout.write(f'  Skipped (no changes): {stats["products_skipped"]}')
+        
+        # Variation statistics
+        self.stdout.write('\nVARIATIONS:')
+        self.stdout.write(f'  Created: {stats["variations_created"]}')
+        self.stdout.write(f'  Updated: {stats["variations_updated"]}')
+        self.stdout.write(f'  Skipped (no changes): {stats["variations_skipped"]}')
+        
+        # Error statistics
+        if stats["errors"] > 0:
+            self.stdout.write(f'\nERRORS: {stats["errors"]}')
+        
+        # Calculate efficiency metrics
+        total_operations = (stats["clubs_created"] + stats["clubs_updated"] + 
+                           stats["categories_created"] + stats["categories_updated"] +
+                           stats["products_created"] + stats["products_updated"] +
+                           stats["variations_created"] + stats["variations_updated"])
+        
+        total_skipped = (stats["clubs_skipped"] + stats["categories_skipped"] + 
+                        stats["products_skipped"] + stats["variations_skipped"])
+        
+        total_items = total_operations + total_skipped
+        
+        if total_items > 0:
+            efficiency = (total_skipped / total_items) * 100
+            self.stdout.write(f'\nEFFICIENCY METRICS:')
+            self.stdout.write(f'  Total items processed: {total_items}')
+            self.stdout.write(f'  Items requiring changes: {total_operations}')
+            self.stdout.write(f'  Items unchanged (skipped): {total_skipped}')
+            self.stdout.write(f'  Sync efficiency: {efficiency:.1f}% of items required no changes')
+            
+            if efficiency > 80:
+                self.stdout.write(self.style.SUCCESS('  📊 Excellent sync efficiency! Most data was up-to-date.'))
+            elif efficiency > 60:
+                self.stdout.write(self.style.WARNING('  📊 Good sync efficiency. Some updates were needed.'))
+            else:
+                self.stdout.write('  📊 Major updates were performed. Consider running syncs more frequently.')
+        
+        # Final status message
+        self.stdout.write('')
+        if self.dry_run:
+            self.stdout.write(self.style.WARNING('DRY RUN COMPLETED - No changes were made'))
+        elif self.check_only:
+            self.stdout.write(self.style.WARNING('CHECK ONLY COMPLETED - No changes were made'))
+        else:
+            self.stdout.write(self.style.SUCCESS('✅ COMPREHENSIVE SYNC COMPLETED SUCCESSFULLY!'))
+        
+        self.stdout.write(self.style.SUCCESS('='*50))

@@ -2,7 +2,9 @@ import json
 import logging
 import sys
 import threading
+import requests
 from io import StringIO
+from datetime import timedelta
 from django.shortcuts import render, get_object_or_404
 from django.views.generic import ListView, DetailView
 from django.views.decorators.csrf import csrf_exempt
@@ -10,8 +12,9 @@ from django.views.decorators.http import require_http_methods
 from django.db.models import Q, Count
 from django.core.paginator import Paginator
 from django.core.management import call_command
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.utils.decorators import method_decorator
+from django.utils import timezone
 from django.conf import settings
 from .models import Club, ClubCategory, Product, SyncJob
 
@@ -83,11 +86,11 @@ class ClubDetailView(DetailView):
         # Get categories with product counts (using the existing product_count field)
         context['categories'] = club.categories.filter(product_count__gt=0).order_by('name')
         
-        # Recent products
+        # Recent products - using many-to-many relationship
         context['recent_products'] = Product.objects.filter(
-            category__club=club,
+            categories__club=club,
             stock_status__in=['instock', 'onbackorder']
-        ).order_by('-created_at')[:6]
+        ).distinct().order_by('-created_at')[:6]
         
         return context
 
@@ -117,10 +120,10 @@ class ClubDashboardView(ListView):
         # Top performing clubs
         context['top_clubs'] = self.get_queryset()
         
-        # Recent activity
+        # Recent activity - updated for multi-category products
         context['recent_products'] = Product.objects.filter(
             stock_status__in=['instock', 'onbackorder']
-        ).select_related('category__club').order_by('-created_at')[:8]
+        ).prefetch_related('categories__club').order_by('-created_at')[:8]
         
         return context
 
@@ -163,9 +166,9 @@ class LottoClubsView(ListView):
             'total_clubs': Club.objects.filter(is_active=True, club_type='LOTTO').count(),
             'total_categories': ClubCategory.objects.filter(club__club_type='LOTTO', product_count__gt=0).count(),
             'total_products': Product.objects.filter(
-                category__club__club_type='LOTTO',
+                categories__club__club_type='LOTTO',
                 stock_status__in=['instock', 'onbackorder']
-            ).count(),
+            ).distinct().count(),
             'active_clubs': Club.objects.filter(
                 is_active=True, 
                 club_type='LOTTO'
@@ -363,6 +366,7 @@ def run_sync_in_background(sync_job):
                 store_type='LOTTO',
                 parent_category_id=23,
                 force_update=True,
+                skip_images=True,  # Skip images due to bot detection
                 verbosity=2
             )
             
@@ -441,19 +445,34 @@ def sync_lotto_clubs(request):
     try:
         logger.info("Starting async sync request for LOTTO clubs")
         
-        # Check if there's already a running sync job
+        # Auto-cleanup stale jobs before checking for running jobs
+        cleaned_count = SyncJob.cleanup_stale_jobs(max_age_hours=2)
+        if cleaned_count > 0:
+            logger.info(f"Auto-cleaned {cleaned_count} stale sync jobs before starting new sync")
+        
+        # Check if there's already a running sync job (after cleanup)
         existing_job = SyncJob.objects.filter(
             sync_type='lotto',
             status='running'
         ).first()
         
         if existing_job:
-            return JsonResponse({
-                'success': False,
-                'error': 'A LOTTO sync is already running. Please wait for it to complete.',
-                'error_code': 'SYNC_ALREADY_RUNNING',
-                'job_id': str(existing_job.id)
-            }, status=409)
+            # Double-check if the existing job is actually stale
+            if existing_job.is_stale(max_age_hours=2):
+                logger.warning(f"Found stale job {existing_job.id}, cleaning it up")
+                existing_job.fail(
+                    'Job was stale and cleaned up to allow new sync',
+                    'AUTO_CLEANUP_ON_NEW_SYNC'
+                )
+                existing_job.add_log_message('Job was automatically cleaned up due to being stale when new sync was requested', 'warning')
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'A LOTTO sync is already running. Please wait for it to complete.',
+                    'error_code': 'SYNC_ALREADY_RUNNING',
+                    'job_id': str(existing_job.id),
+                    'age_hours': round(existing_job.get_age_hours() or 0, 2)
+                }, status=409)
         
         # Create new sync job
         sync_job = SyncJob.objects.create(
@@ -618,7 +637,7 @@ def sync_status(request, job_id):
 @require_http_methods(["GET"])
 def sync_jobs_list(request):
     """
-    Endpoint to list recent sync jobs
+    Endpoint to list recent sync jobs with enhanced status info
     """
     logger = logging.getLogger(__name__)
     
@@ -627,7 +646,14 @@ def sync_jobs_list(request):
         jobs = SyncJob.objects.all()[:10]  # Last 10 jobs
         
         jobs_data = []
+        current_time = timezone.now()
+        
         for job in jobs:
+            age_hours = None
+            if job.started_at or job.created_at:
+                age = current_time - (job.started_at or job.created_at)
+                age_hours = age.total_seconds() / 3600
+            
             jobs_data.append({
                 'job_id': str(job.id),
                 'sync_type': job.sync_type,
@@ -640,11 +666,20 @@ def sync_jobs_list(request):
                 'is_finished': job.is_finished,
                 'total_created': job.total_items_created,
                 'total_updated': job.total_items_updated,
+                'age_hours': round(age_hours, 2) if age_hours else None,
+                'is_stale': job.status == 'running' and age_hours and age_hours > 2,  # Consider stale after 2 hours
+                'error_message': job.error_message,
+                'error_code': job.error_code,
             })
+        
+        # Check if there are any running jobs
+        running_jobs_count = SyncJob.objects.filter(status='running').count()
         
         return JsonResponse({
             'success': True,
-            'jobs': jobs_data
+            'jobs': jobs_data,
+            'running_jobs_count': running_jobs_count,
+            'has_stale_jobs': any(job['is_stale'] for job in jobs_data)
         })
         
     except Exception as e:
@@ -656,6 +691,76 @@ def sync_jobs_list(request):
         }, status=500)
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def clear_sync_locks(request):
+    """
+    Endpoint to clear stuck sync locks (admin only)
+    """
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Authentication check removed - sync management is now publicly accessible
+        
+        # Get parameters from request
+        data = json.loads(request.body.decode('utf-8')) if request.body else {}
+        max_age_hours = data.get('max_age_hours', 2)
+        force = data.get('force', False)
+        
+        # Find running sync jobs
+        running_jobs = SyncJob.objects.filter(status='running')
+        
+        if not running_jobs.exists():
+            return JsonResponse({
+                'success': True,
+                'message': 'No running sync jobs found',
+                'cleared_count': 0
+            })
+        
+        cutoff_time = timezone.now() - timedelta(hours=max_age_hours)
+        cleared_count = 0
+        cleared_jobs = []
+        
+        for job in running_jobs:
+            age = timezone.now() - (job.started_at or job.created_at)
+            age_hours = age.total_seconds() / 3600
+            
+            should_clear = force or (job.started_at and job.started_at < cutoff_time) or (not job.started_at and job.created_at < cutoff_time)
+            
+            if should_clear:
+                # Mark job as failed with appropriate message
+                username = request.user.username if request.user.is_authenticated else 'system'
+                job.fail(
+                    f'Job cleared by user ({username}) - was stuck in running state for {age_hours:.2f} hours',
+                    'USER_CLEARED'
+                )
+                job.add_log_message(f'Job manually cleared by user {username} due to being stuck in running state', 'warning')
+                
+                cleared_jobs.append({
+                    'job_id': str(job.id),
+                    'sync_type': job.sync_type,
+                    'age_hours': round(age_hours, 2)
+                })
+                cleared_count += 1
+                logger.info(f"User {username} cleared stuck sync job {job.id} (age: {age_hours:.2f}h)")
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Cleared {cleared_count} stuck sync jobs',
+            'cleared_count': cleared_count,
+            'cleared_jobs': cleared_jobs,
+            'remaining_running_jobs': SyncJob.objects.filter(status='running').count()
+        })
+        
+    except Exception as e:
+        logger.error(f"Clear sync locks endpoint error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'Failed to clear sync locks: {str(e)}',
+            'error_code': 'CLEAR_LOCKS_FAILED'
+        }, status=500)
+
+
 def sync_lotto_clubs_page(request):
     """
     Page view for sync status and manual trigger
@@ -663,7 +768,114 @@ def sync_lotto_clubs_page(request):
     context = {
         'total_lotto_clubs': Club.objects.filter(is_active=True, club_type='LOTTO').count(),
         'total_lotto_categories': ClubCategory.objects.filter(club__club_type='LOTTO').count(),
-        'total_lotto_products': Product.objects.filter(category__club__club_type='LOTTO').count(),
+        'total_lotto_products': Product.objects.filter(categories__club__club_type='LOTTO').distinct().count(),
     }
     
     return render(request, 'clubs/sync_lotto.html', context)
+
+
+def sync_management_page(request):
+    """
+    Sync management page accessible without authentication
+    Provides lock status checking and clearing functionality
+    """
+    context = {
+        'total_lotto_clubs': Club.objects.filter(is_active=True, club_type='LOTTO').count(),
+        'total_lotto_categories': ClubCategory.objects.filter(club__club_type='LOTTO').count(),
+        'total_lotto_products': Product.objects.filter(categories__club__club_type='LOTTO').distinct().count(),
+        'total_sas_clubs': Club.objects.filter(is_active=True, club_type='SAS').count(),
+        'total_sas_categories': ClubCategory.objects.filter(club__club_type='SAS').count(),
+        'total_sas_products': Product.objects.filter(categories__club__club_type='SAS').distinct().count(),
+    }
+    
+    return render(request, 'clubs/sync_management.html', context)
+
+
+def proxy_image_view(request):
+    """
+    Proxy external images to bypass bot protection and hotlinking restrictions
+    """
+    image_url = request.GET.get('url')
+    if not image_url:
+        return HttpResponse('Missing image URL parameter', status=400)
+    
+    # Validate URL to prevent abuse
+    if not image_url.startswith(('http://', 'https://')):
+        return HttpResponse('Invalid image URL', status=400)
+    
+    # Only allow certain domains to prevent abuse
+    allowed_domains = [
+        'www.lottosports.co.nz',
+        'lottosports.co.nz',
+        # Add more trusted domains as needed
+    ]
+    
+    from urllib.parse import urlparse
+    domain = urlparse(image_url).netloc.lower()
+    if domain not in allowed_domains:
+        return HttpResponse('Domain not allowed', status=403)
+    
+    try:
+        # Advanced headers to mimic a real browser and avoid bot detection
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Referer': f'https://{domain}/',
+            'Origin': f'https://{domain}',
+            'Sec-Fetch-Dest': 'image',
+            'Sec-Fetch-Mode': 'no-cors',
+            'Sec-Fetch-Site': 'same-origin',
+            'DNT': '1',
+        }
+        
+        # Make request to external image
+        response = requests.get(image_url, headers=headers, timeout=10, stream=True)
+        
+        # Check if we got redirected to a challenge page
+        if response.status_code == 302 or 'challenge' in response.url:
+            # Return a placeholder SVG image instead of 404
+            placeholder_svg = """<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                <rect width="64" height="64" fill="#3baeff" rx="8"/>
+                <text x="32" y="40" text-anchor="middle" fill="white" font-size="20" font-family="Arial, sans-serif" font-weight="bold">?</text>
+            </svg>"""
+            return HttpResponse(placeholder_svg, content_type='image/svg+xml')
+        
+        response.raise_for_status()
+        
+        # Check content type
+        content_type = response.headers.get('content-type', '').lower()
+        if not content_type.startswith('image/'):
+            return HttpResponse('Not an image', status=400)
+        
+        # Return the image with proper headers
+        http_response = HttpResponse(
+            response.content, 
+            content_type=content_type
+        )
+        
+        # Add cache headers for better performance
+        http_response['Cache-Control'] = 'public, max-age=3600'  # 1 hour cache
+        http_response['Access-Control-Allow-Origin'] = '*'
+        
+        return http_response
+        
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"Failed to proxy image {image_url}: {str(e)}")
+        # Return placeholder image for network errors
+        placeholder_svg = """<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+            <rect width="64" height="64" fill="#e9ecef" rx="8"/>
+            <text x="32" y="40" text-anchor="middle" fill="#6c757d" font-size="20" font-family="Arial, sans-serif" font-weight="bold">!</text>
+        </svg>"""
+        return HttpResponse(placeholder_svg, content_type='image/svg+xml')
+    except Exception as e:
+        logger.error(f"Error proxying image {image_url}: {str(e)}")
+        # Return placeholder image for other errors
+        placeholder_svg = """<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+            <rect width="64" height="64" fill="#dc3545" rx="8"/>
+            <text x="32" y="40" text-anchor="middle" fill="white" font-size="16" font-family="Arial, sans-serif" font-weight="bold">ERR</text>
+        </svg>"""
+        return HttpResponse(placeholder_svg, content_type='image/svg+xml')

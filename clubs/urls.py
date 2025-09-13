@@ -19,12 +19,19 @@ urlpatterns = [
     # AJAX endpoints
     path('ajax/search/', views.club_search_ajax, name='club-search-ajax'),
     
+    # Image proxy endpoint
+    path('proxy-image/', views.proxy_image_view, name='proxy-image'),
+    
     # Sync endpoints
     path('sync/lotto/', views.sync_lotto_clubs_page, name='sync-lotto-clubs-page'),
     path('sync/lotto/execute/', views.sync_lotto_clubs, name='sync-lotto-clubs'),
     path('sync/status/<uuid:job_id>/', views.sync_status, name='sync-status'),
     path('sync/jobs/', views.sync_jobs_list, name='sync-jobs-list'),
+    path('sync/clear-locks/', views.clear_sync_locks, name='clear-sync-locks'),
     
     # Test/Debug endpoints
     path('sync/test/', views.test_sync_endpoint, name='test-sync-endpoint'),
+    
+    # Settings endpoints
+    path('settings/sync-management/', views.sync_management_page, name='sync-management'),
 ]

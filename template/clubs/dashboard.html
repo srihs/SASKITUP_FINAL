@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static club_extras %}
 
 {% block content %}
 <!-- start page title -->
@@ -156,7 +156,7 @@
                                     <div class="d-flex align-items-center">
                                         <div class="avatar-xs me-3 flex-shrink-0">
                                             {% if club.logo %}
-                                            <img src="{{ club.logo.url }}" alt="{{ club.name }}" class="img-fluid rounded-circle">
+                                            <img src="{{ club.logo|proxy_image_url }}" alt="{{ club.name }}" class="img-fluid rounded-circle">
                                             {% else %}
                                             <span class="avatar-title rounded-circle bg-soft-primary text-primary">
                                                 {{ club.name|first }}
@@ -227,7 +227,7 @@
                     <div class="d-flex align-items-center pb-2">
                         <div class="avatar-xs me-3 flex-shrink-0">
                             {% if product.image %}
-                            <img src="{{ product.image.url }}" alt="{{ product.name }}" class="img-fluid rounded">
+                            <img src="{{ product.image }}" alt="{{ product.name }}" class="img-fluid rounded">
                             {% else %}
                             <span class="avatar-title rounded bg-soft-primary text-primary font-size-16">
                                 <i class="uil-shopping-bag"></i>

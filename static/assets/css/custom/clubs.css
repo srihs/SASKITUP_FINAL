@@ -762,8 +762,250 @@ html {
 }
 
 /* ============================================
-   Print Styles
+   Enhanced Sync Management Styles
    ============================================ */
+
+/* Gradient primary header */
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #556ee6 0%, #405dd8 100%) !important;
+}
+
+/* Enhanced progress bars */
+.progress {
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    transition: width 0.6s ease;
+}
+
+/* Button loading states */
+.btn .spinner-border {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Log container enhancements */
+.log-container {
+    position: relative;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 8px;
+}
+
+.log-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.log-container::-webkit-scrollbar-track {
+    background: #f1f3f4;
+    border-radius: 4px;
+}
+
+.log-container::-webkit-scrollbar-thumb {
+    background: #556ee6;
+    border-radius: 4px;
+}
+
+.log-container::-webkit-scrollbar-thumb:hover {
+    background: #405dd8;
+}
+
+/* Log entry animations */
+.log-entry {
+    border-left: 3px solid transparent;
+    margin-bottom: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.log-entry:hover {
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Status indicator colors */
+.bg-soft-info .log-entry {
+    border-left-color: #3abaf4;
+}
+
+.bg-soft-success .log-entry {
+    border-left-color: #34c38f;
+}
+
+.bg-soft-warning .log-entry {
+    border-left-color: #f7b84b;
+}
+
+.bg-soft-danger .log-entry {
+    border-left-color: #f34c7c;
+}
+
+/* Enhanced table styling */
+.table-hover tbody tr:hover {
+    background-color: rgba(85, 110, 230, 0.05);
+    transform: translateY(-1px);
+    transition: all 0.2s ease;
+}
+
+.table thead th {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    color: #495057;
+    border: none;
+    padding: 1rem 0.75rem;
+}
+
+/* Enhanced badges */
+.badge {
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    padding: 0.4em 0.8em;
+    border-radius: 6px;
+}
+
+/* Button enhancements */
+.btn-label {
+    position: relative;
+    padding-left: 2.5rem;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+}
+
+.btn-label .label-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Pulse animation for active monitoring */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(52, 195, 143, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(52, 195, 143, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(52, 195, 143, 0);
+    }
+}
+
+/* Enhanced card header styling */
+.card-header.bg-transparent {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(10px);
+    border-bottom: 2px solid rgba(85, 110, 230, 0.1);
+}
+
+/* Status indicator dot animation */
+@keyframes statusPulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.1);
+    }
+}
+
+.bg-success.rounded-circle {
+    animation: statusPulse 2s ease-in-out infinite;
+}
+
+/* Enhanced responsive table */
+@media (max-width: 768px) {
+    .table-responsive {
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        border-radius: 8px;
+    }
+    
+    .table td, .table th {
+        padding: 0.5rem 0.25rem;
+        font-size: 0.875rem;
+    }
+    
+    .btn-group .btn {
+        padding: 0.375rem 0.5rem;
+    }
+}
+
+/* Loading skeleton improvements */
+.loading-skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    border-radius: 4px;
+    height: 1rem;
+    margin: 0.25rem 0;
+}
+
+/* Enhanced focus states for accessibility */
+.btn:focus {
+    outline: 2px solid #556ee6;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 0.2rem rgba(85, 110, 230, 0.25);
+}
+
+.card:focus-within {
+    outline: 2px solid #556ee6;
+    outline-offset: 2px;
+}
+
+/* Progress bar enhancements */
+.progress-bar-animated {
+    animation: progress-bar-stripes 1s linear infinite;
+}
+
+@keyframes progress-bar-stripes {
+    0% { background-position: 0 0; }
+    100% { background-position: 1rem 0; }
+}
+
+/* Enhanced spinner colors */
+.spinner-border.text-primary {
+    color: #556ee6 !important;
+}
+
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Status badge enhancements */
+.badge-soft-light {
+    background-color: rgba(255, 255, 255, 0.9);
+    color: #495057;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* Typography improvements */
+.fw-bold {
+    font-weight: 700 !important;
+}
+
+.fw-semibold {
+    font-weight: 600 !important;
+}
+
+.fw-medium {
+    font-weight: 500 !important;
+}
+
+/* Color utilities */
+.text-white-50 {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.text-white-75 {
+    color: rgba(255, 255, 255, 0.75) !important;
+}
+
+/* Print Styles */
 @media print {
     .btn, .dropdown, .pagination {
         display: none !important;
@@ -777,5 +1019,12 @@ html {
     .club-card, .lotto-club-card, .sas-club-card {
         box-shadow: none !important;
         border: 1px solid #000 !important;
+    }
+    
+    .log-container {
+        background: white !important;
+        border: 1px solid #000 !important;
+        height: auto !important;
+        overflow: visible !important;
     }
 }

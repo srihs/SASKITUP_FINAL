@@ -1,0 +1,785 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- CSRF Token for JavaScript -->
+<meta name="csrf-token" content="{{ csrf_token }}">
+
+<!-- Enhanced Page Header -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between mb-4">
+            <div>
+                <h4 class="mb-1 fw-bold text-primary">
+                    <i class="uil-sync me-2"></i>Sync Management Center
+                </h4>
+                <p class="text-muted mb-0">Monitor, manage and troubleshoot sync operations across all systems</p>
+            </div>
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0 bg-transparent">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'global-dashboard' %}" class="text-decoration-none">
+                            <i class="uil-estate me-1"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'clubs:dashboard' %}" class="text-decoration-none">
+                            <i class="uil-users-alt me-1"></i>Clubs
+                        </a>
+                    </li>
+                    <li class="breadcrumb-item active text-primary fw-medium">Sync Management</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced System Status Cards -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100 club-card transition-hover">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="avatar-sm">
+                            <span class="avatar-title bg-soft-primary text-primary rounded-circle font-size-20">
+                                <i class="uil-users-alt"></i>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h4 class="mb-1 text-primary fw-bold" id="lotto-clubs-count">{{ total_lotto_clubs }}</h4>
+                        <p class="text-muted mb-0 small fw-medium">LOTTO Clubs</p>
+                        <div class="progress mt-2" style="height: 3px;">
+                            <div class="progress-bar bg-primary" role="progressbar" style="width: 85%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100 club-card transition-hover">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="avatar-sm">
+                            <span class="avatar-title bg-soft-success text-success rounded-circle font-size-20">
+                                <i class="uil-folder"></i>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h4 class="mb-1 text-success fw-bold" id="lotto-categories-count">{{ total_lotto_categories }}</h4>
+                        <p class="text-muted mb-0 small fw-medium">LOTTO Categories</p>
+                        <div class="progress mt-2" style="height: 3px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: 72%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100 club-card transition-hover">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="avatar-sm">
+                            <span class="avatar-title bg-soft-info text-info rounded-circle font-size-20">
+                                <i class="uil-box"></i>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h4 class="mb-1 text-info fw-bold" id="lotto-products-count">{{ total_lotto_products }}</h4>
+                        <p class="text-muted mb-0 small fw-medium">LOTTO Products</p>
+                        <div class="progress mt-2" style="height: 3px;">
+                            <div class="progress-bar bg-info" role="progressbar" style="width: 93%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100 club-card transition-hover">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="avatar-sm">
+                            <span class="avatar-title bg-soft-warning text-warning rounded-circle font-size-20">
+                                <i class="uil-trophy"></i>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h4 class="mb-1 text-warning fw-bold" id="sas-clubs-count">{{ total_sas_clubs }}</h4>
+                        <p class="text-muted mb-0 small fw-medium">SAS Clubs</p>
+                        <div class="progress mt-2" style="height: 3px;">
+                            <div class="progress-bar bg-warning" role="progressbar" style="width: 45%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Sync Management Panel -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-gradient-primary text-white border-0">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h5 class="card-title text-white mb-1 fw-bold">
+                            <i class="uil-cog me-2"></i>Sync Operations Control
+                        </h5>
+                        <p class="text-white-50 mb-0 small">Monitor and manage sync job locks across all systems</p>
+                    </div>
+                    <div class="text-end">
+                        <div class="d-flex align-items-center">
+                            <span class="me-2 small text-white-75">System Status:</span>
+                            <span id="lock-status" class="badge badge-soft-light">Ready</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <!-- Action Controls with Enhanced Styling -->
+                <div class="row g-3">
+                    <div class="col-lg-8">
+                        <div class="d-flex flex-wrap gap-2">
+                            <button id="check-locks-btn" class="btn btn-primary btn-label waves-effect waves-light transition-hover">
+                                <i class="uil-search label-icon me-2"></i>Check Lock Status
+                            </button>
+                            <button id="clear-locks-btn" class="btn btn-danger btn-label waves-effect waves-light transition-hover" style="display: none;">
+                                <i class="uil-unlock label-icon me-2"></i>Clear Stuck Locks
+                            </button>
+                            <button id="refresh-jobs-btn" class="btn btn-success btn-label waves-effect waves-light transition-hover">
+                                <i class="uil-refresh label-icon me-2"></i>Refresh Jobs List
+                            </button>
+                            <button id="clear-log-btn" class="btn btn-warning btn-label waves-effect waves-light transition-hover">
+                                <i class="uil-trash label-icon me-2"></i>Clear Log
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="text-lg-end">
+                            <div class="d-inline-flex align-items-center bg-light rounded px-3 py-2">
+                                <i class="uil-clock text-primary me-2"></i>
+                                <small class="text-muted">
+                                    Last Check: <span id="last-check-time" class="fw-medium text-dark">Never</span>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Enhanced Information Panel -->
+                <div class="alert alert-primary border-0 bg-soft-primary mt-4 mb-0" role="alert">
+                    <div class="d-flex align-items-start">
+                        <div class="flex-shrink-0">
+                            <i class="uil-info-circle font-size-16 text-primary me-3"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="text-primary mb-2 fw-semibold">Sync Management Guidelines</h6>
+                            <p class="text-primary mb-2 small">
+                                This interface provides real-time monitoring of sync operations. Use the controls above to:
+                            </p>
+                            <ul class="list-unstyled mb-0 small text-primary">
+                                <li class="mb-1"><i class="uil-check-circle text-success me-2"></i>Check current sync job status and locks</li>
+                                <li class="mb-1"><i class="uil-exclamation-triangle text-warning me-2"></i>Identify and clear stuck operations (>2 hours)</li>
+                                <li class="mb-1"><i class="uil-refresh text-info me-2"></i>Monitor real-time sync progress and statistics</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Recent Sync Jobs Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-bottom">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title mb-1 fw-bold text-primary">
+                            <i class="uil-history me-2"></i>Recent Sync Jobs
+                        </h5>
+                        <p class="text-muted mb-0 small">Real-time monitoring of sync operations and job status</p>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center">
+                        <div class="d-inline-flex align-items-center bg-light rounded px-2 py-1">
+                            <div class="spinner-border spinner-border-sm text-primary me-2" role="status" id="loading-indicator" style="display: none;">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <small class="text-muted">
+                                <span id="jobs-count">-</span> jobs
+                            </small>
+                        </div>
+                        <button id="auto-refresh-toggle" class="btn btn-sm btn-outline-primary waves-effect waves-light">
+                            <i class="uil-clock me-1"></i>
+                            <span class="auto-refresh-text">Auto Refresh: OFF</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="jobs-list" class="table-responsive">
+                    <div class="text-center py-5">
+                        <div class="d-inline-flex flex-column align-items-center">
+                            <div class="spinner-border text-primary mb-3" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <h6 class="text-muted mb-2">Loading Sync Jobs</h6>
+                            <p class="text-muted small mb-0">Fetching recent sync operations...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Management Log Section -->
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-bottom">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title mb-1 fw-bold text-primary">
+                            <i class="uil-file-alt me-2"></i>Management Activity Log
+                        </h5>
+                        <p class="text-muted mb-0 small">Real-time system events, operations and diagnostic information</p>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center">
+                        <div class="d-inline-flex align-items-center bg-light rounded px-2 py-1">
+                            <div class="d-flex align-items-center me-2">
+                                <div class="bg-success rounded-circle me-1" style="width: 8px; height: 8px;"></div>
+                                <small class="text-muted">Live</small>
+                            </div>
+                        </div>
+                        <div class="btn-group" role="group">
+                            <button id="refresh-log-btn" class="btn btn-sm btn-outline-primary waves-effect waves-light" title="Refresh Log">
+                                <i class="uil-refresh"></i>
+                            </button>
+                            <button id="download-log-btn" class="btn btn-sm btn-outline-success waves-effect waves-light" title="Download Log">
+                                <i class="uil-download-alt"></i>
+                            </button>
+                            <button id="clear-log-btn" class="btn btn-sm btn-outline-warning waves-effect waves-light" title="Clear Log">
+                                <i class="uil-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="management-log" class="log-container border-0 rounded-0 p-4" style="height: 450px; overflow-y: auto; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; font-size: 13px; line-height: 1.6; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                    <div class="log-entry welcome-entry text-center py-4">
+                        <div class="d-inline-flex flex-column align-items-center">
+                            <div class="mb-3">
+                                <i class="uil-info-circle font-size-24 text-primary"></i>
+                            </div>
+                            <h6 class="text-primary mb-2 fw-semibold">Sync Management Log</h6>
+                            <p class="text-muted mb-1 small">System operations and diagnostic messages will appear here</p>
+                            <p class="text-muted small mb-0">Click "Check Lock Status" to begin monitoring</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkLocksBtn = document.getElementById('check-locks-btn');
+    const clearLocksBtn = document.getElementById('clear-locks-btn');
+    const refreshJobsBtn = document.getElementById('refresh-jobs-btn');
+    const clearLogBtn = document.getElementById('clear-log-btn');
+    const autoRefreshToggle = document.getElementById('auto-refresh-toggle');
+    const managementLog = document.getElementById('management-log');
+    const jobsList = document.getElementById('jobs-list');
+    const lockStatus = document.getElementById('lock-status');
+
+    // CSRF token
+    const csrfToken = '{{ csrf_token }}';
+    
+    // Auto refresh state
+    let autoRefreshEnabled = false;
+    let autoRefreshInterval = null;
+
+    // Enhanced utility functions
+    function addLogEntry(message, type = 'info') {
+        const timestamp = new Date().toLocaleTimeString();
+        const typeConfig = {
+            'info': { class: 'text-info', icon: 'uil-info-circle', bg: 'bg-soft-info' },
+            'success': { class: 'text-success', icon: 'uil-check-circle', bg: 'bg-soft-success' },
+            'error': { class: 'text-danger', icon: 'uil-exclamation-circle', bg: 'bg-soft-danger' },
+            'warning': { class: 'text-warning', icon: 'uil-exclamation-triangle', bg: 'bg-soft-warning' }
+        }[type] || { class: 'text-muted', icon: 'uil-circle', bg: 'bg-light' };
+        
+        // Clear welcome message on first real log entry
+        if (managementLog.querySelector('.welcome-entry') && type !== 'welcome') {
+            managementLog.innerHTML = '';
+        }
+        
+        const entry = document.createElement('div');
+        entry.className = `log-entry d-flex align-items-start mb-2 p-2 rounded ${typeConfig.bg}`;
+        entry.innerHTML = `
+            <div class="flex-shrink-0 me-2">
+                <i class="${typeConfig.icon} ${typeConfig.class}"></i>
+            </div>
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-start">
+                    <span class="${typeConfig.class} small fw-medium">[${timestamp}]</span>
+                    <span class="badge badge-soft-secondary small">${type.toUpperCase()}</span>
+                </div>
+                <div class="text-dark small mt-1">${message}</div>
+            </div>
+        `;
+        
+        managementLog.appendChild(entry);
+        managementLog.scrollTop = managementLog.scrollHeight;
+        
+        // Animate entry
+        entry.style.opacity = '0';
+        entry.style.transform = 'translateY(-10px)';
+        setTimeout(() => {
+            entry.style.transition = 'all 0.3s ease';
+            entry.style.opacity = '1';
+            entry.style.transform = 'translateY(0)';
+        }, 50);
+    }
+
+    function updateLockStatus(status, type = 'info') {
+        const statusBadges = {
+            'info': 'badge-soft-primary',
+            'success': 'badge-soft-success',
+            'error': 'badge-soft-danger',
+            'warning': 'badge-soft-warning'
+        };
+        
+        lockStatus.textContent = status;
+        lockStatus.className = `badge ${statusBadges[type] || 'badge-soft-secondary'}`;
+        
+        // Update last check time
+        document.getElementById('last-check-time').textContent = new Date().toLocaleTimeString();
+    }
+
+    function showLoadingIndicator() {
+        document.getElementById('loading-indicator').style.display = 'inline-block';
+    }
+
+    function hideLoadingIndicator() {
+        document.getElementById('loading-indicator').style.display = 'none';
+    }
+
+    function updateJobsCount(count) {
+        document.getElementById('jobs-count').textContent = count;
+    }
+
+    function renderJobsList(jobs) {
+        updateJobsCount(jobs ? jobs.length : 0);
+        
+        if (!jobs || jobs.length === 0) {
+            jobsList.innerHTML = `
+                <div class="text-center py-5">
+                    <div class="d-inline-flex flex-column align-items-center">
+                        <div class="mb-3">
+                            <i class="uil-clock font-size-24 text-muted"></i>
+                        </div>
+                        <h6 class="text-muted mb-2">No Recent Sync Jobs</h6>
+                        <p class="text-muted small mb-0">No synchronization operations have been recorded recently</p>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        let tableHTML = `
+            <table class="table table-nowrap table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="border-0 fw-semibold text-dark">
+                            <i class="uil-tag me-1"></i>Type
+                        </th>
+                        <th class="border-0 fw-semibold text-dark">
+                            <i class="uil-check-circle me-1"></i>Status
+                        </th>
+                        <th class="border-0 fw-semibold text-dark">
+                            <i class="uil-clock me-1"></i>Started
+                        </th>
+                        <th class="border-0 fw-semibold text-dark">
+                            <i class="uil-chart-line me-1"></i>Progress
+                        </th>
+                        <th class="border-0 fw-semibold text-dark">
+                            <i class="uil-stopwatch me-1"></i>Duration
+                        </th>
+                        <th class="border-0 fw-semibold text-dark">
+                            <i class="uil-graph-bar me-1"></i>Results
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        jobs.forEach((job, index) => {
+            const statusConfig = {
+                'running': { badge: 'badge-soft-warning', text: 'Running', icon: 'uil-play' },
+                'completed': { badge: 'badge-soft-success', text: 'Completed', icon: 'uil-check' },
+                'failed': { badge: 'badge-soft-danger', text: 'Failed', icon: 'uil-times' },
+                'pending': { badge: 'badge-soft-secondary', text: 'Pending', icon: 'uil-clock' }
+            }[job.status] || { badge: 'badge-soft-secondary', text: job.status, icon: 'uil-question' };
+
+            const isStale = job.status === 'running' && job.is_stale;
+            const rowClass = isStale ? 'table-warning' : (index % 2 === 0 ? '' : 'table-light');
+            const staleIndicator = isStale ? '<i class="uil-exclamation-triangle text-danger me-1" title="Stale job"></i>' : '';
+
+            const progressColor = job.status === 'completed' ? 'success' : 
+                                job.status === 'failed' ? 'danger' : 
+                                isStale ? 'warning' : 'primary';
+
+            tableHTML += `
+                <tr class="${rowClass}">
+                    <td class="align-middle">
+                        <div class="d-flex align-items-center">
+                            ${staleIndicator}
+                            <span class="badge bg-primary me-2">${job.sync_type.toUpperCase()}</span>
+                            ${isStale ? '<span class="badge badge-soft-danger small">STALE</span>' : ''}
+                        </div>
+                    </td>
+                    <td class="align-middle">
+                        <span class="badge ${statusConfig.badge}">
+                            <i class="${statusConfig.icon} me-1"></i>${statusConfig.text}
+                        </span>
+                    </td>
+                    <td class="align-middle">
+                        <div>
+                            <div class="text-dark small fw-medium">${new Date(job.started_at || job.created_at).toLocaleDateString()}</div>
+                            <div class="text-muted small">${new Date(job.started_at || job.created_at).toLocaleTimeString()}</div>
+                            ${job.age_hours ? `<span class="badge badge-soft-secondary small mt-1">${job.age_hours}h ago</span>` : ''}
+                        </div>
+                    </td>
+                    <td class="align-middle">
+                        <div class="mb-1">
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-${progressColor}" 
+                                     role="progressbar"
+                                     style="width: ${job.progress_percentage || 0}%"
+                                     aria-valuenow="${job.progress_percentage || 0}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted fw-medium">${job.progress_percentage || 0}%</small>
+                            ${job.status === 'running' ? '<div class="spinner-border spinner-border-sm text-primary" role="status"></div>' : ''}
+                        </div>
+                        ${job.current_step ? `<div class="text-muted small mt-1">${job.current_step}</div>` : ''}
+                    </td>
+                    <td class="align-middle">
+                        <div class="text-center">
+                            <div class="text-dark fw-medium">${job.duration_minutes ? job.duration_minutes + 'm' : '-'}</div>
+                            <small class="text-muted">duration</small>
+                        </div>
+                    </td>
+                    <td class="align-middle">
+                        ${job.total_created !== null && job.total_updated !== null ? `
+                            <div class="text-center">
+                                <div class="row g-0">
+                                    <div class="col-6">
+                                        <div class="text-success fw-bold">${job.total_created}</div>
+                                        <small class="text-muted">Created</small>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="text-info fw-bold">${job.total_updated}</div>
+                                        <small class="text-muted">Updated</small>
+                                    </div>
+                                </div>
+                            </div>
+                        ` : '<small class="text-muted">Pending</small>'}
+                    </td>
+                </tr>
+            `;
+        });
+
+        tableHTML += '</tbody></table>';
+        jobsList.innerHTML = tableHTML;
+    }
+
+    // Enhanced Check Sync Locks function
+    async function checkSyncLocks() {
+        addLogEntry('Initiating sync job status check...', 'info');
+        updateLockStatus('Checking...', 'info');
+        showLoadingIndicator();
+        
+        // Enhanced button loading state
+        checkLocksBtn.disabled = true;
+        const originalHTML = checkLocksBtn.innerHTML;
+        checkLocksBtn.innerHTML = '<div class="spinner-border spinner-border-sm me-2" role="status"></div>Checking Status...';
+        
+        // Disable other buttons during check
+        refreshJobsBtn.disabled = true;
+
+        try {
+            const response = await fetch('{% url "clubs:sync-jobs-list" %}', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                addLogEntry(`Found ${data.jobs.length} recent sync jobs`, 'info');
+                renderJobsList(data.jobs);
+                
+                if (data.running_jobs_count > 0) {
+                    addLogEntry(`⚠ ${data.running_jobs_count} sync jobs currently running`, 'warning');
+                    updateLockStatus(`${data.running_jobs_count} running`, 'warning');
+                    
+                    // Show details of running/stale jobs
+                    let staleCount = 0;
+                    data.jobs.forEach(job => {
+                        if (job.status === 'running') {
+                            const ageText = job.age_hours ? `${job.age_hours}h` : 'unknown age';
+                            const staleIcon = job.is_stale ? '🔴' : '🟡';
+                            addLogEntry(`${staleIcon} ${job.sync_type.toUpperCase()} job running for ${ageText} - Progress: ${job.progress_percentage}%`, job.is_stale ? 'error' : 'warning');
+                            if (job.current_step) {
+                                addLogEntry(`   Current step: ${job.current_step}`, 'info');
+                            }
+                            if (job.is_stale) staleCount++;
+                        }
+                    });
+                    
+                    if (staleCount > 0) {
+                        addLogEntry(`🚨 ${staleCount} stale sync jobs detected (running >2 hours)`, 'error');
+                        clearLocksBtn.style.display = 'inline-block';
+                        clearLocksBtn.innerHTML = `<i class="uil-unlock me-2"></i>Clear ${staleCount} Stale Jobs`;
+                        updateLockStatus(`${staleCount} stale locks`, 'error');
+                    } else {
+                        addLogEntry('All running jobs appear to be active (< 2 hours)', 'success');
+                        clearLocksBtn.style.display = 'none';
+                        updateLockStatus(`${data.running_jobs_count} active`, 'warning');
+                    }
+                } else {
+                    addLogEntry('✓ No sync jobs currently running', 'success');
+                    clearLocksBtn.style.display = 'none';
+                    updateLockStatus('Clear', 'success');
+                }
+                
+                // Show recent completed jobs
+                const recentCompleted = data.jobs.filter(job => job.status === 'completed').slice(0, 3);
+                if (recentCompleted.length > 0) {
+                    addLogEntry(`Recent completed syncs:`, 'info');
+                    recentCompleted.forEach(job => {
+                        const completedTime = new Date(job.completed_at).toLocaleString();
+                        addLogEntry(`✓ ${job.sync_type.toUpperCase()} completed at ${completedTime} - ${job.total_created} created, ${job.total_updated} updated`, 'success');
+                    });
+                }
+                
+            } else {
+                addLogEntry('Failed to check sync jobs: ' + data.error, 'error');
+                updateLockStatus('Check failed', 'error');
+            }
+        } catch (error) {
+            addLogEntry('Lock check failed: ' + error.message, 'error');
+            updateLockStatus('Check failed', 'error');
+        } finally {
+            checkLocksBtn.disabled = false;
+            checkLocksBtn.innerHTML = originalHTML;
+            refreshJobsBtn.disabled = false;
+            hideLoadingIndicator();
+        }
+    }
+
+    // Clear Sync Locks
+    async function clearSyncLocks() {
+        if (!confirm('Are you sure you want to clear stuck sync locks? This will mark all stale running jobs as failed.')) {
+            return;
+        }
+
+        addLogEntry('Clearing stuck sync locks...', 'warning');
+        updateLockStatus('Clearing locks...', 'warning');
+        clearLocksBtn.disabled = true;
+        clearLocksBtn.innerHTML = '<i class="uil-spin uil-sync me-2"></i>Clearing...';
+
+        try {
+            const response = await fetch('{% url "clubs:clear-sync-locks" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    max_age_hours: 2,
+                    force: false
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                if (data.cleared_count > 0) {
+                    addLogEntry(`✓ Successfully cleared ${data.cleared_count} stuck sync jobs`, 'success');
+                    
+                    data.cleared_jobs.forEach(job => {
+                        addLogEntry(`   Cleared: ${job.sync_type.toUpperCase()} job (age: ${job.age_hours}h)`, 'info');
+                    });
+                    
+                    if (data.remaining_running_jobs > 0) {
+                        addLogEntry(`${data.remaining_running_jobs} sync jobs still running (not stale)`, 'info');
+                        updateLockStatus(`${data.remaining_running_jobs} running`, 'warning');
+                    } else {
+                        addLogEntry('All sync locks cleared! Sync operations can now proceed normally.', 'success');
+                        updateLockStatus('Clear', 'success');
+                    }
+                } else {
+                    addLogEntry('No stuck sync jobs found to clear', 'info');
+                    updateLockStatus('Already clear', 'success');
+                }
+                
+                // Hide clear locks button and refresh status
+                clearLocksBtn.style.display = 'none';
+                setTimeout(() => checkSyncLocks(), 1000);
+                
+            } else {
+                addLogEntry('Failed to clear sync locks: ' + data.error, 'error');
+                updateLockStatus('Clear failed', 'error');
+            }
+        } catch (error) {
+            addLogEntry('Clear locks failed: ' + error.message, 'error');
+            updateLockStatus('Clear failed', 'error');
+        } finally {
+            clearLocksBtn.disabled = false;
+            clearLocksBtn.innerHTML = '<i class="uil-unlock me-2"></i>Clear Stuck Locks';
+        }
+    }
+
+    // Event listeners
+    checkLocksBtn.addEventListener('click', checkSyncLocks);
+    clearLocksBtn.addEventListener('click', clearSyncLocks);
+    refreshJobsBtn.addEventListener('click', checkSyncLocks);
+
+    // Enhanced Clear Log functionality
+    clearLogBtn.addEventListener('click', function() {
+        if (confirm('Are you sure you want to clear the management log? This action cannot be undone.')) {
+            managementLog.innerHTML = `
+                <div class="log-entry welcome-entry text-center py-4">
+                    <div class="d-inline-flex flex-column align-items-center">
+                        <div class="mb-3">
+                            <i class="uil-check-circle font-size-24 text-success"></i>
+                        </div>
+                        <h6 class="text-success mb-2 fw-semibold">Log Cleared Successfully</h6>
+                        <p class="text-muted mb-1 small">Management log has been reset</p>
+                        <p class="text-muted small mb-0">New system operations will appear here</p>
+                    </div>
+                </div>
+            `;
+        }
+    });
+
+    // Enhanced Auto refresh toggle
+    autoRefreshToggle.addEventListener('click', function() {
+        autoRefreshEnabled = !autoRefreshEnabled;
+        
+        if (autoRefreshEnabled) {
+            // Enable auto refresh
+            const refreshText = autoRefreshToggle.querySelector('.auto-refresh-text');
+            refreshText.textContent = 'Auto Refresh: ON';
+            autoRefreshToggle.classList.remove('btn-outline-primary');
+            autoRefreshToggle.classList.add('btn-success');
+            
+            autoRefreshInterval = setInterval(checkSyncLocks, 30000); // Refresh every 30 seconds
+            addLogEntry('Auto-refresh enabled - monitoring every 30 seconds', 'success');
+            
+            // Add pulsing animation to indicate active monitoring
+            autoRefreshToggle.style.animation = 'pulse 2s infinite';
+        } else {
+            // Disable auto refresh
+            const refreshText = autoRefreshToggle.querySelector('.auto-refresh-text');
+            refreshText.textContent = 'Auto Refresh: OFF';
+            autoRefreshToggle.classList.remove('btn-success');
+            autoRefreshToggle.classList.add('btn-outline-primary');
+            autoRefreshToggle.style.animation = 'none';
+            
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+            addLogEntry('Auto-refresh disabled - manual monitoring only', 'info');
+        }
+    });
+
+    // Download log functionality
+    document.getElementById('download-log-btn').addEventListener('click', function() {
+        const logContent = managementLog.textContent || managementLog.innerText;
+        const blob = new Blob([logContent], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sync-management-log-${new Date().toISOString().slice(0, 19)}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        addLogEntry('Log downloaded', 'info');
+    });
+
+    // Enhanced initialization
+    function initializeSyncManagement() {
+        addLogEntry('🚀 Sync Management Center initialized successfully', 'success');
+        addLogEntry('System ready for sync operations monitoring', 'info');
+        updateLockStatus('Ready', 'success');
+        
+        // Auto-check locks on page load with a small delay
+        setTimeout(() => {
+            addLogEntry('Performing initial system status check...', 'info');
+            checkSyncLocks();
+        }, 1500);
+    }
+
+    // Initialize the interface
+    initializeSyncManagement();
+
+    // Enhanced cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            addLogEntry('Auto-refresh disabled due to page navigation', 'info');
+        }
+    });
+
+    // Add keyboard shortcuts
+    document.addEventListener('keydown', function(event) {
+        // Ctrl/Cmd + R for refresh
+        if ((event.ctrlKey || event.metaKey) && event.key === 'r' && event.shiftKey) {
+            event.preventDefault();
+            checkSyncLocks();
+        }
+        // Ctrl/Cmd + L for clear log
+        if ((event.ctrlKey || event.metaKey) && event.key === 'l' && event.shiftKey) {
+            event.preventDefault();
+            clearLogBtn.click();
+        }
+    });
+});
+</script>
+
+{% endblock %}

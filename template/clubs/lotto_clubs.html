@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static club_extras %}
 
 {% block content %}
 <!-- Sync Button Section -->
@@ -178,7 +178,7 @@
                 <div class="d-flex align-items-center mb-3">
                     <div class="avatar-md me-3">
                         {% if club.logo %}
-                        <img src="{{ club.logo.url }}" alt="{{ club.name }}" class="avatar-md rounded">
+                        <img src="{{ club.logo|proxy_image_url }}" alt="{{ club.name }}" class="avatar-md rounded">
                         {% else %}
                         <span class="avatar-title rounded bg-info text-white font-size-18">
                             {{ club.name|first }}
