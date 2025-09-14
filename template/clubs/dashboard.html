@@ -1,19 +1,19 @@
 {% extends 'base.html' %}
 {% load static club_extras %}
 
+{% block extra_css %}
+<!-- DataTables CSS -->
+<link href="{% static 'assets/libs/datatables.net-bs4/css/dataTables.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+<link href="{% static 'assets/libs/datatables.net-buttons-bs4/css/buttons.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+<link href="{% static 'assets/libs/datatables.net-responsive-bs4/css/responsive.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+{% endblock %}
+
 {% block content %}
 <!-- start page title -->
 <div class="row">
     <div class="col-12">
-        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-            <h4 class="mb-sm-0">Clubs Dashboard</h4>
-
-            <div class="page-title-right">
-                <ol class="breadcrumb m-0">
-                    <li class="breadcrumb-item"><a href="javascript: void(0);">Clubs</a></li>
-                    <li class="breadcrumb-item active">Dashboard</li>
-                </ol>
-            </div>
+        <div class="page-title-box">
+            <h4 class="mb-0">Clubs Dashboard</h4>
         </div>
     </div>
 </div>
@@ -117,36 +117,28 @@
 
 <!-- Top Performing Clubs -->
 <div class="row">
-    <div class="col-xl-8">
+    <div class="col-12">
         <div class="card">
             <div class="card-header align-items-center d-flex">
                 <h4 class="card-title mb-0 flex-grow-1">Top Performing Clubs</h4>
                 <div class="flex-shrink-0">
-                    <div class="dropdown card-header-dropdown">
-                        <a class="text-reset dropdown-btn" href="#" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            <span class="fw-semibold text-uppercase font-size-12">Sort By:</span>
-                            <span class="text-muted">Products <i class="mdi mdi-chevron-down ms-1"></i></span>
-                        </a>
-                        <div class="dropdown-menu dropdown-menu-end">
-                            <a class="dropdown-item" href="#">Products</a>
-                            <a class="dropdown-item" href="#">Categories</a>
-                            <a class="dropdown-item" href="#">Name</a>
-                        </div>
-                    </div>
+                    <span class="text-muted font-size-13">
+                        <i class="mdi mdi-information"></i> Sortable table with search and pagination
+                    </span>
                 </div>
             </div>
 
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-nowrap align-middle">
+                    <table id="topClubsTable" class="table table-nowrap align-middle table-hover w-100">
                         <thead class="table-light">
                             <tr>
-                                <th scope="col">Club</th>
-                                <th scope="col">Type</th>
-                                <th scope="col">Sport</th>
-                                <th scope="col">Categories</th>
-                                <th scope="col">Products</th>
-                                <th scope="col" class="text-end">Action</th>
+                                <th>Club</th>
+                                <th>Type</th>
+                                <th>Sport</th>
+                                <th>Categories</th>
+                                <th>Products</th>
+                                <th class="no-sort">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -164,9 +156,13 @@
                                             {% endif %}
                                         </div>
                                         <div class="flex-grow-1">
-                                            <h5 class="font-size-14 mb-1">{{ club.name|truncatechars:25 }}</h5>
+                                            <h5 class="font-size-14 mb-1">
+                                                <a href="{% url 'clubs:club-detail' club.slug %}" class="text-dark">
+                                                    {{ club.name }}
+                                                </a>
+                                            </h5>
                                             {% if club.contact_person %}
-                                            <p class="text-muted font-size-13 mb-0">{{ club.contact_person }}</p>
+                                            <p class="text-muted font-size-12 mb-0">{{ club.contact_person }}</p>
                                             {% endif %}
                                         </div>
                                     </div>
@@ -176,22 +172,29 @@
                                         {{ club.club_type }}
                                     </span>
                                 </td>
-                                <td>{{ club.sport_tag }}</td>
-                                <td>{{ club.total_categories }}</td>
-                                <td>{{ club.total_products }}</td>
-                                <td class="text-end">
-                                    <div class="dropdown">
-                                        <a href="#" class="dropdown-toggle card-drop" data-bs-toggle="dropdown" aria-expanded="false">
-                                            <i class="mdi mdi-dots-horizontal font-size-18"></i>
+                                <td>
+                                    <span class="badge bg-soft-secondary text-secondary">{{ club.sport_tag }}</span>
+                                </td>
+                                <td>
+                                    <span class="fw-medium">{{ club.total_categories }}</span>
+                                </td>
+                                <td>
+                                    <span class="fw-medium text-success">{{ club.available_products }}</span>
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'clubs:club-detail' club.slug %}" 
+                                           class="btn btn-sm btn-soft-primary" 
+                                           data-bs-toggle="tooltip" 
+                                           title="View club details">
+                                            <i class="uil uil-eye"></i>
                                         </a>
-                                        <div class="dropdown-menu dropdown-menu-end">
-                                            <a class="dropdown-item" href="{% url 'clubs:club-detail' club.slug %}">
-                                                <i class="uil uil-eye font-size-16 text-secondary me-1"></i> View Details
-                                            </a>
-                                            <a class="dropdown-item" href="#">
-                                                <i class="uil uil-edit-alt font-size-16 text-secondary me-1"></i> Edit
-                                            </a>
-                                        </div>
+                                        <button type="button" 
+                                                class="btn btn-sm btn-soft-secondary" 
+                                                data-bs-toggle="tooltip" 
+                                                title="Edit club (Coming soon)">
+                                            <i class="uil uil-edit-alt"></i>
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -209,54 +212,6 @@
             </div>
         </div>
     </div>
-
-    <div class="col-xl-4">
-        <div class="card">
-            <div class="card-header align-items-center d-flex">
-                <h4 class="card-title mb-0 flex-grow-1">Recent Products</h4>
-                <div class="flex-shrink-0">
-                    <a href="#" class="btn btn-sm btn-soft-primary">
-                        View All <i class="mdi mdi-arrow-right align-middle"></i>
-                    </a>
-                </div>
-            </div>
-
-            <div class="card-body">
-                <div class="pb-2">
-                    {% for product in recent_products %}
-                    <div class="d-flex align-items-center pb-2">
-                        <div class="avatar-xs me-3 flex-shrink-0">
-                            {% if product.image %}
-                            <img src="{{ product.image }}" alt="{{ product.name }}" class="img-fluid rounded">
-                            {% else %}
-                            <span class="avatar-title rounded bg-soft-primary text-primary font-size-16">
-                                <i class="uil-shopping-bag"></i>
-                            </span>
-                            {% endif %}
-                        </div>
-                        <div class="flex-grow-1">
-                            <h5 class="font-size-14 mb-0">{{ product.name|truncatechars:20 }}</h5>
-                            <p class="text-muted font-size-12 mb-0">{{ product.category.club.name }}</p>
-                        </div>
-                        <div class="flex-shrink-0 text-end">
-                            <h5 class="font-size-14 mb-0 text-dark">${{ product.price }}</h5>
-                            <p class="text-muted font-size-12 mb-0">
-                                <span class="badge badge-soft-{% if product.stock_status == 'instock' %}success{% elif product.stock_status == 'onbackorder' %}warning{% else %}danger{% endif %} font-size-10">
-                                    {{ product.get_stock_status_display }}
-                                </span>
-                            </p>
-                        </div>
-                    </div>
-                    {% empty %}
-                    <div class="text-center text-muted py-4">
-                        <i class="uil-shopping-bag font-size-48 text-muted mb-3"></i><br>
-                        No recent products
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 <!-- end row -->
 
@@ -269,21 +224,7 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-xl-3 col-lg-4 col-md-6">
-                        <a href="{% url 'clubs:club-list' %}" class="card border shadow-none">
-                            <div class="card-body text-center">
-                                <div class="avatar-sm mx-auto mb-3">
-                                    <span class="avatar-title rounded-circle bg-soft-primary text-primary font-size-18">
-                                        <i class="uil-users-alt"></i>
-                                    </span>
-                                </div>
-                                <h5 class="font-size-15 mb-1">View All Clubs</h5>
-                                <p class="text-muted mb-0">Browse all registered clubs</p>
-                            </div>
-                        </a>
-                    </div>
-
-                    <div class="col-xl-3 col-lg-4 col-md-6">
+                    <div class="col-xl-4 col-lg-4 col-md-6">
                         <a href="{% url 'clubs:lotto-clubs' %}" class="card border shadow-none">
                             <div class="card-body text-center">
                                 <div class="avatar-sm mx-auto mb-3">
@@ -297,7 +238,7 @@
                         </a>
                     </div>
 
-                    <div class="col-xl-3 col-lg-4 col-md-6">
+                    <div class="col-xl-4 col-lg-4 col-md-6">
                         <a href="{% url 'clubs:sas-clubs' %}" class="card border shadow-none">
                             <div class="card-body text-center">
                                 <div class="avatar-sm mx-auto mb-3">
@@ -311,7 +252,7 @@
                         </a>
                     </div>
 
-                    <div class="col-xl-3 col-lg-4 col-md-6">
+                    <div class="col-xl-4 col-lg-4 col-md-6">
                         <a href="#" class="card border shadow-none">
                             <div class="card-body text-center">
                                 <div class="avatar-sm mx-auto mb-3">
@@ -331,17 +272,195 @@
 </div>
 <!-- end row -->
 
+{% endblock %}
+
+{% block extra_js %}
+<!-- DataTables JS -->
+<script src="{% static 'assets/libs/datatables.net/js/jquery.dataTables.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-bs4/js/dataTables.bootstrap4.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-buttons/js/dataTables.buttons.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-buttons-bs4/js/buttons.bootstrap4.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-responsive/js/dataTables.responsive.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-responsive-bs4/js/responsive.bootstrap4.min.js' %}"></script>
+
+<script>
+$(document).ready(function() {
+    // Initialize Top Clubs DataTable
+    $('#topClubsTable').DataTable({
+        responsive: true,
+        pageLength: 10,
+        lengthMenu: [[5, 10, 25, -1], [5, 10, 25, "All"]],
+        order: [[4, 'desc']], // Sort by Products column (index 4) in descending order
+        columnDefs: [
+            {
+                targets: 'no-sort',
+                orderable: false,
+                searchable: false
+            },
+            {
+                targets: [3, 4], // Categories and Products columns
+                type: 'num'
+            }
+        ],
+        language: {
+            search: "_INPUT_",
+            searchPlaceholder: "Search clubs...",
+            lengthMenu: "Show _MENU_ clubs",
+            info: "Showing _START_ to _END_ of _TOTAL_ clubs",
+            infoEmpty: "No clubs available",
+            infoFiltered: "(filtered from _MAX_ total clubs)",
+            paginate: {
+                first: "First",
+                last: "Last", 
+                next: "Next",
+                previous: "Previous"
+            }
+        },
+        drawCallback: function() {
+            // Initialize tooltips after table redraw
+            $('[data-bs-toggle="tooltip"]').tooltip();
+        }
+    });
+
+    // Initialize tooltips
+    $('[data-bs-toggle="tooltip"]').tooltip();
+});
+</script>
+
 <style>
 .card-drop:after {
     display: none;
 }
+
 .avatar-xs img {
     width: 32px;
     height: 32px;
     object-fit: cover;
 }
+
 .badge-soft-success { background-color: rgba(52, 195, 143, 0.1); color: #34c38f; }
 .badge-soft-warning { background-color: rgba(247, 184, 75, 0.1); color: #f7b84b; }
 .badge-soft-danger { background-color: rgba(243, 76, 124, 0.1); color: #f34c7c; }
+.badge-soft-secondary { background-color: rgba(108, 117, 125, 0.1); color: #6c757d; }
+
+/* DataTables Custom Styling */
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter {
+    margin-bottom: 1rem;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    margin-left: 0.5rem;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.dataTables_wrapper .dataTables_filter input:focus {
+    border-color: #ced4da;
+    box-shadow: none;
+    outline: none;
+}
+
+.dataTables_wrapper .dataTables_length select {
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    margin: 0 0.5rem;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.dataTables_wrapper .dataTables_length select:focus {
+    border-color: #ced4da;
+    box-shadow: none;
+    outline: none;
+}
+
+.dataTables_wrapper .dataTables_info {
+    padding-top: 0.75rem;
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.dataTables_wrapper .dataTables_paginate {
+    padding-top: 0.5rem;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    padding: 0.375rem 0.75rem;
+    margin-left: 0.125rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    color: #495057;
+    background: #fff;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+    background: #e9ecef;
+    color: #495057;
+    border-color: #adb5bd;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+    background: #556ee6;
+    color: #fff;
+    border-color: #556ee6;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(85, 110, 230, 0.04);
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+    .dataTables_wrapper .dataTables_length,
+    .dataTables_wrapper .dataTables_filter {
+        text-align: center;
+        margin-bottom: 0.5rem;
+    }
+    
+    .btn-group .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .avatar-xs {
+        width: 24px;
+        height: 24px;
+    }
+    
+    .avatar-xs img {
+        width: 24px;
+        height: 24px;
+    }
+}
+
+/* Action buttons styling */
+.btn-soft-primary {
+    color: #556ee6;
+    background-color: rgba(85, 110, 230, 0.1);
+    border-color: transparent;
+}
+
+.btn-soft-primary:hover {
+    color: #fff;
+    background-color: #556ee6;
+    border-color: #556ee6;
+}
+
+.btn-soft-secondary {
+    color: #6c757d;
+    background-color: rgba(108, 117, 125, 0.1);
+    border-color: transparent;
+}
+
+.btn-soft-secondary:hover {
+    color: #fff;
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
 </style>
 {% endblock %}

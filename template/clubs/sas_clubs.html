@@ -2,76 +2,167 @@
 {% load static club_extras %}
 
 {% block content %}
-<!-- start page title -->
-<div class="row">
+<div class="sas-page">
+<!-- Sync Button Section -->
+<div class="row mb-3">
     <div class="col-12">
-        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-            <h4 class="mb-sm-0">SAS Sport Clubs</h4>
-
-            <div class="page-title-right">
-                <ol class="breadcrumb m-0">
-                    <li class="breadcrumb-item"><a href="{% url 'clubs:club-list' %}">Clubs</a></li>
-                    <li class="breadcrumb-item active">SAS Clubs</li>
-                </ol>
-            </div>
+        <div class="d-flex align-items-center justify-content-between">
+            <h4 class="mb-0">SAS Sport Clubs</h4>
+            <button type="button" id="syncButton" class="btn btn-sas" onclick="startSync()">
+                <i id="syncIcon" class="uil-sync me-2" aria-hidden="true"></i>
+                <span id="syncText">Sync SAS Clubs</span>
+            </button>
         </div>
     </div>
 </div>
-<!-- end page title -->
 
-<!-- SAS Brand Header -->
+<!-- Sync Status Alert -->
+<div id="syncAlert" class="alert alert-info alert-dismissible fade" role="alert" style="display: none;">
+    <div class="d-flex align-items-center">
+        <div class="spinner-border spinner-border-sm text-info me-3" id="syncSpinner" role="status" style="display: none;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <div class="flex-grow-1">
+            <h6 class="alert-heading mb-1" id="syncAlertTitle">Sync Status</h6>
+            <div id="syncAlertMessage">Starting sync process...</div>
+            <div id="syncProgress" class="progress mt-2" style="height: 4px; display: none;">
+                <div class="progress-bar bg-info" role="progressbar" style="width: 0%" id="syncProgressBar"></div>
+            </div>
+        </div>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+
+<!-- Modern SAS Statistics Tiles -->
 <div class="row">
-    <div class="col-12">
-        <div class="card bg-soft-warning">
+    <div class="col-xl-3 col-lg-6 col-md-6 col-12">
+        <div class="card sas-stat-tile">
             <div class="card-body">
                 <div class="d-flex align-items-center">
-                    <div class="avatar-lg me-4">
-                        <span class="avatar-title rounded bg-warning text-white font-size-32">
-                            <i class="uil-trophy"></i>
-                        </span>
-                    </div>
-                    <div class="flex-grow-1">
-                        <h4 class="text-warning mb-1">SAS Sport Clubs</h4>
-                        <p class="text-warning mb-2">Elite sporting merchandise and equipment from South African sport clubs</p>
-                        <p class="text-muted mb-0">Supporting local sport development with quality gear and professional equipment</p>
-                    </div>
-                    <div class="flex-shrink-0">
-                        <div class="d-flex flex-column text-center">
-                            <h3 class="text-warning mb-0">{{ clubs.count }}</h3>
-                            <small class="text-muted">Active Clubs</small>
+                    <div class="avatar-md me-3 flex-shrink-0">
+                        <div class="avatar-title bg-info text-white rounded">
+                            <i class="uil-building font-size-24"></i>
                         </div>
                     </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted font-weight-medium mb-1">Total Clubs</p>
+                        <h4 class="mb-0 text-info">{{ stats.total_clubs }}</h4>
+                    </div>
+                </div>
+                <div class="progress mt-3" style="height: 4px;">
+                    <div class="progress-bar bg-info" role="progressbar" style="width: 100%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-lg-6 col-md-6 col-12">
+        <div class="card sas-stat-tile">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-md me-3 flex-shrink-0">
+                        <div class="avatar-title bg-gradient-info text-white rounded">
+                            <i class="uil-layers-alt font-size-24"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted font-weight-medium mb-1">Active Categories</p>
+                        <h4 class="mb-0 text-info">{{ stats.total_categories }}</h4>
+                    </div>
+                </div>
+                <div class="progress mt-3" style="height: 4px;">
+                    <div class="progress-bar bg-gradient-info" role="progressbar" style="width: {% widthratio stats.total_categories stats.total_clubs 100 %}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-lg-6 col-md-6 col-12">
+        <div class="card sas-stat-tile">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-md me-3 flex-shrink-0">
+                        <div class="avatar-title bg-soft-sas-secondary text-info rounded">
+                            <i class="uil-package font-size-24"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted font-weight-medium mb-1">Available Products</p>
+                        <h4 class="mb-0 text-info">{{ stats.total_products|floatformat:0 }}</h4>
+                    </div>
+                </div>
+                <div class="progress mt-3" style="height: 4px;">
+                    <div class="progress-bar" role="progressbar" style="width: {% if stats.total_products > 1000 %}100{% else %}{% widthratio stats.total_products 1000 100 %}{% endif %}%; background: linear-gradient(45deg, #3E5879, #2C74B3);"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-lg-6 col-md-6 col-12">
+        <div class="card sas-stat-tile">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-md me-3 flex-shrink-0">
+                        <div class="avatar-title bg-soft-sas-tertiary text-info rounded">
+                            <i class="uil-check-circle font-size-24"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted font-weight-medium mb-1">Active Clubs</p>
+                        <h4 class="mb-0 text-info">{{ stats.active_clubs }}</h4>
+                        <small class="text-success">
+                            <i class="uil-arrow-up font-size-12"></i>
+                            {% widthratio stats.active_clubs stats.total_clubs 100 %}% active
+                        </small>
+                    </div>
+                </div>
+                <div class="progress mt-3" style="height: 4px;">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: {% widthratio stats.active_clubs stats.total_clubs 100 %}%"></div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
+
+
 <!-- Filters and Search -->
 <div class="row">
     <div class="col-12">
         <div class="card">
             <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-lg-6">
+                <div class="row g-3 filter-row">
+                    <div class="col-xl-6 col-lg-12 col-md-8">
+                        <label class="form-label d-md-none" for="searchInput">Search SAS Clubs</label>
                         <div class="search-box">
                             <div class="position-relative">
-                                <input type="text" class="form-control" id="searchInput" placeholder="Search SAS clubs..." value="{{ current_search }}">
-                                <i class="uil-search search-icon"></i>
+                                <input type="text" class="form-control" id="searchInput" name="search" placeholder="Search SAS clubs..." value="{{ current_search|default:'' }}" aria-label="Search SAS clubs" autocomplete="off">
+                                <i class="uil-search search-icon" aria-hidden="true"></i>
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-4">
-                        <select class="form-control" id="sportFilter">
+                    <div class="col-xl-3 col-lg-6 col-md-4">
+                        <label class="form-label d-md-none" for="sportFilter">Sport</label>
+                        <select class="form-select" id="sportFilter" aria-label="Filter by sport">
                             <option value="">All Sports</option>
-                            {% for value, label in sport_tags %}
-                            <option value="{{ value }}" {% if current_sport == value %}selected{% endif %}>{{ label }}</option>
+                            {% for sport in sports %}
+                            <option value="{{ sport.slug }}" {% if current_sport == sport.slug %}selected{% endif %}>{{ sport.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-lg-2">
-                        <button type="button" class="btn btn-warning w-100" onclick="applyFilters()">
-                            <i class="uil-filter me-1"></i> Filter
+                    <div class="col-xl-3 col-lg-6 col-md-12">
+                        <label class="form-label d-md-none">&nbsp;</label>
+                        <button type="button" class="btn btn-sas w-100 d-flex align-items-center justify-content-center" onclick="applyFilters()">
+                            <i class="uil-filter me-1" aria-hidden="true"></i> 
+                            <span>Filter</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- Clear Filters Button (Mobile Only) -->
+                <div class="row mt-2 d-xl-none">
+                    <div class="col-12">
+                        <button type="button" class="btn btn-outline-sas w-100" onclick="clearFilters()">
+                            <i class="uil-refresh me-1" aria-hidden="true"></i> Clear All Filters
                         </button>
                     </div>
                 </div>
@@ -83,7 +174,7 @@
 <!-- SAS Clubs Grid -->
 <div class="row" id="clubGrid">
     {% for club in clubs %}
-    <div class="col-lg-4 col-md-6">
+    <div class="col-xxl-3 col-xl-4 col-lg-6 col-md-6 col-sm-12 mb-4">
         <div class="card sas-club-card h-100">
             <div class="card-body">
                 <div class="d-flex align-items-center mb-3">
@@ -91,23 +182,22 @@
                         {% if club.logo %}
                         <img src="{{ club.logo|proxy_image_url }}" alt="{{ club.name }}" class="avatar-md rounded">
                         {% else %}
-                        <span class="avatar-title rounded bg-warning text-white font-size-18">
+                        <span class="avatar-title rounded bg-info text-white font-size-18">
                             {{ club.name|first }}
                         </span>
                         {% endif %}
                     </div>
                     <div class="flex-grow-1">
                         <h5 class="mb-1">
-                            <a href="{% url 'clubs:club-detail' club.slug %}" class="text-dark">{{ club.name }}</a>
+                            <a href="{% url 'clubs:sas-club-detail' club.slug %}" class="text-dark">{{ club.name }}</a>
                         </h5>
                         <div class="d-flex align-items-center gap-2">
-                            <span class="badge bg-warning font-size-11">SAS</span>
-                            <span class="badge bg-soft-primary text-primary font-size-11">
-                                <i class="uil-basketball me-1"></i>{{ club.sport_tag }}
+                            <span class="badge badge-sas font-size-11">SAS</span>
+                            {% if club.sport %}
+                            <span class="badge badge-soft-sas-secondary font-size-11">
+                                <i class="uil-dribbble me-1"></i>{{ club.sport.name }}
                             </span>
-                            <span class="badge bg-soft-success text-success font-size-11">
-                                <i class="uil-location-point me-1"></i>Local
-                            </span>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -115,24 +205,25 @@
                 <!-- Club Stats with SAS Styling -->
                 <div class="sas-stats mb-3">
                     <div class="row g-0">
-                        <div class="col-4">
-                            <div class="p-3 border-end border-warning bg-soft-warning text-center">
-                                <h5 class="mb-1 text-warning">{{ club.active_categories_count }}</h5>
-                                <p class="text-warning font-size-13 mb-0">Categories</p>
+                        <div class="col-6">
+                            <div class="p-3 border-end border-info bg-soft-sas-primary text-center">
+                                <h5 class="mb-1 text-info">{{ club.product_count }}</h5>
+                                <p class="text-info font-size-13 mb-0">Products</p>
                             </div>
                         </div>
-                        <div class="col-4">
-                            <div class="p-3 border-end border-warning bg-soft-warning text-center">
-                                <h5 class="mb-1 text-warning">{{ club.total_products }}</h5>
-                                <p class="text-warning font-size-13 mb-0">Products</p>
-                            </div>
-                        </div>
-                        <div class="col-4">
-                            <div class="p-3 bg-soft-warning text-center">
-                                <h5 class="mb-1 text-warning">
-                                    <i class="uil-shield-check font-size-14"></i>
+                        <div class="col-6">
+                            <div class="p-3 bg-soft-sas-primary text-center">
+                                {% if club.sport %}
+                                <h5 class="mb-1 text-info">
+                                    <i class="uil-dribbble font-size-14"></i>
                                 </h5>
-                                <p class="text-warning font-size-13 mb-0">Verified</p>
+                                <p class="text-info font-size-13 mb-0">{{ club.sport.name }}</p>
+                                {% else %}
+                                <h5 class="mb-1 text-info">
+                                    <i class="uil-question font-size-14"></i>
+                                </h5>
+                                <p class="text-info font-size-13 mb-0">Sport</p>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -142,49 +233,39 @@
                 <div class="club-details">
                     {% if club.contact_person %}
                     <div class="d-flex align-items-center mb-2">
-                        <i class="uil-user text-warning me-2"></i>
+                        <i class="uil-user text-info me-2"></i>
                         <span class="text-muted font-size-13">{{ club.contact_person|truncatechars:20 }}</span>
                     </div>
                     {% endif %}
                     
                     {% if club.email %}
                     <div class="d-flex align-items-center mb-2">
-                        <i class="uil-envelope text-warning me-2"></i>
+                        <i class="uil-envelope text-info me-2"></i>
                         <span class="text-muted font-size-13">{{ club.email|truncatechars:25 }}</span>
                     </div>
                     {% endif %}
                     
                     {% if club.website %}
                     <div class="d-flex align-items-center mb-2">
-                        <i class="uil-globe text-warning me-2"></i>
-                        <a href="{{ club.website }}" target="_blank" class="text-warning font-size-13">Visit Website</a>
+                        <i class="uil-globe text-info me-2"></i>
+                        <a href="{{ club.website }}" target="_blank" class="text-info font-size-13">Visit Website</a>
                     </div>
                     {% endif %}
                     
                     {% if club.address %}
                     <div class="d-flex align-items-start mb-2">
-                        <i class="uil-map-marker text-warning me-2 mt-1"></i>
+                        <i class="uil-map-marker text-info me-2 mt-1"></i>
                         <span class="text-muted font-size-13">{{ club.address|truncatechars:40 }}</span>
                     </div>
                     {% endif %}
                 </div>
-
-                <!-- South African Pride Section -->
-                <div class="sa-pride mt-3 p-2 bg-soft-success rounded">
-                    <div class="d-flex align-items-center">
-                        <i class="uil-map text-success me-2"></i>
-                        <small class="text-success mb-0">
-                            <strong>Proudly South African</strong> - Supporting local sport development
-                        </small>
-                    </div>
-                </div>
             </div>
-            <div class="card-footer bg-transparent border-top border-warning">
+            <div class="card-footer bg-transparent border-top">
                 <div class="d-flex gap-2">
-                    <a href="{% url 'clubs:club-detail' club.slug %}" class="btn btn-warning btn-sm flex-grow-1">
+                    <a href="{% url 'clubs:sas-club-detail' club.slug %}" class="btn btn-sas btn-sm flex-grow-1">
                         <i class="uil-eye me-1"></i> Explore Club
                     </a>
-                    <button type="button" class="btn btn-soft-success btn-sm" data-bs-toggle="tooltip" title="Support Local">
+                    <button type="button" class="btn btn-soft-sas btn-sm" data-bs-toggle="tooltip" title="Add to Favorites">
                         <i class="uil-heart"></i>
                     </button>
                 </div>
@@ -196,17 +277,17 @@
         <div class="card">
             <div class="card-body text-center py-5">
                 <div class="avatar-xl mx-auto mb-4">
-                    <div class="avatar-title bg-soft-warning text-warning rounded-circle font-size-48">
-                        <i class="uil-trophy"></i>
+                    <div class="avatar-title bg-soft-sas-primary text-info rounded-circle font-size-48">
+                        <i class="uil-users-alt"></i>
                     </div>
                 </div>
                 <h5>No SAS Clubs Found</h5>
                 <p class="text-muted">Try adjusting your search criteria or filters.</p>
                 <div class="d-flex gap-2 justify-content-center">
-                    <button type="button" class="btn btn-soft-warning" onclick="clearFilters()">
+                    <button type="button" class="btn btn-soft-sas" onclick="clearFilters()">
                         <i class="uil-refresh me-1"></i> Clear Filters
                     </button>
-                    <a href="{% url 'clubs:club-list' %}" class="btn btn-warning">
+                    <a href="{% url 'clubs:club-list' %}" class="btn btn-sas">
                         <i class="uil-users-alt me-1"></i> View All Clubs
                     </a>
                 </div>
@@ -262,35 +343,35 @@
 </div>
 {% endif %}
 
-<!-- South African Sport Development Section -->
+<!-- SAS Features Section -->
 <div class="row mt-4">
     <div class="col-12">
-        <div class="card bg-warning">
+        <div class="card bg-info">
             <div class="card-body text-white">
                 <div class="row align-items-center">
                     <div class="col-md-8">
-                        <h4 class="text-white mb-2">Supporting South African Sport</h4>
-                        <p class="mb-0">Every purchase from SAS clubs directly contributes to local sport development and community upliftment across South Africa.</p>
+                        <h4 class="text-white mb-2">Why Choose SAS Sport Equipment?</h4>
+                        <p class="mb-0">Experience the quality and innovation that has made SAS a trusted name in South African sports development.</p>
                     </div>
                     <div class="col-md-4 text-end">
                         <div class="row text-center">
                             <div class="col-4">
                                 <div class="bg-white bg-opacity-25 rounded p-2 mb-1">
-                                    <i class="uil-users-alt font-size-24"></i>
+                                    <i class="uil-award font-size-24"></i>
                                 </div>
-                                <small>Community</small>
+                                <small>Quality</small>
                             </div>
                             <div class="col-4">
                                 <div class="bg-white bg-opacity-25 rounded p-2 mb-1">
-                                    <i class="uil-trophy font-size-24"></i>
+                                    <i class="uil-rocket font-size-24"></i>
                                 </div>
-                                <small>Excellence</small>
+                                <small>Innovation</small>
                             </div>
                             <div class="col-4">
                                 <div class="bg-white bg-opacity-25 rounded p-2 mb-1">
-                                    <i class="uil-heart font-size-24"></i>
+                                    <i class="uil-globe font-size-24"></i>
                                 </div>
-                                <small>Pride</small>
+                                <small>Local</small>
                             </div>
                         </div>
                     </div>
@@ -300,50 +381,52 @@
     </div>
 </div>
 
-<!-- Local Sport Benefits -->
-<div class="row mt-3">
-    <div class="col-md-4">
-        <div class="card border-success">
-            <div class="card-body text-center">
-                <div class="avatar-sm mx-auto mb-3">
-                    <span class="avatar-title bg-soft-success text-success rounded-circle">
-                        <i class="uil-users-alt font-size-20"></i>
-                    </span>
-                </div>
-                <h5 class="font-size-15">Community Development</h5>
-                <p class="text-muted mb-0">Supporting grassroots sport initiatives across South Africa</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card border-warning">
-            <div class="card-body text-center">
-                <div class="avatar-sm mx-auto mb-3">
-                    <span class="avatar-title bg-soft-warning text-warning rounded-circle">
-                        <i class="uil-graduation-cap font-size-20"></i>
-                    </span>
-                </div>
-                <h5 class="font-size-15">Youth Programs</h5>
-                <p class="text-muted mb-0">Investing in the next generation of South African athletes</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card border-info">
-            <div class="card-body text-center">
-                <div class="avatar-sm mx-auto mb-3">
-                    <span class="avatar-title bg-soft-info text-info rounded-circle">
-                        <i class="uil-chart-growth font-size-20"></i>
-                    </span>
-                </div>
-                <h5 class="font-size-15">Local Economy</h5>
-                <p class="text-muted mb-0">Boosting local businesses and sport infrastructure</p>
-            </div>
-        </div>
-    </div>
-</div>
-
 <style>
+/* Page header styling */
+.page-header {
+    margin-bottom: 1.5rem;
+}
+
+/* SAS Stat Tiles */
+.sas-stat-tile {
+    transition: all 0.3s ease;
+    border: 1px solid rgba(32, 82, 149, 0.1);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.sas-stat-tile::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #3E5879, #2C74B3);
+    transform: translateX(-100%);
+    transition: transform 0.5s ease;
+}
+
+.sas-stat-tile:hover::before {
+    transform: translateX(0);
+}
+
+.sas-stat-tile:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(32, 82, 149, 0.15);
+    border-color: rgba(32, 82, 149, 0.3);
+}
+
+.sas-stat-tile .avatar-title {
+    transition: all 0.3s ease;
+}
+
+.sas-stat-tile:hover .avatar-title {
+    transform: scale(1.1);
+}
+
+/* Club Cards */
 .sas-club-card {
     transition: all 0.3s ease;
     border: 2px solid #f1f1f1;
@@ -351,8 +434,8 @@
 
 .sas-club-card:hover {
     transform: translateY(-8px);
-    box-shadow: 0 15px 35px rgba(247, 184, 75, 0.2);
-    border-color: #f7b84b;
+    box-shadow: 0 15px 35px rgba(19, 29, 79, 0.2);
+    border-color: #205295;
 }
 
 .search-box .search-icon {
@@ -362,6 +445,16 @@
     transform: translateY(-50%);
     font-size: 16px;
     color: #74788d;
+    pointer-events: none;
+}
+
+.search-box input[type="text"] {
+    padding-right: 40px;
+}
+
+.search-box input[type="text"]:focus {
+    border-color: #205295;
+    box-shadow: 0 0 0 0.2rem rgba(32, 82, 149, 0.25);
 }
 
 .avatar-md {
@@ -380,65 +473,489 @@
     overflow: hidden;
 }
 
-.bg-soft-warning { 
-    background-color: rgba(247, 184, 75, 0.1) !important; 
+/* SAS Brand Colors - Template Specific Overrides */
+.bg-soft-info { 
+    background-color: rgba(32, 82, 149, 0.08) !important; 
 }
 
-.bg-soft-success { 
-    background-color: rgba(52, 195, 143, 0.1) !important; 
+/* SAS-specific badge styling */
+.badge-sas {
+    background-color: #205295 !important;
+    color: white !important;
+    font-weight: 500;
 }
 
-.border-warning {
-    border-color: #f7b84b !important;
+/* SAS-specific button styling */
+.btn-sas {
+    background-color: #205295;
+    border-color: #205295;
+    color: white;
+    transition: all 0.3s ease;
 }
 
-.border-success {
-    border-color: #34c38f !important;
+.btn-sas:hover {
+    background-color: #2C74B3;
+    border-color: #2C74B3;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(32, 82, 149, 0.3);
 }
 
-.text-warning {
-    color: #f7b84b !important;
+.btn-soft-sas {
+    background-color: rgba(32, 82, 149, 0.08);
+    border-color: rgba(32, 82, 149, 0.15);
+    color: #205295;
+    transition: all 0.3s ease;
 }
 
-.text-success {
-    color: #34c38f !important;
-}
-
-.btn-warning {
-    background-color: #f7b84b;
-    border-color: #f7b84b;
-}
-
-.btn-soft-warning {
-    background-color: rgba(247, 184, 75, 0.1);
-    border-color: rgba(247, 184, 75, 0.1);
-    color: #f7b84b;
-}
-
-.btn-soft-warning:hover {
-    background-color: #f7b84b;
-    border-color: #f7b84b;
+.btn-soft-sas:hover {
+    background-color: #205295;
+    border-color: #205295;
     color: white;
 }
 
-.btn-soft-success {
-    background-color: rgba(52, 195, 143, 0.1);
-    border-color: rgba(52, 195, 143, 0.1);
-    color: #34c38f;
+.bg-info-light {
+    background-color: rgba(37, 77, 112, 0.15) !important;
 }
 
-.btn-soft-success:hover {
-    background-color: #34c38f;
-    border-color: #34c38f;
+.bg-gradient-info {
+    background: linear-gradient(135deg, #3E5879 0%, #2C74B3 100%) !important;
+}
+
+.border-info {
+    border-color: #205295 !important;
+}
+
+.text-info {
+    color: #205295 !important;
+}
+
+.btn-info {
+    background-color: #205295;
+    border-color: #205295;
+    transition: all 0.3s ease;
+}
+
+.btn-info:hover {
+    background-color: #2C74B3;
+    border-color: #2C74B3;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(32, 82, 149, 0.3);
+}
+
+.btn-soft-info {
+    background-color: rgba(32, 82, 149, 0.08);
+    border-color: rgba(32, 82, 149, 0.15);
+    color: #205295;
+}
+
+.btn-soft-info:hover {
+    background-color: #205295;
+    border-color: #205295;
     color: white;
 }
 
-.sa-pride {
-    background: linear-gradient(135deg, rgba(52, 195, 143, 0.1) 0%, rgba(52, 195, 143, 0.05) 100%);
+/* Progress Bars */
+.progress {
+    border-radius: 4px;
+    background-color: rgba(32, 82, 149, 0.06);
+}
+
+.progress-bar {
+    transition: width 0.6s ease;
+    border-radius: 4px;
+}
+
+.progress-bar.bg-info {
+    background: linear-gradient(90deg, #3E5879, #2C74B3);
+}
+
+.progress-bar.bg-gradient-info {
+    background: linear-gradient(90deg, #3E5879, #2C74B3);
+}
+
+.progress-bar.bg-success {
+    background: linear-gradient(90deg, #28a745, #20c997);
+}
+
+/* Typography Enhancements */
+.font-weight-medium {
+    font-weight: 500;
+}
+
+.font-weight-semibold {
+    font-weight: 600;
+}
+
+/* Avatar Enhancements */
+.avatar-sm {
+    width: 40px;
+    height: 40px;
+}
+
+.avatar-sm .avatar-title {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .sas-stat-tile {
+        margin-bottom: 1rem;
+    }
+    
+    .sas-stat-tile:hover {
+        transform: none;
+    }
+}
+
+/* Sync button animation */
+.uil-refresh-spin {
+    animation: refresh-spin 1s linear infinite;
+}
+
+@keyframes refresh-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Sync alert styling */
+#syncAlert {
+    position: sticky;
+    top: 20px;
+    z-index: 1050;
+}
+
+/* Animation for stat tiles on load */
+.sas-stat-tile {
+    animation: fadeInUp 0.6s ease forwards;
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+.sas-stat-tile:nth-child(1) { animation-delay: 0.1s; }
+.sas-stat-tile:nth-child(2) { animation-delay: 0.2s; }
+.sas-stat-tile:nth-child(3) { animation-delay: 0.3s; }
+.sas-stat-tile:nth-child(4) { animation-delay: 0.4s; }
+
+@keyframes fadeInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Loading state for stat tiles */
+.stat-loading {
+    position: relative;
+}
+
+.stat-loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(32, 82, 149, 0.1), transparent);
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+/* SAS Page specific styles */
+.sas-page .text-info,
+.sas-page .text-primary {
+    color: #205295 !important;
+}
+
+.sas-page .bg-info,
+.sas-page .bg-primary {
+    background-color: #205295 !important;
+}
+
+.sas-page .border-info,
+.sas-page .border-primary {
+    border-color: #205295 !important;
+}
+
+.sas-page .btn-info,
+.sas-page .btn-primary {
+    background-color: #205295;
+    border-color: #205295;
+    color: white;
+}
+
+.sas-page .btn-info:hover,
+.sas-page .btn-primary:hover {
+    background-color: #2C74B3;
+    border-color: #2C74B3;
+    color: white;
+}
+
+.sas-page .btn-soft-info,
+.sas-page .btn-soft-primary {
+    background-color: rgba(32, 82, 149, 0.1);
+    border-color: rgba(32, 82, 149, 0.1);
+    color: #205295;
+}
+
+.sas-page .btn-soft-info:hover,
+.sas-page .btn-soft-primary:hover {
+    background-color: #205295;
+    border-color: #205295;
+    color: white;
+}
+
+.sas-page .badge-info,
+.sas-page .badge-primary {
+    background-color: #205295;
+    color: white;
+}
+
+.sas-page .bg-soft-info,
+.sas-page .bg-soft-primary {
+    background-color: rgba(32, 82, 149, 0.1) !important;
+}
+
+.sas-page .progress-bar-info,
+.sas-page .progress-bar-primary,
+.sas-page .bg-info .progress-bar,
+.sas-page .bg-primary .progress-bar {
+    background: linear-gradient(90deg, #3E5879, #2C74B3);
+}
+
+.sas-page .sas-stat-tile {
+    border-color: rgba(32, 82, 149, 0.1);
+}
+
+.sas-page .sas-stat-tile::before {
+    background: linear-gradient(90deg, #3E5879, #2C74B3);
+}
+
+.sas-page .sas-stat-tile:hover {
+    border-color: rgba(32, 82, 149, 0.3);
+    box-shadow: 0 10px 25px rgba(32, 82, 149, 0.15);
+}
+
+.sas-page .page-title-box h4 {
+    color: #205295 !important;
+}
+
+.sas-page .breadcrumb-item + .breadcrumb-item::before {
+    color: #205295 !important;
+}
+
+.sas-page .breadcrumb-item.active {
+    color: #205295 !important;
+}
+
+.sas-page .breadcrumb-item a {
+    color: #2C74B3 !important;
+}
+
+.sas-page .breadcrumb-item a:hover {
+    color: #205295 !important;
+}
+
+.sas-page #syncAlert.alert-info {
+    background-color: rgba(32, 82, 149, 0.1);
+    border-color: #205295;
+    color: #205295;
+}
+
+.sas-page #syncAlert.alert-success {
+    background-color: rgba(40, 167, 69, 0.1);
+    border-color: #28a745;
+    color: #155724;
+}
+
+.sas-page .spinner-border.text-info {
+    color: #205295 !important;
+}
+
+.sas-page .bg-info.card {
+    background-color: #205295 !important;
+}
+
+.sas-page .pagination .page-item.active .page-link {
+    background-color: #205295;
+    border-color: #205295;
+}
+
+.sas-page .pagination .page-link:hover {
+    color: #205295;
+    background-color: rgba(32, 82, 149, 0.1);
+    border-color: #205295;
+}
+
+.sas-page .search-box .form-control:focus {
+    border-color: #205295;
+    box-shadow: 0 0 0 0.2rem rgba(32, 82, 149, 0.25);
+}
+
+.sas-page .search-icon {
+    color: #205295;
+}
+
+.sas-page .dropdown-menu {
+    border-color: #205295;
+}
+
+.sas-page .dropdown-item:hover,
+.sas-page .dropdown-item:focus {
+    background-color: rgba(32, 82, 149, 0.1);
+    color: #205295;
+}
+
+.sas-page .dropdown-item.active {
+    background-color: #205295;
+    color: white;
+}
+
+.sas-page .btn:focus {
+    box-shadow: 0 0 0 0.2rem rgba(32, 82, 149, 0.25);
+}
+
+.sas-page .form-control:focus,
+.sas-page .form-select:focus {
+    border-color: #205295;
+    box-shadow: 0 0 0 0.2rem rgba(32, 82, 149, 0.25);
+}
+
+.sas-page .card:focus-within {
+    box-shadow: 0 0 0 0.2rem rgba(32, 82, 149, 0.25);
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+    .sas-page .sas-stat-tile:hover {
+        transform: none;
+    }
+    
+    .sas-page .btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+    .sas-page * {
+        text-shadow: none !important;
+        box-shadow: none !important;
+    }
+    
+    .sas-page .page-title-box h4::after {
+        display: none;
+    }
 }
 </style>
 
 <script>
+// Enhanced stat tile interactions
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize stat tile animations
+    initializeStatTiles();
+    
+    // Enhance progress bar animations
+    animateProgressBars();
+    
+    // Initialize tooltips for stat tiles
+    initializeStatTooltips();
+});
+
+function initializeStatTiles() {
+    const statTiles = document.querySelectorAll('.sas-stat-tile');
+    
+    // Add click interaction to stat tiles
+    statTiles.forEach((tile, index) => {
+        tile.style.cursor = 'pointer';
+        
+        tile.addEventListener('click', function() {
+            // Add a subtle flash effect
+            this.style.transform = 'scale(0.98)';
+            setTimeout(() => {
+                this.style.transform = '';
+            }, 150);
+        });
+        
+        // Add loading simulation on first load
+        setTimeout(() => {
+            tile.classList.add('loaded');
+        }, (index + 1) * 200);
+    });
+}
+
+function animateProgressBars() {
+    const progressBars = document.querySelectorAll('.sas-stat-tile .progress-bar');
+    
+    // Animate progress bars on scroll into view
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const progressBar = entry.target;
+                const width = progressBar.style.width;
+                progressBar.style.width = '0%';
+                
+                setTimeout(() => {
+                    progressBar.style.width = width;
+                }, 100);
+                
+                observer.unobserve(progressBar);
+            }
+        });
+    }, { threshold: 0.5 });
+    
+    progressBars.forEach(bar => observer.observe(bar));
+}
+
+function initializeStatTooltips() {
+    // Add informative tooltips to stat tiles
+    const tooltipData = {
+        'Total Clubs': 'Total number of active SAS sport clubs in the system',
+        'Active Categories': 'Product categories with available inventory across all SAS clubs',
+        'Available Products': 'Total products currently in stock or on backorder',
+        'Active Clubs': 'Clubs with at least one product in stock'
+    };
+    
+    const statTitles = document.querySelectorAll('.sas-stat-tile .font-weight-medium');
+    statTitles.forEach(title => {
+        const text = title.textContent.trim();
+        if (tooltipData[text]) {
+            title.setAttribute('data-bs-toggle', 'tooltip');
+            title.setAttribute('data-bs-placement', 'top');
+            title.setAttribute('title', tooltipData[text]);
+        }
+    });
+}
+
+// Stats refresh function for after sync
+function refreshStats() {
+    const statTiles = document.querySelectorAll('.sas-stat-tile');
+    
+    // Add loading shimmer effect
+    statTiles.forEach(tile => {
+        tile.classList.add('stat-loading');
+    });
+    
+    // Simulate refresh (in real implementation, this would fetch new data)
+    setTimeout(() => {
+        statTiles.forEach(tile => {
+            tile.classList.remove('stat-loading');
+        });
+        
+        // Re-animate progress bars
+        animateProgressBars();
+    }, 2000);
+}
+
 function applyFilters() {
     const search = document.getElementById('searchInput').value;
     const sport = document.getElementById('sportFilter').value;
@@ -457,11 +974,43 @@ function clearFilters() {
     window.location.href = '{% url "clubs:sas-clubs" %}';
 }
 
-// Enable Enter key search
-document.getElementById('searchInput').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        applyFilters();
-    }
+// Enable Enter key search and ensure input is working properly
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    
+    // Ensure input is not readonly or disabled
+    searchInput.removeAttribute('readonly');
+    searchInput.removeAttribute('disabled');
+    
+    // Add keypress handler
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            applyFilters();
+        }
+    });
+    
+    // Add input event for real-time feedback
+    searchInput.addEventListener('input', function(e) {
+        // Clear any previous debounce timer
+        clearTimeout(searchInput.debounceTimer);
+        
+        // Set new debounce timer for auto-search (optional)
+        searchInput.debounceTimer = setTimeout(function() {
+            // Optional: Auto-apply filters after 2 seconds of no typing
+            // Uncomment if you want real-time search
+            // applyFilters();
+        }, 2000);
+    });
+    
+    // Ensure focus works properly
+    searchInput.addEventListener('focus', function() {
+        this.style.borderColor = '#3E5879';
+    });
+    
+    searchInput.addEventListener('blur', function() {
+        this.style.borderColor = '';
+    });
 });
 
 // Initialize tooltips
@@ -470,6 +1019,120 @@ document.addEventListener('DOMContentLoaded', function() {
     tooltips.map(function(tooltip) {
         return new bootstrap.Tooltip(tooltip);
     });
+    
+    // Disable auto-suggestions for SAS page
+    if (window.clubsManager && window.clubsManager.initializeAjaxSearch) {
+        window.clubsManager.initializeAjaxSearch = function() {
+            // Disabled - no auto-suggestions
+            return;
+        };
+    }
 });
+
+// Helper function to get CSRF token from cookies
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Sync functionality
+function startSync() {
+    const syncButton = document.getElementById('syncButton');
+    const syncIcon = document.getElementById('syncIcon');
+    const syncText = document.getElementById('syncText');
+    const syncAlert = document.getElementById('syncAlert');
+    const syncSpinner = document.getElementById('syncSpinner');
+    const syncAlertTitle = document.getElementById('syncAlertTitle');
+    const syncAlertMessage = document.getElementById('syncAlertMessage');
+    const syncProgress = document.getElementById('syncProgress');
+    const syncProgressBar = document.getElementById('syncProgressBar');
+    
+    // Disable button and show loading state
+    syncButton.disabled = true;
+    syncIcon.className = 'uil-refresh-spin me-2';
+    syncText.textContent = 'Syncing...';
+    
+    // Show sync alert with loading state
+    syncAlert.style.display = 'block';
+    syncAlert.className = 'alert alert-info alert-dismissible fade show';
+    syncSpinner.style.display = 'block';
+    syncAlertTitle.textContent = 'Sync in Progress';
+    syncAlertMessage.textContent = 'Synchronizing SAS clubs data from WooCommerce...';
+    syncProgress.style.display = 'block';
+    syncProgressBar.style.width = '25%';
+    
+    // Make AJAX request to sync endpoint
+    fetch('{% url "clubs:sync-sas-clubs" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        syncProgressBar.style.width = '100%';
+        
+        if (data.success) {
+            // Success state
+            syncAlert.className = 'alert alert-success alert-dismissible fade show';
+            syncSpinner.style.display = 'none';
+            syncAlertTitle.textContent = 'Sync Completed Successfully!';
+            
+            let message = `Synchronization completed successfully.<br>`;
+            if (data.stats) {
+                message += `<small class="mt-2 d-block">`;
+                message += `Clubs: ${data.stats.clubs_created} created, ${data.stats.clubs_updated} updated<br>`;
+                message += `Categories: ${data.stats.categories_created} created, ${data.stats.categories_updated} updated<br>`;
+                message += `Products: ${data.stats.products_created} created, ${data.stats.products_updated} updated`;
+                message += `</small>`;
+            }
+            
+            syncAlertMessage.innerHTML = message;
+            
+            // Trigger stats refresh animation
+            refreshStats();
+            
+            // Auto-refresh page after 4 seconds to show stats animation
+            setTimeout(() => {
+                window.location.reload();
+            }, 4000);
+            
+        } else {
+            // Error state
+            syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+            syncSpinner.style.display = 'none';
+            syncAlertTitle.textContent = 'Sync Failed';
+            syncAlertMessage.innerHTML = `<strong>Error:</strong> ${data.error || 'An unknown error occurred during synchronization.'}`;
+        }
+    })
+    .catch(error => {
+        // Network/fetch error
+        syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+        syncSpinner.style.display = 'none';
+        syncAlertTitle.textContent = 'Sync Failed';
+        syncAlertMessage.innerHTML = `<strong>Network Error:</strong> Unable to connect to the sync service. Please try again later.`;
+        console.error('Sync error:', error);
+    })
+    .finally(() => {
+        // Reset button state
+        syncButton.disabled = false;
+        syncIcon.className = 'uil-sync me-2';
+        syncText.textContent = 'Sync SAS Clubs';
+        syncProgress.style.display = 'none';
+    });
+}
 </script>
+</div> <!-- End sas-page wrapper -->
 {% endblock %}

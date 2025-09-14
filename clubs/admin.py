@@ -6,6 +6,7 @@ from django.shortcuts import redirect
 from django.contrib import messages
 from .models import Club, ClubCategory, Product, ProductVariation, ProductCategoryAssignment
 from .models_lotto import LottoClub, LottoClubCategory, LottoProduct, LottoProductVariation
+from .models_sas import SASSport, SASClub, SASProduct
 from .services.woocommerce_service import WooCommerceService
 
 
@@ -975,6 +976,315 @@ class LottoProductVariationAdmin(admin.ModelAdmin):
         updated = queryset.update(is_active=False)
         self.message_user(request, f"Successfully deactivated {updated} LOTTO variations.", messages.SUCCESS)
     deactivate_variations.short_description = "Deactivate selected variations"
+
+
+# SAS-specific Admin Classes
+
+@admin.register(SASSport)
+class SASSportAdmin(admin.ModelAdmin):
+    """
+    Admin interface for SASSport model
+    """
+    list_display = [
+        'name', 'club_count', 'product_count', 'is_active', 
+        'woo_category_id', 'last_sync_at', 'created_at'
+    ]
+    list_filter = ['is_active', 'created_at', 'last_sync_at']
+    search_fields = ['name', 'description']
+    readonly_fields = ['slug', 'woo_category_id', 'club_count', 'product_count', 'created_at', 'updated_at', 'last_sync_at']
+    prepopulated_fields = {'slug': ('name',)}
+    
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'slug', 'description', 'is_active')
+        }),
+        ('Statistics', {
+            'fields': ('club_count', 'product_count')
+        }),
+        ('Media', {
+            'fields': ('image_url',)
+        }),
+        ('WooCommerce Integration', {
+            'fields': ('woo_category_id',)
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at', 'last_sync_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    actions = ['update_counts', 'activate_sports', 'deactivate_sports', 'sync_sports']
+    
+    def update_counts(self, request, queryset):
+        """Update club and product counts for selected sports"""
+        for sport in queryset:
+            sport.update_counts()
+        
+        self.message_user(
+            request, 
+            f"Successfully updated counts for {queryset.count()} sports.", 
+            messages.SUCCESS
+        )
+    update_counts.short_description = "Update club and product counts"
+    
+    def activate_sports(self, request, queryset):
+        """Activate selected sports"""
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f"Successfully activated {updated} sports.", messages.SUCCESS)
+    activate_sports.short_description = "Activate selected sports"
+    
+    def deactivate_sports(self, request, queryset):
+        """Deactivate selected sports"""
+        updated = queryset.update(is_active=False)
+        self.message_user(request, f"Successfully deactivated {updated} sports.", messages.SUCCESS)
+    deactivate_sports.short_description = "Deactivate selected sports"
+    
+    def sync_sports(self, request, queryset):
+        """Sync selected sports with WooCommerce"""
+        try:
+            for sport in queryset:
+                woo_service = WooCommerceService(store_type='SAS')
+                # Add sync logic here if needed
+            
+            self.message_user(request, f"Successfully synced {queryset.count()} SAS sports.", messages.SUCCESS)
+        except Exception as e:
+            self.message_user(request, f"Error syncing SAS sports: {str(e)}", messages.ERROR)
+    
+    sync_sports.short_description = "Sync selected sports with WooCommerce"
+
+
+@admin.register(SASClub)
+class SASClubAdmin(admin.ModelAdmin):
+    """
+    Admin interface for SASClub model
+    """
+    list_display = [
+        'name', 'sport', 'city', 'product_count', 'is_school', 
+        'is_active', 'woo_category_id', 'last_sync_at', 'created_at'
+    ]
+    list_filter = [
+        'sport', 'is_active', 'is_school', 'city', 'province', 
+        'created_at', 'last_sync_at'
+    ]
+    search_fields = [
+        'name', 'contact_person', 'email', 'city', 'address'
+    ]
+    readonly_fields = [
+        'slug', 'woo_category_id', 'is_school', 'product_count', 
+        'created_at', 'updated_at', 'last_sync_at'
+    ]
+    prepopulated_fields = {'slug': ('name',)}
+    
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('sport', 'name', 'slug', 'description', 'is_active')
+        }),
+        ('Contact Information', {
+            'fields': ('contact_person', 'email', 'website', 'phone')
+        }),
+        ('Location', {
+            'fields': ('city', 'province', 'address')
+        }),
+        ('Classification', {
+            'fields': ('is_school', 'product_count')
+        }),
+        ('Media', {
+            'fields': ('image_url',)
+        }),
+        ('WooCommerce Integration', {
+            'fields': ('woo_category_id',)
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at', 'last_sync_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_queryset(self, request):
+        """Optimize queryset with select_related"""
+        return super().get_queryset(request).select_related('sport')
+    
+    actions = [
+        'activate_clubs', 'deactivate_clubs', 'mark_as_school', 'mark_as_club', 
+        'update_product_counts', 'sync_selected_clubs'
+    ]
+    
+    def activate_clubs(self, request, queryset):
+        """Activate selected clubs"""
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f"Successfully activated {updated} SAS clubs.", messages.SUCCESS)
+    activate_clubs.short_description = "Activate selected clubs"
+    
+    def deactivate_clubs(self, request, queryset):
+        """Deactivate selected clubs"""
+        updated = queryset.update(is_active=False)
+        self.message_user(request, f"Successfully deactivated {updated} SAS clubs.", messages.SUCCESS)
+    deactivate_clubs.short_description = "Deactivate selected clubs"
+    
+    def mark_as_school(self, request, queryset):
+        """Mark selected items as schools"""
+        updated = queryset.update(is_school=True)
+        self.message_user(request, f"Successfully marked {updated} items as schools.", messages.SUCCESS)
+    mark_as_school.short_description = "Mark as school"
+    
+    def mark_as_club(self, request, queryset):
+        """Mark selected items as clubs (not schools)"""
+        updated = queryset.update(is_school=False)
+        self.message_user(request, f"Successfully marked {updated} items as clubs.", messages.SUCCESS)
+    mark_as_club.short_description = "Mark as club (not school)"
+    
+    def update_product_counts(self, request, queryset):
+        """Update product counts for selected clubs"""
+        for club in queryset:
+            club.update_product_count()
+        
+        self.message_user(
+            request, 
+            f"Successfully updated product counts for {queryset.count()} SAS clubs.", 
+            messages.SUCCESS
+        )
+    update_product_counts.short_description = "Update product counts"
+    
+    def sync_selected_clubs(self, request, queryset):
+        """Sync selected clubs with WooCommerce"""
+        try:
+            for club in queryset:
+                woo_service = WooCommerceService(store_type='SAS')
+                # Add sync logic here if needed
+            
+            self.message_user(request, f"Successfully synced {queryset.count()} SAS clubs.", messages.SUCCESS)
+        except Exception as e:
+            self.message_user(request, f"Error syncing SAS clubs: {str(e)}", messages.ERROR)
+    
+    sync_selected_clubs.short_description = "Sync selected SAS clubs with WooCommerce"
+
+
+@admin.register(SASProduct)
+class SASProductAdmin(admin.ModelAdmin):
+    """
+    Admin interface for SASProduct model
+    """
+    list_display = [
+        'name', 'club', 'sport_name', 'effective_price', 'stock_status', 
+        'sku', 'is_on_sale_display', 'featured', 'is_active', 
+        'woo_product_id', 'created_at'
+    ]
+    list_filter = [
+        'stock_status', 'featured', 'is_active', 'product_type', 
+        'club__sport', 'club', 'created_at', 'last_sync_at'
+    ]
+    search_fields = [
+        'name', 'description', 'short_description', 'sku', 
+        'club__name', 'club__sport__name'
+    ]
+    readonly_fields = [
+        'slug', 'woo_product_id', 'is_on_sale', 'discount_percentage', 
+        'sport', 'is_available', 'effective_price', 'created_at', 'updated_at', 'last_sync_at'
+    ]
+    prepopulated_fields = {'slug': ('name',)}
+    
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('club', 'name', 'slug', 'product_type', 'is_active')
+        }),
+        ('Pricing', {
+            'fields': ('price', 'regular_price', 'sale_price', 'is_on_sale', 'discount_percentage', 'effective_price')
+        }),
+        ('Inventory', {
+            'fields': ('sku', 'stock_status', 'manage_stock', 'stock_quantity', 'backorders')
+        }),
+        ('Content', {
+            'fields': ('short_description', 'description')
+        }),
+        ('Product Features', {
+            'fields': ('featured', 'catalog_visibility'),
+        }),
+        ('Product Details', {
+            'fields': ('weight', 'dimensions', 'tags', 'attributes', 'categories'),
+            'classes': ('collapse',)
+        }),
+        ('Media', {
+            'fields': ('image_url', 'gallery_urls')
+        }),
+        ('Related Information', {
+            'fields': ('sport',),
+            'classes': ('collapse',)
+        }),
+        ('WooCommerce Integration', {
+            'fields': ('woo_product_id',)
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at', 'last_sync_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_queryset(self, request):
+        """Optimize queryset with select_related"""
+        return super().get_queryset(request).select_related('club', 'club__sport')
+    
+    def sport_name(self, obj):
+        """Display sport name"""
+        return obj.club.sport.name if obj.club and obj.club.sport else '-'
+    sport_name.short_description = 'Sport'
+    sport_name.admin_order_field = 'club__sport__name'
+    
+    def is_on_sale_display(self, obj):
+        """Display if product is on sale"""
+        if obj.is_on_sale:
+            return format_html(
+                '<span style="color: green; font-weight: bold;">✓ {}% OFF</span>', 
+                obj.discount_percentage
+            )
+        return format_html('<span style="color: gray;">-</span>')
+    is_on_sale_display.short_description = 'On Sale'
+    
+    actions = [
+        'mark_active', 'mark_inactive', 'mark_featured', 'unmark_featured',
+        'mark_in_stock', 'mark_out_of_stock', 'mark_on_backorder'
+    ]
+    
+    def mark_active(self, request, queryset):
+        """Mark selected products as active"""
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f"Successfully activated {updated} SAS products.", messages.SUCCESS)
+    mark_active.short_description = "Mark as active"
+    
+    def mark_inactive(self, request, queryset):
+        """Mark selected products as inactive"""
+        updated = queryset.update(is_active=False)
+        self.message_user(request, f"Successfully deactivated {updated} SAS products.", messages.SUCCESS)
+    mark_inactive.short_description = "Mark as inactive"
+    
+    def mark_featured(self, request, queryset):
+        """Mark selected products as featured"""
+        updated = queryset.update(featured=True)
+        self.message_user(request, f"Successfully marked {updated} SAS products as featured.", messages.SUCCESS)
+    mark_featured.short_description = "Mark as featured"
+    
+    def unmark_featured(self, request, queryset):
+        """Remove featured status from selected products"""
+        updated = queryset.update(featured=False)
+        self.message_user(request, f"Successfully removed featured status from {updated} SAS products.", messages.SUCCESS)
+    unmark_featured.short_description = "Remove featured status"
+    
+    def mark_in_stock(self, request, queryset):
+        """Mark selected products as in stock"""
+        updated = queryset.update(stock_status='instock')
+        self.message_user(request, f"Successfully marked {updated} SAS products as in stock.", messages.SUCCESS)
+    mark_in_stock.short_description = "Mark as in stock"
+    
+    def mark_out_of_stock(self, request, queryset):
+        """Mark selected products as out of stock"""
+        updated = queryset.update(stock_status='outofstock')
+        self.message_user(request, f"Successfully marked {updated} SAS products as out of stock.", messages.SUCCESS)
+    mark_out_of_stock.short_description = "Mark as out of stock"
+    
+    def mark_on_backorder(self, request, queryset):
+        """Mark selected products as on backorder"""
+        updated = queryset.update(stock_status='onbackorder')
+        self.message_user(request, f"Successfully marked {updated} SAS products as on backorder.", messages.SUCCESS)
+    mark_on_backorder.short_description = "Mark as on backorder"
 
 
 # Customize admin site

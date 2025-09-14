@@ -1,0 +1,413 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="sas-page">
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 text-sas-primary">SAS Products</h4>
+
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'clubs:sas-dashboard' %}">SAS Dashboard</a></li>
+                    <li class="breadcrumb-item active">All Products</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<!-- Products Header -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-md me-4">
+                        <span class="avatar-title rounded bg-soft-sas-primary text-sas-primary font-size-20">
+                            <i class="uil-shopping-bag"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h4 class="mb-1 text-sas-primary">All SAS Products</h4>
+                        <p class="text-muted mb-2">
+                            Products from all SAS sports and clubs
+                            <span class="badge bg-sas-primary font-size-11 ms-2">
+                                SAS SPORTS
+                            </span>
+                        </p>
+                        <p class="text-muted mb-0">Browse and manage all products across the SAS sports network</p>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-soft-sas">
+                                <i class="uil-plus me-1"></i> Add Product
+                            </button>
+                            <a href="{% url 'clubs:sas-dashboard' %}" class="btn btn-soft-secondary">
+                                <i class="uil-arrow-left me-1"></i> Back to Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Products Stats -->
+<div class="row">
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-sas-primary text-sas-primary rounded-3">
+                            <i class="uil-shopping-bag font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Total Products</p>
+                        <h4 class="mb-0">{{ stats.total_products|default:0 }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-success text-success rounded-3">
+                            <i class="uil-check-circle font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">In Stock</p>
+                        <h4 class="mb-0">{{ stats.in_stock|default:0 }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-info text-info rounded-3">
+                            <i class="uil-dollar-sign font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Avg Price</p>
+                        <h4 class="mb-0">
+                            {% if average_price > 0 %}
+                                R{{ average_price|floatformat:0 }}
+                            {% else %}
+                                R0
+                            {% endif %}
+                        </h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-warning text-warning rounded-3">
+                            <i class="uil-star font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Featured</p>
+                        <h4 class="mb-0">{{ stats.featured|default:0 }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Products Grid -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1 text-sas-primary">SAS Products Catalog</h4>
+                <div class="flex-shrink-0">
+                    <div class="d-flex gap-2">
+                        <div class="dropdown">
+                            <button type="button" class="btn btn-sm btn-soft-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="uil-sort me-1"></i> Sort
+                            </button>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" href="?order_by=name">Name (A-Z)</a>
+                                <a class="dropdown-item" href="?order_by=-name">Name (Z-A)</a>
+                                <a class="dropdown-item" href="?order_by=price_asc">Price (Low to High)</a>
+                                <a class="dropdown-item" href="?order_by=price_desc">Price (High to Low)</a>
+                                <a class="dropdown-item" href="?order_by=newest">Newest First</a>
+                                <a class="dropdown-item" href="?order_by=club">By Club</a>
+                                <a class="dropdown-item" href="?order_by=sport">By Sport</a>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-soft-sas">
+                            <i class="uil-plus me-1"></i> Add Product
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if products %}
+                <div class="row g-3">
+                    {% for product in products %}
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <div class="card product-card h-100">
+                            <div class="position-relative">
+                                {% if product.image_url %}
+                                <img src="{% url 'clubs:proxy-image' %}?url={{ product.image_url|urlencode }}" 
+                                     alt="{{ product.name }}" class="card-img-top product-image"
+                                     onerror="this.parentNode.innerHTML='<div class=\'card-img-top bg-light d-flex align-items-center justify-content-center product-image\'><i class=\'uil-shopping-bag font-size-48 text-muted\'></i></div>'">
+                                {% else %}
+                                <div class="card-img-top bg-light d-flex align-items-center justify-content-center product-image">
+                                    <i class="uil-shopping-bag font-size-48 text-muted"></i>
+                                </div>
+                                {% endif %}
+                                
+                                {% if product.is_on_sale %}
+                                <span class="badge bg-danger position-absolute top-0 start-0 m-2">
+                                    -{{ product.discount_percentage }}%
+                                </span>
+                                {% endif %}
+                                
+                                <!-- Stock status badge -->
+                                <span class="badge position-absolute top-0 end-0 m-2 
+                                    {% if product.stock_status == 'instock' %}bg-success{% elif product.stock_status == 'onbackorder' %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                                    {{ product.get_stock_status_display }}
+                                </span>
+                                
+                                <!-- Featured product indicator -->
+                                {% if product.featured %}
+                                <span class="badge bg-info position-absolute" style="bottom: 5px; left: 5px;">
+                                    <i class="uil-star font-size-10 me-1"></i>Featured
+                                </span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="card-body">
+                                <h5 class="card-title font-size-15 mb-1">
+                                    <a href="#" class="text-dark">{{ product.name|truncatechars:25 }}</a>
+                                </h5>
+                                
+                                <!-- Club and Sport Info -->
+                                <div class="d-flex flex-wrap gap-2 mb-2">
+                                    <span class="badge bg-soft-sas-primary text-sas-primary font-size-11">{{ product.club.name|truncatechars:20 }}</span>
+                                    <span class="badge bg-soft-info text-info font-size-11">{{ product.club.sport.name }}</span>
+                                </div>
+                                
+                                {% if product.short_description %}
+                                <p class="text-muted font-size-13 mb-2">{{ product.short_description|truncatechars:60 }}</p>
+                                {% endif %}
+                                
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        {% if product.is_on_sale %}
+                                        <!-- Product on sale -->
+                                        <h5 class="mb-0 text-dark">R{{ product.sale_price }}</h5>
+                                        <small class="text-muted text-decoration-line-through">R{{ product.regular_price }}</small>
+                                        {% else %}
+                                        <!-- Regular price -->
+                                        <h5 class="mb-0 text-dark">R{{ product.effective_price }}</h5>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if product.sku %}
+                                    <small class="text-muted">SKU: {{ product.sku|truncatechars:8 }}</small>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Product Tags -->
+                                {% if product.tags %}
+                                <div class="mt-2">
+                                    {% for tag in product.tags|slice:":3" %}
+                                    <span class="badge bg-soft-secondary text-secondary font-size-11 me-1">{{ tag }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Product attributes -->
+                                {% if product.attributes %}
+                                <div class="mt-2">
+                                    {% for attribute in product.attributes|slice:":2" %}
+                                    <span class="badge bg-soft-info text-info font-size-11 me-1">{{ attribute.name }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="card-footer bg-transparent border-top">
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-soft-sas btn-sm flex-grow-1">
+                                        <i class="uil-eye me-1"></i> View Details
+                                    </button>
+                                    <button type="button" class="btn btn-soft-secondary btn-sm" data-bs-toggle="tooltip" title="Edit Product">
+                                        <i class="uil-edit-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="pagination-wrap hstack gap-2">
+                            <nav aria-label="Products navigation">
+                                <ul class="pagination justify-content-center mb-0">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                                <i class="mdi mdi-chevron-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                                <i class="mdi mdi-chevron-left"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+
+                                    {% for num in page_obj.paginator.page_range %}
+                                        {% if page_obj.number == num %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                                            </li>
+                                        {% endif %}
+                                    {% endfor %}
+
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                                <i class="mdi mdi-chevron-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                                <i class="mdi mdi-chevron-double-right"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        </div>
+                        
+                        <div class="text-center mt-3">
+                            <p class="text-muted">
+                                Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} product{{ page_obj.paginator.count|pluralize }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% else %}
+                <div class="text-center py-5">
+                    <div class="avatar-xl mx-auto mb-4">
+                        <div class="avatar-title bg-soft-secondary text-secondary rounded-circle font-size-48">
+                            <i class="uil-shopping-bag"></i>
+                        </div>
+                    </div>
+                    <h5 class="text-sas-primary">No Products Found</h5>
+                    <p class="text-muted">There are currently no SAS products in the system.</p>
+                    <button type="button" class="btn btn-soft-sas">
+                        <i class="uil-plus me-1"></i> Add First Product
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.avatar-md {
+    width: 64px;
+    height: 64px;
+}
+
+.avatar-md img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.product-card {
+    transition: all 0.3s ease;
+    border: 1px solid #f1f1f1;
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(32, 82, 149, 0.15);
+    border-color: #205295;
+}
+
+.product-image {
+    height: auto;
+    width: auto;
+    max-width: 100%;
+    max-height: 250px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto;
+}
+
+.bg-soft-sas-primary { 
+    background-color: rgba(32, 82, 149, 0.08) !important; 
+}
+
+.bg-soft-success { 
+    background-color: rgba(52, 195, 143, 0.1); 
+}
+
+.bg-soft-info { 
+    background-color: rgba(58, 186, 244, 0.1); 
+}
+
+.bg-soft-warning { 
+    background-color: rgba(247, 184, 75, 0.1); 
+}
+
+.bg-soft-secondary { 
+    background-color: rgba(116, 120, 141, 0.1); 
+}
+
+.text-decoration-line-through {
+    text-decoration: line-through;
+}
+</style>
+
+<script>
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltips.map(function(tooltip) {
+        return new bootstrap.Tooltip(tooltip);
+    });
+});
+</script>
+</div> <!-- End SAS page wrapper -->
+{% endblock %}

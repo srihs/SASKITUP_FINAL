@@ -3,7 +3,7 @@
 {% load static %}
 
 {% block content %}
-<div class="{% if club.club_type == 'LOTTO' %}lotto-page{% endif %}">
+<div class="sas-page">
 <!-- start page title -->
 <div class="row">
     <div class="col-12">
@@ -12,7 +12,7 @@
 
             <div class="page-title-right">
                 <ol class="breadcrumb m-0">
-                    <li class="breadcrumb-item"><a href="{% url 'clubs:club-list' %}">Clubs</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'clubs:sas-clubs' %}">SAS Clubs</a></li>
                     <li class="breadcrumb-item active">{{ club.name }}</li>
                 </ol>
             </div>
@@ -28,10 +28,10 @@
             <div class="card-body">
                 <div class="d-flex align-items-center">
                     <div class="avatar-lg me-4">
-                        {% if club.logo %}
-                        <img src="{{ club.logo|proxy_image_url }}" alt="{{ club.name }}" class="avatar-lg rounded">
+                        {% if club.image_url %}
+                        <img src="{% url 'clubs:proxy-image' %}?url={{ club.image_url|urlencode }}" alt="{{ club.name }}" class="avatar-lg rounded">
                         {% else %}
-                        <span class="avatar-title rounded bg-soft-primary text-primary font-size-24">
+                        <span class="avatar-title rounded bg-soft-sas text-sas font-size-24">
                             {{ club.name|first }}
                         </span>
                         {% endif %}
@@ -39,18 +39,31 @@
                     <div class="flex-grow-1">
                         <h4 class="mb-1">{{ club.name }}</h4>
                         <div class="mb-2">
-                            <span class="badge {% if club.club_type == 'LOTTO' %}badge-lotto{% else %}bg-warning{% endif %} font-size-12 me-2">
-                                {{ club.club_type }}
+                            <span class="badge badge-sas font-size-12 me-2">
+                                SAS
                             </span>
-                            <span class="badge bg-soft-primary text-primary font-size-12">
-                                <i class="uil-basketball me-1"></i>{{ club.sport_tag }}
+                            <span class="badge bg-soft-sas text-sas font-size-12">
+                                <i class="uil-basketball me-1"></i>{{ club.sport.name }}
                             </span>
+                            {% if club.is_school %}
+                            <span class="badge bg-soft-warning text-warning font-size-12">
+                                <i class="uil-graduation-cap me-1"></i>School
+                            </span>
+                            {% endif %}
                         </div>
-                        <p class="text-muted mb-0">{{ club.address|default:"No address provided" }}</p>
+                        <p class="text-muted mb-0">
+                            {% if club.address %}
+                                {{ club.address }}
+                            {% elif club.city or club.province %}
+                                {{ club.city }}{% if club.province %}, {{ club.province }}{% endif %}
+                            {% else %}
+                                No address provided
+                            {% endif %}
+                        </p>
                     </div>
                     <div class="flex-shrink-0">
                         <div class="dropdown">
-                            <button type="button" class="btn btn-soft-primary dropdown-toggle" data-bs-toggle="dropdown">
+                            <button type="button" class="btn btn-soft-sas dropdown-toggle" data-bs-toggle="dropdown">
                                 <i class="uil-ellipsis-h me-1"></i> Actions
                             </button>
                             <div class="dropdown-menu dropdown-menu-end">
@@ -61,7 +74,7 @@
                                     <i class="uil-sync me-1"></i> Sync Products
                                 </a>
                                 <div class="dropdown-divider"></div>
-                                <a class="dropdown-item" href="{% url 'clubs:club-list' %}">
+                                <a class="dropdown-item" href="{% url 'clubs:sas-clubs' %}">
                                     <i class="uil-arrow-left me-1"></i> Back to Clubs
                                 </a>
                             </div>
@@ -80,13 +93,13 @@
             <div class="card-body">
                 <div class="d-flex align-items-center">
                     <div class="avatar-sm flex-shrink-0 me-3">
-                        <span class="avatar-title bg-soft-primary text-primary rounded-3">
+                        <span class="avatar-title bg-soft-sas text-sas rounded-3">
                             <i class="uil-folder font-size-18"></i>
                         </span>
                     </div>
                     <div class="flex-grow-1">
                         <p class="text-muted mb-1">Categories</p>
-                        <h4 class="mb-0">{{ categories.count }}</h4>
+                        <h4 class="mb-0">{{ categories|length }}</h4>
                     </div>
                 </div>
             </div>
@@ -103,7 +116,7 @@
                     </div>
                     <div class="flex-grow-1">
                         <p class="text-muted mb-1">Products</p>
-                        <h4 class="mb-0">{{ club.total_products }}</h4>
+                        <h4 class="mb-0">{{ product_stats.total }}</h4>
                     </div>
                 </div>
             </div>
@@ -138,7 +151,7 @@
                     <div class="flex-grow-1">
                         <p class="text-muted mb-1">Website</p>
                         {% if club.website %}
-                        <a href="{{ club.website }}" target="_blank" class="text-primary font-size-14">Visit</a>
+                        <a href="{{ club.website }}" target="_blank" class="text-sas font-size-14">Visit</a>
                         {% else %}
                         <span class="text-muted font-size-14">Not Available</span>
                         {% endif %}
@@ -149,16 +162,18 @@
     </div>
 </div>
 
-<!-- Club Categories -->
+<!-- Club Categories / Products -->
 <div class="row">
     <div class="col-12">
         <div class="card">
             <div class="card-header align-items-center d-flex">
-                <h4 class="card-title mb-0 flex-grow-1">Club Categories</h4>
+                <h4 class="card-title mb-0 flex-grow-1">Club Products</h4>
                 <div class="flex-shrink-0">
-                    <button type="button" class="btn btn-sm btn-soft-primary">
-                        <i class="uil-plus me-1"></i> Add Category
-                    </button>
+                    {% if product_stats.total > 0 %}
+                    <a href="{% url 'clubs:sas-products' %}?club={{ club.slug }}" class="btn btn-sm btn-soft-sas">
+                        <i class="uil-eye me-1"></i> View All Products
+                    </a>
+                    {% endif %}
                 </div>
             </div>
             <div class="card-body">
@@ -170,8 +185,8 @@
                             <div class="card-body p-4">
                                 <div class="text-center mb-4">
                                     <div class="category-image-container">
-                                        {% if category.image %}
-                                        <img src="{{ category.image }}" alt="{{ category.name }}" class="category-image rounded-3 shadow-sm">
+                                        {% if category.image_url %}
+                                        <img src="{% url 'clubs:proxy-image' %}?url={{ category.image_url|urlencode }}" alt="{{ category.name }}" class="category-image rounded-3 shadow-sm">
                                         {% else %}
                                         <div class="category-placeholder rounded-3 shadow-sm">
                                             <i class="uil-folder-open"></i>
@@ -181,7 +196,7 @@
                                 </div>
                                 <div class="text-center">
                                     <h5 class="font-size-16 mb-2">
-                                        <a href="{% url 'clubs:category-detail' category.slug %}" class="text-dark category-title">{{ category.name }}</a>
+                                        <span class="text-dark category-title">{{ category.name }}</span>
                                     </h5>
                                     <p class="text-muted font-size-14 mb-3">
                                         <i class="uil-shopping-bag me-1"></i>{{ category.product_count }} product{{ category.product_count|pluralize }}
@@ -192,7 +207,7 @@
                                 </div>
                             </div>
                             <div class="card-footer bg-transparent border-top text-center">
-                                <a href="{% url 'clubs:category-detail' category.slug %}" class="btn {% if club.club_type == 'LOTTO' %}btn-soft-lotto{% else %}btn-soft-primary{% endif %} btn-sm px-4">
+                                <a href="{% url 'clubs:sas-products' %}?category={{ category.id }}" class="btn btn-soft-sas btn-sm px-4">
                                     <i class="uil-eye me-1"></i> View Products
                                 </a>
                             </div>
@@ -200,6 +215,60 @@
                     </div>
                     {% endfor %}
                 </div>
+                {% elif products %}
+                <!-- If no categories but have products, show products grid -->
+                <div class="row g-4">
+                    {% for product in products|slice:":6" %}
+                    <div class="col-xl-4 col-lg-6 col-md-6">
+                        <div class="card border h-100 product-card">
+                            <div class="card-body p-4">
+                                <div class="text-center mb-3">
+                                    <div class="product-image-container">
+                                        {% if product.image_url %}
+                                        <img src="{% url 'clubs:proxy-image' %}?url={{ product.image_url|urlencode }}" 
+                                             alt="{{ product.name }}" 
+                                             class="product-image rounded-3 shadow-sm">
+                                        {% else %}
+                                        <div class="product-placeholder rounded-3 shadow-sm">
+                                            <i class="uil-package"></i>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="text-center">
+                                    <h5 class="font-size-16 mb-2">
+                                        <span class="text-dark product-title">{{ product.name|truncatechars:50 }}</span>
+                                    </h5>
+                                    <div class="mb-3">
+                                        {% if product.is_on_sale %}
+                                        <span class="text-muted text-decoration-line-through me-2">R{{ product.regular_price }}</span>
+                                        <span class="h5 text-success mb-0">R{{ product.sale_price }}</span>
+                                        <span class="badge bg-danger ms-2">{{ product.discount_percentage }}% OFF</span>
+                                        {% else %}
+                                        <span class="h5 mb-0">R{{ product.effective_price }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        {% if product.featured %}
+                                        <span class="badge bg-warning me-1">Featured</span>
+                                        {% endif %}
+                                        <span class="badge {% if product.stock_status == 'instock' %}bg-success{% elif product.stock_status == 'onbackorder' %}bg-warning{% else %}bg-danger{% endif %}">
+                                            {{ product.get_stock_status_display }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if product_stats.total > 6 %}
+                <div class="text-center mt-4">
+                    <a href="{% url 'clubs:sas-products' %}?club={{ club.slug }}" class="btn btn-sas">
+                        <i class="uil-package me-1"></i> View All {{ product_stats.total }} Products
+                    </a>
+                </div>
+                {% endif %}
                 {% else %}
                 <div class="text-center py-5">
                     <div class="avatar-xl mx-auto mb-4">
@@ -207,8 +276,8 @@
                             <i class="uil-folder-open"></i>
                         </div>
                     </div>
-                    <h5>No Categories Found</h5>
-                    <p class="text-muted">This club doesn't have any categories with products yet.</p>
+                    <h5>No Products Found</h5>
+                    <p class="text-muted">This club doesn't have any products yet.</p>
                 </div>
                 {% endif %}
             </div>
@@ -217,6 +286,49 @@
 </div>
 
 <style>
+/* SAS Brand Colors */
+.sas-page {
+    /* Page wrapper for SAS-specific styling */
+}
+
+.badge-sas {
+    background-color: #205295 !important;
+    color: white !important;
+}
+
+.bg-soft-sas {
+    background-color: rgba(32, 82, 149, 0.1);
+}
+
+.text-sas {
+    color: #205295 !important;
+}
+
+.btn-soft-sas {
+    color: #205295;
+    background-color: rgba(32, 82, 149, 0.1);
+    border-color: transparent;
+}
+
+.btn-soft-sas:hover {
+    color: #fff;
+    background-color: #205295;
+    border-color: #205295;
+}
+
+.btn-sas {
+    background-color: #205295;
+    border-color: #205295;
+    color: white;
+}
+
+.btn-sas:hover {
+    background-color: #144272;
+    border-color: #144272;
+    color: white;
+}
+
+/* Avatar Styles - matching LOTTO */
 .avatar-lg {
     width: 80px;
     height: 80px;
@@ -250,7 +362,12 @@
     object-fit: cover;
 }
 
-/* Category Card Enhancements */
+.avatar-xl {
+    width: 96px;
+    height: 96px;
+}
+
+/* Category Card Enhancements - matching LOTTO */
 .category-card {
     transition: all 0.3s ease;
     border: 1px solid #e9ecef !important;
@@ -259,17 +376,19 @@
 .category-card:hover {
     transform: translateY(-5px);
     box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;
-    border-color: #556ee6 !important;
+    border-color: #205295 !important;
 }
 
-.category-image-container {
+.category-image-container,
+.product-image-container {
     position: relative;
     width: 100%;
     max-width: 320px;
     margin: 0 auto;
 }
 
-.category-image {
+.category-image,
+.product-image {
     width: 100%;
     height: 300px;
     min-height: 300px;
@@ -278,12 +397,14 @@
     border: 3px solid #f8f9fa;
 }
 
-.category-image:hover {
+.category-image:hover,
+.product-image:hover {
     transform: scale(1.02);
-    border-color: #556ee6;
+    border-color: #205295;
 }
 
-.category-placeholder {
+.category-placeholder,
+.product-placeholder {
     width: 100%;
     height: 300px;
     min-height: 300px;
@@ -295,37 +416,56 @@
     border: 3px solid #f8f9fa;
 }
 
-.category-placeholder:hover {
-    background: linear-gradient(135deg, #556ee6 0%, #74b9ff 100%);
+.category-placeholder:hover,
+.product-placeholder:hover {
+    background: linear-gradient(135deg, #205295 0%, #2C74B3 100%);
     color: white;
     transform: scale(1.02);
 }
 
-.category-placeholder i {
+.category-placeholder i,
+.product-placeholder i {
     font-size: 4rem;
     color: #74788d;
     transition: all 0.3s ease;
 }
 
-.category-placeholder:hover i {
+.category-placeholder:hover i,
+.product-placeholder:hover i {
     color: white;
     transform: scale(1.1);
 }
 
-.category-title {
+.category-title,
+.product-title {
     text-decoration: none;
     transition: color 0.3s ease;
     font-weight: 600;
 }
 
-.category-title:hover {
-    color: #556ee6 !important;
+.category-title:hover,
+.product-title:hover {
+    color: #205295 !important;
 }
 
-/* Responsive Design */
+/* Product Card Styles */
+.product-card {
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef !important;
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;
+    border-color: #205295 !important;
+}
+
+/* Responsive Design - matching LOTTO */
 @media (max-width: 1200px) {
     .category-image,
-    .category-placeholder {
+    .category-placeholder,
+    .product-image,
+    .product-placeholder {
         height: 280px;
         min-height: 280px;
     }
@@ -333,7 +473,9 @@
 
 @media (max-width: 992px) {
     .category-image,
-    .category-placeholder {
+    .category-placeholder,
+    .product-image,
+    .product-placeholder {
         height: 320px;
         min-height: 320px;
     }
@@ -341,28 +483,35 @@
 
 @media (max-width: 768px) {
     .category-image,
-    .category-placeholder {
+    .category-placeholder,
+    .product-image,
+    .product-placeholder {
         height: 300px;
         min-height: 300px;
     }
     
-    .category-card .card-body {
+    .category-card .card-body,
+    .product-card .card-body {
         padding: 1.5rem;
     }
 }
 
 @media (max-width: 576px) {
     .category-image,
-    .category-placeholder {
+    .category-placeholder,
+    .product-image,
+    .product-placeholder {
         height: 280px;
         min-height: 280px;
     }
     
-    .category-card .card-body {
+    .category-card .card-body,
+    .product-card .card-body {
         padding: 1rem;
     }
 }
 
+/* Badge styles - matching LOTTO */
 .badge-soft-success { background-color: rgba(52, 195, 143, 0.1); color: #34c38f; }
 .badge-soft-warning { background-color: rgba(247, 184, 75, 0.1); color: #f7b84b; }
 .badge-soft-danger { background-color: rgba(243, 76, 124, 0.1); color: #f34c7c; }
@@ -376,5 +525,5 @@
 .bg-soft-warning { background-color: rgba(247, 184, 75, 0.1); }
 .bg-soft-secondary { background-color: rgba(116, 120, 141, 0.1); }
 </style>
-</div> <!-- End conditional wrapper -->
+</div> <!-- End sas-page wrapper -->
 {% endblock %}

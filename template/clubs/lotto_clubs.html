@@ -2,12 +2,13 @@
 {% load static club_extras %}
 
 {% block content %}
+<div class="lotto-page">
 <!-- Sync Button Section -->
 <div class="row mb-3">
     <div class="col-12">
         <div class="d-flex align-items-center justify-content-between">
-            <h4 class="mb-0 text-info">LOTTO Sport Clubs</h4>
-            <button type="button" id="syncButton" class="btn btn-info" onclick="startSync()">
+            <h4 class="mb-0">LOTTO Sport Clubs</h4>
+            <button type="button" id="syncButton" class="btn btn-lotto" onclick="startSync()">
                 <i id="syncIcon" class="uil-sync me-2" aria-hidden="true"></i>
                 <span id="syncText">Sync LOTTO Clubs</span>
             </button>
@@ -150,7 +151,7 @@
                     </div>
                     <div class="col-xl-3 col-lg-6 col-md-12">
                         <label class="form-label d-md-none">&nbsp;</label>
-                        <button type="button" class="btn btn-info w-100 d-flex align-items-center justify-content-center" onclick="applyFilters()">
+                        <button type="button" class="btn btn-lotto w-100 d-flex align-items-center justify-content-center" onclick="applyFilters()">
                             <i class="uil-filter me-1" aria-hidden="true"></i> 
                             <span>Filter</span>
                         </button>
@@ -159,7 +160,7 @@
                 <!-- Clear Filters Button (Mobile Only) -->
                 <div class="row mt-2 d-xl-none">
                     <div class="col-12">
-                        <button type="button" class="btn btn-outline-info w-100" onclick="clearFilters()">
+                        <button type="button" class="btn btn-outline-lotto w-100" onclick="clearFilters()">
                             <i class="uil-refresh me-1" aria-hidden="true"></i> Clear All Filters
                         </button>
                     </div>
@@ -190,7 +191,7 @@
                             <a href="{% url 'clubs:club-detail' club.slug %}" class="text-dark">{{ club.name }}</a>
                         </h5>
                         <div class="d-flex align-items-center gap-2">
-                            <span class="badge bg-info font-size-11">LOTTO</span>
+                            <span class="badge badge-lotto font-size-11">LOTTO</span>
                             <span class="badge bg-soft-primary text-primary font-size-11">
                                 <i class="uil-basketball me-1"></i>{{ club.sport_tag }}
                             </span>
@@ -255,12 +256,12 @@
                     {% endif %}
                 </div>
             </div>
-            <div class="card-footer bg-transparent border-top border-info">
+            <div class="card-footer bg-transparent border-top">
                 <div class="d-flex gap-2">
-                    <a href="{% url 'clubs:club-detail' club.slug %}" class="btn btn-info btn-sm flex-grow-1">
+                    <a href="{% url 'clubs:club-detail' club.slug %}" class="btn btn-lotto btn-sm flex-grow-1">
                         <i class="uil-eye me-1"></i> Explore Club
                     </a>
-                    <button type="button" class="btn btn-soft-info btn-sm" data-bs-toggle="tooltip" title="Add to Favorites">
+                    <button type="button" class="btn btn-soft-lotto btn-sm" data-bs-toggle="tooltip" title="Add to Favorites">
                         <i class="uil-heart"></i>
                     </button>
                 </div>
@@ -279,10 +280,10 @@
                 <h5>No LOTTO Clubs Found</h5>
                 <p class="text-muted">Try adjusting your search criteria or filters.</p>
                 <div class="d-flex gap-2 justify-content-center">
-                    <button type="button" class="btn btn-soft-info" onclick="clearFilters()">
+                    <button type="button" class="btn btn-soft-lotto" onclick="clearFilters()">
                         <i class="uil-refresh me-1"></i> Clear Filters
                     </button>
-                    <a href="{% url 'clubs:club-list' %}" class="btn btn-info">
+                    <a href="{% url 'clubs:club-list' %}" class="btn btn-lotto">
                         <i class="uil-users-alt me-1"></i> View All Clubs
                     </a>
                 </div>
@@ -398,7 +399,7 @@
     left: 0;
     right: 0;
     height: 3px;
-    background: linear-gradient(90deg, #3abaf4, #1e88e5);
+    background: linear-gradient(90deg, #C9485B, #E89DA2);
     transform: translateX(-100%);
     transition: transform 0.5s ease;
 }
@@ -409,8 +410,8 @@
 
 .lotto-stat-tile:hover {
     transform: translateY(-5px);
-    box-shadow: 0 10px 25px rgba(58, 186, 244, 0.15);
-    border-color: rgba(58, 186, 244, 0.3);
+    box-shadow: 0 10px 25px rgba(201, 72, 91, 0.15);
+    border-color: rgba(201, 72, 91, 0.3);
 }
 
 .lotto-stat-tile .avatar-title {
@@ -429,8 +430,8 @@
 
 .lotto-club-card:hover {
     transform: translateY(-8px);
-    box-shadow: 0 15px 35px rgba(58, 186, 244, 0.2);
-    border-color: #3abaf4;
+    box-shadow: 0 15px 35px rgba(201, 72, 91, 0.2);
+    border-color: #C9485B;
 }
 
 .search-box .search-icon {
@@ -448,8 +449,8 @@
 }
 
 .search-box input[type="text"]:focus {
-    border-color: #3abaf4;
-    box-shadow: 0 0 0 0.2rem rgba(58, 186, 244, 0.25);
+    border-color: #C9485B;
+    box-shadow: 0 0 0 0.2rem rgba(201, 72, 91, 0.25);
 }
 
 .avatar-md {
@@ -468,56 +469,56 @@
     overflow: hidden;
 }
 
-/* LOTTO Brand Colors */
+/* LOTTO Brand Colors - Template Specific Overrides */
 .bg-soft-info { 
-    background-color: rgba(58, 186, 244, 0.1) !important; 
+    background-color: rgba(201, 72, 91, 0.1) !important; 
 }
 
 .bg-info-light {
-    background-color: rgba(58, 186, 244, 0.15) !important;
+    background-color: rgba(232, 157, 162, 0.15) !important;
 }
 
 .bg-gradient-info {
-    background: linear-gradient(135deg, #3abaf4 0%, #1e88e5 100%) !important;
+    background: linear-gradient(135deg, #C9485B 0%, #E89DA2 100%) !important;
 }
 
 .border-info {
-    border-color: #3abaf4 !important;
+    border-color: #C9485B !important;
 }
 
 .text-info {
-    color: #3abaf4 !important;
+    color: #C9485B !important;
 }
 
 .btn-info {
-    background-color: #3abaf4;
-    border-color: #3abaf4;
+    background-color: #C9485B;
+    border-color: #C9485B;
     transition: all 0.3s ease;
 }
 
 .btn-info:hover {
-    background-color: #1e88e5;
-    border-color: #1e88e5;
+    background-color: #E89DA2;
+    border-color: #E89DA2;
     transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(58, 186, 244, 0.3);
+    box-shadow: 0 6px 15px rgba(201, 72, 91, 0.3);
 }
 
 .btn-soft-info {
-    background-color: rgba(58, 186, 244, 0.1);
-    border-color: rgba(58, 186, 244, 0.1);
-    color: #3abaf4;
+    background-color: rgba(201, 72, 91, 0.1);
+    border-color: rgba(201, 72, 91, 0.1);
+    color: #C9485B;
 }
 
 .btn-soft-info:hover {
-    background-color: #3abaf4;
-    border-color: #3abaf4;
+    background-color: #C9485B;
+    border-color: #C9485B;
     color: white;
 }
 
 /* Progress Bars */
 .progress {
     border-radius: 4px;
-    background-color: rgba(58, 186, 244, 0.1);
+    background-color: rgba(201, 72, 91, 0.1);
 }
 
 .progress-bar {
@@ -526,11 +527,11 @@
 }
 
 .progress-bar.bg-info {
-    background: linear-gradient(90deg, #3abaf4, #1e88e5);
+    background: linear-gradient(90deg, #C9485B, #E89DA2);
 }
 
 .progress-bar.bg-gradient-info {
-    background: linear-gradient(90deg, #3abaf4, #1e88e5);
+    background: linear-gradient(90deg, #C9485B, #E89DA2);
 }
 
 .progress-bar.bg-success {
@@ -776,7 +777,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Ensure focus works properly
     searchInput.addEventListener('focus', function() {
-        this.style.borderColor = '#3abaf4';
+        this.style.borderColor = '#C9485B';
     });
     
     searchInput.addEventListener('blur', function() {
@@ -897,4 +898,5 @@ function startSync() {
     });
 }
 </script>
+</div> <!-- End lotto-page wrapper -->
 {% endblock %}

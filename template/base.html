@@ -19,6 +19,46 @@
         <link href="{% static 'assets/css/app.min.css' %}" id="app-style" rel="stylesheet" type="text/css" />
         <!-- Custom Clubs Css -->
         <link href="{% static 'assets/css/custom/clubs.css' %}" rel="stylesheet" type="text/css" />
+        
+        <!-- Extra CSS Block for page-specific styles -->
+        {% block extra_css %}{% endblock %}
+        
+        <!-- Global Form Control Styles -->
+        <style>
+        /* Remove blue outline from all form controls */
+        input:focus,
+        select:focus,
+        textarea:focus,
+        button:focus,
+        .form-control:focus,
+        .form-select:focus,
+        .btn:focus {
+            outline: none !important;
+            box-shadow: none !important;
+            border-color: #ced4da !important;
+        }
+        
+        /* Remove blue outline from DataTables controls */
+        .dataTables_wrapper input:focus,
+        .dataTables_wrapper select:focus,
+        .dataTables_filter input:focus,
+        .dataTables_length select:focus {
+            outline: none !important;
+            box-shadow: none !important;
+            border-color: #ced4da !important;
+        }
+        
+        /* Remove blue outline from search inputs */
+        input[type="search"]:focus,
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="password"]:focus,
+        input[type="number"]:focus {
+            outline: none !important;
+            box-shadow: none !important;
+            border-color: #ced4da !important;
+        }
+        </style>
 
     </head>
 
@@ -337,11 +377,15 @@
                                 </a>
                                 <ul class="sub-menu" aria-expanded="false">
                                     <li><a href="{% url 'clubs:dashboard' %}">Club Dashboard</a></li>
-                                    <li><a href="{% url 'clubs:club-list' %}">All Clubs</a></li>
                                     <li><a href="{% url 'clubs:lotto-clubs' %}">LOTTO Clubs</a></li>
                                     <li><a href="{% url 'clubs:sas-clubs' %}">SAS Clubs</a></li>
                                     {% if user.is_authenticated and user.is_staff %}
-                                    <li><a href="{% url 'clubs:sync-lotto-clubs-page' %}">LOTTO Sync</a></li>
+                                    <li>
+                                        <a href="javascript: void(0);" class="has-arrow">Data Sync</a>
+                                        <ul class="sub-menu" aria-expanded="false">
+                                            <li><a href="{% url 'clubs:sync-lotto-clubs-page' %}">LOTTO Sync</a></li>
+                                        </ul>
+                                    </li>
                                     {% endif %}
                                 </ul>
                             </li>
@@ -423,6 +467,9 @@
         
         <!-- Custom Clubs js -->
         <script src="{% static 'assets/js/custom/clubs.js'%}"></script>
+        
+        <!-- Extra JS Block for page-specific scripts -->
+        {% block extra_js %}{% endblock %}
 
     </body>
 </html>

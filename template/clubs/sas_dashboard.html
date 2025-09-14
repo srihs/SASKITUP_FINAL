@@ -1,0 +1,417 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+/* SAS Branding Colors */
+.sas-primary { background-color: #1a5490 !important; color: white !important; }
+.sas-secondary { background-color: #2d6ca8 !important; color: white !important; }
+.sas-accent { background-color: #f8b000 !important; color: white !important; }
+.sas-light { background-color: #e6f2ff !important; color: #1a5490 !important; }
+.sas-border { border-color: #1a5490 !important; }
+
+.card-sas {
+    border-left: 4px solid #1a5490;
+}
+
+.stat-icon-sas {
+    background: linear-gradient(45deg, #1a5490, #2d6ca8);
+    color: white;
+    border-radius: 12px;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.sports-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid #e9ecef;
+}
+
+.sports-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(26, 84, 144, 0.15);
+}
+
+.product-card {
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.product-card:hover {
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.club-badge {
+    background: linear-gradient(45deg, #1a5490, #2d6ca8);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    font-weight: 500;
+}
+
+.progress-sas {
+    background-color: #e6f2ff;
+}
+
+.progress-sas .progress-bar {
+    background: linear-gradient(45deg, #1a5490, #2d6ca8);
+}
+
+.badge-sas {
+    background-color: #1a5490;
+    color: white;
+}
+
+.text-sas-primary {
+    color: #1a5490 !important;
+}
+
+.btn-sas {
+    background: linear-gradient(45deg, #1a5490, #2d6ca8);
+    border: none;
+    color: white;
+}
+
+.btn-sas:hover {
+    background: linear-gradient(45deg, #134073, #1a5490);
+    color: white;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <div>
+                <h4 class="mb-sm-0 text-sas-primary">SAS Sports Dashboard</h4>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb m-0">
+                        <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
+                        <li class="breadcrumb-item active">SAS Sports</li>
+                    </ol>
+                </nav>
+            </div>
+            <div class="page-title-right">
+                <div class="btn-group" role="group">
+                    <a href="{% url 'clubs:sas-sports' %}" class="btn btn-sas btn-sm">
+                        <i class="uil-basketball me-1"></i> All Sports
+                    </a>
+                    <a href="{% url 'clubs:sas-clubs' %}" class="btn btn-outline-primary btn-sm">
+                        <i class="uil-users-alt me-1"></i> All Clubs
+                    </a>
+                    <a href="{% url 'clubs:sas-products' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="uil-package me-1"></i> All Products
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row">
+    <div class="col-xl-3 col-md-6">
+        <div class="card card-sas h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-2">Total Sports</p>
+                        <h4 class="mb-0 text-sas-primary">{{ total_sports }}</h4>
+                        <small class="text-muted">Active categories</small>
+                    </div>
+                    <div class="stat-icon-sas">
+                        <i class="uil-basketball"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="card card-sas h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-2">Total Clubs</p>
+                        <h4 class="mb-0 text-sas-primary">{{ total_clubs }}</h4>
+                        <small class="text-muted">{{ clubs_only }} clubs (excl. schools)</small>
+                    </div>
+                    <div class="stat-icon-sas">
+                        <i class="uil-users-alt"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="card card-sas h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-2">Available Products</p>
+                        <h4 class="mb-0 text-sas-primary">{{ total_products }}</h4>
+                        <small class="text-muted">{{ in_stock_products }} in stock</small>
+                    </div>
+                    <div class="stat-icon-sas">
+                        <i class="uil-package"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="card card-sas h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-2">Featured Products</p>
+                        <h4 class="mb-0 text-sas-primary">{{ featured_products }}</h4>
+                        <small class="text-muted">Highlighted items</small>
+                    </div>
+                    <div class="stat-icon-sas">
+                        <i class="uil-star"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Top Performing Sports -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="card-title mb-0 text-sas-primary">
+                    <i class="uil-chart-bar me-2"></i>Top Sports by Club Count
+                </h4>
+                <a href="{% url 'clubs:sas-sports' %}" class="btn btn-sas btn-sm">
+                    View All Sports
+                </a>
+            </div>
+            <div class="card-body">
+                {% if top_sports %}
+                    <div class="row">
+                        {% for sport in top_sports %}
+                            <div class="col-lg-6 mb-4">
+                                <div class="sports-card p-3 rounded">
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">{{ sport.name }}</h6>
+                                            <p class="text-muted mb-2">
+                                                {{ sport.active_clubs }} club{{ sport.active_clubs|pluralize }}
+                                            </p>
+                                            <div class="progress progress-sas" style="height: 6px;">
+                                                {% widthratio sport.active_clubs top_sports.0.active_clubs 100 as progress_width %}
+                                                <div class="progress-bar" style="width: {{ progress_width }}%"></div>
+                                            </div>
+                                        </div>
+                                        <div class="text-end ms-3">
+                                            <span class="badge badge-sas">{{ sport.active_clubs }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="uil-basketball display-4 text-muted"></i>
+                        <p class="text-muted">No sports data available</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions & Info -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0 text-sas-primary">
+                    <i class="uil-rocket me-2"></i>Quick Actions
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-3">
+                    <a href="{% url 'clubs:sas-sports' %}" class="btn btn-sas">
+                        <i class="uil-basketball me-2"></i>Browse Sports
+                    </a>
+                    <a href="{% url 'clubs:sas-clubs' %}" class="btn btn-outline-primary">
+                        <i class="uil-users-alt me-2"></i>View All Clubs
+                    </a>
+                    <a href="{% url 'clubs:sas-products' %}?featured=true" class="btn btn-outline-secondary">
+                        <i class="uil-star me-2"></i>Featured Products
+                    </a>
+                    <a href="{% url 'clubs:sas-products' %}?on_sale=true" class="btn btn-outline-success">
+                        <i class="uil-tag me-2"></i>Products on Sale
+                    </a>
+                </div>
+                
+                <hr class="my-4">
+                
+                <div class="text-center">
+                    <h6 class="text-sas-primary mb-3">SAS Network Overview</h6>
+                    <div class="d-flex justify-content-between mb-2">
+                        <small class="text-muted">Sports Coverage</small>
+                        <small class="fw-bold">{{ total_sports }} categories</small>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <small class="text-muted">Club Network</small>
+                        <small class="fw-bold">{{ clubs_only }} active</small>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Product Catalog</small>
+                        <small class="fw-bold">{{ total_products }} items</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Top Performing Clubs -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="card-title mb-0 text-sas-primary">
+                    <i class="uil-trophy me-2"></i>Top Clubs by Products
+                </h4>
+                <a href="{% url 'clubs:sas-clubs' %}" class="btn btn-sas btn-sm">
+                    View All Clubs
+                </a>
+            </div>
+            <div class="card-body">
+                {% if top_clubs %}
+                    <div class="table-responsive">
+                        <table class="table table-nowrap align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Club</th>
+                                    <th>Sport</th>
+                                    <th class="text-center">Products</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for club in top_clubs %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if club.image_url %}
+                                            <img src="{% url 'clubs:proxy-image' %}?url={{ club.image_url|urlencode }}" 
+                                                 class="rounded avatar-xs me-3" alt="{{ club.name }}" 
+                                                 onerror="this.src='{% static 'assets/images/club-placeholder.svg' %}'">
+                                            {% endif %}
+                                            <div>
+                                                <h6 class="mb-0">
+                                                    <a href="{% url 'clubs:sas-club-detail' club.slug %}" 
+                                                       class="text-dark text-decoration-none">{{ club.name }}</a>
+                                                </h6>
+                                                {% if club.city %}
+                                                <small class="text-muted">{{ club.city }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="club-badge">{{ club.sport.name }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-soft-success text-success font-size-12">
+                                            {{ club.product_count }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="uil-users-alt display-4 text-muted"></i>
+                        <p class="text-muted">No clubs with products found</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Products -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="card-title mb-0 text-sas-primary">
+                    <i class="uil-clock me-2"></i>Recent Products
+                </h4>
+                <a href="{% url 'clubs:sas-products' %}?order_by=newest" class="btn btn-sas btn-sm">
+                    View All Products
+                </a>
+            </div>
+            <div class="card-body">
+                {% if recent_products %}
+                    <div class="row">
+                        {% for product in recent_products %}
+                            <div class="col-lg-6 col-md-4 mb-3">
+                                <div class="product-card p-3 rounded">
+                                    {% if product.image_url %}
+                                    <div class="text-center mb-2">
+                                        <img src="{% url 'clubs:proxy-image' %}?url={{ product.image_url|urlencode }}" 
+                                             class="rounded" style="width: 60px; height: 60px; object-fit: cover;" 
+                                             alt="{{ product.name }}"
+                                             onerror="this.src='{% static 'assets/images/product-placeholder.svg' %}'">
+                                    </div>
+                                    {% endif %}
+                                    <h6 class="mb-1 text-truncate">{{ product.name|truncatechars:25 }}</h6>
+                                    <p class="text-muted mb-1 small">{{ product.club.name|truncatechars:20 }}</p>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-sas-primary fw-bold">R{{ product.price }}</small>
+                                        {% if product.featured %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="uil-star"></i>
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="uil-package display-4 text-muted"></i>
+                        <p class="text-muted">No recent products</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Add smooth hover animations
+    $('.sports-card').hover(
+        function() { $(this).addClass('shadow-sm'); },
+        function() { $(this).removeClass('shadow-sm'); }
+    );
+    
+    // Initialize tooltips for badges
+    $('[data-bs-toggle="tooltip"]').tooltip();
+    
+    console.log('SAS Dashboard initialized with {{ total_sports }} sports, {{ total_clubs }} clubs, {{ total_products }} products');
+});
+</script>
+{% endblock %}

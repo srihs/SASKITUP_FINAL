@@ -9,6 +9,9 @@ from django.utils import timezone
 # Import LOTTO-specific models
 from .models_lotto import LottoClub, LottoClubCategory, LottoProduct, LottoProductVariation
 
+# Import SAS-specific models
+from .models_sas import SASSport, SASClub, SASProduct
+
 logger = logging.getLogger(__name__)
 
 

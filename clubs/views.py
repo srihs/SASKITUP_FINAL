@@ -17,6 +17,7 @@ from django.utils.decorators import method_decorator
 from django.utils import timezone
 from django.conf import settings
 from .models import Club, ClubCategory, Product, SyncJob
+from .models_sas import SASSport, SASClub, SASProduct
 
 
 class ClubListView(ListView):
@@ -105,7 +106,7 @@ class ClubDashboardView(ListView):
         return Club.objects.filter(is_active=True).annotate(
             total_categories=Count('categories', filter=Q(categories__product_count__gt=0)),
             available_products=Count('categories__products', filter=Q(categories__products__stock_status__in=['instock', 'onbackorder']))
-        ).order_by('-available_products', 'name')[:10]
+        ).order_by('-available_products', 'name')[:15]
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -186,39 +187,6 @@ class LottoClubsView(ListView):
         return context
 
 
-class SASClubsView(ListView):
-    """List view specifically for SAS clubs"""
-    model = Club
-    template_name = 'clubs/sas_clubs.html'
-    context_object_name = 'clubs'
-    paginate_by = 12
-
-    def get_queryset(self):
-        queryset = Club.objects.filter(is_active=True, club_type='SAS').prefetch_related('categories')
-        
-        # Search functionality
-        search_query = self.request.GET.get('search')
-        if search_query:
-            queryset = queryset.filter(
-                Q(name__icontains=search_query) |
-                Q(contact_person__icontains=search_query) |
-                Q(sport_tag__icontains=search_query)
-            )
-        
-        # Filter by sport tag
-        sport = self.request.GET.get('sport')
-        if sport:
-            queryset = queryset.filter(sport_tag=sport)
-        
-        return queryset.order_by('name')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['sport_tags'] = Club.SPORT_TAGS
-        context['current_search'] = self.request.GET.get('search', '')
-        context['current_sport'] = self.request.GET.get('sport', '')
-        context['club_type'] = 'SAS'
-        return context
 
 
 class ClubCategoryDetailView(DetailView):
@@ -432,6 +400,164 @@ def run_sync_in_background(sync_job):
         sync_job.add_log_message(f"Background sync error: {str(e)}", "error")
 
 
+def run_sas_sync_in_background(sync_job):
+    """
+    Run the actual SAS sync operation in a background thread
+    """
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Start the job
+        sync_job.start()
+        sync_job.add_log_message("Starting SAS clubs synchronization", "info")
+        sync_job.update_progress(5, "Validating environment settings")
+        
+        # Validate environment variables
+        required_settings = ['SAS_WOO_URL', 'SAS_WOO_KEY', 'SAS_WOO_SECRET']
+        missing_settings = []
+        
+        for setting in required_settings:
+            if not hasattr(settings, setting) or not getattr(settings, setting):
+                missing_settings.append(setting)
+        
+        if missing_settings:
+            sync_job.fail(
+                f'Missing required SAS WooCommerce API settings: {", ".join(missing_settings)}',
+                'MISSING_SETTINGS'
+            )
+            sync_job.add_log_message(f"Missing SAS settings: {', '.join(missing_settings)}", "error")
+            return
+        
+        sync_job.update_progress(10, "Testing SAS WooCommerce connection")
+        
+        # Test WooCommerce connection
+        try:
+            from clubs.services.woocommerce_service import WooCommerceService
+            woo_service = WooCommerceService(store_type='SAS')
+            if not woo_service.test_connection():
+                sync_job.fail(
+                    'Failed to connect to SAS WooCommerce API. Please check API credentials.',
+                    'CONNECTION_FAILED'
+                )
+                sync_job.add_log_message("SAS WooCommerce API connection test failed", "error")
+                return
+            
+            sync_job.add_log_message("SAS WooCommerce API connection successful", "success")
+            
+        except Exception as connection_error:
+            logger.error(f"SAS WooCommerce service initialization failed: {str(connection_error)}")
+            sync_job.fail(
+                f'Failed to initialize SAS WooCommerce service: {str(connection_error)}',
+                'SERVICE_INIT_FAILED'
+            )
+            sync_job.add_log_message(f"SAS service initialization failed: {str(connection_error)}", "error")
+            return
+        
+        sync_job.update_progress(20, "Executing SAS sync command")
+        
+        # Custom stdout capture to track progress
+        class ProgressCapture:
+            def __init__(self, sync_job):
+                self.sync_job = sync_job
+                self.output = []
+                self.progress = 20
+                
+            def write(self, text):
+                self.output.append(text)
+                # Update progress based on sync command output
+                if "Fetching clubs" in text:
+                    self.sync_job.update_progress(30, "Fetching SAS clubs from WooCommerce")
+                elif "Processing club:" in text:
+                    self.progress = min(70, self.progress + 2)
+                    self.sync_job.update_progress(self.progress, f"Processing SAS clubs")
+                elif "Fetching categories" in text:
+                    self.sync_job.update_progress(75, "Fetching SAS categories")
+                elif "Processing products" in text:
+                    self.sync_job.update_progress(85, "Processing SAS products")
+                elif "created:" in text.lower() or "updated:" in text.lower():
+                    self.sync_job.add_log_message(text.strip(), "info")
+            
+            def flush(self):
+                pass
+            
+            def getvalue(self):
+                return ''.join(self.output)
+        
+        # Execute the sync command with progress tracking
+        old_stdout = sys.stdout
+        progress_capture = ProgressCapture(sync_job)
+        sys.stdout = progress_capture
+        
+        try:
+            call_command(
+                'sync_sas_clubs',
+                force_update=True,
+                verbose=True,
+                verbosity=2
+            )
+            
+            sync_job.update_progress(90, "Processing SAS sync results")
+            
+            # Parse output for statistics
+            output = progress_capture.getvalue()
+            
+            # Extract stats from command output
+            try:
+                if "Clubs created:" in output:
+                    for line in output.split('\n'):
+                        line = line.strip()
+                        try:
+                            if line.startswith('Clubs created:'):
+                                sync_job.clubs_created = int(line.split(':')[1].strip())
+                            elif line.startswith('Clubs updated:'):
+                                sync_job.clubs_updated = int(line.split(':')[1].strip())
+                            elif line.startswith('Categories created:'):
+                                sync_job.categories_created = int(line.split(':')[1].strip())
+                            elif line.startswith('Categories updated:'):
+                                sync_job.categories_updated = int(line.split(':')[1].strip())
+                            elif line.startswith('Products created:'):
+                                sync_job.products_created = int(line.split(':')[1].strip())
+                            elif line.startswith('Products updated:'):
+                                sync_job.products_updated = int(line.split(':')[1].strip())
+                        except (ValueError, IndexError):
+                            continue
+                
+                sync_job.save(update_fields=[
+                    'clubs_created', 'clubs_updated', 'categories_created',
+                    'categories_updated', 'products_created', 'products_updated'
+                ])
+                
+            except Exception as parse_error:
+                logger.warning(f"Could not parse SAS sync statistics: {parse_error}")
+                sync_job.add_log_message(f"Warning: Could not parse SAS statistics: {parse_error}", "warning")
+            
+            # Complete the job
+            sync_job.add_log_message("SAS clubs synchronization completed successfully", "success")
+            sync_job.add_log_message(
+                f"Results: {sync_job.clubs_created} clubs created, {sync_job.clubs_updated} updated",
+                "info"
+            )
+            sync_job.complete()
+            
+            logger.info(f"SAS sync job {sync_job.id} completed successfully")
+            
+        except Exception as command_error:
+            logger.error(f"SAS management command failed: {str(command_error)}")
+            sync_job.fail(
+                f'SAS sync command failed: {str(command_error)}',
+                'COMMAND_FAILED'
+            )
+            sync_job.add_log_message(f"SAS sync command failed: {str(command_error)}", "error")
+            
+        finally:
+            sys.stdout = old_stdout
+            
+    except Exception as e:
+        logger.error(f"SAS background sync error: {str(e)}")
+        sync_job.fail(f'SAS background sync failed: {str(e)}', 'BACKGROUND_SYNC_FAILED')
+        sync_job.add_log_message(f"SAS background sync error: {str(e)}", "error")
+
+
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -502,6 +628,79 @@ def sync_lotto_clubs(request):
         return JsonResponse({
             'success': False,
             'error': f'Failed to start sync: {str(e)}',
+            'error_code': 'SYNC_START_FAILED'
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def sync_sas_clubs(request):
+    """
+    Async endpoint to trigger SAS clubs synchronization from WooCommerce API
+    Returns immediate response with job ID for polling
+    """
+    logger = logging.getLogger(__name__)
+    
+    try:
+        logger.info("Starting async sync request for SAS clubs")
+        
+        # Auto-cleanup stale jobs before checking for running jobs
+        cleaned_count = SyncJob.cleanup_stale_jobs(max_age_hours=2)
+        if cleaned_count > 0:
+            logger.info(f"Auto-cleaned {cleaned_count} stale sync jobs before starting new sync")
+        
+        # Check if there's already a running sync job (after cleanup)
+        existing_job = SyncJob.objects.filter(
+            sync_type='sas',
+            status='running'
+        ).first()
+        
+        if existing_job:
+            # Double-check if the existing job is actually stale
+            if existing_job.is_stale(max_age_hours=2):
+                logger.warning(f"Found stale job {existing_job.id}, cleaning it up")
+                existing_job.fail(
+                    'Job was stale and cleaned up to allow new sync',
+                    'AUTO_CLEANUP_ON_NEW_SYNC'
+                )
+                existing_job.add_log_message('Job was automatically cleaned up due to being stale when new sync was requested', 'warning')
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'A SAS sync is already running. Please wait for it to complete.',
+                    'error_code': 'SYNC_ALREADY_RUNNING',
+                    'job_id': str(existing_job.id),
+                    'age_hours': round(existing_job.get_age_hours() or 0, 2)
+                }, status=409)
+        
+        # Create new sync job
+        sync_job = SyncJob.objects.create(
+            sync_type='sas',
+            status='pending'
+        )
+        
+        logger.info(f"Created SAS sync job {sync_job.id}")
+        
+        # Start background sync in a separate thread
+        sync_thread = threading.Thread(
+            target=run_sas_sync_in_background,
+            args=(sync_job,),
+            daemon=True
+        )
+        sync_thread.start()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'SAS clubs synchronization started',
+            'job_id': str(sync_job.id),
+            'status_url': f'/clubs/sync/status/{sync_job.id}/'
+        })
+        
+    except Exception as e:
+        logger.error(f"SAS async sync endpoint error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'Failed to start SAS sync: {str(e)}',
             'error_code': 'SYNC_START_FAILED'
         }, status=500)
 
@@ -879,3 +1078,379 @@ def proxy_image_view(request):
             <text x="32" y="40" text-anchor="middle" fill="white" font-size="16" font-family="Arial, sans-serif" font-weight="bold">ERR</text>
         </svg>"""
         return HttpResponse(placeholder_svg, content_type='image/svg+xml')
+
+
+# ===============================
+# SAS VIEWS - Using SAS Models
+# ===============================
+
+class SASDashboardView(ListView):
+    """Dashboard view for SAS showing sports, clubs, and products statistics"""
+    model = SASSport
+    template_name = 'clubs/sas_dashboard.html'
+    context_object_name = 'sports'
+
+    def get_queryset(self):
+        return SASSport.objects.active_with_clubs().by_club_count()[:10]
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Dashboard statistics
+        context['total_sports'] = SASSport.objects.filter(is_active=True).count()
+        context['total_clubs'] = SASClub.objects.filter(is_active=True).count()
+        context['clubs_only'] = SASClub.objects.clubs_only().count()  # Excludes schools and generic categories
+        context['total_products'] = SASProduct.objects.available().count()
+        context['in_stock_products'] = SASProduct.objects.in_stock().count()
+        context['featured_products'] = SASProduct.objects.filter(featured=True, stock_status__in=['instock', 'onbackorder']).count()
+        
+        # Top performing clubs by product count
+        context['top_clubs'] = SASClub.objects.filter(
+            is_active=True, 
+            product_count__gt=0
+        ).select_related('sport').order_by('-product_count')[:10]
+        
+        # Recent products
+        context['recent_products'] = SASProduct.objects.filter(
+            stock_status__in=['instock', 'onbackorder']
+        ).select_related('club__sport').order_by('-created_at')[:8]
+        
+        # Sports with most clubs
+        context['top_sports'] = SASSport.objects.annotate(
+            active_clubs=Count('clubs', filter=Q(clubs__is_active=True, clubs__is_school=False, clubs__is_generic_category=False))
+        ).filter(active_clubs__gt=0).order_by('-active_clubs')[:5]
+        
+        return context
+
+
+class SASClubListView(ListView):
+    """List all SAS clubs with filtering by sport and search functionality"""
+    model = SASClub
+    template_name = 'clubs/sas_clubs.html'
+    context_object_name = 'clubs'
+    paginate_by = 12
+
+    def get_queryset(self):
+        # Use clubs_only() manager to automatically exclude schools and generic categories
+        queryset = SASClub.objects.clubs_only().select_related('sport')
+        
+        # Toggle for showing/hiding schools (optional override)
+        include_schools = self.request.GET.get('include_schools', 'false').lower() == 'true'
+        if include_schools:
+            # If schools are requested, use broader filter but still exclude generic categories
+            queryset = SASClub.objects.filter(is_active=True, is_generic_category=False).select_related('sport')
+        
+        # Filter by sport
+        sport_slug = self.request.GET.get('sport')
+        if sport_slug:
+            queryset = queryset.filter(sport__slug=sport_slug)
+        
+        # Search functionality
+        search_query = self.request.GET.get('search')
+        if search_query:
+            queryset = queryset.filter(
+                Q(name__icontains=search_query) |
+                Q(sport__name__icontains=search_query) |
+                Q(contact_person__icontains=search_query) |
+                Q(city__icontains=search_query)
+            )
+        
+        return queryset.order_by('sport__name', 'name')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Get the same queryset for accurate counts
+        base_queryset = self.get_queryset()
+        
+        # Available sports (from filtered results)
+        context['sports'] = SASSport.objects.filter(is_active=True, club_count__gt=0).order_by('name')
+        context['current_sport'] = self.request.GET.get('sport', '')
+        context['current_search'] = self.request.GET.get('search', '')
+        context['include_schools'] = self.request.GET.get('include_schools', 'false').lower() == 'true'
+        
+        # Statistics based on FILTERED results (what's actually shown)
+        total_filtered_clubs = base_queryset.count()
+        
+        # Get accurate statistics for SAS clubs only
+        context['stats'] = {
+            'total_clubs': total_filtered_clubs,  # Use filtered count for display
+            'total_categories': SASProduct.objects.filter(
+                club__in=base_queryset,
+                stock_status__in=['instock', 'onbackorder']
+            ).values('club').distinct().count(),
+            'total_products': SASProduct.objects.filter(
+                club__in=base_queryset,
+                stock_status__in=['instock', 'onbackorder']
+            ).count(),
+            'active_clubs': base_queryset.filter(product_count__gt=0).count(),
+            'clubs_only': SASClub.objects.clubs_only().count(),  # Overall system stats
+            'schools_only': SASClub.objects.filter(is_active=True, is_school=True).count(),
+            'with_products': SASClub.objects.with_products().count(),
+        }
+        
+        return context
+
+
+class SASClubDetailView(DetailView):
+    """Detailed view of a specific SAS club showing products"""
+    model = SASClub
+    template_name = 'clubs/sas_club_detail.html'
+    context_object_name = 'club'
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
+
+    def get_queryset(self):
+        return SASClub.objects.filter(is_active=True).select_related('sport')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        club = self.get_object()
+        
+        # Get products for this club
+        context['products'] = club.products.filter(
+            stock_status__in=['instock', 'onbackorder']
+        ).order_by('-featured', 'name')
+        
+        # Product statistics
+        context['product_stats'] = {
+            'total': club.products.available().count(),
+            'in_stock': club.products.in_stock().count(),
+            'featured': club.products.filter(featured=True, stock_status__in=['instock', 'onbackorder']).count(),
+            'on_sale': club.products.on_sale().count(),
+        }
+        
+        # Price range
+        products_with_prices = context['products'].filter(price__gt=0)
+        if products_with_prices.exists():
+            prices = [p.effective_price for p in products_with_prices]
+            context['price_range'] = {
+                'min': min(prices),
+                'max': max(prices),
+                'avg': sum(prices) / len(prices),
+            }
+        
+        return context
+
+
+class SASSportListView(ListView):
+    """List all SAS sports with club counts and filtering"""
+    model = SASSport
+    template_name = 'clubs/sas_sports.html'
+    context_object_name = 'sports'
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = SASSport.objects.filter(is_active=True).annotate(
+            active_clubs_count=Count('clubs', filter=Q(clubs__is_active=True, clubs__is_school=False, clubs__is_generic_category=False)),
+            total_products_count=Count('clubs__products', filter=Q(
+                clubs__is_active=True, 
+                clubs__products__stock_status__in=['instock', 'onbackorder']
+            ))
+        )
+        
+        # Filter to only sports with clubs
+        show_empty = self.request.GET.get('show_empty', 'false').lower() == 'true'
+        if not show_empty:
+            queryset = queryset.filter(active_clubs_count__gt=0)
+        
+        # Search functionality
+        search_query = self.request.GET.get('search')
+        if search_query:
+            queryset = queryset.filter(name__icontains=search_query)
+        
+        # Ordering
+        order_by = self.request.GET.get('order_by', 'clubs')
+        if order_by == 'name':
+            queryset = queryset.order_by('name')
+        elif order_by == 'products':
+            queryset = queryset.order_by('-total_products_count', 'name')
+        else:  # default to clubs
+            queryset = queryset.order_by('-active_clubs_count', 'name')
+        
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['current_search'] = self.request.GET.get('search', '')
+        context['current_order'] = self.request.GET.get('order_by', 'clubs')
+        context['show_empty'] = self.request.GET.get('show_empty', 'false').lower() == 'true'
+        
+        # Statistics
+        context['stats'] = {
+            'total_sports': SASSport.objects.filter(is_active=True).count(),
+            'sports_with_clubs': SASSport.objects.filter(is_active=True, club_count__gt=0).count(),
+            'total_clubs': SASClub.objects.filter(is_active=True, is_school=False, is_generic_category=False).count(),
+            'total_products': SASProduct.objects.available().count(),
+        }
+        
+        return context
+
+
+class SASProductListView(ListView):
+    """List all SAS products with comprehensive filtering"""
+    model = SASProduct
+    template_name = 'clubs/sas_products.html'
+    context_object_name = 'products'
+    paginate_by = 24
+
+    def get_queryset(self):
+        from django.db.models import F, Min, Max, Avg
+        
+        queryset = SASProduct.objects.filter(
+            stock_status__in=['instock', 'onbackorder']
+        ).select_related('club__sport')
+        
+        # Filter by sport
+        sport_slug = self.request.GET.get('sport')
+        if sport_slug:
+            queryset = queryset.filter(club__sport__slug=sport_slug)
+        
+        # Filter by club
+        club_slug = self.request.GET.get('club')
+        if club_slug:
+            queryset = queryset.filter(club__slug=club_slug)
+        
+        # Filter by stock status
+        stock_status = self.request.GET.get('stock_status')
+        if stock_status and stock_status in ['instock', 'outofstock', 'onbackorder']:
+            queryset = queryset.filter(stock_status=stock_status)
+        
+        # Filter by price range
+        min_price = self.request.GET.get('min_price')
+        max_price = self.request.GET.get('max_price')
+        if min_price:
+            try:
+                queryset = queryset.filter(price__gte=float(min_price))
+            except ValueError:
+                pass
+        if max_price:
+            try:
+                queryset = queryset.filter(price__lte=float(max_price))
+            except ValueError:
+                pass
+        
+        # Filter featured products
+        featured_only = self.request.GET.get('featured', 'false').lower() == 'true'
+        if featured_only:
+            queryset = queryset.filter(featured=True)
+        
+        # Filter on sale products
+        on_sale_only = self.request.GET.get('on_sale', 'false').lower() == 'true'
+        if on_sale_only:
+            queryset = queryset.filter(
+                sale_price__isnull=False,
+                sale_price__gt=0,
+                sale_price__lt=F('regular_price')
+            )
+        
+        # Search functionality
+        search_query = self.request.GET.get('search')
+        if search_query:
+            queryset = queryset.filter(
+                Q(name__icontains=search_query) |
+                Q(description__icontains=search_query) |
+                Q(short_description__icontains=search_query) |
+                Q(sku__icontains=search_query) |
+                Q(club__name__icontains=search_query)
+            )
+        
+        # Ordering
+        order_by = self.request.GET.get('order_by', 'name')
+        if order_by == 'price_asc':
+            queryset = queryset.order_by('price')
+        elif order_by == 'price_desc':
+            queryset = queryset.order_by('-price')
+        elif order_by == 'newest':
+            queryset = queryset.order_by('-created_at')
+        elif order_by == 'oldest':
+            queryset = queryset.order_by('created_at')
+        elif order_by == 'club':
+            queryset = queryset.order_by('club__name', 'name')
+        elif order_by == 'sport':
+            queryset = queryset.order_by('club__sport__name', 'club__name', 'name')
+        else:  # default to name
+            queryset = queryset.order_by('name')
+        
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        from django.db.models import F, Min, Max, Avg
+        
+        context = super().get_context_data(**kwargs)
+        
+        # Filter options
+        context['sports'] = SASSport.objects.filter(is_active=True, club_count__gt=0).order_by('name')
+        context['clubs'] = SASClub.objects.filter(is_active=True, product_count__gt=0).select_related('sport').order_by('sport__name', 'name')
+        
+        # Current filter values
+        context['current_sport'] = self.request.GET.get('sport', '')
+        context['current_club'] = self.request.GET.get('club', '')
+        context['current_search'] = self.request.GET.get('search', '')
+        context['current_stock_status'] = self.request.GET.get('stock_status', '')
+        context['current_order'] = self.request.GET.get('order_by', 'name')
+        context['featured_only'] = self.request.GET.get('featured', 'false').lower() == 'true'
+        context['on_sale_only'] = self.request.GET.get('on_sale', 'false').lower() == 'true'
+        context['min_price'] = self.request.GET.get('min_price', '')
+        context['max_price'] = self.request.GET.get('max_price', '')
+        
+        # Statistics
+        all_products = SASProduct.objects.available()
+        context['stats'] = {
+            'total_products': all_products.count(),
+            'in_stock': SASProduct.objects.in_stock().count(),
+            'featured': all_products.filter(featured=True).count(),
+            'on_sale': SASProduct.objects.on_sale().count(),
+        }
+        
+        # Price range for the entire dataset
+        products_with_prices = all_products.filter(price__gt=0)
+        if products_with_prices.exists():
+            prices = products_with_prices.aggregate(
+                min_price=Min('price'),
+                max_price=Max('price'),
+                avg_price=Avg('price')
+            )
+            context['price_stats'] = prices
+            # Add average_price for template compatibility with LOTTO design
+            context['average_price'] = prices['avg_price'] or 0
+        else:
+            context['average_price'] = 0
+        
+        return context
+
+
+def sas_club_search_ajax(request):
+    """AJAX endpoint for SAS club search suggestions"""
+    query = request.GET.get('q', '')
+    if len(query) < 2:
+        return JsonResponse({'results': []})
+    
+    # Use clubs_only() to filter out schools and generic categories
+    clubs = SASClub.objects.clubs_only().filter(
+        Q(name__icontains=query) |
+        Q(sport__name__icontains=query) |
+        Q(contact_person__icontains=query) |
+        Q(city__icontains=query)
+    ).select_related('sport').values(
+        'slug', 'name', 'sport__name', 'sport__slug', 'product_count'
+    )[:10]
+    
+    results = list(clubs)
+    return JsonResponse({'results': results})
+
+
+def sas_product_search_ajax(request):
+    """AJAX endpoint for SAS product search suggestions"""
+    query = request.GET.get('q', '')
+    if len(query) < 2:
+        return JsonResponse({'results': []})
+    
+    products = SASProduct.objects.filter(
+        Q(name__icontains=query) & Q(stock_status__in=['instock', 'onbackorder'])
+    ).select_related('club__sport').values(
+        'slug', 'name', 'club__name', 'club__sport__name', 'price', 'featured'
+    )[:10]
+    
+    results = list(products)
+    return JsonResponse({'results': results})

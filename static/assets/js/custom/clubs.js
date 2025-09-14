@@ -104,62 +104,11 @@ class ClubsManager {
     }
 
     /**
-     * Initialize AJAX search with suggestions
+     * Initialize AJAX search with suggestions (DISABLED)
      */
     initializeAjaxSearch() {
-        const searchInput = document.getElementById('searchInput');
-        if (!searchInput) return;
-
-        const createSuggestionDropdown = () => {
-            const dropdown = document.createElement('div');
-            dropdown.className = 'search-suggestions';
-            dropdown.style.cssText = `
-                position: absolute;
-                top: 100%;
-                left: 0;
-                right: 0;
-                background: white;
-                border: 1px solid #ddd;
-                border-top: none;
-                border-radius: 0 0 6px 6px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                max-height: 300px;
-                overflow-y: auto;
-                z-index: 1000;
-                display: none;
-            `;
-            return dropdown;
-        };
-
-        const suggestionDropdown = createSuggestionDropdown();
-        searchInput.parentElement.style.position = 'relative';
-        searchInput.parentElement.appendChild(suggestionDropdown);
-
-        searchInput.addEventListener('input', (e) => {
-            const query = e.target.value.trim();
-            
-            if (query.length < 2) {
-                suggestionDropdown.style.display = 'none';
-                return;
-            }
-
-            // AJAX search request
-            fetch(`/clubs/ajax/search/?q=${encodeURIComponent(query)}`)
-                .then(response => response.json())
-                .then(data => {
-                    this.displaySearchSuggestions(suggestionDropdown, data.results);
-                })
-                .catch(error => {
-                    console.error('Search error:', error);
-                });
-        });
-
-        // Hide suggestions when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!searchInput.parentElement.contains(e.target)) {
-                suggestionDropdown.style.display = 'none';
-            }
-        });
+        // Auto-suggestions disabled - users will use the filter button instead
+        return;
     }
 
     /**

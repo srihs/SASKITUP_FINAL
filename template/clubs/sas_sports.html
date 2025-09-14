@@ -1,0 +1,449 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+/* SAS Branding Colors */
+.sas-primary { background-color: #1a5490 !important; color: white !important; }
+.sas-secondary { background-color: #2d6ca8 !important; color: white !important; }
+.sas-accent { background-color: #f8b000 !important; color: white !important; }
+
+.sport-card {
+    border: 1px solid #e9ecef;
+    border-left: 4px solid #1a5490;
+    transition: all 0.3s ease;
+    height: 100%;
+}
+
+.sport-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(26, 84, 144, 0.15);
+    border-left-color: #f8b000;
+}
+
+.sport-icon {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(45deg, #1a5490, #2d6ca8);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    margin: 0 auto 1rem auto;
+}
+
+.stats-badge {
+    background: linear-gradient(45deg, #f8b000, #ffcc33);
+    color: #212529;
+    padding: 6px 15px;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+.btn-sas {
+    background: linear-gradient(45deg, #1a5490, #2d6ca8);
+    border: none;
+    color: white;
+}
+
+.btn-sas:hover {
+    background: linear-gradient(45deg, #134073, #1a5490);
+    color: white;
+}
+
+.text-sas-primary {
+    color: #1a5490 !important;
+}
+
+.filter-section {
+    background: linear-gradient(135deg, #f8fbff 0%, #e6f2ff 100%);
+    border-radius: 12px;
+    border: 1px solid #b8daf7;
+}
+
+.stats-grid {
+    background: linear-gradient(135deg, #1a5490 0%, #2d6ca8 100%);
+    color: white;
+    border-radius: 12px;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1.5rem 1rem;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.progress-sas {
+    background-color: #e6f2ff;
+    height: 8px;
+}
+
+.progress-sas .progress-bar {
+    background: linear-gradient(45deg, #1a5490, #2d6ca8);
+}
+
+.sport-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <div>
+                <h4 class="mb-sm-0 text-sas-primary">SAS Sports Directory</h4>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb m-0">
+                        <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'clubs:sas-dashboard' %}">SAS Sports</a></li>
+                        <li class="breadcrumb-item active">Sports</li>
+                    </ol>
+                </nav>
+            </div>
+            <div class="page-title-right">
+                <div class="btn-group" role="group">
+                    <a href="{% url 'clubs:sas-dashboard' %}" class="btn btn-outline-primary btn-sm">
+                        <i class="uil-chart-bar me-1"></i> Dashboard
+                    </a>
+                    <a href="{% url 'clubs:sas-clubs' %}" class="btn btn-sas btn-sm">
+                        <i class="uil-users-alt me-1"></i> Clubs
+                    </a>
+                    <a href="{% url 'clubs:sas-products' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="uil-package me-1"></i> Products
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Row -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="stats-grid p-4">
+            <div class="row">
+                <div class="col-lg-3 col-md-6">
+                    <div class="stat-item">
+                        <div class="stat-value">{{ stats.total_sports }}</div>
+                        <div>Total Sports</div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <div class="stat-item border-start">
+                        <div class="stat-value">{{ stats.sports_with_clubs }}</div>
+                        <div>With Clubs</div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <div class="stat-item border-start">
+                        <div class="stat-value">{{ stats.total_clubs }}</div>
+                        <div>Total Clubs</div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <div class="stat-item border-start">
+                        <div class="stat-value">{{ stats.total_products }}</div>
+                        <div>Total Products</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search and Filter Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="filter-section p-4">
+            <form method="GET" id="filterForm" class="row g-3 align-items-end">
+                <div class="col-lg-4">
+                    <label class="form-label text-sas-primary fw-bold">Search Sports</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="uil-search"></i></span>
+                        <input type="text" class="form-control" name="search" value="{{ current_search }}" 
+                               placeholder="Search sports by name...">
+                    </div>
+                </div>
+                
+                <div class="col-lg-3">
+                    <label class="form-label text-sas-primary fw-bold">Order By</label>
+                    <select class="form-select" name="order_by">
+                        <option value="clubs" {% if current_order == 'clubs' %}selected{% endif %}>Most Clubs</option>
+                        <option value="products" {% if current_order == 'products' %}selected{% endif %}>Most Products</option>
+                        <option value="name" {% if current_order == 'name' %}selected{% endif %}>Name A-Z</option>
+                    </select>
+                </div>
+
+                <div class="col-lg-2">
+                    <label class="form-label text-sas-primary fw-bold">Show Empty</label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="show_empty" value="true" 
+                               {% if show_empty %}checked{% endif %} id="showEmpty">
+                        <label class="form-check-label" for="showEmpty">
+                            Include Empty
+                        </label>
+                    </div>
+                </div>
+
+                <div class="col-lg-3">
+                    <div class="d-grid gap-2 d-md-flex">
+                        <button type="submit" class="btn btn-sas">
+                            <i class="uil-filter me-1"></i> Filter
+                        </button>
+                        <a href="{% url 'clubs:sas-sports' %}" class="btn btn-outline-secondary">
+                            <i class="uil-times me-1"></i> Clear
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Sports Grid -->
+<div class="row">
+    {% if sports %}
+        <div class="col-12">
+            <div class="sport-grid">
+                {% for sport in sports %}
+                <div class="sport-card p-4 rounded">
+                    <!-- Sport Icon -->
+                    <div class="text-center">
+                        {% if sport.image_url %}
+                        <img src="{% url 'clubs:proxy-image' %}?url={{ sport.image_url|urlencode }}" 
+                             class="sport-icon rounded-circle" alt="{{ sport.name }}" style="width: 80px; height: 80px; object-fit: cover;"
+                             onerror="this.parentNode.innerHTML='<div class=\\'sport-icon\\'><i class=\\'uil-basketball\\'></i></div>'">
+                        {% else %}
+                        <div class="sport-icon">
+                            <i class="uil-basketball"></i>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Sport Info -->
+                    <div class="text-center">
+                        <h5 class="mb-2 text-sas-primary">{{ sport.name }}</h5>
+                        <p class="text-muted mb-3">
+                            WooCommerce ID: {{ sport.woo_category_id }}
+                        </p>
+                    </div>
+
+                    <!-- Statistics -->
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <div class="text-center p-2 bg-light rounded">
+                                <h6 class="mb-0 text-sas-primary">{{ sport.active_clubs_count }}</h6>
+                                <small class="text-muted">Clubs</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-2 bg-light rounded">
+                                <h6 class="mb-0 text-success">{{ sport.total_products_count }}</h6>
+                                <small class="text-muted">Products</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar (Relative to top sport) -->
+                    {% if sports.0.active_clubs_count > 0 %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <small class="text-muted">Clubs Progress</small>
+                            <small class="text-muted">
+                                {% widthratio sport.active_clubs_count sports.0.active_clubs_count 100 as progress_percent %}
+                                {{ progress_percent }}%
+                            </small>
+                        </div>
+                        <div class="progress progress-sas">
+                            <div class="progress-bar" style="width: {{ progress_percent }}%"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Description -->
+                    {% if sport.description %}
+                    <p class="text-muted small mb-3">{{ sport.description|truncatechars:100 }}</p>
+                    {% endif %}
+
+                    <!-- Action Buttons -->
+                    <div class="d-grid gap-2">
+                        {% if sport.active_clubs_count > 0 %}
+                        <a href="{% url 'clubs:sas-clubs' %}?sport={{ sport.slug }}" 
+                           class="btn btn-sas btn-sm">
+                            <i class="uil-users-alt me-1"></i> View {{ sport.active_clubs_count }} Club{{ sport.active_clubs_count|pluralize }}
+                        </a>
+                        {% endif %}
+                        
+                        {% if sport.total_products_count > 0 %}
+                        <a href="{% url 'clubs:sas-products' %}?sport={{ sport.slug }}" 
+                           class="btn btn-outline-secondary btn-sm">
+                            <i class="uil-package me-1"></i> {{ sport.total_products_count }} Product{{ sport.total_products_count|pluralize }}
+                        </a>
+                        {% endif %}
+                        
+                        {% if sport.active_clubs_count == 0 %}
+                        <div class="text-center py-2">
+                            <small class="text-muted">No active clubs</small>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Last Sync Info -->
+                    {% if sport.last_sync_at %}
+                    <div class="text-center mt-3 pt-2 border-top">
+                        <small class="text-muted">
+                            <i class="uil-sync me-1"></i>
+                            Last sync: {{ sport.last_sync_at|timesince }} ago
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% else %}
+        <!-- No Sports Found -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <div class="avatar-xl mx-auto mb-4">
+                        <div class="avatar-title bg-soft-primary text-primary rounded-circle font-size-24">
+                            <i class="uil-basketball"></i>
+                        </div>
+                    </div>
+                    <h5 class="text-sas-primary">No Sports Found</h5>
+                    <p class="text-muted mb-3">
+                        {% if current_search %}
+                            No sports match your search criteria "{{ current_search }}".
+                        {% else %}
+                            {% if show_empty %}
+                                There are currently no sports in the system.
+                            {% else %}
+                                No sports with active clubs found. Try enabling "Show Empty" to see all sports.
+                            {% endif %}
+                        {% endif %}
+                    </p>
+                    <div class="d-inline-flex gap-2">
+                        {% if current_search %}
+                        <a href="{% url 'clubs:sas-sports' %}" class="btn btn-primary">
+                            <i class="uil-times me-1"></i> Clear Search
+                        </a>
+                        {% endif %}
+                        {% if not show_empty %}
+                        <a href="{% url 'clubs:sas-sports' %}?show_empty=true" class="btn btn-outline-primary">
+                            <i class="uil-eye me-1"></i> Show All Sports
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'clubs:sas-dashboard' %}" class="btn btn-outline-secondary">
+                            <i class="uil-arrow-left me-1"></i> Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<div class="row mt-4">
+    <div class="col-lg-12">
+        <div class="pagination-wrap hstack gap-2">
+            <nav aria-label="Sports navigation">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if current_search %}&search={{ current_search }}{% endif %}{% if current_order != 'clubs' %}&order_by={{ current_order }}{% endif %}{% if show_empty %}&show_empty=true{% endif %}">
+                                <i class="mdi mdi-chevron-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_order != 'clubs' %}&order_by={{ current_order }}{% endif %}{% if show_empty %}&show_empty=true{% endif %}">
+                                <i class="mdi mdi-chevron-left"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_order != 'clubs' %}&order_by={{ current_order }}{% endif %}{% if show_empty %}&show_empty=true{% endif %}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_order != 'clubs' %}&order_by={{ current_order }}{% endif %}{% if show_empty %}&show_empty=true{% endif %}">
+                                <i class="mdi mdi-chevron-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_order != 'clubs' %}&order_by={{ current_order }}{% endif %}{% if show_empty %}&show_empty=true{% endif %}">
+                                <i class="mdi mdi-chevron-double-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        
+        <div class="text-center mt-3">
+            <p class="text-muted">
+                Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} sport{{ page_obj.paginator.count|pluralize }}
+            </p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Auto-submit form on filter changes
+    $('#filterForm select, #filterForm input[type="checkbox"]').change(function() {
+        $('#filterForm').submit();
+    });
+
+    // Search with enter key
+    $('#filterForm input[name="search"]').keypress(function(event) {
+        if (event.which === 13) {
+            $('#filterForm').submit();
+        }
+    });
+
+    // Add hover effects
+    $('.sport-card').hover(
+        function() { 
+            $(this).addClass('shadow-sm'); 
+        },
+        function() { 
+            $(this).removeClass('shadow-sm'); 
+        }
+    );
+    
+    // Initialize tooltips
+    $('[data-bs-toggle="tooltip"]').tooltip();
+    
+    console.log('SAS Sports page initialized with {{ sports|length }} sports displayed');
+});
+</script>
+{% endblock %}

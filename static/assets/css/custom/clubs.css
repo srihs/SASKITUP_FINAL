@@ -17,13 +17,13 @@
 }
 
 .lotto-club-card:hover {
-    border-color: #3abaf4;
-    box-shadow: 0 15px 40px rgba(58, 186, 244, 0.3);
+    border-color: #C9485B;
+    box-shadow: 0 15px 40px rgba(201, 72, 91, 0.3);
 }
 
 .sas-club-card:hover {
-    border-color: #f7b84b;
-    box-shadow: 0 15px 40px rgba(247, 184, 75, 0.3);
+    border-color: #205295;
+    box-shadow: 0 15px 40px rgba(32, 82, 149, 0.3);
 }
 
 /* ============================================
@@ -134,73 +134,244 @@
 }
 
 .lotto-stats {
-    background: linear-gradient(135deg, rgba(58, 186, 244, 0.1) 0%, rgba(58, 186, 244, 0.05) 100%);
+    background: linear-gradient(135deg, rgba(201, 72, 91, 0.1) 0%, rgba(232, 157, 162, 0.05) 100%);
+    border: 1px solid rgba(201, 72, 91, 0.2);
 }
 
 .sas-stats {
-    background: linear-gradient(135deg, rgba(247, 184, 75, 0.1) 0%, rgba(247, 184, 75, 0.05) 100%);
+    background: linear-gradient(135deg, rgba(19, 29, 79, 0.1) 0%, rgba(37, 77, 112, 0.05) 100%);
+    border: 1px solid rgba(19, 29, 79, 0.2);
 }
 
 /* ============================================
-   LOTTO Brand Colors
+   LOTTO Brand Colors - Updated Brand Identity
    ============================================ */
-.text-lotto { color: #3abaf4 !important; }
-.bg-lotto { background-color: #3abaf4 !important; }
-.border-lotto { border-color: #3abaf4 !important; }
 
+/* Primary LOTTO brand color: Deep Rose */
+.text-lotto-primary { color: #C9485B !important; }
+.bg-lotto-primary { background-color: #C9485B !important; }
+.border-lotto-primary { border-color: #C9485B !important; }
+
+/* Secondary LOTTO brand color: Light Rose */
+.text-lotto-secondary { color: #E89DA2 !important; }
+.bg-lotto-secondary { background-color: #E89DA2 !important; }
+.border-lotto-secondary { border-color: #E89DA2 !important; }
+
+/* Legacy support - map old classes to new primary */
+.text-lotto { color: #C9485B !important; }
+.bg-lotto { background-color: #C9485B !important; }
+.border-lotto { border-color: #C9485B !important; }
+
+/* LOTTO Primary Buttons */
 .btn-lotto {
-    background-color: #3abaf4;
-    border-color: #3abaf4;
+    background-color: #C9485B;
+    border-color: #C9485B;
     color: #fff;
+    transition: all 0.3s ease;
+    font-weight: 500;
 }
 
 .btn-lotto:hover {
-    background-color: #2a9fd4;
-    border-color: #2a9fd4;
+    background-color: #E89DA2;
+    border-color: #E89DA2;
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(201, 72, 91, 0.3);
+}
+
+.btn-lotto:focus {
+    background-color: #B33D50;
+    border-color: #B33D50;
+    color: #fff;
+    box-shadow: 0 0 0 0.2rem rgba(201, 72, 91, 0.25);
+}
+
+.btn-lotto:active {
+    background-color: #B33D50 !important;
+    border-color: #B33D50 !important;
     color: #fff;
 }
 
+/* LOTTO Soft Buttons */
 .btn-soft-lotto {
-    background-color: rgba(58, 186, 244, 0.1);
-    border-color: rgba(58, 186, 244, 0.1);
-    color: #3abaf4;
+    background-color: rgba(201, 72, 91, 0.1);
+    border-color: rgba(201, 72, 91, 0.1);
+    color: #C9485B;
+    transition: all 0.3s ease;
 }
 
 .btn-soft-lotto:hover {
-    background-color: #3abaf4;
-    border-color: #3abaf4;
+    background-color: #C9485B;
+    border-color: #C9485B;
     color: #fff;
+    transform: translateY(-1px);
+}
+
+.btn-soft-lotto:focus {
+    background-color: rgba(201, 72, 91, 0.15);
+    border-color: #C9485B;
+    color: #C9485B;
+    box-shadow: 0 0 0 0.2rem rgba(201, 72, 91, 0.25);
+}
+
+/* LOTTO Outline Buttons */
+.btn-outline-lotto {
+    background-color: transparent;
+    border: 2px solid #C9485B;
+    color: #C9485B;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-lotto:hover {
+    background-color: #C9485B;
+    border-color: #C9485B;
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+/* LOTTO Link Buttons */
+.btn-link-lotto {
+    background: none;
+    border: none;
+    color: #C9485B;
+    text-decoration: underline;
+    transition: color 0.3s ease;
+}
+
+.btn-link-lotto:hover {
+    color: #E89DA2;
+    text-decoration: none;
 }
 
 /* ============================================
-   SAS Brand Colors
+   SAS Brand Colors - Updated Brand Identity
    ============================================ */
-.text-sas { color: #f7b84b !important; }
-.bg-sas { background-color: #f7b84b !important; }
-.border-sas { border-color: #f7b84b !important; }
 
+/* Primary SAS brand color: Navy Blue */
+.text-sas-primary { color: #205295 !important; }
+.bg-sas-primary { background-color: #205295 !important; }
+.border-sas-primary { border-color: #205295 !important; }
+
+/* Secondary SAS brand color: Medium Blue */
+.text-sas-secondary { color: #2C74B3 !important; }
+.bg-sas-secondary { background-color: #2C74B3 !important; }
+.border-sas-secondary { border-color: #2C74B3 !important; }
+
+/* Tertiary SAS brand color: Dark Blue */
+.text-sas-tertiary { color: #144272 !important; }
+.bg-sas-tertiary { background-color: #144272 !important; }
+.border-sas-tertiary { border-color: #144272 !important; }
+
+/* Legacy support - map old classes to new primary */
+.text-sas { color: #205295 !important; }
+.bg-sas { background-color: #205295 !important; }
+.border-sas { border-color: #205295 !important; }
+
+/* SAS Primary Buttons */
 .btn-sas {
-    background-color: #f7b84b;
-    border-color: #f7b84b;
+    background-color: #205295;
+    border-color: #205295;
     color: #fff;
+    transition: all 0.3s ease;
+    font-weight: 500;
 }
 
 .btn-sas:hover {
-    background-color: #f5a623;
-    border-color: #f5a623;
+    background-color: #2C74B3;
+    border-color: #205295;
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(19, 29, 79, 0.3);
+}
+
+.btn-sas:focus {
+    background-color: #0F1438;
+    border-color: #0F1438;
+    color: #fff;
+    box-shadow: 0 0 0 0.2rem rgba(19, 29, 79, 0.25);
+}
+
+.btn-sas:active {
+    background-color: #0F1438 !important;
+    border-color: #0F1438 !important;
     color: #fff;
 }
 
+/* SAS Soft Buttons */
 .btn-soft-sas {
-    background-color: rgba(247, 184, 75, 0.1);
-    border-color: rgba(247, 184, 75, 0.1);
-    color: #f7b84b;
+    background-color: rgba(32, 82, 149, 0.08);
+    border-color: rgba(32, 82, 149, 0.15);
+    color: #205295;
+    transition: all 0.3s ease;
 }
 
 .btn-soft-sas:hover {
-    background-color: #f7b84b;
-    border-color: #f7b84b;
+    background-color: #205295;
+    border-color: #205295;
     color: #fff;
+    transform: translateY(-1px);
+}
+
+.btn-soft-sas:focus {
+    background-color: rgba(32, 82, 149, 0.12);
+    border-color: #205295;
+    color: #205295;
+    box-shadow: 0 0 0 0.2rem rgba(32, 82, 149, 0.25);
+}
+
+/* SAS Outline Buttons */
+.btn-outline-sas {
+    background-color: transparent;
+    border: 2px solid #205295;
+    color: #205295;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-sas:hover {
+    background-color: #205295;
+    border-color: #205295;
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+/* SAS Link Buttons */
+.btn-link-sas {
+    background: none;
+    border: none;
+    color: #205295;
+    text-decoration: underline;
+    transition: color 0.3s ease;
+}
+
+.btn-link-sas:hover {
+    color: #205295;
+    text-decoration: none;
+}
+
+/* SAS Brand Background Utilities */
+.bg-soft-sas-primary { 
+    background-color: rgba(32, 82, 149, 0.08) !important; 
+}
+
+.bg-soft-sas-secondary { 
+    background-color: rgba(44, 116, 179, 0.08) !important; 
+}
+
+.bg-soft-sas-tertiary { 
+    background-color: rgba(20, 66, 114, 0.05) !important; 
+}
+
+/* SAS Badge Variants */
+.badge-soft-sas-primary {
+    background-color: rgba(32, 82, 149, 0.08);
+    color: #205295;
+    border: 1px solid rgba(32, 82, 149, 0.15);
+}
+
+.badge-soft-sas-secondary {
+    background-color: rgba(44, 116, 179, 0.08);
+    color: #2C74B3;
+    border: 1px solid rgba(44, 116, 179, 0.15);
 }
 
 /* ============================================
@@ -1005,6 +1176,336 @@ html {
     color: rgba(255, 255, 255, 0.75) !important;
 }
 
+/* ============================================
+   LOTTO Brand Extensions & Utilities
+   ============================================ */
+
+/* LOTTO Soft Background Variants */
+.bg-soft-lotto-primary { 
+    background-color: rgba(201, 72, 91, 0.1) !important; 
+}
+
+.bg-soft-lotto-secondary { 
+    background-color: rgba(232, 157, 162, 0.1) !important; 
+}
+
+/* LOTTO Gradient Backgrounds */
+.bg-gradient-lotto {
+    background: linear-gradient(135deg, #C9485B 0%, #E89DA2 100%) !important;
+}
+
+.bg-gradient-lotto-reverse {
+    background: linear-gradient(135deg, #E89DA2 0%, #C9485B 100%) !important;
+}
+
+/* LOTTO Badge Variants */
+.badge-lotto {
+    background-color: #C9485B;
+    color: #fff;
+}
+
+.badge-soft-lotto {
+    background-color: rgba(201, 72, 91, 0.1);
+    color: #C9485B;
+    border: 1px solid rgba(201, 72, 91, 0.2);
+}
+
+.badge-sas {
+    background: linear-gradient(45deg, #205295, #205295);
+    color: white;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-soft-sas {
+    background-color: rgba(19, 29, 79, 0.1);
+    color: #205295;
+    border: 1px solid rgba(19, 29, 79, 0.2);
+}
+
+.badge-outline-lotto {
+    background-color: transparent;
+    color: #C9485B;
+    border: 1px solid #C9485B;
+}
+
+/* LOTTO Progress Bars */
+.progress-bar-lotto {
+    background: linear-gradient(90deg, #C9485B, #E89DA2);
+}
+
+.progress-lotto {
+    background-color: rgba(201, 72, 91, 0.1);
+}
+
+/* LOTTO Card Variants */
+.card-lotto {
+    border: 2px solid rgba(201, 72, 91, 0.2);
+    transition: all 0.3s ease;
+}
+
+.card-lotto:hover {
+    border-color: #C9485B;
+    box-shadow: 0 8px 25px rgba(201, 72, 91, 0.2);
+}
+
+.card-header-lotto {
+    background: linear-gradient(135deg, rgba(201, 72, 91, 0.1) 0%, rgba(232, 157, 162, 0.05) 100%);
+    border-bottom: 2px solid rgba(201, 72, 91, 0.2);
+    color: #C9485B;
+    font-weight: 600;
+}
+
+/* LOTTO Alert Variants */
+.alert-lotto {
+    background-color: rgba(201, 72, 91, 0.1);
+    border: 1px solid rgba(201, 72, 91, 0.2);
+    color: #C9485B;
+}
+
+.alert-lotto .alert-heading {
+    color: #C9485B;
+}
+
+/* LOTTO Form Controls */
+.form-control-lotto:focus {
+    border-color: #C9485B;
+    box-shadow: 0 0 0 0.2rem rgba(201, 72, 91, 0.25);
+}
+
+.form-select-lotto:focus {
+    border-color: #C9485B;
+    box-shadow: 0 0 0 0.2rem rgba(201, 72, 91, 0.25);
+}
+
+/* LOTTO Spinner/Loading */
+.spinner-border-lotto {
+    color: #C9485B !important;
+}
+
+.spinner-grow-lotto {
+    color: #C9485B !important;
+}
+
+/* LOTTO Text Utilities */
+.text-lotto-muted {
+    color: rgba(201, 72, 91, 0.7) !important;
+}
+
+.text-lotto-light {
+    color: #E89DA2 !important;
+}
+
+.text-lotto-dark {
+    color: #B33D50 !important;
+}
+
+/* LOTTO Icons & Avatars */
+.avatar-title-lotto {
+    background-color: #C9485B;
+    color: #fff;
+}
+
+.avatar-title-soft-lotto {
+    background-color: rgba(201, 72, 91, 0.1);
+    color: #C9485B;
+}
+
+/* LOTTO Club Specific Overrides */
+.lotto-page .text-info,
+.lotto-page .text-primary {
+    color: #C9485B !important;
+}
+
+.lotto-page .bg-info,
+.lotto-page .bg-primary {
+    background-color: #C9485B !important;
+}
+
+.lotto-page .border-info,
+.lotto-page .border-primary {
+    border-color: #C9485B !important;
+}
+
+.lotto-page .btn-info,
+.lotto-page .btn-primary {
+    background-color: #C9485B;
+    border-color: #C9485B;
+    color: #fff;
+}
+
+.lotto-page .btn-info:hover,
+.lotto-page .btn-primary:hover {
+    background-color: #E89DA2;
+    border-color: #E89DA2;
+    color: #fff;
+}
+
+.lotto-page .btn-soft-info,
+.lotto-page .btn-soft-primary {
+    background-color: rgba(201, 72, 91, 0.1);
+    border-color: rgba(201, 72, 91, 0.1);
+    color: #C9485B;
+}
+
+.lotto-page .btn-soft-info:hover,
+.lotto-page .btn-soft-primary:hover {
+    background-color: #C9485B;
+    border-color: #C9485B;
+    color: #fff;
+}
+
+.lotto-page .badge-info,
+.lotto-page .badge-primary {
+    background-color: #C9485B;
+    color: #fff;
+}
+
+.lotto-page .bg-soft-info,
+.lotto-page .bg-soft-primary {
+    background-color: rgba(201, 72, 91, 0.1) !important;
+}
+
+.lotto-page .progress-bar-info,
+.lotto-page .progress-bar-primary,
+.lotto-page .bg-info .progress-bar,
+.lotto-page .bg-primary .progress-bar {
+    background: linear-gradient(90deg, #C9485B, #E89DA2);
+}
+
+/* LOTTO Stat Tiles Enhancement */
+.lotto-page .lotto-stat-tile {
+    border: 2px solid rgba(201, 72, 91, 0.1);
+    transition: all 0.3s ease;
+}
+
+.lotto-page .lotto-stat-tile::before {
+    background: linear-gradient(90deg, #C9485B, #E89DA2);
+}
+
+.lotto-page .lotto-stat-tile:hover {
+    border-color: rgba(201, 72, 91, 0.3);
+    box-shadow: 0 10px 25px rgba(201, 72, 91, 0.15);
+}
+
+/* LOTTO Page Headers */
+.lotto-page .page-title-box h4 {
+    color: #C9485B;
+    font-weight: 600;
+}
+
+/* LOTTO Navigation Breadcrumbs */
+.lotto-page .breadcrumb-item + .breadcrumb-item::before {
+    color: #C9485B;
+}
+
+.lotto-page .breadcrumb-item.active {
+    color: #C9485B;
+}
+
+.lotto-page .breadcrumb-item a {
+    color: #E89DA2;
+    text-decoration: none;
+}
+
+.lotto-page .breadcrumb-item a:hover {
+    color: #C9485B;
+}
+
+/* LOTTO Sync Features */
+.lotto-page #syncAlert.alert-info {
+    background-color: rgba(201, 72, 91, 0.1);
+    border-color: rgba(201, 72, 91, 0.2);
+    color: #C9485B;
+}
+
+.lotto-page #syncAlert.alert-success {
+    background-color: rgba(52, 195, 143, 0.1);
+    border-color: rgba(52, 195, 143, 0.2);
+    color: #34c38f;
+}
+
+.lotto-page .spinner-border.text-info {
+    color: #C9485B !important;
+}
+
+/* LOTTO Features Section Enhancement */
+.lotto-page .bg-info.card {
+    background: linear-gradient(135deg, #C9485B 0%, #E89DA2 100%) !important;
+}
+
+/* LOTTO Pagination */
+.lotto-page .pagination .page-item.active .page-link {
+    background-color: #C9485B;
+    border-color: #C9485B;
+}
+
+.lotto-page .pagination .page-link:hover {
+    background-color: rgba(201, 72, 91, 0.1);
+    border-color: #C9485B;
+    color: #C9485B;
+}
+
+/* LOTTO Search Box */
+.lotto-page .search-box .form-control:focus {
+    border-color: #C9485B;
+    box-shadow: 0 0 0 0.2rem rgba(201, 72, 91, 0.25);
+}
+
+.lotto-page .search-icon {
+    color: #C9485B !important;
+}
+
+/* LOTTO Dropdown Menus */
+.lotto-page .dropdown-menu {
+    border: 1px solid rgba(201, 72, 91, 0.2);
+}
+
+.lotto-page .dropdown-item:hover,
+.lotto-page .dropdown-item:focus {
+    background-color: rgba(201, 72, 91, 0.1);
+    color: #C9485B;
+}
+
+.lotto-page .dropdown-item.active {
+    background-color: #C9485B;
+    color: #fff;
+}
+
+/* LOTTO Accessibility Enhancements */
+.lotto-page .btn:focus {
+    outline: 2px solid #C9485B;
+    outline-offset: 2px;
+}
+
+.lotto-page .form-control:focus,
+.lotto-page .form-select:focus {
+    outline: 2px solid #C9485B;
+    outline-offset: 2px;
+}
+
+.lotto-page .card:focus-within {
+    outline: 2px solid #C9485B;
+    outline-offset: 2px;
+}
+
+/* LOTTO Responsive Adjustments */
+@media (max-width: 768px) {
+    .lotto-page .lotto-stat-tile:hover {
+        transform: none;
+        box-shadow: 0 5px 15px rgba(201, 72, 91, 0.1);
+    }
+    
+    .lotto-page .btn {
+        min-height: 44px;
+        font-size: 0.875rem;
+    }
+}
+
 /* Print Styles */
 @media print {
     .btn, .dropdown, .pagination {
@@ -1026,5 +1527,255 @@ html {
         border: 1px solid #000 !important;
         height: auto !important;
         overflow: visible !important;
+    }
+    
+    /* LOTTO Print Branding */
+    .lotto-page * {
+        color: #000 !important;
+        background: white !important;
+    }
+    
+    .lotto-page .page-title-box h4::after {
+        content: " (LOTTO)";
+        font-weight: normal;
+    }
+    
+    /* SAS Print Branding */
+    .sas-page * {
+        color: #000 !important;
+        background: white !important;
+    }
+    
+    .sas-page .page-title-box h4::after {
+        content: " (SAS)";
+        font-weight: normal;
+    }
+}
+
+/* ============================================
+   SAS Page Specific Styles
+   ============================================ */
+
+/* SAS Page Wrapper - matches LOTTO structure exactly */
+.sas-page .text-info,
+.sas-page .text-primary {
+    color: #205295 !important;
+}
+
+.sas-page .bg-info,
+.sas-page .bg-primary {
+    background-color: #205295 !important;
+}
+
+.sas-page .border-info,
+.sas-page .border-primary {
+    border-color: #205295 !important;
+}
+
+.sas-page .btn-info,
+.sas-page .btn-primary {
+    background-color: #205295;
+    border-color: #205295;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.sas-page .btn-info:hover,
+.sas-page .btn-primary:hover {
+    background-color: #205295;
+    border-color: #205295;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(19, 29, 79, 0.3);
+}
+
+.sas-page .btn-soft-info,
+.sas-page .btn-soft-primary {
+    background-color: rgba(32, 82, 149, 0.08);
+    border-color: rgba(32, 82, 149, 0.15);
+    color: #205295;
+}
+
+.sas-page .btn-soft-info:hover,
+.sas-page .btn-soft-primary:hover {
+    background-color: #205295;
+    border-color: #205295;
+    color: white;
+}
+
+.sas-page .badge-info,
+.sas-page .badge-primary {
+    background-color: #205295;
+    color: white;
+}
+
+.sas-page .bg-soft-info,
+.sas-page .bg-soft-primary {
+    background-color: rgba(32, 82, 149, 0.08) !important;
+}
+
+.sas-page .progress-bar-info,
+.sas-page .progress-bar-primary,
+.sas-page .bg-info .progress-bar,
+.sas-page .bg-primary .progress-bar {
+    background: linear-gradient(90deg, #205295, #205295) !important;
+}
+
+/* SAS Stat Tiles */
+.sas-page .sas-stat-tile {
+    transition: all 0.3s ease;
+    border: 1px solid rgba(19, 29, 79, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.sas-page .sas-stat-tile::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #205295, #205295);
+    transform: translateX(-100%);
+    transition: transform 0.5s ease;
+}
+
+.sas-page .sas-stat-tile:hover::before {
+    transform: translateX(0);
+}
+
+.sas-page .sas-stat-tile:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(19, 29, 79, 0.15);
+    border-color: rgba(19, 29, 79, 0.3);
+}
+
+/* SAS Page Titles */
+.sas-page .page-title-box h4 {
+    color: #205295 !important;
+    font-weight: 600;
+}
+
+/* SAS Breadcrumbs */
+.sas-page .breadcrumb-item + .breadcrumb-item::before {
+    color: #205295 !important;
+}
+
+.sas-page .breadcrumb-item.active {
+    color: #205295 !important;
+}
+
+.sas-page .breadcrumb-item a {
+    color: #2C74B3 !important;
+    transition: color 0.3s ease;
+}
+
+.sas-page .breadcrumb-item a:hover {
+    color: #205295 !important;
+}
+
+/* SAS Sync Alerts */
+.sas-page #syncAlert.alert-info {
+    background-color: rgba(32, 82, 149, 0.08);
+    border-color: #205295;
+    color: #205295;
+}
+
+.sas-page #syncAlert.alert-success {
+    background-color: rgba(40, 167, 69, 0.1);
+    border-color: #28a745;
+    color: #155724;
+}
+
+.sas-page .spinner-border.text-info {
+    color: #205295 !important;
+}
+
+/* SAS Card Components */
+.sas-page .bg-info.card {
+    background-color: #205295 !important;
+}
+
+/* SAS Pagination */
+.sas-page .pagination .page-item.active .page-link {
+    background-color: #205295;
+    border-color: #205295;
+}
+
+.sas-page .pagination .page-link:hover {
+    color: #205295;
+    background-color: rgba(32, 82, 149, 0.1);
+    border-color: #205295;
+}
+
+/* SAS Search Box */
+.sas-page .search-box .form-control:focus {
+    border-color: #205295;
+    box-shadow: 0 0 0 0.2rem rgba(32, 82, 149, 0.25);
+}
+
+.sas-page .search-icon {
+    color: #205295 !important;
+}
+
+/* SAS Dropdown Menus */
+.sas-page .dropdown-menu {
+    border: 1px solid rgba(32, 82, 149, 0.2);
+}
+
+.sas-page .dropdown-item:hover,
+.sas-page .dropdown-item:focus {
+    background-color: rgba(32, 82, 149, 0.1);
+    color: #205295;
+}
+
+.sas-page .dropdown-item.active {
+    background-color: #205295;
+    color: #fff;
+}
+
+/* SAS Accessibility Enhancements */
+.sas-page .btn:focus {
+    outline: 2px solid #205295;
+    outline-offset: 2px;
+}
+
+.sas-page .form-control:focus,
+.sas-page .form-select:focus {
+    outline: 2px solid #205295;
+    outline-offset: 2px;
+    border-color: #205295;
+    box-shadow: 0 0 0 0.2rem rgba(32, 82, 149, 0.25);
+}
+
+.sas-page .card:focus-within {
+    outline: 2px solid #205295;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 0.2rem rgba(32, 82, 149, 0.25);
+}
+
+/* SAS Responsive Adjustments */
+@media (max-width: 768px) {
+    .sas-page .sas-stat-tile:hover {
+        transform: none;
+        box-shadow: 0 5px 15px rgba(32, 82, 149, 0.1);
+    }
+    
+    .sas-page .btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+}
+
+/* SAS High Contrast Mode */
+@media (prefers-contrast: high) {
+    .sas-page * {
+        text-shadow: none !important;
+        box-shadow: none !important;
+    }
+    
+    .sas-page .page-title-box h4::after {
+        display: none;
     }
 }
