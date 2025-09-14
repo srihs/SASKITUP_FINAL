@@ -22,6 +22,10 @@ urlpatterns = [
     path('club/<slug:slug>/', views.ClubDetailView.as_view(), name='club-detail'),
     path('category/<slug:slug>/', views.ClubCategoryDetailView.as_view(), name='category-detail'),
     
+    # Product detail views
+    path('lotto/product/<slug:slug>/', views.LottoProductDetailView.as_view(), name='lotto-product-detail'),
+    path('sas/product/<slug:slug>/', views.SASProductDetailView.as_view(), name='sas-product-detail'),
+    
     # AJAX endpoints
     path('ajax/search/', views.club_search_ajax, name='club-search-ajax'),
     path('ajax/sas-club-search/', views.sas_club_search_ajax, name='sas-club-search-ajax'),

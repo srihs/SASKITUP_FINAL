@@ -1,0 +1,916 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+.product-detail-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Product Image Gallery - Left Side */
+.product-gallery {
+    position: sticky;
+    top: 20px;
+    height: fit-content;
+}
+
+.main-product-image {
+    width: 100%;
+    height: 500px;
+    object-fit: contain;
+    border-radius: 12px;
+    border: 2px solid rgba(32, 82, 149, 0.1);
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.main-product-image:hover {
+    border-color: #205295;
+    box-shadow: 0 8px 25px rgba(32, 82, 149, 0.15);
+}
+
+.thumbnail-gallery {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+}
+
+.thumbnail-image {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.thumbnail-image:hover,
+.thumbnail-image.active {
+    border-color: #205295;
+    transform: scale(1.05);
+}
+
+/* Product Info - Right Side */
+.product-info {
+    padding-left: 2rem;
+}
+
+.product-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: rgba(32, 82, 149, 0.08);
+    color: #205295;
+    border-radius: 25px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+}
+
+.product-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 1rem;
+    line-height: 1.3;
+}
+
+.price-container {
+    margin: 1.5rem 0;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, rgba(32, 82, 149, 0.05) 0%, rgba(44, 116, 179, 0.02) 100%);
+    border-radius: 12px;
+    border: 1px solid rgba(32, 82, 149, 0.1);
+}
+
+.current-price {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #205295;
+    margin-bottom: 0.5rem;
+}
+
+.original-price {
+    font-size: 1.25rem;
+    color: #6c757d;
+    text-decoration: line-through;
+    margin-left: 1rem;
+}
+
+.savings-badge {
+    background: linear-gradient(45deg, #28a745, #20c997);
+    color: white;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-left: 1rem;
+}
+
+.product-description {
+    color: #6c757d;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin: 1.5rem 0;
+}
+
+/* Variation Selectors */
+.variation-section {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #e9ecef;
+}
+
+.variation-title {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+}
+
+.size-options, .color-options {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.size-option, .color-option {
+    padding: 0.75rem 1.25rem;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    min-width: 60px;
+    text-align: center;
+}
+
+.size-option:hover, .color-option:hover {
+    border-color: #205295;
+    background: rgba(32, 82, 149, 0.05);
+    transform: translateY(-1px);
+}
+
+.size-option.selected, .color-option.selected {
+    border-color: #205295;
+    background: #205295;
+    color: white;
+}
+
+.color-option {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    position: relative;
+    overflow: hidden;
+}
+
+.color-option.selected::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-weight: bold;
+    text-shadow: 0 0 3px rgba(0,0,0,0.5);
+}
+
+/* Quantity Selector */
+.quantity-section {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.quantity-label {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.quantity-control {
+    display: flex;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.quantity-btn {
+    background: #f8f9fa;
+    border: none;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #495057;
+    transition: all 0.2s ease;
+}
+
+.quantity-btn:hover {
+    background: #205295;
+    color: white;
+}
+
+.quantity-input {
+    border: none;
+    padding: 0.75rem;
+    width: 60px;
+    text-align: center;
+    font-weight: 600;
+    background: #fff;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 1rem;
+    margin: 2rem 0;
+    flex-wrap: wrap;
+}
+
+.btn-add-to-cart {
+    flex: 1;
+    min-width: 200px;
+    background: linear-gradient(45deg, #205295, #2C74B3);
+    border: none;
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-add-to-cart:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(32, 82, 149, 0.3);
+    color: white;
+}
+
+.btn-add-to-cart::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.6s;
+}
+
+.btn-add-to-cart:hover::before {
+    left: 100%;
+}
+
+.btn-wishlist {
+    background: rgba(32, 82, 149, 0.08);
+    border: 2px solid #205295;
+    color: #205295;
+    padding: 1rem;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.btn-wishlist:hover {
+    background: #205295;
+    color: white;
+    transform: translateY(-2px);
+}
+
+/* Product Details Accordion */
+.product-details-section {
+    margin-top: 3rem;
+}
+
+.detail-accordion {
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.detail-accordion-item {
+    border: none;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.detail-accordion-item:last-child {
+    border-bottom: none;
+}
+
+.detail-accordion-header {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    transition: background 0.2s ease;
+}
+
+.detail-accordion-header:hover {
+    background: rgba(32, 82, 149, 0.05);
+}
+
+.detail-accordion-title {
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.detail-accordion-content {
+    padding: 1.5rem;
+    display: none;
+    background: #fff;
+}
+
+.detail-accordion-content.active {
+    display: block;
+}
+
+/* Stock Status */
+.stock-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 25px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+}
+
+.stock-status.in-stock {
+    background: rgba(40, 167, 69, 0.1);
+    color: #28a745;
+}
+
+.stock-status.out-of-stock {
+    background: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+}
+
+.stock-status.backorder {
+    background: rgba(255, 193, 7, 0.1);
+    color: #ffc107;
+}
+
+/* Responsive Design */
+@media (max-width: 991.98px) {
+    .product-info {
+        padding-left: 0;
+        margin-top: 2rem;
+    }
+    
+    .product-title {
+        font-size: 1.75rem;
+    }
+    
+    .current-price {
+        font-size: 2rem;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+    }
+    
+    .btn-add-to-cart {
+        min-width: auto;
+    }
+}
+
+@media (max-width: 576px) {
+    .main-product-image {
+        height: 300px;
+    }
+    
+    .thumbnail-image {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .product-title {
+        font-size: 1.5rem;
+    }
+    
+    .current-price {
+        font-size: 1.75rem;
+    }
+    
+    .size-options, .color-options {
+        justify-content: center;
+    }
+    
+    .quantity-section {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+}
+
+/* Loading Animation */
+.shimmer {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sas-page">
+    <!-- Breadcrumb Navigation -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+                <h4 class="mb-sm-0 text-sas-primary">{{ product.name }}</h4>
+                <div class="page-title-right">
+                    <ol class="breadcrumb m-0">
+                        <li class="breadcrumb-item"><a href="{% url 'clubs:sas-dashboard' %}">SAS Dashboard</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'clubs:sas-sports' %}">{{ product.club.sport.name }}</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'clubs:sas-club-detail' product.club.slug %}">{{ product.club.name }}</a></li>
+                        <li class="breadcrumb-item active">{{ product.name|truncatechars:30 }}</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Detail Container -->
+    <div class="product-detail-container">
+        <div class="row">
+            <!-- Product Image Gallery - Left Column -->
+            <div class="col-lg-6 col-md-12">
+                <div class="product-gallery">
+                    <!-- Main Product Image -->
+                    <div class="main-image-container">
+                        {% if product.image_url %}
+                            <img src="{% url 'clubs:proxy-image' %}?url={{ product.image_url|urlencode }}" 
+                                 alt="{{ product.name }}" 
+                                 class="main-product-image" 
+                                 id="mainProductImage"
+                                 onerror="this.src='{% static 'assets/images/product-placeholder.jpg' %}'">
+                        {% else %}
+                            <div class="main-product-image d-flex align-items-center justify-content-center">
+                                <div class="text-center">
+                                    <i class="uil-shopping-bag font-size-48 text-muted mb-3"></i>
+                                    <p class="text-muted">No Image Available</p>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Thumbnail Gallery -->
+                    {% if product.gallery_urls %}
+                    <div class="thumbnail-gallery">
+                        <!-- Main image thumbnail -->
+                        {% if product.image_url %}
+                        <img src="{% url 'clubs:proxy-image' %}?url={{ product.image_url|urlencode }}" 
+                             alt="{{ product.name }}" 
+                             class="thumbnail-image active" 
+                             onclick="changeMainImage(this.src)">
+                        {% endif %}
+                        
+                        <!-- Additional gallery images -->
+                        {% for gallery_url in product.gallery_urls %}
+                        <img src="{% url 'clubs:proxy-image' %}?url={{ gallery_url|urlencode }}" 
+                             alt="{{ product.name }}" 
+                             class="thumbnail-image" 
+                             onclick="changeMainImage(this.src)"
+                             onerror="this.style.display='none'">
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Product Information - Right Column -->
+            <div class="col-lg-6 col-md-12">
+                <div class="product-info">
+                    <!-- Product Badge -->
+                    <div class="product-badge">
+                        <i class="uil-tag-alt"></i>
+                        <span>{{ product.club.sport.name }} • {{ product.club.name|truncatechars:20 }}</span>
+                    </div>
+
+                    <!-- Product Title -->
+                    <h1 class="product-title">{{ product.name }}</h1>
+
+                    <!-- Stock Status -->
+                    <div class="stock-status {% if product.stock_status == 'instock' %}in-stock{% elif product.stock_status == 'outofstock' %}out-of-stock{% else %}backorder{% endif %}">
+                        {% if product.stock_status == 'instock' %}
+                            <i class="uil-check-circle"></i>
+                            In Stock
+                        {% elif product.stock_status == 'outofstock' %}
+                            <i class="uil-times-circle"></i>
+                            Out of Stock
+                        {% else %}
+                            <i class="uil-clock"></i>
+                            Available on Backorder
+                        {% endif %}
+                    </div>
+
+                    <!-- Price Container -->
+                    <div class="price-container">
+                        <div class="d-flex align-items-center">
+                            <div class="current-price">R{{ product.effective_price }}</div>
+                            {% if product.is_on_sale %}
+                                <div class="original-price">R{{ product.regular_price }}</div>
+                                <div class="savings-badge">
+                                    Save {{ product.discount_percentage }}%
+                                </div>
+                            {% endif %}
+                        </div>
+                        {% if product.sku %}
+                        <small class="text-muted">SKU: {{ product.sku }}</small>
+                        {% endif %}
+                    </div>
+
+                    <!-- Product Description -->
+                    {% if product.short_description %}
+                    <div class="product-description">
+                        {{ product.short_description|linebreaks }}
+                    </div>
+                    {% endif %}
+
+                    <!-- Variation Selectors -->
+                    {% if product.attributes %}
+                    <div class="variation-section">
+                        {% for attribute in product.attributes %}
+                            {% if attribute.variation %}
+                            <div class="mb-4">
+                                <div class="variation-title">{{ attribute.name }}:</div>
+                                {% if attribute.name|lower == 'size' %}
+                                <div class="size-options">
+                                    {% for option in attribute.options %}
+                                    <div class="size-option" onclick="selectVariation(this, '{{ attribute.name }}', '{{ option }}')">
+                                        {{ option }}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% elif attribute.name|lower == 'color' or attribute.name|lower == 'colour' %}
+                                <div class="color-options">
+                                    {% for option in attribute.options %}
+                                    <div class="color-option" 
+                                         style="background-color: {{ option|lower }};" 
+                                         title="{{ option }}"
+                                         onclick="selectVariation(this, '{{ attribute.name }}', '{{ option }}')">
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <div class="size-options">
+                                    {% for option in attribute.options %}
+                                    <div class="size-option" onclick="selectVariation(this, '{{ attribute.name }}', '{{ option }}')">
+                                        {{ option }}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Quantity Selector -->
+                    <div class="quantity-section">
+                        <label class="quantity-label">Quantity:</label>
+                        <div class="quantity-control">
+                            <button type="button" class="quantity-btn" onclick="decreaseQuantity()">−</button>
+                            <input type="number" class="quantity-input" id="productQuantity" value="1" min="1" max="99">
+                            <button type="button" class="quantity-btn" onclick="increaseQuantity()">+</button>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="action-buttons">
+                        {% if product.stock_status != 'outofstock' %}
+                        <button type="button" class="btn btn-add-to-cart" onclick="addToCart()">
+                            <i class="uil-shopping-cart me-2"></i>
+                            Add to Cart
+                        </button>
+                        {% else %}
+                        <button type="button" class="btn btn-add-to-cart" disabled>
+                            <i class="uil-times-circle me-2"></i>
+                            Out of Stock
+                        </button>
+                        {% endif %}
+                        
+                        <button type="button" class="btn btn-wishlist" onclick="addToWishlist()">
+                            <i class="uil-heart"></i>
+                        </button>
+                    </div>
+
+                    <!-- Product Tags -->
+                    {% if product.tags %}
+                    <div class="mt-4">
+                        <h6 class="text-muted mb-2">Tags:</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for tag in product.tags %}
+                            <span class="badge bg-soft-sas-primary text-sas-primary">{{ tag }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Product Details Section -->
+        <div class="row">
+            <div class="col-12">
+                <div class="product-details-section">
+                    <div class="detail-accordion">
+                        <!-- Description -->
+                        {% if product.description %}
+                        <div class="detail-accordion-item">
+                            <div class="detail-accordion-header" onclick="toggleAccordion(this)">
+                                <h5 class="detail-accordion-title">Product Description</h5>
+                                <i class="uil-angle-down"></i>
+                            </div>
+                            <div class="detail-accordion-content active">
+                                {{ product.description|linebreaks }}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Specifications -->
+                        {% if product.weight or product.dimensions %}
+                        <div class="detail-accordion-item">
+                            <div class="detail-accordion-header" onclick="toggleAccordion(this)">
+                                <h5 class="detail-accordion-title">Specifications</h5>
+                                <i class="uil-angle-down"></i>
+                            </div>
+                            <div class="detail-accordion-content">
+                                <div class="table-responsive">
+                                    <table class="table table-borderless">
+                                        {% if product.weight %}
+                                        <tr>
+                                            <td class="fw-semibold">Weight:</td>
+                                            <td>{{ product.weight }}</td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if product.dimensions %}
+                                            {% for key, value in product.dimensions.items %}
+                                            <tr>
+                                                <td class="fw-semibold">{{ key|title }}:</td>
+                                                <td>{{ value }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Attributes -->
+                        {% if product.attributes %}
+                        <div class="detail-accordion-item">
+                            <div class="detail-accordion-header" onclick="toggleAccordion(this)">
+                                <h5 class="detail-accordion-title">Product Attributes</h5>
+                                <i class="uil-angle-down"></i>
+                            </div>
+                            <div class="detail-accordion-content">
+                                <div class="table-responsive">
+                                    <table class="table table-borderless">
+                                        {% for attribute in product.attributes %}
+                                        <tr>
+                                            <td class="fw-semibold">{{ attribute.name }}:</td>
+                                            <td>
+                                                {% if attribute.options %}
+                                                    {{ attribute.options|join:", " }}
+                                                {% else %}
+                                                    {{ attribute.option|default:"Not specified" }}
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Shipping & Returns -->
+                        <div class="detail-accordion-item">
+                            <div class="detail-accordion-header" onclick="toggleAccordion(this)">
+                                <h5 class="detail-accordion-title">Shipping & Returns</h5>
+                                <i class="uil-angle-down"></i>
+                            </div>
+                            <div class="detail-accordion-content">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6 class="text-sas-primary mb-3">Shipping Information</h6>
+                                        <ul class="list-unstyled">
+                                            <li class="mb-2"><i class="uil-truck me-2 text-success"></i> Free shipping on orders over R500</li>
+                                            <li class="mb-2"><i class="uil-clock me-2 text-info"></i> 3-5 business days delivery</li>
+                                            <li class="mb-2"><i class="uil-map-marker me-2 text-warning"></i> Nationwide delivery available</li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="text-sas-primary mb-3">Return Policy</h6>
+                                        <ul class="list-unstyled">
+                                            <li class="mb-2"><i class="uil-redo me-2 text-success"></i> 30-day return window</li>
+                                            <li class="mb-2"><i class="uil-shield-check me-2 text-info"></i> Quality guarantee</li>
+                                            <li class="mb-2"><i class="uil-question-circle me-2 text-warning"></i> Customer support available</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for Interactive Elements -->
+<script>
+// Image gallery functionality
+function changeMainImage(src) {
+    const mainImage = document.getElementById('mainProductImage');
+    const thumbnails = document.querySelectorAll('.thumbnail-image');
+    
+    mainImage.src = src;
+    
+    // Update active thumbnail
+    thumbnails.forEach(thumb => thumb.classList.remove('active'));
+    event.target.classList.add('active');
+}
+
+// Variation selection
+function selectVariation(element, attributeName, value) {
+    // Remove active class from siblings
+    const siblings = element.parentElement.querySelectorAll('.size-option, .color-option');
+    siblings.forEach(sibling => sibling.classList.remove('selected'));
+    
+    // Add active class to selected
+    element.classList.add('selected');
+    
+    // Store selection (you could send this to backend)
+    console.log(`Selected ${attributeName}: ${value}`);
+}
+
+// Quantity controls
+function increaseQuantity() {
+    const input = document.getElementById('productQuantity');
+    const currentValue = parseInt(input.value);
+    const maxValue = parseInt(input.max) || 99;
+    
+    if (currentValue < maxValue) {
+        input.value = currentValue + 1;
+    }
+}
+
+function decreaseQuantity() {
+    const input = document.getElementById('productQuantity');
+    const currentValue = parseInt(input.value);
+    const minValue = parseInt(input.min) || 1;
+    
+    if (currentValue > minValue) {
+        input.value = currentValue - 1;
+    }
+}
+
+// Add to cart functionality
+function addToCart() {
+    const quantity = document.getElementById('productQuantity').value;
+    const productId = '{{ product.id }}';
+    
+    // Get selected variations
+    const selectedVariations = {};
+    document.querySelectorAll('.size-option.selected, .color-option.selected').forEach(selected => {
+        // Extract variation data from selected elements
+        // This would typically involve storing data attributes on the elements
+    });
+    
+    // Show loading state
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="uil-spinner-alt spin me-2"></i>Adding...';
+    button.disabled = true;
+    
+    // Simulate API call (replace with actual implementation)
+    setTimeout(() => {
+        button.innerHTML = '<i class="uil-check me-2"></i>Added!';
+        
+        setTimeout(() => {
+            button.innerHTML = originalText;
+            button.disabled = false;
+        }, 2000);
+        
+        // Show success message
+        showNotification('Product added to cart successfully!', 'success');
+    }, 1000);
+}
+
+// Add to wishlist functionality
+function addToWishlist() {
+    const button = event.target;
+    const icon = button.querySelector('i');
+    
+    // Toggle wishlist state
+    if (icon.classList.contains('uil-heart')) {
+        icon.classList.remove('uil-heart');
+        icon.classList.add('uil-heart-alt');
+        button.style.background = '#dc3545';
+        button.style.borderColor = '#dc3545';
+        button.style.color = 'white';
+        showNotification('Added to wishlist!', 'success');
+    } else {
+        icon.classList.remove('uil-heart-alt');
+        icon.classList.add('uil-heart');
+        button.style.background = 'rgba(32, 82, 149, 0.08)';
+        button.style.borderColor = '#205295';
+        button.style.color = '#205295';
+        showNotification('Removed from wishlist!', 'info');
+    }
+}
+
+// Accordion functionality
+function toggleAccordion(header) {
+    const content = header.nextElementSibling;
+    const icon = header.querySelector('i');
+    
+    // Toggle content
+    content.classList.toggle('active');
+    
+    // Toggle icon
+    if (content.classList.contains('active')) {
+        icon.classList.remove('uil-angle-down');
+        icon.classList.add('uil-angle-up');
+    } else {
+        icon.classList.remove('uil-angle-up');
+        icon.classList.add('uil-angle-down');
+    }
+}
+
+// Notification system
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// Quantity input validation
+document.addEventListener('DOMContentLoaded', function() {
+    const quantityInput = document.getElementById('productQuantity');
+    
+    quantityInput.addEventListener('change', function() {
+        const value = parseInt(this.value);
+        const min = parseInt(this.min) || 1;
+        const max = parseInt(this.max) || 99;
+        
+        if (value < min) {
+            this.value = min;
+        } else if (value > max) {
+            this.value = max;
+        }
+    });
+    
+    // Add CSS animation class for spinners
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .spin { animation: spin 1s linear infinite; }
+    `;
+    document.head.appendChild(style);
+});
+</script>
+{% endblock %}

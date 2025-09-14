@@ -256,6 +256,13 @@
                                             {{ product.get_stock_status_display }}
                                         </span>
                                     </div>
+                                    
+                                    <!-- View Details Button -->
+                                    <div class="mt-3">
+                                        <a href="{% url 'clubs:sas-product-detail' product.slug %}" class="btn btn-soft-sas btn-sm">
+                                            <i class="uil-eye me-1"></i> View Details
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         </div>

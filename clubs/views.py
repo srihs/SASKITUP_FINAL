@@ -1454,3 +1454,96 @@ def sas_product_search_ajax(request):
     
     results = list(products)
     return JsonResponse({'results': results})
+
+
+class LottoProductDetailView(DetailView):
+    """Detail view for LOTTO products with Stanley-inspired layout"""
+    model = Product
+    template_name = 'clubs/lotto_product_detail.html'
+    context_object_name = 'product'
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
+    
+    def get_queryset(self):
+        # Only show products from LOTTO clubs
+        return Product.objects.filter(
+            categories__club__club_type='LOTTO'
+        ).select_related().prefetch_related('variations', 'categories__club').distinct()
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        product = self.get_object()
+        
+        # Get the first LOTTO category for this product (for breadcrumbs and navigation)
+        lotto_category = product.categories.filter(club__club_type='LOTTO').first()
+        context['primary_category'] = lotto_category
+        
+        # Add product variations
+        context['variations'] = product.variations.all()
+        
+        # Add available sizes and colors
+        context['available_sizes'] = list(set(
+            var.variation_value.split(' - ')[0] if ' - ' in var.variation_value 
+            else var.variation_value for var in product.variations.all()
+            if var.variation_type in ['size', 'Size']
+        ))
+        context['available_colors'] = list(set(
+            var.variation_value.split(' - ')[-1] if ' - ' in var.variation_value 
+            else var.variation_value for var in product.variations.all()
+            if var.variation_type in ['color', 'Color']
+        ))
+        
+        # Add related products from LOTTO clubs (since this product might belong to multiple categories)
+        context['related_products'] = Product.objects.filter(
+            categories__club__club_type='LOTTO'
+        ).exclude(id=product.id).prefetch_related('categories__club')[:4]
+        
+        # Add breadcrumbs (use first LOTTO category for breadcrumb navigation)
+        lotto_category = product.categories.filter(club__club_type='LOTTO').first()
+        context['breadcrumbs'] = [
+            {'name': 'Home', 'url': '/'},
+            {'name': 'LOTTO Clubs', 'url': '/clubs/lotto/'},
+        ]
+        if lotto_category:
+            context['breadcrumbs'].extend([
+                {'name': lotto_category.club.name, 'url': f'/clubs/club/{lotto_category.club.slug}/'},
+                {'name': lotto_category.name, 'url': f'/clubs/category/{lotto_category.slug}/'},
+                {'name': product.name}
+            ])
+        else:
+            context['breadcrumbs'].append({'name': product.name})
+        
+        return context
+
+
+class SASProductDetailView(DetailView):
+    """Detail view for SAS products with Stanley-inspired layout"""
+    model = SASProduct
+    template_name = 'clubs/sas_product_detail.html'
+    context_object_name = 'product'
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
+    
+    def get_queryset(self):
+        # Only show SAS products
+        return SASProduct.objects.select_related('club__sport')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        product = self.get_object()
+        
+        # Add related products from same club
+        context['related_products'] = SASProduct.objects.filter(
+            club=product.club
+        ).exclude(id=product.id).select_related('club__sport')[:4]
+        
+        # Add breadcrumbs
+        context['breadcrumbs'] = [
+            {'name': 'Home', 'url': '/'},
+            {'name': 'SAS Clubs', 'url': '/clubs/sas/'},
+            {'name': product.club.sport.name, 'url': f'/clubs/sas/sports/'},
+            {'name': product.club.name, 'url': f'/clubs/sas/club/{product.club.slug}/'},
+            {'name': product.name}
+        ]
+        
+        return context

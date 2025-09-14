@@ -272,3 +272,5 @@ yarn.lock
 *.bak
 *.backup
 *.orig
+
+screenshots/

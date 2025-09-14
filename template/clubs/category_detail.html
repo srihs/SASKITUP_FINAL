@@ -204,7 +204,7 @@
                             
                             <div class="card-body">
                                 <h5 class="card-title font-size-15 mb-1">
-                                    <a href="#" class="text-dark">{{ product.name|truncatechars:25 }}</a>
+                                    <a href="{% url 'clubs:lotto-product-detail' product.slug %}" class="text-dark">{{ product.name|truncatechars:25 }}</a>
                                 </h5>
                                 
                                 {% if product.short_description %}
@@ -279,9 +279,9 @@
                             
                             <div class="card-footer bg-transparent border-top">
                                 <div class="d-flex gap-2">
-                                    <button type="button" class="btn {% if category.club.club_type == 'LOTTO' %}btn-soft-lotto{% else %}btn-soft-primary{% endif %} btn-sm flex-grow-1">
+                                    <a href="{% url 'clubs:lotto-product-detail' product.slug %}" class="btn {% if category.club.club_type == 'LOTTO' %}btn-soft-lotto{% else %}btn-soft-primary{% endif %} btn-sm flex-grow-1">
                                         <i class="uil-eye me-1"></i> View Details
-                                    </button>
+                                    </a>
                                     <button type="button" class="btn btn-soft-secondary btn-sm" data-bs-toggle="tooltip" title="Edit Product">
                                         <i class="uil-edit-alt"></i>
                                     </button>
