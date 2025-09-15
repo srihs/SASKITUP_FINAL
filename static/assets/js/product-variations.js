@@ -129,11 +129,6 @@ class ProductVariationManager {
                 this.basePrice = data.base_price || 0;
                 this.currentPrice = this.basePrice;
                 
-                console.log('Variations loaded successfully:', {
-                    variations: this.variations.length,
-                    groupedVariations: Object.keys(this.groupedVariations),
-                    basePrice: this.basePrice
-                });
                 
                 this.renderVariations();
             } else {
@@ -177,24 +172,9 @@ class ProductVariationManager {
         // Render in specific order for SAS products: Age Group (Main Category) → Size (filtered) → Color
         // This matches the original site behavior and ensures proper DOM order
         if (this.productType === 'sas') {
-            console.log('🔧 SAS Product detected - rendering in correct order: Age Group → Size → Color');
-            console.log('🔧 Cached elements before rendering:', {
-                ageGroup: !!this.elements.ageGroupOptions,
-                size: !!this.elements.sizeOptions, 
-                color: !!this.elements.colorOptions
-            });
-            
             this.renderAgeGroupOptions(); // Main Category FIRST
-            console.log('🔧 Age Group rendered first');
             this.renderSizeOptions(); // Size filtering will be applied based on age group selection
-            console.log('🔧 Size options rendered second');
             this.renderColorSwatches();
-            console.log('🔧 Color swatches rendered third');
-            
-            // Verify final DOM order
-            const groups = this.elements.container.querySelectorAll('.variation-group');
-            const order = Array.from(groups).map(g => g.dataset.variationType);
-            console.log('🔧 Final DOM order:', order);
         } else {
             // Original order for LOTTO products
             this.renderColorSwatches();
@@ -227,7 +207,20 @@ class ProductVariationManager {
         
         const swatchContainer = container.querySelector('.color-swatches');
         
-        colors.forEach(variation => {
+        // Enhance color data with images from detailed variations
+        const enhancedColors = colors.map(colorGroup => {
+            // Find a variation with this color to get the image
+            const variationWithImage = this.variations.find(v => 
+                v.attributes && v.attributes.color === colorGroup.value
+            );
+            
+            return {
+                ...colorGroup,
+                image: variationWithImage ? variationWithImage.image : null
+            };
+        });
+        
+        enhancedColors.forEach(variation => {
             const swatch = this.createColorSwatch(variation);
             swatchContainer.appendChild(swatch);
         });

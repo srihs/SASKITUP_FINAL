@@ -1010,6 +1010,7 @@ def proxy_image_view(request):
     allowed_domains = [
         'www.lottosports.co.nz',
         'lottosports.co.nz',
+        'dev-lottosports.it.sas.co.nz',  # LOTTO dev environment
         'd1zjzw7jbxeyd4.cloudfront.net',  # SAS CloudFront CDN
         # Add more trusted domains as needed
     ]
