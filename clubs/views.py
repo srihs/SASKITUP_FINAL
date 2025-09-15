@@ -2720,3 +2720,175 @@ def product_color_swatches_api(request, product_id):
             'error': 'Failed to fetch color swatches',
             'message': str(e)
         }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def product_color_size_stock_api(request):
+    """
+    API endpoint to get stock information for all sizes in a specific color.
+    
+    POST data:
+        {
+            "product_id": int,
+            "product_type": "lotto" or "sas",
+            "color": "color_value"
+        }
+    
+    Returns:
+        {
+            "success": true,
+            "color": "Black",
+            "sizes": [
+                {"size": "S", "stock_quantity": 5, "stock_status": "instock", "is_available": true},
+                {"size": "M", "stock_quantity": 0, "stock_status": "outofstock", "is_available": false},
+                ...
+            ]
+        }
+    """
+    try:
+        data = json.loads(request.body)
+        product_id = data.get('product_id')
+        product_type = data.get('product_type', 'lotto').lower()
+        color_value = data.get('color')
+        
+        if not product_id or not color_value:
+            return JsonResponse({
+                'success': False,
+                'error': 'Missing required parameters: product_id and color',
+                'error_code': 'MISSING_PARAMETERS'
+            }, status=400)
+        
+        # Get the product based on type
+        product = None
+        
+        if product_type == 'sas':
+            try:
+                from .models_sas import SASProduct
+                product = SASProduct.objects.get(id=product_id)
+            except SASProduct.DoesNotExist:
+                pass
+        elif product_type == 'lotto':
+            try:
+                from .models_lotto import LottoProduct
+                product = LottoProduct.objects.get(id=product_id)
+            except LottoProduct.DoesNotExist:
+                pass
+        
+        # Fallback to generic Product model
+        if not product:
+            try:
+                product = Product.objects.get(id=product_id)
+            except Product.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Product not found',
+                    'error_code': 'PRODUCT_NOT_FOUND'
+                }, status=404)
+        
+        # Get stock information for the selected color using existing variation data
+        color_stock_info = {
+            'color': color_value,
+            'sizes': []
+        }
+        
+        # Try to get variation data using the same method as the working variations API
+        try:
+            if product_type == 'lotto':
+                # For LOTTO products, use the LottoProduct model if available
+                if hasattr(product, 'get_variation_data_for_frontend'):
+                    variation_data = product.get_variation_data_for_frontend()
+                    variations = variation_data.get('variations', [])
+                    
+                    # Extract variations that match the selected color
+                    color_sizes = {}
+                    
+                    for variation in variations:
+                        attributes = variation.get('attributes', {})
+                        var_color = attributes.get('color', '').strip()
+                        var_size = attributes.get('size', '').strip()
+                        
+                        if var_color.lower() == color_value.lower() and var_size:
+                            stock = variation.get('stock', 0)
+                            is_in_stock = variation.get('is_in_stock', False)
+                            
+                            color_sizes[var_size] = {
+                                'size': var_size,
+                                'stock_quantity': stock,
+                                'stock_status': 'instock' if is_in_stock else 'outofstock',
+                                'is_available': is_in_stock
+                            }
+                    
+                    # Convert to list and sort by size
+                    size_order = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL']
+                    
+                    # Add sizes in order
+                    for size_key in size_order:
+                        if size_key in color_sizes:
+                            color_stock_info['sizes'].append(color_sizes[size_key])
+                    
+                    # Add any remaining sizes not in the standard order
+                    for size_key, size_data in color_sizes.items():
+                        if size_key not in size_order:
+                            color_stock_info['sizes'].append(size_data)
+                            
+        except Exception as e:
+            # Fallback to parsing attributes if variation data method fails
+            if hasattr(product, 'attributes') and product.attributes:
+                parsed_variations = _parse_lotto_combination_attributes(product.attributes)
+                if parsed_variations and parsed_variations.get('variations'):
+                    # Extract size-stock data for the selected color
+                    color_sizes = {}
+                    
+                    for variation in parsed_variations['variations']:
+                        if (variation.get('type') == 'combination' and 
+                            variation.get('color') and 
+                            variation.get('color').lower() == color_value.lower()):
+                            
+                            size = variation.get('size')
+                            if size:
+                                stock_quantity = 10 if variation.get('is_available', True) else 0
+                                
+                                color_sizes[size] = {
+                                    'size': size,
+                                    'stock_quantity': stock_quantity,
+                                    'stock_status': 'instock' if stock_quantity > 0 else 'outofstock',
+                                    'is_available': stock_quantity > 0
+                                }
+                    
+                    # Convert to list and sort by size
+                    size_order = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL']
+                    
+                    # Add sizes in order
+                    for size_key in size_order:
+                        if size_key in color_sizes:
+                            color_stock_info['sizes'].append(color_sizes[size_key])
+                    
+                    # Add any remaining sizes not in the standard order
+                    for size_key, size_data in color_sizes.items():
+                        if size_key not in size_order:
+                            color_stock_info['sizes'].append(size_data)
+        
+        return JsonResponse({
+            'success': True,
+            'product_id': product_id,
+            'product_type': product_type,
+            'color': color_stock_info['color'],
+            'sizes': color_stock_info['sizes'],
+            'total_sizes': len(color_stock_info['sizes'])
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid JSON data',
+            'error_code': 'INVALID_JSON'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"Error fetching color size stock: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Failed to fetch color size stock information',
+            'message': str(e),
+            'error_code': 'SERVER_ERROR'
+        }, status=500)

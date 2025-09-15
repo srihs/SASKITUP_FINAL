@@ -634,6 +634,113 @@ class LottoProduct(models.Model):
         """
         return self.get_variation_combination_stock(**combination) > 0
     
+    def get_stock_by_color_for_all_sizes(self, color_value):
+        """
+        Get stock information for all sizes in a specific color.
+        
+        Args:
+            color_value: The color variation value (e.g., 'Black', 'Red')
+        
+        Returns:
+            dict: Stock information by size for the selected color
+            {
+                'color': 'Black',
+                'sizes': [
+                    {'size': 'S', 'stock_quantity': 5, 'stock_status': 'instock'},
+                    {'size': 'M', 'stock_quantity': 0, 'stock_status': 'outofstock'},
+                    ...
+                ]
+            }
+        """
+        if not self.has_variations:
+            return {'color': color_value, 'sizes': []}
+        
+        # Get all variations for this color
+        color_variations = self.variations.filter(
+            is_active=True,
+            variation_type='color',
+            variation_value=color_value
+        )
+        
+        if not color_variations.exists():
+            # Try to find variations through composite variation_value (e.g., "XL - Black")
+            color_variations = self.variations.filter(
+                is_active=True,
+                variation_value__icontains=color_value
+            )
+        
+        # Get all available sizes for this product
+        all_sizes = self.available_sizes
+        size_stock_map = {}
+        
+        # Initialize all sizes with zero stock
+        for size in all_sizes:
+            size_stock_map[size] = {
+                'size': size,
+                'stock_quantity': 0,
+                'stock_status': 'outofstock',
+                'is_available': False
+            }
+        
+        # Find specific color-size combinations
+        for variation in self.variations.filter(is_active=True):
+            if not variation.variation_value:
+                continue
+            
+            # Parse variation value to find color and size
+            variation_parts = [part.strip() for part in variation.variation_value.split(' - ')]
+            
+            # Check if this variation contains our target color
+            has_color = any(part.lower() == color_value.lower() for part in variation_parts)
+            
+            if has_color:
+                # Find the size in this variation
+                for part in variation_parts:
+                    if part in all_sizes:  # This part is a size
+                        current_stock = size_stock_map[part]['stock_quantity']
+                        size_stock_map[part] = {
+                            'size': part,
+                            'stock_quantity': current_stock + variation.stock_quantity,
+                            'stock_status': 'instock' if (current_stock + variation.stock_quantity) > 0 else 'outofstock',
+                            'is_available': (current_stock + variation.stock_quantity) > 0
+                        }
+                        break
+        
+        # Convert to list and sort by size
+        sizes_list = list(size_stock_map.values())
+        sizes_list.sort(key=lambda x: self._get_size_sort_order(x['size']))
+        
+        return {
+            'color': color_value,
+            'sizes': sizes_list
+        }
+    
+    def _get_size_sort_order(self, size):
+        """Helper method to get sort order for sizes"""
+        size_order = ['xs', 's', 'm', 'l', 'xl', '2xl', '3xl', '4xl', '5xl']
+        try:
+            return size_order.index(size.lower())
+        except ValueError:
+            return 999  # Put unknown sizes at the end
+    
+    def get_all_color_size_combinations(self):
+        """
+        Get stock information for all color-size combinations.
+        
+        Returns:
+            dict: Complete stock matrix organized by color, then by size
+        """
+        if not self.has_variations:
+            return {}
+        
+        colors = self.available_colors
+        result = {}
+        
+        for color in colors:
+            result[color] = self.get_stock_by_color_for_all_sizes(color)
+        
+        return result
+
     def get_variation_data_for_frontend(self):
         """
         Get structured variation data for frontend JavaScript.
@@ -650,7 +757,8 @@ class LottoProduct(models.Model):
             'variation_types': list(self.variations.filter(is_active=True).values_list('variation_type', flat=True).distinct()),
             'variations': [],
             'parsed_attributes': self.parsed_variation_attributes,
-            'total_stock': self.total_stock
+            'total_stock': self.total_stock,
+            'color_size_stock_matrix': self.get_all_color_size_combinations()  # Add stock matrix
         }
         
         # Add individual variation data

@@ -680,7 +680,7 @@
                 <!-- Product Pricing -->
                 <div class="product-pricing">
                     <div class="price-container">
-                        <div class="current-price">${{ product.effective_price|floatformat:2 }}</div>
+                        <div class="current-price" id="productPrice">${{ product.effective_price|floatformat:2 }}</div>
                         
                         {% if product.is_on_sale %}
                             <div class="original-price">${{ product.regular_price|floatformat:2 }}</div>
@@ -695,8 +695,8 @@
                     {% endif %}
                 </div>
 
-                <!-- Stock Status -->
-                <div class="stock-status {% if product.stock_status == 'instock' %}in-stock{% elif product.stock_status == 'outofstock' %}out-of-stock{% else %}on-backorder{% endif %}">
+                <!-- Stock Status - Hidden by default, shown only after user interaction -->
+                <div class="stock-status stock-status-hidden {% if product.stock_status == 'instock' %}in-stock{% elif product.stock_status == 'outofstock' %}out-of-stock{% else %}on-backorder{% endif %}">
                     {% if product.stock_status == 'instock' %}
                         <i class="uil-check-circle"></i>
                         <span>In Stock</span>
@@ -922,6 +922,11 @@ function initializeProductVariations() {
     const productId = {{ product.id }};
     const productType = 'lotto';
     
+    // Ensure price display shows correct initial value (fix for empty $ display)
+    const priceElement = document.querySelector('#productPrice, .current-price');
+    if (priceElement && priceElement.textContent.trim() === '$') {
+        priceElement.textContent = '${{ product.effective_price|floatformat:2 }}';
+    }
     
     // Create variation manager
     variationManager = new ProductVariationManager(productId, productType, {

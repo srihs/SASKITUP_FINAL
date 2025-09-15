@@ -804,6 +804,105 @@ class SASProduct(models.Model):
             return self.stock_status in ['instock', 'onbackorder']
         return stock > 0
     
+    def get_stock_by_color_for_all_sizes(self, color_value):
+        """
+        Get stock information for all sizes in a specific color.
+        
+        Args:
+            color_value: The color variation value (e.g., 'Black', 'Red')
+        
+        Returns:
+            dict: Stock information by size for the selected color
+        """
+        if not self.has_variations:
+            return {'color': color_value, 'sizes': []}
+        
+        # Get all available sizes for this product
+        all_sizes = self.available_sizes
+        size_stock_map = {}
+        
+        # Initialize all sizes with zero stock
+        for size in all_sizes:
+            size_stock_map[size] = {
+                'size': size,
+                'stock_quantity': 0,
+                'stock_status': 'outofstock',
+                'is_available': False
+            }
+        
+        # If product has actual variations, use them
+        if hasattr(self, 'variations') and self.variations.filter(is_active=True).exists():
+            for variation in self.variations.filter(is_active=True):
+                # Check if this variation matches our color
+                attributes = getattr(variation, 'attributes', {}) or {}
+                variation_color = attributes.get('color') or attributes.get('colour')
+                
+                if variation_color and variation_color.lower() == color_value.lower():
+                    # Get the size for this variation
+                    variation_size = attributes.get('size')
+                    if variation_size and variation_size in size_stock_map:
+                        current_stock = size_stock_map[variation_size]['stock_quantity']
+                        new_stock = current_stock + getattr(variation, 'stock_quantity', 0)
+                        
+                        size_stock_map[variation_size] = {
+                            'size': variation_size,
+                            'stock_quantity': new_stock,
+                            'stock_status': 'instock' if new_stock > 0 else 'outofstock',
+                            'is_available': new_stock > 0
+                        }
+        else:
+            # Use attribute-based variations from WooCommerce data
+            parsed_attrs = self.parsed_variation_attributes
+            if 'color' in parsed_attrs and color_value in parsed_attrs['color']:
+                # For products without individual stock tracking, assume all sizes are available
+                # if the product stock status indicates availability
+                is_available = self.stock_status in ['instock', 'onbackorder']
+                stock_quantity = 1 if is_available else 0
+                
+                for size in all_sizes:
+                    size_stock_map[size] = {
+                        'size': size,
+                        'stock_quantity': stock_quantity,
+                        'stock_status': self.stock_status,
+                        'is_available': is_available
+                    }
+        
+        # Convert to list and sort by size
+        sizes_list = list(size_stock_map.values())
+        sizes_list.sort(key=lambda x: self._get_size_sort_order(x['size']))
+        
+        return {
+            'color': color_value,
+            'sizes': sizes_list
+        }
+    
+    def _get_size_sort_order(self, size):
+        """Helper method to get sort order for sizes"""
+        # SAS-specific size order including kids sizes
+        size_order = ['4k', '6k', '8k', '10k', '12k', '14k', '16k', 'xs', 's', 'm', 'l', 'xl', '2xl', '3xl', '4xl', '5xl']
+        try:
+            return size_order.index(size.lower())
+        except ValueError:
+            return 999  # Put unknown sizes at the end
+    
+    def get_all_color_size_combinations(self):
+        """
+        Get stock information for all color-size combinations.
+        
+        Returns:
+            dict: Complete stock matrix organized by color, then by size
+        """
+        if not self.has_variations:
+            return {}
+        
+        colors = self.available_colors
+        result = {}
+        
+        for color in colors:
+            result[color] = self.get_stock_by_color_for_all_sizes(color)
+        
+        return result
+    
     def get_variation_data_for_frontend(self):
         """
         Get structured variation data for frontend JavaScript.
@@ -820,7 +919,8 @@ class SASProduct(models.Model):
             'variation_types': [],
             'variations': [],
             'parsed_attributes': self.parsed_variation_attributes,
-            'total_stock': self.total_stock
+            'total_stock': self.total_stock,
+            'color_size_stock_matrix': self.get_all_color_size_combinations()  # Add stock matrix
         }
         
         # If product has actual SAS variations

@@ -933,6 +933,80 @@ html {
 }
 
 /* ============================================
+   Product Variation Size Labels (Non-Interactive)
+   ============================================ */
+
+/* Override size button styles to make them non-interactive labels */
+.variation-section .size-button {
+    pointer-events: none !important;
+    cursor: default !important;
+    background-color: #f8f9fa !important;
+    border: 1px solid #dee2e6 !important;
+    color: #495057 !important;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    text-align: center;
+    display: inline-block;
+    min-width: 60px;
+    transition: none !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.variation-section .size-button:hover {
+    background-color: #f8f9fa !important;
+    border-color: #dee2e6 !important;
+    color: #495057 !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.variation-section .size-button.selected {
+    background-color: #e9ecef !important;
+    border-color: #adb5bd !important;
+    color: #495057 !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.variation-section .size-button.disabled {
+    opacity: 0.6 !important;
+    background-color: #f8f9fa !important;
+    color: #6c757d !important;
+}
+
+/* Ensure size labels are not focusable */
+.variation-section .size-button:focus {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Hide stock status by default - until user interaction */
+.stock-status {
+    transition: all 0.3s ease;
+}
+
+.stock-status.stock-status-hidden {
+    display: none !important;
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+.stock-status.stock-status-visible {
+    display: flex !important;
+    opacity: 1;
+    transform: translateY(0);
+    transition: all 0.3s ease;
+}
+
+/* Additional backup rule to hide stock status initially */
+.lotto-page .stock-status:not(.stock-status-visible) {
+    display: none;
+}
+
+/* ============================================
    Enhanced Sync Management Styles
    ============================================ */
 
@@ -1777,5 +1851,163 @@ html {
     
     .sas-page .page-title-box h4::after {
         display: none;
+    }
+}
+
+/* ============================================
+   Color-Size Stock Display Styling
+   ============================================ */
+
+.color-size-stock-display {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    transition: all 0.3s ease;
+    margin-top: 1rem;
+}
+
+.color-size-stock-display:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.color-size-stock-header {
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.color-size-stock-header h6 {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0;
+}
+
+.stock-grid .stock-item {
+    transition: all 0.2s ease;
+    cursor: default;
+    background: #ffffff;
+    position: relative;
+    overflow: hidden;
+}
+
+.stock-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.stock-item.border-success {
+    border-left: 4px solid #28a745 !important;
+}
+
+.stock-item.border-secondary {
+    border-left: 4px solid #6c757d !important;
+}
+
+.size-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stock-status .badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+}
+
+/* Stock Loading State */
+.stock-loading {
+    padding: 1rem;
+    text-align: center;
+}
+
+.stock-loading .spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+    border-width: 0.125em;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 576px) {
+    .color-size-stock-display {
+        margin: 0.75rem 0;
+        padding: 1rem !important;
+    }
+    
+    .stock-grid .col-6 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+    
+    .stock-item {
+        padding: 0.75rem !important;
+    }
+    
+    .size-label {
+        font-size: 0.8rem;
+    }
+    
+    .stock-status .badge {
+        font-size: 0.7rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .color-size-stock-display {
+        border-radius: 6px;
+    }
+}
+
+/* Animation for stock display appearance */
+@keyframes stockDisplaySlideIn {
+    0% {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.color-size-stock-display[style*="block"] {
+    animation: stockDisplaySlideIn 0.3s ease-out;
+}
+
+/* Brand-specific color adjustments */
+.lotto-page .color-size-stock-header .fa-tshirt {
+    color: #C9485B !important;
+}
+
+.sas-page .color-size-stock-header .fa-tshirt {
+    color: #205295 !important;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .color-size-stock-display {
+        background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+        border-color: #4a5568;
+        color: #e2e8f0;
+    }
+    
+    .color-size-stock-header {
+        border-color: #4a5568;
+    }
+    
+    .color-size-stock-header h6 {
+        color: #e2e8f0;
+    }
+    
+    .stock-item {
+        background: #2d3748;
+        color: #e2e8f0;
+        border-color: #4a5568 !important;
+    }
+    
+    .size-label {
+        color: #a0aec0;
     }
 }

@@ -46,6 +46,9 @@ urlpatterns = [
     # Stock checking endpoint
     path('api/product/check-stock/', views.check_stock_api, name='check-stock-api'),
     
+    # Color size stock endpoint
+    path('api/product/color-size-stock/', views.product_color_size_stock_api, name='product-color-size-stock-api'),
+    
     # Image proxy endpoint
     path('proxy-image/', views.proxy_image_view, name='proxy-image'),
     

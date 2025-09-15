@@ -85,7 +85,7 @@ class ProductVariationManager {
             colorOptions: document.querySelector('.color-options'),
             sizeOptions: document.querySelector('.size-options'),
             ageGroupOptions: document.querySelector('.age-group-options'),
-            priceDisplay: document.querySelector('.current-price'),
+            priceDisplay: document.querySelector('.current-price, #productPrice'),
             stockStatus: document.querySelector('.stock-status'),
             addToCartBtn: document.querySelector('.add-to-cart-btn, .btn-add-to-cart'),
             loadingOverlay: null, // Will be created dynamically
@@ -95,6 +95,16 @@ class ProductVariationManager {
         // Track initial stock visibility state
         this.stockStatusVisible = false;
         this.hasUserInteraction = false;
+        
+        // Store the initial price from the page
+        if (this.elements.priceDisplay) {
+            const priceText = this.elements.priceDisplay.textContent || this.elements.priceDisplay.innerText;
+            const priceMatch = priceText.match(/\$([0-9.]+)/);
+            if (priceMatch) {
+                this.basePrice = parseFloat(priceMatch[1]);
+                this.currentPrice = this.basePrice;
+            }
+        }
     }
     
     /**
@@ -328,24 +338,27 @@ class ProductVariationManager {
     }
     
     /**
-     * Create a size button element
+     * Create a size button element (now as non-interactive label)
      */
     createSizeButton(variation) {
-        const button = document.createElement('button');
+        const button = document.createElement('div');
         button.className = 'size-button';
         button.dataset.variationType = 'size';
         button.dataset.variationValue = variation.value;
         button.dataset.variationId = variation.id;
         button.dataset.available = variation.is_available;
-        button.setAttribute('role', 'button');
-        button.setAttribute('aria-label', `Select size ${variation.value}`);
+        button.setAttribute('role', 'text');
+        button.setAttribute('aria-label', `Size ${variation.value}`);
         button.textContent = variation.value;
         
         if (!variation.is_available) {
-            button.disabled = true;
             button.classList.add('disabled');
             button.setAttribute('aria-disabled', 'true');
         }
+        
+        // Make completely non-interactive
+        button.style.pointerEvents = 'none';
+        button.style.cursor = 'default';
         
         return button;
     }
@@ -482,6 +495,12 @@ class ProductVariationManager {
         if (!target || target.dataset.available === 'false') return;
         
         const variationType = target.dataset.variationType;
+        
+        // Ignore clicks on size buttons since they're now non-interactive labels
+        if (variationType === 'size') {
+            return;
+        }
+        
         const variationValue = target.dataset.variationValue;
         const variationId = target.dataset.variationId;
         
@@ -501,7 +520,7 @@ class ProductVariationManager {
     handleKeyboardNavigation(event) {
         if (event.key === 'Enter' || event.key === ' ') {
             const target = event.target.closest('[data-variation-type]');
-            if (target && target.dataset.available !== 'false') {
+            if (target && target.dataset.available !== 'false' && target.dataset.variationType !== 'size') {
                 event.preventDefault();
                 this.handleVariationClick(event);
             }
@@ -536,6 +555,11 @@ class ProductVariationManager {
         if (this.options.enableStockCheck && showStock) {
             this.showStockStatusAfterSelection();
             this.debouncedStockCheck();
+        }
+        
+        // Display color-size stock information when a color is selected
+        if (type === 'color') {
+            this.displayColorSizeStock(value);
         }
         
         // Trigger custom event
@@ -607,7 +631,7 @@ class ProductVariationManager {
      * Update the price display in the DOM
      */
     updatePriceDisplay() {
-        if (this.elements.priceDisplay) {
+        if (this.elements.priceDisplay && this.currentPrice > 0) {
             const formattedPrice = this.productType === 'sas' ? 
                 `R${this.currentPrice.toFixed(2)}` : 
                 `$${this.currentPrice.toFixed(2)}`;
@@ -1602,6 +1626,12 @@ class ProductVariationManager {
         // Hide stock status initially - will be shown only after user interaction
         this.hideStockStatusInitially();
         
+        // Ensure price display shows base price initially
+        if (this.basePrice > 0) {
+            this.currentPrice = this.basePrice;
+            this.updatePriceDisplay();
+        }
+        
         // Auto-select first available variation for each type if only one option
         if (!this.groupedVariations || typeof this.groupedVariations !== 'object') {
             console.warn('No grouped variations available for initial state setup');
@@ -1625,7 +1655,9 @@ class ProductVariationManager {
             groupedVariations: Object.keys(this.groupedVariations),
             variations: this.variations.length,
             selectedVariations: this.selectedVariations,
-            stockStatusVisible: this.stockStatusVisible
+            stockStatusVisible: this.stockStatusVisible,
+            basePrice: this.basePrice,
+            currentPrice: this.currentPrice
         });
     }
     
@@ -2264,6 +2296,182 @@ class ProductVariationManager {
         }
         
         console.log('Restored original gallery for LOTTO product');
+    }
+    
+    /**
+     * Display stock information for all sizes in a specific color
+     * @param {string} colorValue - The selected color value
+     */
+    async displayColorSizeStock(colorValue) {
+        try {
+            // Show loading state
+            this.showColorSizeStockLoading();
+            
+            // Call the API to get stock information
+            const response = await fetch('/clubs/api/product/color-size-stock/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.getCsrfToken()
+                },
+                body: JSON.stringify({
+                    product_id: this.productId,
+                    product_type: this.productType,
+                    color: colorValue
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success && data.sizes && data.sizes.length > 0) {
+                this.showColorSizeStockDisplay(data);
+            } else {
+                console.log('No stock information available for color:', colorValue);
+                this.hideColorSizeStockDisplay();
+            }
+            
+        } catch (error) {
+            console.error('Error fetching color size stock:', error);
+            this.hideColorSizeStockDisplay();
+        }
+    }
+    
+    /**
+     * Show loading state for color-size stock display
+     */
+    showColorSizeStockLoading() {
+        const container = this.getOrCreateColorSizeStockContainer();
+        if (container) {
+            container.style.display = 'block';
+            container.innerHTML = `
+                <div class="stock-loading d-flex align-items-center mb-3">
+                    <div class="spinner-border spinner-border-sm me-2" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <span class="text-muted">Loading stock information...</span>
+                </div>
+            `;
+        }
+    }
+    
+    /**
+     * Display the stock information in a formatted way
+     * @param {Object} data - The stock data from API
+     */
+    showColorSizeStockDisplay(data) {
+        const container = this.getOrCreateColorSizeStockContainer();
+        if (!container || !data.sizes || data.sizes.length === 0) {
+            this.hideColorSizeStockDisplay();
+            return;
+        }
+        
+        const colorName = data.color;
+        const sizes = data.sizes;
+        
+        let stockHtml = `
+            <div class="color-size-stock-header mb-2">
+                <h6 class="mb-0 d-flex align-items-center">
+                    <i class="fas fa-tshirt me-2 text-${this.productType === 'lotto' ? 'danger' : 'primary'}"></i>
+                    <span>Stock Available for <strong>${colorName}</strong></span>
+                </h6>
+            </div>
+            <div class="stock-grid row g-2">
+        `;
+        
+        // Create stock display for each size
+        sizes.forEach(sizeInfo => {
+            const isAvailable = sizeInfo.is_available;
+            const stockQuantity = sizeInfo.stock_quantity;
+            const stockStatus = sizeInfo.stock_status;
+            const sizeName = sizeInfo.size;
+            
+            let stockText = '';
+            let badgeClass = '';
+            
+            if (isAvailable && stockQuantity > 0) {
+                stockText = `${stockQuantity} available`;
+                badgeClass = 'bg-success';
+            } else if (stockStatus === 'onbackorder') {
+                stockText = 'On backorder';
+                badgeClass = 'bg-warning text-dark';
+            } else {
+                stockText = 'Out of stock';
+                badgeClass = 'bg-secondary';
+            }
+            
+            stockHtml += `
+                <div class="col-6 col-md-4 col-lg-3">
+                    <div class="stock-item p-2 border rounded ${isAvailable ? 'border-success' : 'border-secondary'}">
+                        <div class="size-label fw-bold text-center mb-1">Size ${sizeName}</div>
+                        <div class="stock-status text-center">
+                            <span class="badge ${badgeClass} small">${stockText}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        stockHtml += `
+            </div>
+        `;
+        
+        container.innerHTML = stockHtml;
+        container.style.display = 'block';
+    }
+    
+    /**
+     * Get or create the color-size stock display container
+     */
+    getOrCreateColorSizeStockContainer() {
+        let container = document.getElementById('color-size-stock-display');
+        
+        if (!container) {
+            // Find a good location to insert the container
+            const variationSection = document.querySelector('.variation-section, .product-variations, #productVariations');
+            const stockSection = document.querySelector('.stock-status, .product-stock');
+            
+            container = document.createElement('div');
+            container.id = 'color-size-stock-display';
+            container.className = 'color-size-stock-display mt-3 p-3 bg-light rounded';
+            container.style.display = 'none';
+            
+            // Try to insert after the variations section, or before stock section
+            if (variationSection) {
+                variationSection.insertAdjacentElement('afterend', container);
+            } else if (stockSection) {
+                stockSection.insertAdjacentElement('beforebegin', container);
+            } else {
+                // Fallback: try to find the product info section
+                const productInfo = document.querySelector('.product-info, .product-details');
+                if (productInfo) {
+                    productInfo.appendChild(container);
+                }
+            }
+        }
+        
+        return container;
+    }
+    
+    /**
+     * Hide the color-size stock display
+     */
+    hideColorSizeStockDisplay() {
+        const container = document.getElementById('color-size-stock-display');
+        if (container) {
+            container.style.display = 'none';
+        }
+    }
+    
+    /**
+     * Get CSRF token for API calls
+     */
+    getCsrfToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+               document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     }
 }
 
