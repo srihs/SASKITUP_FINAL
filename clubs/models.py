@@ -10,7 +10,7 @@ from django.utils import timezone
 from .models_lotto import LottoClub, LottoClubCategory, LottoProduct, LottoProductVariation
 
 # Import SAS-specific models
-from .models_sas import SASSport, SASClub, SASProduct
+from .models_sas import SASSport, SASClub, SASProduct, SASProductVariation
 
 logger = logging.getLogger(__name__)
 
@@ -435,7 +435,7 @@ class Product(models.Model):
     @property
     def has_variations(self):
         """Check if product has variations"""
-        return self.variations.filter(is_active=True).exists()
+        return self.variations.exists()
     
     @property
     def primary_category(self):
@@ -471,6 +471,42 @@ class Product(models.Model):
     def is_variable_product(self):
         """Check if this is a variable product (same as has_variations)"""
         return self.has_variations
+    
+    @property
+    def calculated_stock_status(self):
+        """Calculate stock status dynamically, especially for variable products"""
+        if self.is_variable_product:
+            # For variable products, base status on variations
+            has_stock = self.variations.filter(is_active=True, stock_quantity__gt=0).exists()
+            if has_stock:
+                return 'instock'
+            else:
+                # Check if any variations allow backorders
+                has_backorder = self.variations.filter(is_active=True).exists()
+                return 'onbackorder' if has_backorder else 'outofstock'
+        else:
+            # For simple products, use the stored stock_status
+            return self.stock_status
+    
+    @property
+    def is_in_stock(self):
+        """Check if product is in stock, considering variations"""
+        if self.is_variable_product:
+            # For variable products, check if any variation is in stock
+            return self.variations.filter(is_active=True, stock_quantity__gt=0).exists()
+        else:
+            return self.stock_status == 'instock'
+    
+    def update_stock_status_from_variations(self):
+        """Update the product's stock_status field based on variations availability"""
+        if self.is_variable_product:
+            calculated_status = self.calculated_stock_status
+            if self.stock_status != calculated_status:
+                self.stock_status = calculated_status
+                self.save(update_fields=['stock_status', 'updated_at'])
+                logger.info(f"Updated stock status for product {self.id} to {calculated_status}")
+                return True
+        return False
     
     def _parse_variation_attributes(self):
         """
@@ -599,6 +635,149 @@ class Product(models.Model):
         
         return variations.first()
     
+    def get_available_variations_for_selection(self, **selection):
+        """
+        Get available variation options based on current selection.
+        Returns dict with available options for each variation type.
+        
+        Args:
+            **selection: Current user selection (e.g., size='Large', color='Red')
+        
+        Returns:
+            dict: Available options for each variation type with stock info
+        """
+        from django.db.models import Q, Sum
+        
+        # Get all active variations with stock
+        base_variations = self.variations.filter(is_active=True, stock_quantity__gt=0)
+        
+        # Apply current selection filters
+        for attr_type, attr_value in selection.items():
+            if attr_value:  # Only filter if value is provided
+                base_variations = base_variations.filter(
+                    variation_type=attr_type,
+                    variation_value=attr_value
+                )
+        
+        # Get available options for each variation type
+        result = {}
+        variation_types = ['size', 'color', 'material', 'style', 'gender', 'age_group']
+        
+        for var_type in variation_types:
+            # Skip if this type is already selected
+            if var_type in selection and selection[var_type]:
+                continue
+                
+            # Get available options for this type
+            options = []
+            type_variations = base_variations.filter(variation_type=var_type).distinct()
+            
+            for variation in type_variations:
+                # Check stock for this option combined with current selection
+                test_selection = selection.copy()
+                test_selection[var_type] = variation.variation_value
+                
+                # Find variations that match all criteria
+                matching_variations = self.variations.filter(is_active=True)
+                for test_attr, test_value in test_selection.items():
+                    if test_value:
+                        matching_variations = matching_variations.filter(
+                            variation_type=test_attr,
+                            variation_value=test_value
+                        )
+                
+                total_stock = matching_variations.aggregate(
+                    total=Sum('stock_quantity')
+                )['total'] or 0
+                
+                if total_stock > 0:
+                    options.append({
+                        'value': variation.variation_value,
+                        'stock': total_stock,
+                        'available': True,
+                        'variation_id': variation.id,
+                        'price_modifier': variation.price_modifier,
+                        'image': variation.image if hasattr(variation, 'image') else None
+                    })
+            
+            if options:
+                # Sort options by value
+                options.sort(key=lambda x: x['value'])
+                result[var_type] = options
+        
+        return result
+    
+    def get_variation_combination_stock(self, **combination):
+        """
+        Get stock quantity for a specific variation combination.
+        
+        Args:
+            **combination: Variation attributes (e.g., size='Large', color='Red')
+        
+        Returns:
+            int: Total stock quantity for the combination
+        """
+        from django.db.models import Sum
+        
+        variations = self.variations.filter(is_active=True)
+        
+        for attr_type, attr_value in combination.items():
+            if attr_value:
+                variations = variations.filter(
+                    variation_type=attr_type,
+                    variation_value=attr_value
+                )
+        
+        total_stock = variations.aggregate(
+            total=Sum('stock_quantity')
+        )['total'] or 0
+        
+        return total_stock
+    
+    def is_variation_combination_available(self, **combination):
+        """
+        Check if a specific variation combination is available.
+        
+        Args:
+            **combination: Variation attributes (e.g., size='Large', color='Red')
+        
+        Returns:
+            bool: True if combination has stock, False otherwise
+        """
+        return self.get_variation_combination_stock(**combination) > 0
+    
+    def get_disabled_combinations(self):
+        """
+        Get all combinations that should be disabled due to no stock.
+        
+        Returns:
+            list: List of disabled combinations
+        """
+        disabled = []
+        parsed_attrs = self.parsed_variation_attributes
+        
+        # Generate all possible combinations
+        import itertools
+        
+        attr_types = list(parsed_attrs.keys())
+        if not attr_types:
+            return disabled
+        
+        # Create combinations for each pair/triple of attributes
+        for r in range(2, len(attr_types) + 1):
+            for attr_combo in itertools.combinations(attr_types, r):
+                # Get values for each attribute type
+                attr_values = [parsed_attrs[attr] for attr in attr_combo]
+                
+                # Generate all value combinations
+                for value_combo in itertools.product(*attr_values):
+                    combination = dict(zip(attr_combo, value_combo))
+                    
+                    if not self.is_variation_combination_available(**combination):
+                        disabled.append(combination)
+        
+        return disabled
+    
     def get_variation_images_by_type(self, variation_type):
         """Get all unique images for variations of a specific type"""
         variations = self.variations.filter(
@@ -639,6 +818,44 @@ class Product(models.Model):
         
         # Fallback to product image
         return self.image
+    
+    def get_variation_data_for_frontend(self):
+        """
+        Get structured variation data for frontend JavaScript.
+        
+        Returns:
+            dict: Structured data for frontend variation handling
+        """
+        if not self.has_variations:
+            return {}
+        
+        variations_data = {
+            'product_id': self.id,
+            'has_variations': True,
+            'variation_types': list(self.variation_types),
+            'variations': [],
+            'parsed_attributes': self.parsed_variation_attributes,
+            'price_range': self.price_range,
+            'total_stock': self.total_stock
+        }
+        
+        # Add individual variation data
+        for variation in self.variations.filter(is_active=True):
+            var_data = {
+                'id': variation.id,
+                'type': variation.variation_type,
+                'value': variation.variation_value,
+                'stock': variation.stock_quantity,
+                'price_modifier': float(variation.price_modifier),
+                'final_price': float(variation.final_price),
+                'sku_suffix': variation.sku_suffix,
+                'is_in_stock': variation.is_in_stock,
+                'image': variation.effective_image_url,
+                'attributes': variation.attributes or {}
+            }
+            variations_data['variations'].append(var_data)
+        
+        return variations_data
 
 
 class ProductVariation(models.Model):
@@ -704,6 +921,10 @@ class ProductVariation(models.Model):
             self.sku_suffix = f"{type_short}-{value_short}"
         
         super().save(*args, **kwargs)
+        
+        # Update parent product's stock status after variation changes
+        if self.product and self.product.is_variable_product:
+            self.product.update_stock_status_from_variations()
     
     def __str__(self):
         # Check if this is a multi-dimensional variation with attributes
@@ -790,3 +1011,51 @@ class ProductVariation(models.Model):
         
         # For size/gender/other variations, use effective image with fallback
         return self.effective_image
+    
+    def get_combination_data(self, **combination):
+        """
+        Get variation data for a specific combination.
+        
+        Args:
+            **combination: Variation attributes (e.g., size='Large', color='Red')
+        
+        Returns:
+            dict: Variation data for the combination
+        """
+        variations = self.product.variations.filter(is_active=True)
+        
+        for attr_type, attr_value in combination.items():
+            if attr_value:
+                variations = variations.filter(
+                    variation_type=attr_type,
+                    variation_value=attr_value
+                )
+        
+        if variations.exists():
+            # Get the first matching variation
+            variation = variations.first()
+            total_stock = variations.aggregate(
+                total=models.Sum('stock_quantity')
+            )['total'] or 0
+            
+            return {
+                'variation_id': variation.id,
+                'stock': total_stock,
+                'price_modifier': float(variation.price_modifier),
+                'final_price': float(variation.final_price),
+                'sku_suffix': variation.sku_suffix,
+                'is_available': total_stock > 0,
+                'image': variation.effective_image_url,
+                'attributes': variation.attributes or {}
+            }
+        
+        return {
+            'variation_id': None,
+            'stock': 0,
+            'price_modifier': 0.0,
+            'final_price': float(self.product.price),
+            'sku_suffix': '',
+            'is_available': False,
+            'image': None,
+            'attributes': {}
+        }

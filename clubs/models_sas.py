@@ -559,6 +559,438 @@ class SASProduct(models.Model):
     def sport(self):
         """Get the sport through the club relationship."""
         return self.club.sport if self.club else None
+    
+    @property
+    def has_variations(self):
+        """Check if product has variations based on attributes or related variations"""
+        # Check if there are related SAS variations
+        if hasattr(self, 'variations') and self.variations.filter(is_active=True).exists():
+            return True
+        
+        # Check if attributes contain variation data
+        if self.attributes:
+            for attr in self.attributes:
+                if isinstance(attr, dict) and attr.get('variation', False):
+                    options = attr.get('options', [])
+                    if len(options) > 1:  # More than one option means it's a variation
+                        return True
+        return False
+    
+    def _parse_variation_attributes(self):
+        """
+        Parse variation attributes from the attributes field.
+        Returns dict with attribute type as key and list of values as value.
+        """
+        # Standard attribute priority order
+        attribute_priority = ['size', 'color', 'material', 'style', 'gender', 'age_group']
+        
+        # Dictionary to store parsed attributes
+        parsed_attributes = {}
+        
+        # Check actual SAS variations first
+        if hasattr(self, 'variations'):
+            variations = self.variations.filter(is_active=True, stock_quantity__gt=0)
+            for variation in variations:
+                if variation.variation_type not in parsed_attributes:
+                    parsed_attributes[variation.variation_type] = set()
+                parsed_attributes[variation.variation_type].add(variation.variation_value)
+        
+        # Parse from attributes field
+        if self.attributes:
+            for attr in self.attributes:
+                if isinstance(attr, dict) and attr.get('variation', False):
+                    attr_name = attr.get('name', '').lower()
+                    # Map common attribute names to standard types
+                    attr_type = attr_name
+                    if 'colour' in attr_name:
+                        attr_type = 'color'
+                    elif 'size' in attr_name:
+                        attr_type = 'size'
+                    elif 'material' in attr_name:
+                        attr_type = 'material'
+                    elif 'style' in attr_name:
+                        attr_type = 'style'
+                    
+                    options = attr.get('options', [])
+                    if options and len(options) > 1:
+                        if attr_type not in parsed_attributes:
+                            parsed_attributes[attr_type] = set()
+                        for option in options:
+                            parsed_attributes[attr_type].add(str(option))
+        
+        # Convert sets to sorted lists and filter out empty ones
+        result = {}
+        for attr_type, values in parsed_attributes.items():
+            if values:
+                result[attr_type] = sorted(list(values))
+        
+        return result
+    
+    @property
+    def available_sizes(self):
+        """Get available sizes for this product"""
+        parsed = self._parse_variation_attributes()
+        return parsed.get('size', [])
+    
+    @property
+    def available_colors(self):
+        """Get available colors for this product"""
+        parsed = self._parse_variation_attributes()
+        return parsed.get('color', [])
+    
+    @property
+    def available_materials(self):
+        """Get available materials for this product"""
+        parsed = self._parse_variation_attributes()
+        return parsed.get('material', [])
+    
+    @property
+    def available_styles(self):
+        """Get available styles for this product"""
+        parsed = self._parse_variation_attributes()
+        return parsed.get('style', [])
+    
+    @property
+    def parsed_variation_attributes(self):
+        """Get all parsed variation attributes as a dictionary"""
+        return self._parse_variation_attributes()
+    
+    @property
+    def is_variable_product(self):
+        """Check if this is a variable product"""
+        return self.product_type == 'variable' or self.has_variations
+    
+    @property
+    def total_stock(self):
+        """Get total stock across all variations"""
+        if not self.has_variations:
+            return self.stock_quantity if self.manage_stock else None
+        
+        # If has actual variations, sum their stock
+        if hasattr(self, 'variations'):
+            from django.db.models import Sum
+            return self.variations.filter(is_active=True).aggregate(
+                total=Sum('stock_quantity')
+            )['total'] or 0
+        
+        # For attribute-based variations, return product stock
+        return self.stock_quantity if self.manage_stock else None
+    
+    def get_available_variations_for_selection(self, **selection):
+        """
+        Get available variation options based on current selection.
+        Returns dict with available options for each variation type.
+        """
+        result = {}
+        
+        # If product has actual SAS variations, use them
+        if hasattr(self, 'variations') and self.variations.filter(is_active=True).exists():
+            # Use similar logic to LOTTO products
+            base_variations = self.variations.filter(is_active=True, stock_quantity__gt=0)
+            
+            # Apply current selection filters
+            for attr_type, attr_value in selection.items():
+                if attr_value:
+                    base_variations = base_variations.filter(
+                        variation_type=attr_type,
+                        variation_value=attr_value
+                    )
+            
+            # Get available options for each variation type
+            variation_types = ['size', 'color', 'material', 'style', 'gender', 'age_group']
+            
+            for var_type in variation_types:
+                if var_type in selection and selection[var_type]:
+                    continue
+                    
+                options = []
+                type_variations = base_variations.filter(variation_type=var_type).distinct()
+                
+                for variation in type_variations:
+                    options.append({
+                        'value': variation.variation_value,
+                        'stock': variation.stock_quantity,
+                        'available': variation.stock_quantity > 0,
+                        'variation_id': variation.id,
+                        'price_modifier': 0.0,  # SAS typically doesn't have price modifiers
+                        'image': variation.image_url if hasattr(variation, 'image_url') else None
+                    })
+                
+                if options:
+                    options.sort(key=lambda x: x['value'])
+                    result[var_type] = options
+        
+        else:
+            # Use attribute-based variations
+            parsed_attrs = self.parsed_variation_attributes
+            for attr_type, values in parsed_attrs.items():
+                if attr_type in selection and selection[attr_type]:
+                    continue
+                
+                options = []
+                for value in values:
+                    options.append({
+                        'value': value,
+                        'stock': self.stock_quantity if self.manage_stock else 99,
+                        'available': self.stock_status in ['instock', 'onbackorder'],
+                        'variation_id': f"{self.id}_{attr_type}_{value}",
+                        'price_modifier': 0.0,
+                        'image': self.image_url
+                    })
+                
+                if options:
+                    result[attr_type] = options
+        
+        return result
+    
+    def get_variation_combination_stock(self, **combination):
+        """
+        Get stock quantity for a specific variation combination.
+        """
+        # If product has actual variations, use them
+        if hasattr(self, 'variations') and self.variations.filter(is_active=True).exists():
+            from django.db.models import Sum
+            
+            variations = self.variations.filter(is_active=True)
+            for attr_type, attr_value in combination.items():
+                if attr_value:
+                    variations = variations.filter(
+                        variation_type=attr_type,
+                        variation_value=attr_value
+                    )
+            
+            total_stock = variations.aggregate(
+                total=Sum('stock_quantity')
+            )['total'] or 0
+            
+            return total_stock
+        else:
+            # For attribute-based variations, return product stock
+            # Check if the combination is valid first
+            parsed_attrs = self.parsed_variation_attributes
+            for attr_type, attr_value in combination.items():
+                if attr_value:
+                    if attr_type not in parsed_attrs or attr_value not in parsed_attrs[attr_type]:
+                        return 0  # Invalid combination
+            
+            return self.stock_quantity if self.manage_stock else (99 if self.stock_status in ['instock', 'onbackorder'] else 0)
+    
+    def is_variation_combination_available(self, **combination):
+        """
+        Check if a specific variation combination is available.
+        """
+        return self.get_variation_combination_stock(**combination) > 0
+    
+    def get_variation_data_for_frontend(self):
+        """
+        Get structured variation data for frontend JavaScript.
+        
+        Returns:
+            dict: Structured data for frontend variation handling
+        """
+        if not self.has_variations:
+            return {}
+        
+        variations_data = {
+            'product_id': self.id,
+            'has_variations': True,
+            'variation_types': [],
+            'variations': [],
+            'parsed_attributes': self.parsed_variation_attributes,
+            'total_stock': self.total_stock
+        }
+        
+        # If product has actual SAS variations
+        if hasattr(self, 'variations') and self.variations.filter(is_active=True).exists():
+            variations_data['variation_types'] = list(
+                self.variations.filter(is_active=True).values_list('variation_type', flat=True).distinct()
+            )
+            
+            for variation in self.variations.filter(is_active=True):
+                var_data = {
+                    'id': variation.id,
+                    'type': variation.variation_type,
+                    'value': variation.variation_value,
+                    'stock': variation.stock_quantity,
+                    'price_modifier': 0.0,  # SAS typically doesn't have price modifiers
+                    'final_price': float(self.effective_price),
+                    'sku_suffix': getattr(variation, 'sku_suffix', ''),
+                    'is_in_stock': getattr(variation, 'is_in_stock', variation.stock_quantity > 0),
+                    'image': getattr(variation, 'image_url', self.image_url),
+                    'attributes': getattr(variation, 'attributes', {}) or {}
+                }
+                variations_data['variations'].append(var_data)
+        else:
+            # Use attribute-based variations
+            parsed_attrs = self.parsed_variation_attributes
+            variations_data['variation_types'] = list(parsed_attrs.keys())
+            
+            for attr_type, values in parsed_attrs.items():
+                for value in values:
+                    var_data = {
+                        'id': f"{self.id}_{attr_type}_{value}",
+                        'type': attr_type,
+                        'value': value,
+                        'stock': self.stock_quantity if self.manage_stock else 99,
+                        'price_modifier': 0.0,
+                        'final_price': float(self.effective_price),
+                        'sku_suffix': f"{attr_type}-{value}",
+                        'is_in_stock': self.stock_status in ['instock', 'onbackorder'],
+                        'image': self.image_url,
+                        'attributes': {attr_type: value}
+                    }
+                    variations_data['variations'].append(var_data)
+        
+        return variations_data
+
+
+class SASProductVariation(models.Model):
+    """
+    SAS-specific product variation model for variable products
+    """
+    VARIATION_TYPE_CHOICES = [
+        ('size', 'Size'),
+        ('color', 'Color'),
+        ('colour', 'Colour'),  # British spelling
+        ('material', 'Material'),
+        ('style', 'Style'),
+        ('gender', 'Gender'),
+        ('age_group', 'Age Group'),
+        ('other', 'Other'),
+    ]
+    
+    # Relationships
+    product = models.ForeignKey(SASProduct, on_delete=models.CASCADE, related_name='variations')
+    
+    # Core fields
+    variation_type = models.CharField(max_length=50, choices=VARIATION_TYPE_CHOICES, help_text="Type of variation")
+    variation_value = models.CharField(max_length=255, help_text="Variation value (e.g., 'Large', 'Red', 'Cotton')")
+    woo_variation_id = models.PositiveIntegerField(unique=True, null=True, blank=True, help_text="WooCommerce variation ID")
+    
+    # Pricing (SAS products typically don't have variation pricing, but keeping for consistency)
+    price_modifier = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0.00, 
+        help_text="Price adjustment (+/-) from base product price"
+    )
+    
+    # Stock
+    stock_quantity = models.PositiveIntegerField(default=0, help_text="Stock quantity for this variation")
+    sku_suffix = models.CharField(max_length=50, blank=True, null=True, help_text="SKU suffix for this variation")
+    
+    # Status
+    is_active = models.BooleanField(default=True, help_text="Whether this variation is active")
+    
+    # Additional variation data
+    attributes = models.JSONField(blank=True, null=True, help_text="Additional variation attributes")
+    weight = models.CharField(max_length=50, blank=True, null=True, help_text="Variation weight")
+    dimensions = models.JSONField(blank=True, null=True, help_text="Variation dimensions")
+    
+    # Image
+    image_url = models.URLField(blank=True, help_text="Variation-specific image URL")
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Managers
+    objects = models.Manager()
+    active = SASActiveManager()
+    
+    class Meta:
+        db_table = 'sas_product_variations'
+        verbose_name = 'SAS Product Variation'
+        verbose_name_plural = 'SAS Product Variations'
+        ordering = ['product', 'variation_type', 'variation_value']
+        unique_together = ['product', 'variation_type', 'variation_value']
+        indexes = [
+            models.Index(fields=['product', 'is_active']),
+            models.Index(fields=['woo_variation_id']),
+            models.Index(fields=['variation_type', 'variation_value']),
+            models.Index(fields=['stock_quantity']),
+            models.Index(fields=['created_at']),
+        ]
+    
+    def save(self, *args, **kwargs):
+        # Auto-generate SKU suffix if not provided
+        if not self.sku_suffix and self.variation_value:
+            type_short = self.variation_type[:3].upper()
+            value_short = ''.join(c for c in self.variation_value if c.isalnum())[:5].upper()
+            self.sku_suffix = f"{type_short}-{value_short}"
+        
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"{self.product.name} - {self.variation_type}: {self.variation_value}"
+    
+    @property
+    def final_price(self):
+        """Calculate the final price including price modifier"""
+        base_price = self.product.effective_price or 0
+        return base_price + self.price_modifier
+    
+    @property
+    def full_sku(self):
+        """Generate full SKU including suffix"""
+        base_sku = self.product.sku or f"SAS-{self.product.id}"
+        if self.sku_suffix:
+            return f"{base_sku}-{self.sku_suffix}"
+        return base_sku
+    
+    @property
+    def is_in_stock(self):
+        """Check if variation is in stock"""
+        return self.is_active and self.stock_quantity > 0
+    
+    @property
+    def stock_status(self):
+        """Get stock status based on quantity"""
+        if not self.is_active:
+            return 'discontinued'
+        elif self.stock_quantity > 0:
+            return 'instock'
+        else:
+            return 'outofstock'
+    
+    @property
+    def effective_image(self):
+        """Get effective image for this variation with fallback logic"""
+        # If variation has its own image, use it
+        if self.image_url:
+            return self.image_url
+        
+        # Fallback to parent product image
+        if self.product and self.product.image_url:
+            return self.product.image_url
+        
+        return None
+    
+    @property
+    def effective_image_url(self):
+        """Get effective image URL for this variation"""
+        return self.effective_image
+    
+    @property
+    def has_unique_image(self):
+        """Check if variation has its own unique image"""
+        return bool(self.image_url)
+    
+    @property
+    def should_show_variation_image(self):
+        """Determine if variation image should be displayed based on variation type"""
+        # Variation types that typically benefit from showing unique images
+        image_priority_types = ['color', 'colour', 'style', 'material']
+        return self.variation_type in image_priority_types and self.has_unique_image
+    
+    def get_image_for_display(self):
+        """Get appropriate image for display purposes"""
+        # For color/style/material variations, prefer variation-specific image
+        if self.should_show_variation_image:
+            return self.image_url
+        
+        # For size/gender/other variations, use effective image with fallback
+        return self.effective_image
 
 
 # Custom indexes for cross-table queries

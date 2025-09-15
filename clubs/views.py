@@ -16,8 +16,12 @@ from django.http import JsonResponse, HttpResponse
 from django.utils.decorators import method_decorator
 from django.utils import timezone
 from django.conf import settings
-from .models import Club, ClubCategory, Product, SyncJob
+from .models import SyncJob, Club, ClubCategory, Product
 from .models_sas import SASSport, SASClub, SASProduct
+from .models_lotto import LottoProduct, LottoProductVariation
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 
 class ClubListView(ListView):
@@ -1006,6 +1010,7 @@ def proxy_image_view(request):
     allowed_domains = [
         'www.lottosports.co.nz',
         'lottosports.co.nz',
+        'd1zjzw7jbxeyd4.cloudfront.net',  # SAS CloudFront CDN
         # Add more trusted domains as needed
     ]
     
@@ -1547,3 +1552,1083 @@ class SASProductDetailView(DetailView):
         ]
         
         return context
+
+
+# ===============================
+# PRODUCT VARIATION API ENDPOINTS
+# ===============================
+
+def _parse_lotto_combination_attributes(attributes):
+    """
+    Parse LOTTO product attributes that may contain combination variations 
+    like "2XL - Black" and split them into separate size and color variations.
+    
+    Args:
+        attributes: Product attributes from WooCommerce (list of dicts)
+        
+    Returns:
+        dict: Parsed variations with grouped_variations structure
+    """
+    if not attributes or not isinstance(attributes, list):
+        return None
+    
+    parsed_variations = {
+        'variations': [],
+        'grouped_variations': {}
+    }
+    
+    # Known size patterns to help identify sizes in combinations
+    size_patterns = [
+        'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 
+        '6', '8', '10', '12', '14', '16', '18', '20',
+        '0', '2', '4', '6', '8', '10', '12', '14',
+        'SMALL', 'MEDIUM', 'LARGE', 'EXTRA LARGE'
+    ]
+    
+    # Known color patterns
+    color_patterns = [
+        'BLACK', 'WHITE', 'RED', 'BLUE', 'GREEN', 'YELLOW', 'ORANGE', 
+        'PURPLE', 'PINK', 'GREY', 'GRAY', 'NAVY', 'MAROON', 'TURQUOISE',
+        'FLURO YELLOW', 'ROYAL', 'LIME', 'TEAL', 'BROWN', 'SILVER', 'GOLD'
+    ]
+    
+    unique_sizes = set()
+    unique_colors = set()
+    variation_id_counter = 1
+    
+    for attr in attributes:
+        if not isinstance(attr, dict) or 'options' not in attr:
+            continue
+            
+        attr_name = attr.get('name', '').lower()
+        options = attr.get('options', [])
+        
+        # Check if this is a size attribute with combination values
+        if 'size' in attr_name and options:
+            for option in options:
+                if not isinstance(option, str):
+                    continue
+                    
+                # Check if this option contains a combination pattern (e.g., "2XL - Black")
+                if ' - ' in option:
+                    parts = [part.strip() for part in option.split(' - ')]
+                    if len(parts) == 2:
+                        # Try to identify which part is size and which is color
+                        part1_upper = parts[0].upper()
+                        part2_upper = parts[1].upper()
+                        
+                        # Check if first part looks like a size
+                        is_part1_size = any(size in part1_upper for size in size_patterns)
+                        is_part2_color = any(color in part2_upper for color in color_patterns)
+                        
+                        if is_part1_size and is_part2_color:
+                            # parts[0] is size, parts[1] is color
+                            unique_sizes.add(parts[0])
+                            unique_colors.add(parts[1])
+                        elif any(color in part1_upper for color in color_patterns) and any(size in part2_upper for size in size_patterns):
+                            # parts[0] is color, parts[1] is size
+                            unique_colors.add(parts[0])
+                            unique_sizes.add(parts[1])
+                        else:
+                            # Fallback: assume first is size, second is color
+                            unique_sizes.add(parts[0])
+                            unique_colors.add(parts[1])
+                            
+                        # Create individual variation records for tracking
+                        parsed_variations['variations'].append({
+                            'id': f'size-color-{variation_id_counter}',
+                            'type': 'combination',
+                            'value': option,
+                            'size': parts[0] if is_part1_size and is_part2_color else parts[1] if any(size in part2_upper for size in size_patterns) else parts[0],
+                            'color': parts[1] if is_part1_size and is_part2_color else parts[0] if any(color in part1_upper for color in color_patterns) else parts[1],
+                            'is_in_stock': True,  # Default to available
+                            'is_available': True
+                        })
+                        variation_id_counter += 1
+                else:
+                    # Single size value
+                    unique_sizes.add(option)
+                    parsed_variations['variations'].append({
+                        'id': f'size-{variation_id_counter}',
+                        'type': 'size',
+                        'value': option,
+                        'is_in_stock': True,
+                        'is_available': True
+                    })
+                    variation_id_counter += 1
+        
+        # Handle explicit color attributes
+        elif 'color' in attr_name or 'colour' in attr_name:
+            for option in options:
+                if isinstance(option, str):
+                    unique_colors.add(option)
+                    parsed_variations['variations'].append({
+                        'id': f'color-{variation_id_counter}',
+                        'type': 'color',
+                        'value': option,
+                        'is_in_stock': True,
+                        'is_available': True
+                    })
+                    variation_id_counter += 1
+    
+    # Create grouped variations if we found combinations
+    if unique_sizes or unique_colors:
+        if unique_sizes:
+            parsed_variations['grouped_variations']['size'] = []
+            for size in sorted(unique_sizes):
+                parsed_variations['grouped_variations']['size'].append({
+                    'id': f'size-{size.lower().replace(" ", "-")}',
+                    'value': size,
+                    'is_available': True,
+                    'type': 'size'
+                })
+        
+        if unique_colors:
+            parsed_variations['grouped_variations']['color'] = []
+            for color in sorted(unique_colors):
+                parsed_variations['grouped_variations']['color'].append({
+                    'id': f'color-{color.lower().replace(" ", "-")}',
+                    'value': color,
+                    'is_available': True,
+                    'type': 'color'
+                })
+        
+        return parsed_variations
+    
+    return None
+
+
+def _parse_lotto_combination_variations(variations_data):
+    """
+    Parse LOTTO product variations that may contain combination variation_values 
+    like "2XL - Black" and split them into separate size and color grouped variations.
+    
+    Args:
+        variations_data: Product variations data with variations array
+        
+    Returns:
+        dict: Enhanced variations data with properly grouped combinations
+    """
+    if not variations_data or not isinstance(variations_data, dict):
+        return variations_data
+    
+    variations = variations_data.get('variations', [])
+    if not variations:
+        return variations_data
+    
+    # Known size patterns to help identify sizes in combinations
+    size_patterns = [
+        'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 
+        '6', '8', '10', '12', '14', '16', '18', '20',
+        '0', '2', '4', '6', '8', '10', '12', '14',
+        'SMALL', 'MEDIUM', 'LARGE', 'EXTRA LARGE'
+    ]
+    
+    # Known color patterns
+    color_patterns = [
+        'BLACK', 'WHITE', 'RED', 'BLUE', 'GREEN', 'YELLOW', 'ORANGE', 
+        'PURPLE', 'PINK', 'GREY', 'GRAY', 'NAVY', 'MAROON', 'TURQUOISE',
+        'FLURO YELLOW', 'ROYAL', 'LIME', 'TEAL', 'BROWN', 'SILVER', 'GOLD'
+    ]
+    
+    unique_sizes = set()
+    unique_colors = set()
+    has_combinations = False
+    
+    # Analyze variations to see if any contain combinations
+    for variation in variations:
+        variation_value = variation.get('value', '')
+        variation_type = variation.get('type', '')
+        
+        # Check if this variation contains a combination pattern
+        if ' - ' in variation_value and variation_type in ['size', 'combination']:
+            has_combinations = True
+            parts = [part.strip() for part in variation_value.split(' - ')]
+            if len(parts) == 2:
+                # Try to identify which part is size and which is color
+                part1_upper = parts[0].upper()
+                part2_upper = parts[1].upper()
+                
+                # Check if first part looks like a size
+                is_part1_size = any(size in part1_upper for size in size_patterns)
+                is_part2_color = any(color in part2_upper for color in color_patterns)
+                
+                if is_part1_size and is_part2_color:
+                    # parts[0] is size, parts[1] is color
+                    unique_sizes.add(parts[0])
+                    unique_colors.add(parts[1])
+                elif any(color in part1_upper for color in color_patterns) and any(size in part2_upper for size in size_patterns):
+                    # parts[0] is color, parts[1] is size
+                    unique_colors.add(parts[0])
+                    unique_sizes.add(parts[1])
+                else:
+                    # Fallback: assume first is size, second is color
+                    unique_sizes.add(parts[0])
+                    unique_colors.add(parts[1])
+        elif variation_type == 'size':
+            unique_sizes.add(variation_value)
+        elif variation_type == 'color':
+            unique_colors.add(variation_value)
+    
+    # If we found combinations, create proper grouped variations
+    if has_combinations and (unique_sizes or unique_colors):
+        grouped_variations = {}
+        
+        if unique_sizes:
+            grouped_variations['size'] = []
+            for size in sorted(unique_sizes):
+                grouped_variations['size'].append({
+                    'id': f'size-{size.lower().replace(" ", "-")}',
+                    'value': size,
+                    'is_available': True,
+                    'type': 'size'
+                })
+        
+        if unique_colors:
+            grouped_variations['color'] = []
+            for color in sorted(unique_colors):
+                grouped_variations['color'].append({
+                    'id': f'color-{color.lower().replace(" ", "-")}',
+                    'value': color,
+                    'is_available': True,
+                    'type': 'color'
+                })
+        
+        # Return enhanced data with proper groupings
+        enhanced_data = variations_data.copy()
+        enhanced_data['grouped_variations'] = grouped_variations
+        return enhanced_data
+    
+    # If no combinations found, return original data
+    return variations_data
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def product_variations_api(request, product_id, store_type=None):
+    """
+    API endpoint to get all variation data for a product.
+    
+    URL: /api/products/{product_id}/variations/ or /api/{store_type}/product/{product_id}/variations/
+    """
+    try:
+        # Validate product_id is positive integer
+        if product_id <= 0:
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid product ID',
+                'error_code': 'INVALID_PRODUCT_ID'
+            }, status=400)
+        
+        # Try to get product based on store_type or fallback to generic lookup
+        product = None
+        
+        if store_type and store_type.upper() == 'SAS':
+            # Look for SAS product
+            try:
+                from .models_sas import SASProduct
+                product = SASProduct.objects.get(id=product_id)
+            except SASProduct.DoesNotExist:
+                pass
+        
+        if not product and (not store_type or store_type.upper() == 'LOTTO'):
+            # Look for LOTTO product
+            try:
+                product = LottoProduct.objects.get(id=product_id)
+            except LottoProduct.DoesNotExist:
+                pass
+        
+        if not product:
+            # Fallback to generic Product
+            try:
+                product = Product.objects.get(id=product_id)
+            except Product.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Product not found',
+                    'error_code': 'PRODUCT_NOT_FOUND'
+                }, status=404)
+        
+        # Check if product has variations
+        has_variations = getattr(product, 'has_variations', False)
+        
+        # Special handling for LOTTO products that might have combination attributes
+        if not has_variations and (store_type is None or store_type.upper() == 'LOTTO'):
+            # Check if this is a regular Product with attributes that might contain combination variations
+            if hasattr(product, 'attributes') and product.attributes:
+                # Parse attributes for LOTTO combination variations
+                parsed_variations = _parse_lotto_combination_attributes(product.attributes)
+                if parsed_variations:
+                    # Return parsed combination variations
+                    return JsonResponse({
+                        'success': True,
+                        'product_id': product_id,
+                        'product_name': getattr(product, 'name', 'Unknown Product'),
+                        'base_price': float(getattr(product, 'price', 0)),
+                        'variations': parsed_variations['variations'],
+                        'grouped_variations': parsed_variations['grouped_variations'],
+                        'total_variations': len(parsed_variations['variations'])
+                    })
+        
+        if not has_variations:
+            return JsonResponse({
+                'success': True,
+                'product_id': product_id,
+                'variations': [],
+                'grouped_variations': {},
+                'base_price': float(getattr(product, 'price', 0)),
+                'data': {
+                    'product_id': product_id,
+                    'has_variations': False,
+                    'message': 'This product does not have variations'
+                }
+            })
+        
+        # Get variation data
+        if hasattr(product, 'get_variation_data_for_frontend'):
+            variation_data = product.get_variation_data_for_frontend()
+        else:
+            # Fallback for products without variation support
+            variation_data = {
+                'product_id': product_id,
+                'variations': [],
+                'grouped_variations': {},
+                'base_price': float(getattr(product, 'price', 0)),
+                'has_variations': False
+            }
+        
+        # Apply LOTTO combination parsing if this is a LOTTO product or no store type specified
+        if (store_type is None or store_type.upper() == 'LOTTO') and variation_data.get('variations'):
+            variation_data = _parse_lotto_combination_variations(variation_data)
+        
+        # Ensure the response has the structure the frontend expects
+        response_data = {
+            'success': True,
+            'product_id': product_id,
+            'variations': variation_data.get('variations', []),
+            'grouped_variations': variation_data.get('grouped_variations', {}),
+            'base_price': float(getattr(product, 'price', 0)),
+        }
+        
+        # If grouped_variations is empty, create it from variations array (backward compatibility)
+        if not response_data['grouped_variations'] and response_data['variations']:
+            response_data['grouped_variations'] = {}
+            for variation in response_data['variations']:
+                var_type = variation.get('type')
+                if var_type:
+                    if var_type not in response_data['grouped_variations']:
+                        response_data['grouped_variations'][var_type] = []
+                    
+                    # Format variation for frontend
+                    response_data['grouped_variations'][var_type].append({
+                        'id': variation.get('id'),
+                        'value': variation.get('value'),
+                        'is_available': variation.get('is_in_stock', True),
+                        'type': var_type
+                    })
+        
+        # Also include the original data structure for backward compatibility
+        response_data['data'] = variation_data
+        
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Failed to get product variations: {str(e)}',
+            'error_code': 'VARIATIONS_FETCH_FAILED'
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def check_variation_availability(request, product_id, store_type=None):
+    """
+    API endpoint to check availability for specific variation selection.
+    
+    URL: /api/products/{product_id}/check-availability/ or /api/{store_type}/product/{product_id}/check-availability/
+    POST data: JSON with selected attributes
+    """
+    try:
+        # Try to get product based on store_type or fallback to generic lookup
+        product = None
+        
+        if store_type and store_type.upper() == 'SAS':
+            # Look for SAS product
+            try:
+                from .models_sas import SASProduct
+                product = SASProduct.objects.get(id=product_id)
+            except SASProduct.DoesNotExist:
+                pass
+        
+        if not product and (not store_type or store_type.upper() == 'LOTTO'):
+            # Look for LOTTO product
+            try:
+                product = LottoProduct.objects.get(id=product_id)
+            except LottoProduct.DoesNotExist:
+                pass
+        
+        if not product:
+            # Fallback to generic Product
+            try:
+                product = Product.objects.get(id=product_id)
+            except Product.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Product not found',
+                    'error_code': 'PRODUCT_NOT_FOUND'
+                }, status=404)
+        
+        # Parse request data
+        try:
+            selection = json.loads(request.body.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid JSON data',
+                'error_code': 'INVALID_JSON'
+            }, status=400)
+        
+        # Get available variations for current selection
+        available_variations = product.get_available_variations_for_selection(**selection)
+        
+        # Get stock for current combination
+        combination_stock = product.get_variation_combination_stock(**selection)
+        is_available = product.is_variation_combination_available(**selection)
+        
+        return JsonResponse({
+            'success': True,
+            'product_id': product_id,
+            'selection': selection,
+            'combination_stock': combination_stock,
+            'is_available': is_available,
+            'available_variations': available_variations
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Failed to check availability: {str(e)}',
+            'error_code': 'AVAILABILITY_CHECK_FAILED'
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def get_variation_details(request, product_id, store_type=None):
+    """
+    API endpoint to get detailed info for a specific variation combination.
+    
+    URL: /api/products/{product_id}/variation-details/ or /api/{store_type}/product/{product_id}/variation-details/
+    POST data: JSON with complete attribute selection
+    """
+    try:
+        # Try to get product based on store_type or fallback to generic lookup
+        product = None
+        variation_model = None
+        
+        if store_type and store_type.upper() == 'SAS':
+            # Look for SAS product
+            try:
+                from .models_sas import SASProduct, SASProductVariation
+                product = SASProduct.objects.get(id=product_id)
+                variation_model = SASProductVariation
+            except SASProduct.DoesNotExist:
+                pass
+        
+        if not product and (not store_type or store_type.upper() == 'LOTTO'):
+            # Look for LOTTO product
+            try:
+                product = LottoProduct.objects.get(id=product_id)
+                variation_model = LottoProductVariation
+            except LottoProduct.DoesNotExist:
+                pass
+        
+        if not product:
+            # Fallback to generic Product
+            try:
+                product = Product.objects.get(id=product_id)
+                # Import the ProductVariation model for generic products
+                from .models_lotto import LottoProductVariation as ProductVariation
+                variation_model = ProductVariation
+            except Product.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Product not found',
+                    'error_code': 'PRODUCT_NOT_FOUND'
+                }, status=404)
+        
+        # Parse request data
+        try:
+            combination = json.loads(request.body.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid JSON data',
+                'error_code': 'INVALID_JSON'
+            }, status=400)
+        
+        # Get variation details for this combination
+        variations = product.variations.filter(is_active=True)
+        
+        for attr_type, attr_value in combination.items():
+            if attr_value:
+                variations = variations.filter(
+                    variation_type=attr_type,
+                    variation_value=attr_value
+                )
+        
+        if variations.exists():
+            # Get the first matching variation
+            variation = variations.first()
+            from django.db.models import Sum
+            
+            total_stock = variations.aggregate(
+                total=Sum('stock_quantity')
+            )['total'] or 0
+            
+            variation_details = {
+                'variation_id': variation.id,
+                'stock': total_stock,
+                'price_modifier': float(variation.price_modifier),
+                'final_price': float(variation.final_price),
+                'sku_suffix': variation.sku_suffix,
+                'full_sku': variation.full_sku,
+                'is_available': total_stock > 0,
+                'image': variation.effective_image_url,
+                'attributes': variation.attributes or {},
+                'combination': combination
+            }
+            
+            return JsonResponse({
+                'success': True,
+                'product_id': product_id,
+                'data': variation_details
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'No matching variation found',
+                'error_code': 'VARIATION_NOT_FOUND',
+                'combination': combination
+            }, status=404)
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Failed to get variation details: {str(e)}',
+            'error_code': 'VARIATION_DETAILS_FAILED'
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def get_available_options(request, product_id, attribute_type, store_type=None):
+    """
+    API endpoint to get available options for a specific attribute type.
+    
+    URL: /api/products/{product_id}/options/{attribute_type}/
+    Query params: Current selection as GET parameters
+    """
+    try:
+        # Try to get LOTTO product first, then generic Product
+        product = None
+        try:
+            product = LottoProduct.objects.get(id=product_id)
+        except LottoProduct.DoesNotExist:
+            try:
+                product = Product.objects.get(id=product_id)
+            except Product.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Product not found',
+                    'error_code': 'PRODUCT_NOT_FOUND'
+                }, status=404)
+        
+        # Validate attribute type
+        valid_types = ['size', 'color', 'material', 'style', 'gender', 'age_group']
+        if attribute_type not in valid_types:
+            return JsonResponse({
+                'success': False,
+                'error': f'Invalid attribute type. Must be one of: {", ".join(valid_types)}',
+                'error_code': 'INVALID_ATTRIBUTE_TYPE'
+            }, status=400)
+        
+        # Get current selection from query parameters
+        selection = {}
+        for attr_type in valid_types:
+            value = request.GET.get(attr_type)
+            if value:
+                selection[attr_type] = value
+        
+        # Get available variations
+        available_variations = product.get_available_variations_for_selection(**selection)
+        
+        # Extract options for the requested attribute type
+        options = available_variations.get(attribute_type, [])
+        
+        return JsonResponse({
+            'success': True,
+            'product_id': product_id,
+            'attribute_type': attribute_type,
+            'current_selection': selection,
+            'options': options
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Failed to get available options: {str(e)}',
+            'error_code': 'OPTIONS_FETCH_FAILED'
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def check_stock_api(request):
+    """
+    API endpoint to check stock for a specific variation combination.
+    
+    URL: /api/product/check-stock/
+    POST data: JSON with product_id, product_type, and variations
+    """
+    try:
+        # Parse request data
+        try:
+            data = json.loads(request.body.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid JSON data',
+                'error_code': 'INVALID_JSON'
+            }, status=400)
+        
+        product_id = data.get('product_id')
+        product_type = data.get('product_type', '').lower()
+        variations = data.get('variations', {})
+        
+        if not product_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Missing product_id',
+                'error_code': 'MISSING_PRODUCT_ID'
+            }, status=400)
+        
+        # Get product based on type
+        product = None
+        
+        if product_type == 'sas':
+            try:
+                from .models_sas import SASProduct
+                product = SASProduct.objects.get(id=product_id)
+            except SASProduct.DoesNotExist:
+                pass
+        
+        if not product and product_type == 'lotto':
+            try:
+                product = LottoProduct.objects.get(id=product_id)
+            except LottoProduct.DoesNotExist:
+                pass
+        
+        if not product:
+            try:
+                product = Product.objects.get(id=product_id)
+            except Product.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Product not found',
+                    'error_code': 'PRODUCT_NOT_FOUND'
+                }, status=404)
+        
+        # Check stock for variation combination
+        is_available = True
+        stock_status = 'instock'
+        stock_quantity = 0
+        
+        # If product has variation checking methods, use them
+        if hasattr(product, 'is_variation_combination_available') and variations:
+            is_available = product.is_variation_combination_available(**variations)
+            
+        if hasattr(product, 'get_variation_combination_stock') and variations:
+            stock_info = product.get_variation_combination_stock(**variations)
+            if isinstance(stock_info, dict):
+                stock_status = stock_info.get('status', 'instock')
+                stock_quantity = stock_info.get('quantity', 0)
+            elif isinstance(stock_info, (int, float)):
+                stock_quantity = stock_info
+                stock_status = 'instock' if stock_quantity > 0 else 'outofstock'
+        elif variations:
+            # Fallback: if product doesn't have variation checking, assume unavailable
+            is_available = False
+            stock_status = 'outofstock'
+            stock_quantity = 0
+        else:
+            # No variations specified - check overall product stock status
+            if hasattr(product, 'calculated_stock_status'):
+                stock_status = product.calculated_stock_status
+                is_available = stock_status in ['instock', 'onbackorder']
+            else:
+                stock_status = product.stock_status
+                is_available = stock_status in ['instock', 'onbackorder']
+            stock_quantity = getattr(product, 'total_stock', 0) or getattr(product, 'stock_quantity', 0) or 0
+        
+        return JsonResponse({
+            'success': True,
+            'is_available': is_available,
+            'stock_status': stock_status,
+            'stock_quantity': stock_quantity,
+            'product_id': product_id,
+            'variations': variations
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Failed to check stock: {str(e)}',
+            'error_code': 'STOCK_CHECK_FAILED'
+        }, status=500)
+
+
+# =============================================================================
+# API Endpoints for Product Variations and Stock Checking
+# =============================================================================
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def lotto_product_variations_api(request, product_id):
+    """
+    API endpoint to get product variations with stock information for LOTTO products
+    """
+    try:
+        from .models_lotto import LottoProduct, LottoProductVariation
+        
+        product = get_object_or_404(LottoProduct, id=product_id)
+        variations = LottoProductVariation.objects.filter(
+            product=product, 
+            is_active=True
+        ).select_related('product')
+        
+        variations_data = []
+        for variation in variations:
+            variations_data.append({
+                'id': variation.id,
+                'type': variation.variation_type,
+                'value': variation.variation_value,
+                'price_modifier': float(variation.price_modifier),
+                'final_price': float(variation.final_price),
+                'stock_quantity': variation.stock_quantity,
+                'stock_status': variation.stock_status,
+                'sku': variation.full_sku,
+                'image_url': variation.effective_image if variation.effective_image else None,
+                'is_available': variation.stock_status in ['instock', 'onbackorder'],
+                'attributes': variation.attributes or {}
+            })
+        
+        # Group variations by type for easier frontend handling
+        grouped_variations = {}
+        for variation in variations_data:
+            var_type = variation['type']
+            if var_type not in grouped_variations:
+                grouped_variations[var_type] = []
+            grouped_variations[var_type].append(variation)
+        
+        return JsonResponse({
+            'success': True,
+            'product_id': product_id,
+            'product_name': product.name,
+            'base_price': float(product.price),
+            'variations': variations_data,
+            'grouped_variations': grouped_variations,
+            'total_variations': len(variations_data)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching LOTTO product variations: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Failed to fetch product variations',
+            'message': str(e)
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def sas_product_variations_api(request, product_id):
+    """
+    API endpoint to get product variations with stock information for SAS products
+    """
+    try:
+        product = get_object_or_404(SASProduct, id=product_id)
+        
+        # Use the new variation methods for SAS products
+        if product.has_variations:
+            variation_data = product.get_variation_data_for_frontend()
+            variations_data = variation_data.get('variations', [])
+            grouped_variations = {}
+            
+            # Group variations by type for easier frontend handling
+            for variation in variations_data:
+                var_type = variation['type']
+                if var_type not in grouped_variations:
+                    grouped_variations[var_type] = []
+                grouped_variations[var_type].append(variation)
+        else:
+            # No variations
+            variations_data = []
+            grouped_variations = {}
+        
+        return JsonResponse({
+            'success': True,
+            'product_id': product_id,
+            'product_name': product.name,
+            'base_price': float(product.effective_price),
+            'variations': variations_data,
+            'grouped_variations': grouped_variations,
+            'total_variations': len(variations_data)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching SAS product variations: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Failed to fetch product variations',
+            'message': str(e)
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def check_variation_stock_api(request):
+    """
+    API endpoint to check stock availability for specific variation combinations
+    """
+    try:
+        data = json.loads(request.body)
+        product_id = data.get('product_id')
+        product_type = data.get('product_type', 'lotto')  # 'lotto' or 'sas'
+        variations = data.get('variations', {})  # Dict of variation_type: value
+        
+        if not product_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Product ID is required'
+            }, status=400)
+        
+        if product_type == 'lotto':
+            from .models_lotto import LottoProduct, LottoProductVariation
+            
+            product = get_object_or_404(LottoProduct, id=product_id)
+            
+            # Find matching variation
+            variation_filters = Q(product=product, is_active=True)
+            for var_type, var_value in variations.items():
+                variation_filters &= Q(variation_type=var_type, variation_value=var_value)
+            
+            matching_variation = LottoProductVariation.objects.filter(variation_filters).first()
+            
+            if matching_variation:
+                return JsonResponse({
+                    'success': True,
+                    'product_id': product_id,
+                    'variation_id': matching_variation.id,
+                    'stock_status': matching_variation.stock_status,
+                    'stock_quantity': matching_variation.stock_quantity,
+                    'is_available': matching_variation.stock_status in ['instock', 'onbackorder'],
+                    'price': float(matching_variation.final_price),
+                    'sku': matching_variation.full_sku
+                })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Variation combination not found',
+                    'stock_status': 'outofstock',
+                    'is_available': False
+                })
+        
+        elif product_type == 'sas':
+            product = get_object_or_404(SASProduct, id=product_id)
+            
+            # Use the new variation checking methods
+            if variations and product.has_variations:
+                # Check for specific variation combination
+                is_available = product.is_variation_combination_available(**variations)
+                stock_quantity = product.get_variation_combination_stock(**variations)
+                stock_status = 'instock' if stock_quantity > 0 else 'outofstock'
+            else:
+                # Standard product stock check - use calculated status for variable products
+                if hasattr(product, 'calculated_stock_status'):
+                    stock_status = product.calculated_stock_status
+                    is_available = stock_status in ['instock', 'onbackorder']
+                else:
+                    stock_status = product.stock_status
+                    is_available = stock_status in ['instock', 'onbackorder']
+                stock_quantity = getattr(product, 'stock_quantity', 0) or 0
+            
+            return JsonResponse({
+                'success': True,
+                'product_id': product_id,
+                'stock_status': stock_status,
+                'stock_quantity': stock_quantity,
+                'is_available': is_available,
+                'price': float(product.effective_price),
+                'sku': product.sku,
+                'variations': variations
+            })
+        
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid product type'
+            }, status=400)
+    
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid JSON data'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"Error checking variation stock: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Failed to check stock',
+            'message': str(e)
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def product_color_swatches_api(request, product_id):
+    """
+    API endpoint to get color swatches for a product
+    """
+    try:
+        product_type = request.GET.get('type', 'lotto')
+        
+        if product_type == 'lotto':
+            from .models_lotto import LottoProduct, LottoProductVariation
+            
+            product = get_object_or_404(LottoProduct, id=product_id)
+            color_variations = LottoProductVariation.objects.filter(
+                product=product,
+                variation_type='color',
+                is_active=True
+            )
+            
+            colors = []
+            for variation in color_variations:
+                # Map color names to hex codes for swatches
+                color_map = {
+                    'red': '#dc3545',
+                    'blue': '#007bff', 
+                    'green': '#28a745',
+                    'yellow': '#ffc107',
+                    'black': '#343a40',
+                    'white': '#ffffff',
+                    'navy': '#001f3f',
+                    'grey': '#6c757d',
+                    'gray': '#6c757d',
+                    'orange': '#fd7e14',
+                    'purple': '#6f42c1',
+                    'pink': '#e83e8c',
+                    'brown': '#795548'
+                }
+                
+                color_value = variation.variation_value.lower()
+                hex_color = color_map.get(color_value, '#6c757d')  # Default to gray
+                
+                colors.append({
+                    'id': variation.id,
+                    'name': variation.variation_value,
+                    'hex': hex_color,
+                    'stock_status': variation.stock_status,
+                    'is_available': variation.stock_status in ['instock', 'onbackorder'],
+                    'image_url': variation.effective_image if variation.effective_image else None
+                })
+        
+        elif product_type == 'sas':
+            product = get_object_or_404(SASProduct, id=product_id)
+            colors = []
+            
+            # Use the new variation methods
+            if product.has_variations:
+                # Check if product has actual SAS variations
+                if hasattr(product, 'variations') and product.variations.filter(is_active=True).exists():
+                    color_variations = product.variations.filter(
+                        variation_type__in=['color', 'colour'],
+                        is_active=True
+                    )
+                    
+                    for variation in color_variations:
+                        # Map color names to hex codes for swatches
+                        color_map = {
+                            'red': '#dc3545',
+                            'blue': '#007bff', 
+                            'green': '#28a745',
+                            'yellow': '#ffc107',
+                            'black': '#343a40',
+                            'white': '#ffffff',
+                            'navy': '#001f3f',
+                            'grey': '#6c757d',
+                            'gray': '#6c757d',
+                            'orange': '#fd7e14',
+                            'purple': '#6f42c1',
+                            'pink': '#e83e8c',
+                            'brown': '#795548'
+                        }
+                        
+                        color_value = variation.variation_value.lower()
+                        hex_color = color_map.get(color_value, '#6c757d')
+                        
+                        colors.append({
+                            'id': variation.id,
+                            'name': variation.variation_value,
+                            'hex': hex_color,
+                            'stock_status': variation.stock_status,
+                            'is_available': variation.stock_quantity > 0,
+                            'image_url': variation.effective_image_url
+                        })
+                
+                else:
+                    # Use attribute-based color variations
+                    available_colors = product.available_colors
+                    color_map = {
+                        'red': '#dc3545',
+                        'blue': '#007bff', 
+                        'green': '#28a745',
+                        'yellow': '#ffc107',
+                        'black': '#343a40',
+                        'white': '#ffffff',
+                        'navy': '#001f3f',
+                        'grey': '#6c757d',
+                        'gray': '#6c757d',
+                        'orange': '#fd7e14',
+                        'purple': '#6f42c1',
+                        'pink': '#e83e8c',
+                        'brown': '#795548'
+                    }
+                    
+                    for color in available_colors:
+                        color_value = color.lower()
+                        hex_color = color_map.get(color_value, '#6c757d')
+                        
+                        colors.append({
+                            'id': f"{product_id}_color_{color}".replace(' ', '_').lower(),
+                            'name': color,
+                            'hex': hex_color,
+                            'stock_status': product.stock_status,
+                            'is_available': product.stock_status in ['instock', 'onbackorder'],
+                            'image_url': product.image_url
+                        })
+        
+        return JsonResponse({
+            'success': True,
+            'product_id': product_id,
+            'colors': colors
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching color swatches: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Failed to fetch color swatches',
+            'message': str(e)
+        }, status=500)

@@ -350,6 +350,7 @@
     font-size: 0.875rem;
     font-weight: 500;
     margin-bottom: 1rem;
+    transition: all 0.3s ease;
 }
 
 .stock-status.in-stock {
@@ -365,6 +366,19 @@
 .stock-status.backorder {
     background: rgba(255, 193, 7, 0.1);
     color: #ffc107;
+}
+
+/* Stock Status Visibility Control */
+.stock-status-hidden {
+    display: none !important;
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+.stock-status-visible {
+    display: inline-flex !important;
+    opacity: 1;
+    transform: translateY(0);
 }
 
 /* Responsive Design */
@@ -549,45 +563,16 @@
                     </div>
                     {% endif %}
 
-                    <!-- Variation Selectors -->
-                    {% if product.attributes %}
-                    <div class="variation-section">
-                        {% for attribute in product.attributes %}
-                            {% if attribute.variation %}
-                            <div class="mb-4">
-                                <div class="variation-title">{{ attribute.name }}:</div>
-                                {% if attribute.name|lower == 'size' %}
-                                <div class="size-options">
-                                    {% for option in attribute.options %}
-                                    <div class="size-option" onclick="selectVariation(this, '{{ attribute.name }}', '{{ option }}')">
-                                        {{ option }}
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                                {% elif attribute.name|lower == 'color' or attribute.name|lower == 'colour' %}
-                                <div class="color-options">
-                                    {% for option in attribute.options %}
-                                    <div class="color-option" 
-                                         style="background-color: {{ option|lower }};" 
-                                         title="{{ option }}"
-                                         onclick="selectVariation(this, '{{ attribute.name }}', '{{ option }}')">
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                                {% else %}
-                                <div class="size-options">
-                                    {% for option in attribute.options %}
-                                    <div class="size-option" onclick="selectVariation(this, '{{ attribute.name }}', '{{ option }}')">
-                                        {{ option }}
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                                {% endif %}
+                    <!-- Dynamic Product Variations -->
+                    <div class="variation-section" id="productVariations">
+                        <!-- Variations will be dynamically loaded here -->
+                        <div class="variation-loading">
+                            <div class="d-flex align-items-center">
+                                <div class="loading-spinner me-3"></div>
+                                <span>Loading product options...</span>
                             </div>
-                            {% endif %}
-                        {% endfor %}
+                        </div>
                     </div>
-                    {% endif %}
 
                     <!-- Quantity Selector -->
                     <div class="quantity-section">
@@ -743,34 +728,136 @@
     </div>
 </div>
 
+<!-- Include the Product Variations Library -->
+<script src="{% static 'assets/js/product-variations.js' %}"></script>
+
 <!-- JavaScript for Interactive Elements -->
 <script>
+// Global variables for product variation management
+let variationManager;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize product variations
+    initializeProductVariations();
+    
+    // Initialize other interactive elements
+    initializeImageGallery();
+    initializeQuantityControls();
+    initializeAddToCart();
+    
+    // Initialize accordion
+    initializeAccordion();
+});
+
+// Initialize Product Variations
+function initializeProductVariations() {
+    const productId = {{ product.id }};
+    const productType = 'sas';
+    
+    // Create variation manager
+    variationManager = new ProductVariationManager(productId, productType, {
+        enableStockCheck: true,
+        enablePriceUpdates: true,
+        enableLoadingStates: true,
+        debounceDelay: 300
+    });
+    
+    // Listen for variation changes
+    document.addEventListener('variationChanged', function(event) {
+        const detail = event.detail;
+        console.log('Variation changed:', detail);
+        
+        // Update any additional UI elements based on variation selection
+        updateProductInfo(detail);
+    });
+}
+
+// Update product information based on variation selection
+function updateProductInfo(variationDetail) {
+    // Update product image based on color selection
+    if (variationDetail.type === 'color') {
+        updateProductImageForColor(variationDetail.value);
+    }
+}
+
+// Update main product image when color is selected
+function updateProductImageForColor(colorValue) {
+    // This function can be enhanced to show color-specific images
+    // For now, it's a placeholder for future enhancement
+    console.log('Color selected:', colorValue);
+}
+
 // Image gallery functionality
+function initializeImageGallery() {
+    const thumbnails = document.querySelectorAll('.thumbnail-image');
+    const mainImage = document.getElementById('mainProductImage');
+    
+    thumbnails.forEach(thumbnail => {
+        thumbnail.addEventListener('click', function() {
+            if (mainImage) {
+                mainImage.src = this.src;
+                
+                // Update active thumbnail
+                thumbnails.forEach(thumb => thumb.classList.remove('active'));
+                this.classList.add('active');
+            }
+        });
+    });
+}
+
 function changeMainImage(src) {
     const mainImage = document.getElementById('mainProductImage');
     const thumbnails = document.querySelectorAll('.thumbnail-image');
     
-    mainImage.src = src;
-    
-    // Update active thumbnail
-    thumbnails.forEach(thumb => thumb.classList.remove('active'));
-    event.target.classList.add('active');
-}
-
-// Variation selection
-function selectVariation(element, attributeName, value) {
-    // Remove active class from siblings
-    const siblings = element.parentElement.querySelectorAll('.size-option, .color-option');
-    siblings.forEach(sibling => sibling.classList.remove('selected'));
-    
-    // Add active class to selected
-    element.classList.add('selected');
-    
-    // Store selection (you could send this to backend)
-    console.log(`Selected ${attributeName}: ${value}`);
+    if (mainImage) {
+        mainImage.src = src;
+        
+        // Update active thumbnail
+        thumbnails.forEach(thumb => thumb.classList.remove('active'));
+        event.target.classList.add('active');
+    }
 }
 
 // Quantity controls
+function initializeQuantityControls() {
+    const quantityInput = document.getElementById('productQuantity');
+    const increaseBtn = document.querySelector('.quantity-btn[onclick="increaseQuantity()"]');
+    const decreaseBtn = document.querySelector('.quantity-btn[onclick="decreaseQuantity()"]');
+    
+    if (increaseBtn) {
+        increaseBtn.onclick = function() {
+            const currentValue = parseInt(quantityInput.value);
+            const maxValue = parseInt(quantityInput.max) || 99;
+            
+            if (currentValue < maxValue) {
+                quantityInput.value = currentValue + 1;
+            }
+        };
+    }
+    
+    if (decreaseBtn) {
+        decreaseBtn.onclick = function() {
+            const currentValue = parseInt(quantityInput.value);
+            const minValue = parseInt(quantityInput.min) || 1;
+            
+            if (currentValue > minValue) {
+                quantityInput.value = currentValue - 1;
+            }
+        };
+    }
+    
+    if (quantityInput) {
+        quantityInput.addEventListener('change', function() {
+            const value = parseInt(this.value);
+            const min = parseInt(this.min) || 1;
+            const max = parseInt(this.max) || 99;
+            
+            if (value < min) this.value = min;
+            if (value > max) this.value = max;
+        });
+    }
+}
+
 function increaseQuantity() {
     const input = document.getElementById('productQuantity');
     const currentValue = parseInt(input.value);
@@ -792,16 +879,22 @@ function decreaseQuantity() {
 }
 
 // Add to cart functionality
+function initializeAddToCart() {
+    const addToCartBtn = document.querySelector('.btn-add-to-cart');
+    if (addToCartBtn) {
+        addToCartBtn.onclick = addToCart;
+    }
+}
+
 function addToCart() {
     const quantity = document.getElementById('productQuantity').value;
-    const productId = '{{ product.id }}';
+    const productId = {{ product.id }};
     
-    // Get selected variations
-    const selectedVariations = {};
-    document.querySelectorAll('.size-option.selected, .color-option.selected').forEach(selected => {
-        // Extract variation data from selected elements
-        // This would typically involve storing data attributes on the elements
-    });
+    // Get selected variations from the variation manager
+    let selectedVariations = {};
+    if (variationManager) {
+        selectedVariations = variationManager.getSelectedVariations();
+    }
     
     // Show loading state
     const button = event.target;
@@ -847,6 +940,15 @@ function addToWishlist() {
 }
 
 // Accordion functionality
+function initializeAccordion() {
+    const accordionHeaders = document.querySelectorAll('.detail-accordion-header');
+    accordionHeaders.forEach(header => {
+        header.onclick = function() {
+            toggleAccordion(this);
+        };
+    });
+}
+
 function toggleAccordion(header) {
     const content = header.nextElementSibling;
     const icon = header.querySelector('i');

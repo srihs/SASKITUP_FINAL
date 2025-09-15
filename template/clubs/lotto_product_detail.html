@@ -163,6 +163,7 @@
     font-weight: 600;
     font-size: 0.9rem;
     margin-bottom: 1.5rem;
+    transition: all 0.3s ease;
 }
 
 .stock-status.in-stock {
@@ -181,6 +182,19 @@
     background-color: rgba(255, 193, 7, 0.1);
     color: #ffc107;
     border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+/* Stock Status Visibility Control */
+.stock-status-hidden {
+    display: none !important;
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+.stock-status-visible {
+    display: inline-flex !important;
+    opacity: 1;
+    transform: translateY(0);
 }
 
 /* Product Variations */
@@ -795,30 +809,16 @@
                     {% endif %}
                 </div>
 
-                <!-- Product Variations (if any) -->
-                {% if product.has_variations %}
-                <div class="variation-section">
-                    <div class="variation-title">Available Options:</div>
-                    <div class="variation-options" id="productVariations">
-                        {% for variation in product.variations.all %}
-                            {% if variation.is_active %}
-                            <div class="variation-option" 
-                                 data-variation-id="{{ variation.id }}"
-                                 data-price="{{ variation.price }}"
-                                 data-stock="{{ variation.stock_status }}"
-                                 role="button"
-                                 tabindex="0"
-                                 aria-label="Select {{ variation.name }}">
-                                {{ variation.name }}
-                                {% if variation.price != product.price %}
-                                    <small class="d-block text-muted">${{ variation.price|floatformat:2 }}</small>
-                                {% endif %}
-                            </div>
-                            {% endif %}
-                        {% endfor %}
+                <!-- Dynamic Product Variations -->
+                <div class="variation-section" id="productVariations">
+                    <!-- Variations will be dynamically loaded here -->
+                    <div class="variation-loading">
+                        <div class="d-flex align-items-center">
+                            <div class="loading-spinner me-3"></div>
+                            <span>Loading product options...</span>
+                        </div>
                     </div>
                 </div>
-                {% endif %}
 
                 <!-- Quantity Selector -->
                 <div class="quantity-section">
@@ -1059,14 +1059,22 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Include the Product Variations Library -->
+<script src="{% static 'assets/js/product-variations.js' %}"></script>
+
 <script>
+// Global variables for product variation management
+let variationManager;
+
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize product detail functionality
     initializeImageGallery();
     initializeQuantityControls();
     initializeProductTabs();
-    initializeVariations();
     initializeAddToCart();
+    
+    // Initialize dynamic product variations
+    initializeProductVariations();
     
     // Initialize tooltips
     var tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
@@ -1074,6 +1082,51 @@ document.addEventListener('DOMContentLoaded', function() {
         return new bootstrap.Tooltip(tooltip);
     });
 });
+
+// Initialize Product Variations
+function initializeProductVariations() {
+    const productId = {{ product.id }};
+    const productType = 'lotto';
+    
+    // Create variation manager
+    variationManager = new ProductVariationManager(productId, productType, {
+        enableStockCheck: true,
+        enablePriceUpdates: true,
+        enableLoadingStates: true,
+        debounceDelay: 300
+    });
+    
+    // Listen for variation changes
+    document.addEventListener('variationChanged', function(event) {
+        const detail = event.detail;
+        console.log('Variation changed:', detail);
+        
+        // Update any additional UI elements based on variation selection
+        updateProductInfo(detail);
+    });
+}
+
+// Update product information based on variation selection
+function updateProductInfo(variationDetail) {
+    // Update SKU display if available
+    const skuElement = document.querySelector('.product-sku');
+    if (skuElement && variationDetail.selectedVariations) {
+        // This would be updated based on the selected variation
+        // Implementation depends on your specific needs
+    }
+    
+    // Update product image based on color selection
+    if (variationDetail.type === 'color') {
+        updateProductImageForColor(variationDetail.value);
+    }
+}
+
+// Update main product image when color is selected
+function updateProductImageForColor(colorValue) {
+    // This function can be enhanced to show color-specific images
+    // For now, it's a placeholder for future enhancement
+    console.log('Color selected:', colorValue);
+}
 
 // Image Gallery Functions
 function initializeImageGallery() {
@@ -1188,42 +1241,6 @@ function initializeProductTabs() {
     });
 }
 
-// Product Variations Functions
-function initializeVariations() {
-    const variationOptions = document.querySelectorAll('.variation-option');
-    const currentPriceElement = document.querySelector('.current-price');
-    
-    variationOptions.forEach(option => {
-        option.addEventListener('click', function() {
-            if (this.classList.contains('disabled')) return;
-            
-            // Remove selected class from all options
-            variationOptions.forEach(opt => opt.classList.remove('selected'));
-            
-            // Add selected class to clicked option
-            this.classList.add('selected');
-            
-            // Update price if variation has different price
-            const variationPrice = this.getAttribute('data-price');
-            if (variationPrice && currentPriceElement) {
-                currentPriceElement.textContent = '$' + parseFloat(variationPrice).toFixed(2);
-            }
-            
-            // Update stock status
-            const stockStatus = this.getAttribute('data-stock');
-            updateStockStatus(stockStatus);
-            updateAddToCartButton();
-        });
-        
-        // Keyboard navigation
-        option.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                this.click();
-            }
-        });
-    });
-}
 
 // Add to Cart Functions
 function initializeAddToCart() {

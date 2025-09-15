@@ -31,6 +31,21 @@ urlpatterns = [
     path('ajax/sas-club-search/', views.sas_club_search_ajax, name='sas-club-search-ajax'),
     path('ajax/sas-product-search/', views.sas_product_search_ajax, name='sas-product-search-ajax'),
     
+    # Product Variation API endpoints - Generic
+    path('api/products/<int:product_id>/variations/', views.product_variations_api, name='product-variations-api'),
+    path('api/products/<int:product_id>/check-availability/', views.check_variation_availability, name='check-variation-availability'),
+    path('api/products/<int:product_id>/variation-details/', views.get_variation_details, name='get-variation-details'),
+    path('api/products/<int:product_id>/options/<str:attribute_type>/', views.get_available_options, name='get-available-options'),
+    
+    # Product Variation API endpoints - Store Type Specific
+    path('api/<str:store_type>/product/<int:product_id>/variations/', views.product_variations_api, name='store-product-variations-api'),
+    path('api/<str:store_type>/product/<int:product_id>/check-availability/', views.check_variation_availability, name='store-check-variation-availability'),
+    path('api/<str:store_type>/product/<int:product_id>/variation-details/', views.get_variation_details, name='store-get-variation-details'),
+    path('api/<str:store_type>/product/<int:product_id>/options/<str:attribute_type>/', views.get_available_options, name='store-get-available-options'),
+    
+    # Stock checking endpoint
+    path('api/product/check-stock/', views.check_stock_api, name='check-stock-api'),
+    
     # Image proxy endpoint
     path('proxy-image/', views.proxy_image_view, name='proxy-image'),
     

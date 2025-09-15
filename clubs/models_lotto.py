@@ -371,7 +371,7 @@ class LottoProduct(models.Model):
     @property
     def has_variations(self):
         """Check if product has variations"""
-        return self.variations.filter(is_active=True).exists()
+        return self.variations.exists()
     
     @property
     def is_variable_product(self):
@@ -381,9 +381,39 @@ class LottoProduct(models.Model):
     @property
     def is_in_stock(self):
         """Check if product is in stock"""
-        if self.manage_stock:
+        if self.is_variable_product:
+            # For variable products, check if any variation is in stock
+            return self.variations.filter(is_active=True, stock_quantity__gt=0).exists()
+        elif self.manage_stock:
             return self.stock_quantity and self.stock_quantity > 0
         return self.stock_status == 'instock'
+    
+    @property
+    def calculated_stock_status(self):
+        """Calculate stock status dynamically, especially for variable products"""
+        if self.is_variable_product:
+            # For variable products, base status on variations
+            has_stock = self.variations.filter(is_active=True, stock_quantity__gt=0).exists()
+            if has_stock:
+                return 'instock'
+            else:
+                # Check if any variations allow backorders
+                has_backorder = self.variations.filter(is_active=True).exists()
+                return 'onbackorder' if has_backorder else 'outofstock'
+        else:
+            # For simple products, use the stored stock_status
+            return self.stock_status
+    
+    def update_stock_status_from_variations(self):
+        """Update the product's stock_status field based on variations availability"""
+        if self.is_variable_product:
+            calculated_status = self.calculated_stock_status
+            if self.stock_status != calculated_status:
+                self.stock_status = calculated_status
+                self.save(update_fields=['stock_status', 'updated_at'])
+                logger.info(f"Updated stock status for product {self.id} to {calculated_status}")
+                return True
+        return False
     
     @property
     def effective_price(self):
@@ -492,6 +522,154 @@ class LottoProduct(models.Model):
     def parsed_variation_attributes(self):
         """Get all parsed variation attributes as a dictionary"""
         return self._parse_variation_attributes()
+    
+    def get_available_variations_for_selection(self, **selection):
+        """
+        Get available variation options based on current selection.
+        Returns dict with available options for each variation type.
+        
+        Args:
+            **selection: Current user selection (e.g., size='Large', color='Red')
+        
+        Returns:
+            dict: Available options for each variation type with stock info
+        """
+        from django.db.models import Q, Sum
+        
+        # Get all active variations with stock
+        base_variations = self.variations.filter(is_active=True, stock_quantity__gt=0)
+        
+        # Apply current selection filters
+        for attr_type, attr_value in selection.items():
+            if attr_value:  # Only filter if value is provided
+                base_variations = base_variations.filter(
+                    variation_type=attr_type,
+                    variation_value=attr_value
+                )
+        
+        # Get available options for each variation type
+        result = {}
+        variation_types = ['size', 'color', 'material', 'style', 'gender', 'age_group']
+        
+        for var_type in variation_types:
+            # Skip if this type is already selected
+            if var_type in selection and selection[var_type]:
+                continue
+                
+            # Get available options for this type
+            options = []
+            type_variations = base_variations.filter(variation_type=var_type).distinct()
+            
+            for variation in type_variations:
+                # Check stock for this option combined with current selection
+                test_selection = selection.copy()
+                test_selection[var_type] = variation.variation_value
+                
+                # Find variations that match all criteria
+                matching_variations = self.variations.filter(is_active=True)
+                for test_attr, test_value in test_selection.items():
+                    if test_value:
+                        matching_variations = matching_variations.filter(
+                            variation_type=test_attr,
+                            variation_value=test_value
+                        )
+                
+                total_stock = matching_variations.aggregate(
+                    total=Sum('stock_quantity')
+                )['total'] or 0
+                
+                if total_stock > 0:
+                    options.append({
+                        'value': variation.variation_value,
+                        'stock': total_stock,
+                        'available': True,
+                        'variation_id': variation.id,
+                        'price_modifier': float(variation.price_modifier),
+                        'image': variation.image.url if variation.image else None
+                    })
+            
+            if options:
+                # Sort options by value
+                options.sort(key=lambda x: x['value'])
+                result[var_type] = options
+        
+        return result
+    
+    def get_variation_combination_stock(self, **combination):
+        """
+        Get stock quantity for a specific variation combination.
+        
+        Args:
+            **combination: Variation attributes (e.g., size='Large', color='Red')
+        
+        Returns:
+            int: Total stock quantity for the combination
+        """
+        from django.db.models import Sum
+        
+        variations = self.variations.filter(is_active=True)
+        
+        for attr_type, attr_value in combination.items():
+            if attr_value:
+                variations = variations.filter(
+                    variation_type=attr_type,
+                    variation_value=attr_value
+                )
+        
+        total_stock = variations.aggregate(
+            total=Sum('stock_quantity')
+        )['total'] or 0
+        
+        return total_stock
+    
+    def is_variation_combination_available(self, **combination):
+        """
+        Check if a specific variation combination is available.
+        
+        Args:
+            **combination: Variation attributes (e.g., size='Large', color='Red')
+        
+        Returns:
+            bool: True if combination has stock, False otherwise
+        """
+        return self.get_variation_combination_stock(**combination) > 0
+    
+    def get_variation_data_for_frontend(self):
+        """
+        Get structured variation data for frontend JavaScript.
+        
+        Returns:
+            dict: Structured data for frontend variation handling
+        """
+        if not self.has_variations:
+            return {}
+        
+        variations_data = {
+            'product_id': self.id,
+            'has_variations': True,
+            'variation_types': list(self.variations.filter(is_active=True).values_list('variation_type', flat=True).distinct()),
+            'variations': [],
+            'parsed_attributes': self.parsed_variation_attributes,
+            'total_stock': self.total_stock
+        }
+        
+        # Add individual variation data
+        for variation in self.variations.filter(is_active=True):
+            var_data = {
+                'id': variation.id,
+                'type': variation.variation_type,
+                'value': variation.variation_value,
+                'stock': variation.stock_quantity,
+                'price_modifier': float(variation.price_modifier),
+                'final_price': float(variation.final_price),
+                'sku_suffix': variation.sku_suffix,
+                'is_in_stock': variation.is_in_stock,
+                'image': variation.effective_image_url,
+                'attributes': variation.attributes or {}
+            }
+            variations_data['variations'].append(var_data)
+        
+        return variations_data
     
     @property
     def is_downloadable_product(self):
@@ -677,6 +855,10 @@ class LottoProductVariation(models.Model):
             self.sku_suffix = f"{type_short}-{value_short}"
         
         super().save(*args, **kwargs)
+        
+        # Update parent product's stock status after variation changes
+        if self.product and self.product.is_variable_product:
+            self.product.update_stock_status_from_variations()
     
     def __str__(self):
         return f"{self.product.name} - {self.variation_type}: {self.variation_value}"
