@@ -71,6 +71,32 @@
     object-fit: cover;
 }
 
+/* Color Variation Thumbnail Sidebar */
+.thumbnail-sidebar {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.thumbnail-sidebar .thumbnail-image {
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid #e9ecef;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    object-fit: cover;
+}
+
+.thumbnail-sidebar .thumbnail-image:hover,
+.thumbnail-sidebar .thumbnail-image.active {
+    border-color: #C9485B;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(201, 72, 91, 0.3);
+}
+
 /* Product Information */
 .product-info {
     padding: 2rem;
@@ -677,38 +703,6 @@
 
 {% block content %}
 <div class="lotto-product-page">
-    <!-- Breadcrumb Navigation -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb">
-                    <li class="breadcrumb-item">
-                        <a href="{% url 'clubs:dashboard' %}" class="text-lotto-secondary">
-                            <i class="uil-home me-1"></i>Dashboard
-                        </a>
-                    </li>
-                    <li class="breadcrumb-item">
-                        <a href="{% url 'clubs:lotto-clubs' %}" class="text-lotto-secondary">LOTTO Clubs</a>
-                    </li>
-                    {% if primary_category %}
-                    <li class="breadcrumb-item">
-                        <a href="{% url 'clubs:club-detail' primary_category.club.slug %}" class="text-lotto-secondary">
-                            {{ primary_category.club.name }}
-                        </a>
-                    </li>
-                    <li class="breadcrumb-item">
-                        <a href="{% url 'clubs:category-detail' primary_category.slug %}" class="text-lotto-secondary">
-                            {{ primary_category.name }}
-                        </a>
-                    </li>
-                    {% endif %}
-                    <li class="breadcrumb-item active text-lotto-primary" aria-current="page">
-                        {{ product.name|truncatechars:30 }}
-                    </li>
-                </ol>
-            </nav>
-        </div>
-    </div>
 
     <div class="row">
         <!-- Product Image Gallery -->
@@ -746,6 +740,11 @@
                     {% endfor %}
                 </div>
                 {% endif %}
+
+                <!-- Color Variation Thumbnail Sidebar (for dynamic color images) -->
+                <div class="thumbnail-sidebar" id="colorThumbnailSidebar" style="display: none;">
+                    <!-- Color variation thumbnails will be inserted here by JavaScript -->
+                </div>
             </div>
         </div>
 
@@ -787,7 +786,7 @@
                     </div>
                     
                     {% if product.price_html %}
-                        <div class="price-note">{{ product.price_html|safe }}</div>
+                        <div class="price-note">{{ product.price_html|striptags }}</div>
                     {% endif %}
                 </div>
 
@@ -931,7 +930,7 @@
             <div class="tab-pane active" id="description-panel" role="tabpanel">
                 {% if product.description %}
                     <div class="product-description">
-                        {{ product.description|safe }}
+                        {{ product.description|striptags|linebreaks }}
                     </div>
                 {% else %}
                     <p class="text-muted">No detailed description available for this product.</p>
@@ -940,7 +939,7 @@
                 {% if product.short_description %}
                     <div class="mt-3">
                         <h5 class="text-lotto-primary">Summary:</h5>
-                        <p>{{ product.short_description|safe }}</p>
+                        <p>{{ product.short_description|striptags }}</p>
                     </div>
                 {% endif %}
             </div>

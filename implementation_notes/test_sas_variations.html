@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test SAS Product Variations</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .variation-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+        .product-info {
+            background: #e9f4ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 16px;
+            border: 2px solid #ccc;
+            background: white;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button.selected {
+            background: #205295;
+            color: white;
+            border-color: #205295;
+        }
+        .variation-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .debug-info {
+            background: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .stock-status {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .stock-status.in-stock {
+            background: rgba(40, 167, 69, 0.1);
+            color: #28a745;
+        }
+        .stock-status.out-of-stock {
+            background: rgba(220, 53, 69, 0.1);
+            color: #dc3545;
+        }
+        .stock-status-hidden {
+            display: none !important;
+        }
+        .stock-status-visible {
+            display: block !important;
+        }
+    </style>
+</head>
+<body>
+    <h1>SAS Product Variations Test</h1>
+    
+    <div class="product-info">
+        <h2>Test Product: ADJUSTABLE TINTAN CAP (ID: 26)</h2>
+        <p><strong>Expected Behavior:</strong></p>
+        <ul>
+            <li>Variation order: Color → Size (since this product doesn't have Adults/Kids)</li>
+            <li>Sizes should be sorted: S, M, L</li>
+            <li>Colors should show first: Black, Navy</li>
+            <li>Stock status should be hidden initially, shown after selection</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h3>Variation Controls</h3>
+        
+        <!-- This will be populated by JavaScript -->
+        <div class="variation-section" id="productVariations">
+            <div class="variation-loading">
+                <span>Loading product variations...</span>
+            </div>
+        </div>
+
+        <div class="stock-status stock-status-hidden" id="stockStatus">
+            Stock information will appear here
+        </div>
+
+        <button class="btn-add-to-cart" onclick="testAddToCart()">Add to Cart</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Debug Information</h3>
+        <div class="debug-info" id="debugInfo">
+            Debug information will appear here...
+        </div>
+    </div>
+
+    <!-- Include the Product Variations Library -->
+    <script src="/static/assets/js/product-variations.js"></script>
+
+    <script>
+        let variationManager;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Initializing SAS product variation test...');
+            initializeTest();
+        });
+
+        async function initializeTest() {
+            try {
+                // Test API call first
+                console.log('Testing API call...');
+                const response = await fetch('/clubs/api/sas/product/26/variations/');
+                const data = await response.json();
+                
+                updateDebugInfo('API Response', data);
+                console.log('API Response:', data);
+
+                if (data.success) {
+                    // Initialize variation manager
+                    console.log('Initializing ProductVariationManager...');
+                    variationManager = new ProductVariationManager(26, 'sas', {
+                        enableStockCheck: true,
+                        enablePriceUpdates: true,
+                        enableLoadingStates: true,
+                        debounceDelay: 300
+                    });
+
+                    // Listen for variation changes
+                    document.addEventListener('variationChanged', function(event) {
+                        console.log('Variation changed:', event.detail);
+                        updateDebugInfo('Selected Variations', event.detail);
+                    });
+
+                    // Update debug info every 2 seconds
+                    setInterval(updateDebugStatus, 2000);
+                } else {
+                    updateDebugInfo('API Error', data);
+                }
+            } catch (error) {
+                console.error('Error initializing test:', error);
+                updateDebugInfo('JavaScript Error', error.message);
+            }
+        }
+
+        function updateDebugInfo(title, data) {
+            const debugDiv = document.getElementById('debugInfo');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const section = document.createElement('div');
+            section.innerHTML = `
+                <strong>[${timestamp}] ${title}:</strong><br>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+                <hr>
+            `;
+            debugDiv.appendChild(section);
+            
+            // Keep only last 5 debug entries
+            while (debugDiv.children.length > 5) {
+                debugDiv.removeChild(debugDiv.firstChild);
+            }
+        }
+
+        function updateDebugStatus() {
+            if (variationManager) {
+                const debugInfo = variationManager.getDebugInfo();
+                updateDebugInfo('Current State', debugInfo);
+            }
+        }
+
+        function testAddToCart() {
+            if (variationManager) {
+                const selections = variationManager.getSelectedVariations();
+                const stockInfo = variationManager.getStockInfo();
+                
+                updateDebugInfo('Add to Cart Test', {
+                    selections: selections,
+                    stockInfo: stockInfo,
+                    isComplete: variationManager.isSelectionComplete()
+                });
+                
+                alert('Add to cart test - check debug info for details');
+            }
+        }
+
+        // Test function to simulate Adults/Kids selection (for future testing with products that have it)
+        function testAgeGroupChange() {
+            console.log('Testing age group change...');
+            // This would be called when an Adults/Kids button is clicked
+            if (variationManager && variationManager.updateSizeOptionsForAgeGroup) {
+                variationManager.updateSizeOptionsForAgeGroup('adults');
+            }
+        }
+    </script>
+</body>
+</html>

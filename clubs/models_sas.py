@@ -729,9 +729,14 @@ class SASProduct(models.Model):
                 
                 options = []
                 for value in values:
+                    # For SAS products, use stock_quantity if available, otherwise None for status-only
+                    stock_value = None
+                    if self.manage_stock and self.stock_quantity is not None:
+                        stock_value = self.stock_quantity
+                    
                     options.append({
                         'value': value,
-                        'stock': self.stock_quantity if self.manage_stock else 99,
+                        'stock': stock_value,
                         'available': self.stock_status in ['instock', 'onbackorder'],
                         'variation_id': f"{self.id}_{attr_type}_{value}",
                         'price_modifier': 0.0,
@@ -773,13 +778,31 @@ class SASProduct(models.Model):
                     if attr_type not in parsed_attrs or attr_value not in parsed_attrs[attr_type]:
                         return 0  # Invalid combination
             
-            return self.stock_quantity if self.manage_stock else (99 if self.stock_status in ['instock', 'onbackorder'] else 0)
+            # For SAS products, check if stock is managed and return appropriate value
+            if self.manage_stock and self.stock_quantity is not None:
+                return self.stock_quantity
+            else:
+                # For products without explicit stock management, check if product has stock_quantity data
+                # This handles cases where WooCommerce has stock data but manage_stock might be False
+                if hasattr(self, 'stock_quantity') and self.stock_quantity is not None and self.stock_quantity > 0:
+                    return self.stock_quantity
+                elif self.stock_status == 'instock':
+                    # Return a default positive value to indicate availability when no specific quantity
+                    return 1
+                elif self.stock_status == 'onbackorder':
+                    return 1  # Available for backorder
+                else:
+                    return 0  # Out of stock
     
     def is_variation_combination_available(self, **combination):
         """
         Check if a specific variation combination is available.
         """
-        return self.get_variation_combination_stock(**combination) > 0
+        stock = self.get_variation_combination_stock(**combination)
+        if stock is None:
+            # For products without stock management, check stock status
+            return self.stock_status in ['instock', 'onbackorder']
+        return stock > 0
     
     def get_variation_data_for_frontend(self):
         """
@@ -827,11 +850,16 @@ class SASProduct(models.Model):
             
             for attr_type, values in parsed_attrs.items():
                 for value in values:
+                    # For SAS products, use stock_quantity if available, otherwise None for status-only
+                    stock_value = None
+                    if self.manage_stock and self.stock_quantity is not None:
+                        stock_value = self.stock_quantity
+                    
                     var_data = {
                         'id': f"{self.id}_{attr_type}_{value}",
                         'type': attr_type,
                         'value': value,
-                        'stock': self.stock_quantity if self.manage_stock else 99,
+                        'stock': stock_value,
                         'price_modifier': 0.0,
                         'final_price': float(self.effective_price),
                         'sku_suffix': f"{attr_type}-{value}",

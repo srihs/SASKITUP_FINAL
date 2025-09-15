@@ -375,7 +375,7 @@
                                     <h6 class="mb-1 text-truncate">{{ product.name|truncatechars:25 }}</h6>
                                     <p class="text-muted mb-1 small">{{ product.club.name|truncatechars:20 }}</p>
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <small class="text-sas-primary fw-bold">R{{ product.price }}</small>
+                                        <small class="text-sas-primary fw-bold">${{ product.price }}</small>
                                         {% if product.featured %}
                                         <span class="badge bg-warning text-dark">
                                             <i class="uil-star"></i>

@@ -2256,6 +2256,12 @@ def check_stock_api(request):
             elif isinstance(stock_info, (int, float)):
                 stock_quantity = stock_info
                 stock_status = 'instock' if stock_quantity > 0 else 'outofstock'
+            elif stock_info is None:
+                # Handle None case - no specific quantity tracked but status-based availability
+                stock_status = product.stock_status
+                is_available = stock_status in ['instock', 'onbackorder']
+                # For SAS products without specific stock tracking, show status-only availability
+                stock_quantity = None  # Use None to indicate status-only (not zero)
         elif variations:
             # Fallback: if product doesn't have variation checking, assume unavailable
             is_available = False
@@ -2355,6 +2361,7 @@ def lotto_product_variations_api(request, product_id):
 def sas_product_variations_api(request, product_id):
     """
     API endpoint to get product variations with stock information for SAS products
+    Enhanced with proper ordering and filtering support
     """
     try:
         product = get_object_or_404(SASProduct, id=product_id)
@@ -2370,7 +2377,43 @@ def sas_product_variations_api(request, product_id):
                 var_type = variation['type']
                 if var_type not in grouped_variations:
                     grouped_variations[var_type] = []
-                grouped_variations[var_type].append(variation)
+                
+                # Enhanced variation data with proper structure for frontend
+                enhanced_variation = {
+                    'id': variation['id'],
+                    'type': var_type,
+                    'value': variation['value'],
+                    'is_available': variation.get('is_in_stock', True),
+                    'stock_quantity': variation.get('stock', 0),
+                    'price_modifier': variation.get('price_modifier', 0.0),
+                    'final_price': variation.get('final_price', float(product.effective_price)),
+                    'sku_suffix': variation.get('sku_suffix', ''),
+                    'image': variation.get('image', product.image_url),
+                    'attributes': variation.get('attributes', {})
+                }
+                
+                grouped_variations[var_type].append(enhanced_variation)
+            
+            # Sort variations in SAS-specific order: age_group/gender -> size -> color -> others
+            # This matches the original site behavior where Main Category comes first
+            ordered_grouped_variations = {}
+            
+            # Define the preferred order for SAS products - Main Category (age_group/gender) FIRST
+            sas_order = ['age_group', 'gender', 'size', 'color', 'colour', 'material', 'style']
+            
+            # Add variations in the preferred order
+            for var_type in sas_order:
+                if var_type in grouped_variations:
+                    ordered_grouped_variations[var_type] = _sort_variation_values(
+                        grouped_variations[var_type], var_type
+                    )
+            
+            # Add any remaining variations not in the preferred order
+            for var_type, variations in grouped_variations.items():
+                if var_type not in ordered_grouped_variations:
+                    ordered_grouped_variations[var_type] = _sort_variation_values(variations, var_type)
+            
+            grouped_variations = ordered_grouped_variations
         else:
             # No variations
             variations_data = []
@@ -2383,7 +2426,8 @@ def sas_product_variations_api(request, product_id):
             'base_price': float(product.effective_price),
             'variations': variations_data,
             'grouped_variations': grouped_variations,
-            'total_variations': len(variations_data)
+            'total_variations': len(variations_data),
+            'variation_order': list(grouped_variations.keys())  # For frontend reference
         })
         
     except Exception as e:
@@ -2393,6 +2437,49 @@ def sas_product_variations_api(request, product_id):
             'error': 'Failed to fetch product variations',
             'message': str(e)
         }, status=500)
+
+
+def _sort_variation_values(variations, var_type):
+    """
+    Helper function to sort variation values in logical order for SAS products
+    """
+    def sort_key(variation):
+        value = variation['value'].lower()
+        
+        if var_type == 'size':
+            # Adult sizes order
+            adult_order = ['xs', 's', 'm', 'l', 'xl', '2xl', '3xl', '4xl', '5xl']
+            # Kids sizes order  
+            kids_order = ['4k', '6k', '8k', '10k', '12k', '14k', '16k']
+            
+            if value in adult_order:
+                return (0, adult_order.index(value))
+            elif value in kids_order:
+                return (1, kids_order.index(value))
+            else:
+                return (2, value)  # Unknown sizes last, alphabetical
+        
+        elif var_type in ['age_group', 'gender']:
+            # Age group/gender order: Adults first, then Kids, then others alphabetically
+            age_order = ['adults', 'adult', 'kids', 'children', 'child']
+            if value in age_order:
+                return (0, age_order.index(value))
+            else:
+                return (1, value)
+        
+        elif var_type in ['color', 'colour']:
+            # Color order: alphabetical but with common colors first
+            common_colors = ['black', 'white', 'red', 'blue', 'green', 'yellow', 'navy', 'grey', 'gray']
+            if value in common_colors:
+                return (0, common_colors.index(value))
+            else:
+                return (1, value)
+        
+        else:
+            # Default alphabetical sorting for other types
+            return (0, value)
+    
+    return sorted(variations, key=sort_key)
 
 
 @csrf_exempt

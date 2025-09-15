@@ -163,10 +163,51 @@ class ProductVariationManager {
             this.elements.initialLoadingMessage = null; // Clear reference after removal
         }
         
-        this.renderColorSwatches();
-        this.renderSizeOptions();
-        this.renderAgeGroupOptions();
+        // Clear existing variation containers to ensure proper ordering
+        if (this.elements.container) {
+            const existingGroups = this.elements.container.querySelectorAll('.variation-group');
+            existingGroups.forEach(group => group.remove());
+            
+            // Clear cached element references to force creation of new containers
+            this.elements.colorOptions = null;
+            this.elements.sizeOptions = null;
+            this.elements.ageGroupOptions = null;
+        }
+        
+        // Render in specific order for SAS products: Age Group (Main Category) → Size (filtered) → Color
+        // This matches the original site behavior and ensures proper DOM order
+        if (this.productType === 'sas') {
+            console.log('🔧 SAS Product detected - rendering in correct order: Age Group → Size → Color');
+            console.log('🔧 Cached elements before rendering:', {
+                ageGroup: !!this.elements.ageGroupOptions,
+                size: !!this.elements.sizeOptions, 
+                color: !!this.elements.colorOptions
+            });
+            
+            this.renderAgeGroupOptions(); // Main Category FIRST
+            console.log('🔧 Age Group rendered first');
+            this.renderSizeOptions(); // Size filtering will be applied based on age group selection
+            console.log('🔧 Size options rendered second');
+            this.renderColorSwatches();
+            console.log('🔧 Color swatches rendered third');
+            
+            // Verify final DOM order
+            const groups = this.elements.container.querySelectorAll('.variation-group');
+            const order = Array.from(groups).map(g => g.dataset.variationType);
+            console.log('🔧 Final DOM order:', order);
+        } else {
+            // Original order for LOTTO products
+            this.renderColorSwatches();
+            this.renderSizeOptions();
+            this.renderAgeGroupOptions();
+        }
+        
         this.renderOtherVariations();
+        
+        // Initialize color image gallery after rendering variations
+        setTimeout(() => {
+            this.initializeColorImageGallery();
+        }, 100);
     }
     
     /**
@@ -207,13 +248,46 @@ class ProductVariationManager {
         swatch.setAttribute('aria-label', `Select color ${variation.value}`);
         swatch.title = variation.value;
         
-        // Get color from name or use default
-        const colorHex = this.getColorHex(variation.value);
-        swatch.style.backgroundColor = colorHex;
+        // Store image URL for later use
+        if (variation.image) {
+            swatch.dataset.imageUrl = variation.image;
+        }
         
-        // Add border for white/light colors
-        if (this.isLightColor(colorHex)) {
-            swatch.style.border = '2px solid #dee2e6';
+        // Check if variation has an image URL
+        if (variation.image) {
+            // Create image element for color swatch
+            const img = document.createElement('img');
+            // Use the proxy URL for external images
+            const imageUrl = variation.image.startsWith('http') ? 
+                `/clubs/proxy-image/?url=${encodeURIComponent(variation.image)}` : 
+                variation.image;
+            img.src = imageUrl;
+            img.alt = variation.value;
+            img.className = 'color-swatch-image';
+            img.loading = 'lazy';
+            
+            // Handle image load errors - fallback to color
+            img.onerror = () => {
+                img.style.display = 'none';
+                const colorHex = this.getColorHex(variation.value);
+                swatch.style.backgroundColor = colorHex;
+                
+                // Add border for white/light colors
+                if (this.isLightColor(colorHex)) {
+                    swatch.style.border = '2px solid #dee2e6';
+                }
+            };
+            
+            swatch.appendChild(img);
+        } else {
+            // Fallback to color-based swatch if no image
+            const colorHex = this.getColorHex(variation.value);
+            swatch.style.backgroundColor = colorHex;
+            
+            // Add border for white/light colors
+            if (this.isLightColor(colorHex)) {
+                swatch.style.border = '2px solid #dee2e6';
+            }
         }
         
         // Add availability indicator
@@ -245,7 +319,16 @@ class ProductVariationManager {
         
         const buttonContainer = container.querySelector('.size-buttons');
         
-        sizes.forEach(variation => {
+        // Apply filtering for SAS products
+        let filteredSizes = sizes;
+        if (this.productType === 'sas') {
+            filteredSizes = this.getFilteredSizes(sizes);
+        }
+        
+        // Sort sizes for better display
+        const sortedSizes = this.sortSizes(filteredSizes);
+        
+        sortedSizes.forEach(variation => {
             const button = this.createSizeButton(variation);
             buttonContainer.appendChild(button);
         });
@@ -286,8 +369,10 @@ class ProductVariationManager {
         const ageGroups = this.groupedVariations.age_group || this.groupedVariations.gender || [];
         if (ageGroups.length === 0) return;
         
-        const container = this.elements.ageGroupOptions || this.createVariationContainer('age_group', 'Age Group');
-        container.innerHTML = '<div class="variation-title">Age Group:</div><div class="age-group-buttons"></div>';
+        // For SAS products, show as "Select Main Category" instead of "Age Group"
+        const title = this.productType === 'sas' ? 'Select Main Category' : 'Age Group';
+        const container = this.elements.ageGroupOptions || this.createVariationContainer('age_group', title);
+        container.innerHTML = `<div class="variation-title">${title}:</div><div class="age-group-buttons"></div>`;
         
         const buttonContainer = container.querySelector('.age-group-buttons');
         
@@ -407,6 +492,12 @@ class ProductVariationManager {
         const variationValue = target.dataset.variationValue;
         const variationId = target.dataset.variationId;
         
+        // Handle color variation image updates
+        if (variationType === 'color' && target.dataset.imageUrl) {
+            this.updateMainImageForColor(target.dataset.imageUrl);
+            this.updateGalleryForColor(variationType, variationValue);
+        }
+        
         // Always show stock on user interaction
         this.selectVariation(variationType, variationValue, variationId, target, true);
     }
@@ -442,6 +533,11 @@ class ProductVariationManager {
         // Mark that user has interacted
         this.hasUserInteraction = true;
         
+        // For SAS products, handle size filtering when age group changes
+        if (this.productType === 'sas' && (type === 'age_group' || type === 'gender' || type === 'select main category')) {
+            this.updateSizeOptionsForAgeGroup(value);
+        }
+        
         // Update price and check stock
         this.updatePrice();
         if (this.options.enableStockCheck && showStock) {
@@ -468,6 +564,11 @@ class ProductVariationManager {
         
         if (this.selectedVariations[type]) {
             delete this.selectedVariations[type];
+        }
+        
+        // If clearing color selection and no color variations remain, restore original gallery for LOTTO
+        if (type === 'color' && this.productType === 'lotto' && !this.selectedVariations.color) {
+            this.restoreOriginalGallery();
         }
         
         // Update stock display based on remaining selections
@@ -634,23 +735,35 @@ class ProductVariationManager {
         let stockStatus, stockData;
         
         if (inStockVariations.length > 0) {
-            // Sum up actual stock quantities instead of just counting variations
-            const totalInStock = inStockVariations.reduce((sum, v) => sum + (v.stock || 1), 0);
+            // Sum up actual stock quantities, handling null values appropriately
+            const totalInStock = inStockVariations.reduce((sum, v) => {
+                const stock = v.stock;
+                if (stock === null || stock === undefined) {
+                    return sum; // Don't add to sum if stock is null (status-only products)
+                }
+                return sum + Math.max(stock, 1);
+            }, 0);
             stockStatus = 'instock';
             stockData = {
                 success: true,
                 is_available: true,
                 stock_status: 'instock',
-                stock_quantity: totalInStock
+                stock_quantity: totalInStock > 0 ? totalInStock : null > 0 ? totalInStock : null
             };
         } else if (backorderVariations.length > 0) {
-            const totalOnBackorder = backorderVariations.reduce((sum, v) => sum + (v.stock || 1), 0);
+            const totalOnBackorder = backorderVariations.reduce((sum, v) => {
+                const stock = v.stock;
+                if (stock === null || stock === undefined) {
+                    return sum; // Don't add to sum if stock is null
+                }
+                return sum + Math.max(stock, 1);
+            }, 0);
             stockStatus = 'onbackorder';
             stockData = {
                 success: true,
                 is_available: true,
                 stock_status: 'onbackorder',
-                stock_quantity: totalOnBackorder
+                stock_quantity: totalOnBackorder > 0 ? totalOnBackorder : null
             };
         } else {
             stockStatus = 'outofstock';
@@ -693,21 +806,33 @@ class ProductVariationManager {
         
         let stockData;
         if (inStock.length > 0) {
-            // Sum up actual stock quantities instead of just counting variations
-            const totalInStock = inStock.reduce((sum, v) => sum + (v.stock || 1), 0);
+            // Sum up actual stock quantities, handling null values appropriately
+            const totalInStock = inStock.reduce((sum, v) => {
+                const stock = v.stock;
+                if (stock === null || stock === undefined) {
+                    return sum; // Don't add to sum if stock is null (status-only products)
+                }
+                return sum + Math.max(stock, 1);
+            }, 0);
             stockData = {
                 success: true,
                 is_available: true,
                 stock_status: 'instock',
-                stock_quantity: totalInStock
+                stock_quantity: totalInStock > 0 ? totalInStock : null
             };
         } else if (onBackorder.length > 0) {
-            const totalOnBackorder = onBackorder.reduce((sum, v) => sum + (v.stock || 1), 0);
+            const totalOnBackorder = onBackorder.reduce((sum, v) => {
+                const stock = v.stock;
+                if (stock === null || stock === undefined) {
+                    return sum; // Don't add to sum if stock is null
+                }
+                return sum + Math.max(stock, 1);
+            }, 0);
             stockData = {
                 success: true,
                 is_available: true,
                 stock_status: 'onbackorder',
-                stock_quantity: totalOnBackorder
+                stock_quantity: totalOnBackorder > 0 ? totalOnBackorder : null
             };
         } else {
             stockData = {
@@ -782,15 +907,21 @@ class ProductVariationManager {
                 success: true,
                 is_available: true,
                 stock_status: 'instock',
-                stock_quantity: totalInStock
+                stock_quantity: totalInStock > 0 ? totalInStock : null
             };
         } else if (onBackorder.length > 0) {
-            const totalOnBackorder = onBackorder.reduce((sum, v) => sum + (v.stock || 1), 0);
+            const totalOnBackorder = onBackorder.reduce((sum, v) => {
+                const stock = v.stock;
+                if (stock === null || stock === undefined) {
+                    return sum; // Don't add to sum if stock is null
+                }
+                return sum + Math.max(stock, 1);
+            }, 0);
             stockData = {
                 success: true,
                 is_available: true,
                 stock_status: 'onbackorder',
-                stock_quantity: totalOnBackorder
+                stock_quantity: totalOnBackorder > 0 ? totalOnBackorder : null
             };
         } else {
             stockData = {
@@ -834,15 +965,21 @@ class ProductVariationManager {
                 success: true,
                 is_available: true,
                 stock_status: 'instock',
-                stock_quantity: totalInStock
+                stock_quantity: totalInStock > 0 ? totalInStock : null
             };
         } else if (onBackorder.length > 0) {
-            const totalOnBackorder = onBackorder.reduce((sum, v) => sum + (v.stock || 1), 0);
+            const totalOnBackorder = onBackorder.reduce((sum, v) => {
+                const stock = v.stock;
+                if (stock === null || stock === undefined) {
+                    return sum; // Don't add to sum if stock is null
+                }
+                return sum + Math.max(stock, 1);
+            }, 0);
             stockData = {
                 success: true,
                 is_available: true,
                 stock_status: 'onbackorder',
-                stock_quantity: totalOnBackorder
+                stock_quantity: totalOnBackorder > 0 ? totalOnBackorder : null
             };
         } else {
             stockData = {
@@ -926,10 +1063,15 @@ class ProductVariationManager {
             cssClass = 'on-backorder';
             icon = 'uil-clock';
             text = 'Available on Backorder';
-            displayText = stockQuantity > 0 ? `${text} (${stockQuantity} available)` : text;
+            // Only show quantity if it's a valid number, otherwise just show status
+            if (stockQuantity !== null && stockQuantity !== undefined && stockQuantity > 0) {
+                displayText = `${text} (${stockQuantity} available)`;
+            } else {
+                displayText = text;
+            }
         } else {
             // In stock - determine if low stock
-            if (stockQuantity <= 5 && stockQuantity > 0) {
+            if (stockQuantity !== null && stockQuantity !== undefined && stockQuantity <= 5 && stockQuantity > 0) {
                 cssClass = 'low-stock';
                 icon = 'uil-exclamation-triangle';
                 text = 'Low Stock';
@@ -938,7 +1080,12 @@ class ProductVariationManager {
                 cssClass = 'in-stock';
                 icon = 'uil-check-circle';
                 text = 'In Stock';
-                displayText = stockQuantity > 0 ? `${text} (${stockQuantity} available)` : text;
+                // Only show quantity if it's a valid number, otherwise just show "In Stock"
+                if (stockQuantity !== null && stockQuantity !== undefined && stockQuantity > 0) {
+                    displayText = `${text} (${stockQuantity} available)`;
+                } else {
+                    displayText = text;
+                }
             }
         }
         
@@ -965,16 +1112,26 @@ class ProductVariationManager {
             element.classList.remove('bg-success', 'bg-warning', 'bg-danger', 'bg-info');
             
             if (stockStatus === 'instock') {
-                if (stockQuantity <= 5 && stockQuantity > 0) {
+                if (stockQuantity !== null && stockQuantity !== undefined && stockQuantity <= 5 && stockQuantity > 0) {
                     element.classList.add('bg-warning');
                     element.textContent = `Low Stock (${stockQuantity})`;
                 } else {
                     element.classList.add('bg-success');
-                    element.textContent = stockQuantity > 0 ? `In Stock (${stockQuantity})` : 'In Stock';
+                    // Only show quantity if it's a valid number, otherwise just show "In Stock"
+                    if (stockQuantity !== null && stockQuantity !== undefined && stockQuantity > 0) {
+                        element.textContent = `In Stock (${stockQuantity})`;
+                    } else {
+                        element.textContent = 'In Stock';
+                    }
                 }
             } else if (stockStatus === 'onbackorder') {
                 element.classList.add('bg-info');
-                element.textContent = stockQuantity > 0 ? `Backorder (${stockQuantity})` : 'Backorder';
+                // Only show quantity if it's a valid number, otherwise just show "Backorder"
+                if (stockQuantity !== null && stockQuantity !== undefined && stockQuantity > 0) {
+                    element.textContent = `Backorder (${stockQuantity})`;
+                } else {
+                    element.textContent = 'Backorder';
+                }
             } else {
                 element.classList.add('bg-danger');
                 element.textContent = 'Out of Stock';
@@ -1055,25 +1212,42 @@ class ProductVariationManager {
             }
             
             .color-swatch {
-                width: 45px;
-                height: 45px;
-                border-radius: 50%;
+                width: 50px;
+                height: 50px;
+                border-radius: 8px;
                 cursor: pointer;
                 transition: all 0.2s ease;
                 position: relative;
                 border: 3px solid transparent;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                overflow: hidden;
+            }
+            
+            .color-swatch-image {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                border-radius: 5px;
+                transition: transform 0.2s ease;
             }
             
             .color-swatch:hover {
+                transform: scale(1.05);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            }
+            
+            .color-swatch:hover .color-swatch-image {
                 transform: scale(1.1);
-                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             }
             
             .color-swatch.selected {
                 border-color: var(--brand-primary);
+                transform: scale(1.05);
+                box-shadow: 0 0 0 3px var(--brand-primary);
+            }
+            
+            .color-swatch.selected .color-swatch-image {
                 transform: scale(1.1);
-                box-shadow: 0 0 0 2px var(--brand-primary);
             }
             
             .color-swatch.disabled {
@@ -1265,6 +1439,11 @@ class ProductVariationManager {
             
             .stock-status:hover::before {
                 left: 100%;
+            }
+            
+            /* Size filtering animation */
+            .size-buttons {
+                transition: opacity 0.2s ease, transform 0.2s ease;
             }
             
             /* Low stock pulsing animation */
@@ -1807,6 +1986,291 @@ class ProductVariationManager {
             hasUserInteraction: this.hasUserInteraction,
             currentStockInfo: this.getStockForCombination()
         };
+    }
+    
+    /**
+     * Get filtered sizes based on age group selection for SAS products
+     */
+    getFilteredSizes(allSizes) {
+        if (this.productType !== 'sas') {
+            return allSizes;
+        }
+        
+        const selectedAgeGroup = this.selectedVariations.age_group || this.selectedVariations.gender || this.selectedVariations['select main category'];
+        
+        if (!selectedAgeGroup) {
+            // No age group selected, show all sizes
+            return allSizes;
+        }
+        
+        const ageGroupValue = selectedAgeGroup.value.toLowerCase();
+        
+        return allSizes.filter(size => {
+            const sizeValue = size.value.toLowerCase();
+            
+            if (ageGroupValue === 'adults' || ageGroupValue === 'adult') {
+                // Adult sizes: XS, S, M, L, XL, 2XL, 3XL, 4XL, 5XL
+                return /^(xs|s|m|l|xl|2xl|3xl|4xl|5xl)$/i.test(sizeValue);
+            } else if (ageGroupValue === 'kids' || ageGroupValue === 'children' || ageGroupValue === 'child') {
+                // Kids sizes: 4k, 6k, 8k, 10k, 12k, 14k, 16k
+                return /^(4k|6k|8k|10k|12k|14k|16k)$/i.test(sizeValue);
+            }
+            
+            // Unknown age group, show all sizes
+            return true;
+        });
+    }
+    
+    /**
+     * Sort sizes in logical order
+     */
+    sortSizes(sizes) {
+        return sizes.sort((a, b) => {
+            const aValue = a.value.toLowerCase();
+            const bValue = b.value.toLowerCase();
+            
+            // Define sort order for adult sizes
+            const adultOrder = ['xs', 's', 'm', 'l', 'xl', '2xl', '3xl', '4xl', '5xl'];
+            
+            // Define sort order for kids sizes
+            const kidsOrder = ['4k', '6k', '8k', '10k', '12k', '14k', '16k'];
+            
+            // Check if both are adult sizes
+            const aAdultIndex = adultOrder.indexOf(aValue);
+            const bAdultIndex = adultOrder.indexOf(bValue);
+            
+            if (aAdultIndex !== -1 && bAdultIndex !== -1) {
+                return aAdultIndex - bAdultIndex;
+            }
+            
+            // Check if both are kids sizes
+            const aKidsIndex = kidsOrder.indexOf(aValue);
+            const bKidsIndex = kidsOrder.indexOf(bValue);
+            
+            if (aKidsIndex !== -1 && bKidsIndex !== -1) {
+                return aKidsIndex - bKidsIndex;
+            }
+            
+            // Fallback to alphabetical sorting
+            return aValue.localeCompare(bValue);
+        });
+    }
+    
+    /**
+     * Update size options when age group selection changes (SAS products only)
+     */
+    updateSizeOptionsForAgeGroup(ageGroupValue) {
+        if (this.productType !== 'sas' || !this.groupedVariations.size) {
+            return;
+        }
+        
+        const sizeContainer = this.elements.sizeOptions;
+        if (!sizeContainer) {
+            return;
+        }
+        
+        // Clear any existing size selection
+        // Clear any existing size selection when age group changes
+        this.clearSelectionForType('size');
+        
+        // Get the size button container
+        const buttonContainer = sizeContainer.querySelector('.size-buttons');
+        if (!buttonContainer) {
+            return;
+        }
+        
+        // Clear existing buttons
+        buttonContainer.innerHTML = '';
+        
+        // Get filtered and sorted sizes
+        const allSizes = this.groupedVariations.size || [];
+        const filteredSizes = this.getFilteredSizes(allSizes);
+        const sortedSizes = this.sortSizes(filteredSizes);
+        
+        // Render new size buttons
+        sortedSizes.forEach(variation => {
+            const button = this.createSizeButton(variation);
+            buttonContainer.appendChild(button);
+        });
+        
+        // Add animation effect
+        buttonContainer.style.opacity = '0.5';
+        buttonContainer.style.transform = 'scale(0.95)';
+        
+        setTimeout(() => {
+            buttonContainer.style.opacity = '1';
+            buttonContainer.style.transform = 'scale(1)';
+        }, 150);
+        
+        console.log(`Updated size options for age group: ${ageGroupValue}. Showing ${sortedSizes.length} sizes.`);
+    }
+    
+    /**
+     * Update main product image when color is selected
+     */
+    updateMainImageForColor(imageUrl) {
+        const mainImage = document.getElementById('mainProductImage');
+        if (mainImage && imageUrl) {
+            // Use the proxy URL for external images
+            const proxiedUrl = imageUrl.startsWith('http') ? 
+                `/clubs/proxy-image/?url=${encodeURIComponent(imageUrl)}` : 
+                imageUrl;
+            
+            // Add loading effect
+            mainImage.style.opacity = '0.7';
+            
+            // Update image with error handling
+            const newImage = new Image();
+            newImage.onload = () => {
+                mainImage.src = proxiedUrl;
+                mainImage.style.opacity = '1';
+            };
+            newImage.onerror = () => {
+                console.warn('Failed to load color variation image:', imageUrl);
+                mainImage.style.opacity = '1';
+            };
+            newImage.src = proxiedUrl;
+        }
+    }
+    
+    /**
+     * Update gallery thumbnails to show all color variations
+     */
+    updateGalleryForColor(variationType, variationValue) {
+        if (variationType !== 'color') return;
+        
+        // Get all color variations with images
+        const colorVariations = this.groupedVariations.color || [];
+        const variationsWithImages = colorVariations.filter(v => v.image);
+        
+        if (variationsWithImages.length === 0) return;
+        
+        // Look for thumbnail sidebar (SAS) or thumbnail gallery (LOTTO)
+        let thumbnailContainer = document.querySelector('.thumbnail-sidebar');
+        let originalGallery = document.querySelector('.product-thumbnails, #thumbnailGallery');
+        
+        // If no sidebar exists, try to use the main gallery (LOTTO)
+        if (!thumbnailContainer) {
+            thumbnailContainer = originalGallery;
+        }
+        
+        if (!thumbnailContainer) return;
+        
+        // For LOTTO: Show thumbnail sidebar and hide original gallery
+        if (this.productType === 'lotto') {
+            const thumbnailSidebar = document.querySelector('.thumbnail-sidebar');
+            if (thumbnailSidebar && originalGallery) {
+                thumbnailSidebar.style.display = 'flex';
+                originalGallery.style.display = 'none';
+                thumbnailContainer = thumbnailSidebar;
+            }
+        }
+        
+        // Clear existing thumbnails
+        thumbnailContainer.innerHTML = '';
+        
+        // Add thumbnails for each color variation
+        variationsWithImages.forEach((variation, index) => {
+            const thumbnail = document.createElement('img');
+            // Use the proxy URL for external images
+            const imageUrl = variation.image.startsWith('http') ? 
+                `/clubs/proxy-image/?url=${encodeURIComponent(variation.image)}` : 
+                variation.image;
+            thumbnail.src = imageUrl;
+            thumbnail.alt = `${variation.value} color variation`;
+            thumbnail.className = 'thumbnail-image';
+            thumbnail.dataset.colorValue = variation.value;
+            
+            // Mark current selection as active
+            if (variation.value === variationValue) {
+                thumbnail.classList.add('active');
+            }
+            
+            // Add click handler to update main image
+            thumbnail.addEventListener('click', () => {
+                // Update main image
+                this.updateMainImageForColor(variation.image);
+                
+                // Update active thumbnail
+                document.querySelectorAll('.thumbnail-image').forEach(thumb => 
+                    thumb.classList.remove('active')
+                );
+                thumbnail.classList.add('active');
+                
+                // Update color swatch selection if this color is not already selected
+                if (this.selectedVariations.color?.value !== variation.value) {
+                    const colorSwatch = document.querySelector(
+                        `[data-variation-type="color"][data-variation-value="${variation.value}"]`
+                    );
+                    if (colorSwatch) {
+                        colorSwatch.click();
+                    }
+                }
+            });
+            
+            // Handle image load errors
+            thumbnail.onerror = () => {
+                thumbnail.style.display = 'none';
+            };
+            
+            thumbnailContainer.appendChild(thumbnail);
+        });
+        
+        console.log(`Updated gallery with ${variationsWithImages.length} color variation images`);
+    }
+    
+    /**
+     * Initialize color image gallery on page load
+     */
+    initializeColorImageGallery() {
+        // Only initialize if we have color variations with images
+        const colorVariations = this.groupedVariations.color || [];
+        const variationsWithImages = colorVariations.filter(v => v.image);
+        
+        if (variationsWithImages.length === 0) {
+            console.log('No color variations with images found, keeping original gallery');
+            // For LOTTO: Ensure original gallery is visible and thumbnail sidebar is hidden
+            if (this.productType === 'lotto') {
+                const thumbnailSidebar = document.querySelector('.thumbnail-sidebar');
+                const originalGallery = document.querySelector('.product-thumbnails, #thumbnailGallery');
+                if (thumbnailSidebar) {
+                    thumbnailSidebar.style.display = 'none';
+                }
+                if (originalGallery) {
+                    originalGallery.style.display = 'flex';
+                }
+            }
+            return;
+        }
+        
+        console.log(`Initializing color image gallery with ${variationsWithImages.length} color images`);
+        
+        // Update gallery to show all color variation images
+        this.updateGalleryForColor('color', variationsWithImages[0].value);
+        
+        // Set first color variation image as main image if no color is selected
+        if (!this.selectedVariations.color && variationsWithImages[0].image) {
+            this.updateMainImageForColor(variationsWithImages[0].image);
+        }
+    }
+    
+    /**
+     * Restore original gallery when color variations are cleared (LOTTO specific)
+     */
+    restoreOriginalGallery() {
+        if (this.productType !== 'lotto') return;
+        
+        const thumbnailSidebar = document.querySelector('.thumbnail-sidebar');
+        const originalGallery = document.querySelector('.product-thumbnails, #thumbnailGallery');
+        
+        if (thumbnailSidebar) {
+            thumbnailSidebar.style.display = 'none';
+        }
+        if (originalGallery) {
+            originalGallery.style.display = 'flex';
+        }
+        
+        console.log('Restored original gallery for LOTTO product');
     }
 }
 

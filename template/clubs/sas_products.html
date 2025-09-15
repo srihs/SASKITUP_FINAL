@@ -106,9 +106,9 @@
                         <p class="text-muted mb-1">Avg Price</p>
                         <h4 class="mb-0">
                             {% if average_price > 0 %}
-                                R{{ average_price|floatformat:0 }}
+                                ${{ average_price|floatformat:0 }}
                             {% else %}
-                                R0
+                                $0
                             {% endif %}
                         </h4>
                     </div>
@@ -217,11 +217,11 @@
                                         <small class="text-muted">Variable pricing</small>
                                         {% elif product.is_on_sale %}
                                         <!-- Simple product on sale -->
-                                        <h5 class="mb-0 text-dark">R{{ product.sale_price }}</h5>
-                                        <small class="text-muted text-decoration-line-through">R{{ product.regular_price }}</small>
+                                        <h5 class="mb-0 text-dark">${{ product.sale_price }}</h5>
+                                        <small class="text-muted text-decoration-line-through">${{ product.regular_price }}</small>
                                         {% else %}
                                         <!-- Simple product regular price -->
-                                        <h5 class="mb-0 text-dark">R{{ product.price }}</h5>
+                                        <h5 class="mb-0 text-dark">${{ product.price }}</h5>
                                         {% endif %}
                                     </div>
                                     
