@@ -1505,20 +1505,29 @@ class LottoProductDetailView(DetailView):
             if var.variation_type in ['color', 'Color']
         ))
         
-        # Add related products from same LOTTO club
-        context['related_products'] = LottoProduct.objects.filter(
-            category__club=lotto_category.club,
-            status='publish'
-        ).exclude(id=product.id).select_related('category')[:4]
+        # Add related products from same club
+        if primary_category and primary_category.club:
+            context['related_products'] = Product.objects.filter(
+                categories__club=primary_category.club,
+                stock_status__in=['instock', 'onbackorder']
+            ).exclude(id=product.id).prefetch_related('categories')[:4]
+        else:
+            context['related_products'] = []
         
         # Add breadcrumbs
-        context['breadcrumbs'] = [
+        breadcrumbs = [
             {'name': 'Home', 'url': '/'},
             {'name': 'LOTTO Clubs', 'url': '/clubs/lotto/'},
-            {'name': lotto_category.club.name, 'url': f'/clubs/club/{lotto_category.club.slug}/'},
-            {'name': lotto_category.name, 'url': f'/clubs/category/{lotto_category.slug}/'},
-            {'name': product.name}
         ]
+        
+        if primary_category and primary_category.club:
+            breadcrumbs.extend([
+                {'name': primary_category.club.name, 'url': f'/clubs/club/{primary_category.club.slug}/'},
+                {'name': primary_category.name, 'url': f'/clubs/category/{primary_category.slug}/'},
+            ])
+        
+        breadcrumbs.append({'name': product.name})
+        context['breadcrumbs'] = breadcrumbs
         
         return context
 
