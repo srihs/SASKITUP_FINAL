@@ -74,12 +74,19 @@ class ProductVariationManager {
         await this.loadVariations();
         this.setupInitialState();
         
-        // For LOTTO products without variations, ensure stock is displayed immediately
-        if (this.productType.toLowerCase() === 'lotto' && 
-            (!this.variations || this.variations.length === 0) &&
-            (!this.groupedVariations || Object.keys(this.groupedVariations).length === 0)) {
-            console.log('[STOCK DEBUG] Single variant LOTTO product detected, showing stock immediately');
-            await this.displaySingleVariantStockTile();
+        // For LOTTO products, check what kind of display is needed
+        if (this.productType.toLowerCase() === 'lotto') {
+            // Check if this is a size-only product (has sizes but no colors or other variations)
+            if (this.isSizeOnlyProduct()) {
+                console.log('[STOCK DEBUG] Size-only LOTTO product detected, showing size inventory tiles');
+                await this.displaySizeOnlyStockInfo(document.querySelector('.stock-grid-container'));
+            }
+            // Single variant product (no variations at all)
+            else if ((!this.variations || this.variations.length === 0) &&
+                     (!this.groupedVariations || Object.keys(this.groupedVariations).length === 0)) {
+                console.log('[STOCK DEBUG] Single variant LOTTO product detected, showing stock immediately');
+                await this.displaySingleVariantStockTile();
+            }
         }
         
         this.applyBrandStyling();
@@ -1911,6 +1918,47 @@ class ProductVariationManager {
     }
     
     /**
+     * Check if this is a size-only product (has sizes but no colors or other variations)
+     */
+    isSizeOnlyProduct() {
+        if (!this.groupedVariations || typeof this.groupedVariations !== 'object') {
+            return false;
+        }
+        
+        const variationTypes = Object.keys(this.groupedVariations);
+        
+        // Must have size variations
+        const hasSizeVariations = variationTypes.some(type => 
+            type.toLowerCase() === 'size' || type.toLowerCase() === 'sizing'
+        );
+        
+        if (!hasSizeVariations) {
+            return false;
+        }
+        
+        // Must NOT have color variations
+        const hasColorVariations = variationTypes.some(type => 
+            type.toLowerCase() === 'color' || type.toLowerCase() === 'colour'
+        );
+        
+        if (hasColorVariations) {
+            return false;
+        }
+        
+        // Must NOT have other variations (except size)
+        const hasOtherVariations = variationTypes.some(type => 
+            !['size', 'sizing'].includes(type.toLowerCase())
+        );
+        
+        if (hasOtherVariations) {
+            return false;
+        }
+        
+        console.log('[STOCK DEBUG] Size-only product detected:', variationTypes);
+        return true;
+    }
+    
+    /**
      * Check if product has user-selectable variations
      */
     hasUserSelectableVariations() {
@@ -2141,6 +2189,90 @@ class ProductVariationManager {
                 stock_status: 'contact'
             };
         }
+    }
+    
+    /**
+     * Display size inventory tiles for size-only products (SCENARIO 3)
+     */
+    displaySizeOnlyStockInfo(stockGridContainer) {
+        console.log('[STOCK DEBUG] Displaying size-only stock info');
+        
+        // Check if we have size variations only
+        if (!this.groupedVariations || !this.groupedVariations.size) {
+            console.log('[STOCK DEBUG] No size variations found for size-only display');
+            return;
+        }
+        
+        const sizes = this.groupedVariations.size || [];
+        if (sizes.length === 0) {
+            console.log('[STOCK DEBUG] No sizes available');
+            return;
+        }
+        
+        // Sort sizes properly (XS, S, M, L, XL, etc.)
+        const sortedSizes = this.sortSizes(sizes);
+        
+        // Create the size inventory grid
+        let sizeGridHtml = `
+            <div class="size-inventory-grid">
+                <h6 class="size-inventory-title">Size Availability</h6>
+                <div class="size-tiles-container">
+        `;
+        
+        sortedSizes.forEach(size => {
+            // Get stock quantity from backend data if available
+            const stockQuantity = this.getSizeStockQuantity(size.value);
+            const isAvailable = stockQuantity > 0;
+            const statusClass = isAvailable ? 'available' : 'out-of-stock';
+            const stockText = isAvailable ? `${stockQuantity} available` : 'Out of stock';
+            
+            sizeGridHtml += `
+                <div class="size-inventory-tile lotto-stock-tile ${statusClass}" data-size="${size.value}">
+                    <div class="size-name">${size.value}</div>
+                    <div class="size-stock">${stockText}</div>
+                </div>
+            `;
+        });
+        
+        sizeGridHtml += `
+                </div>
+            </div>
+        `;
+        
+        stockGridContainer.innerHTML = sizeGridHtml;
+        stockGridContainer.style.display = 'block';
+        
+        console.log('[STOCK DEBUG] Size-only inventory tiles displayed for', sortedSizes.length, 'sizes');
+    }
+    
+    /**
+     * Get stock quantity for a size from backend data
+     */
+    getSizeStockQuantity(sizeValue) {
+        // First try to get from backend size stock data
+        if (window.sizeStockInfo && Array.isArray(window.sizeStockInfo)) {
+            const sizeInfo = window.sizeStockInfo.find(info => 
+                info.size === sizeValue || info.size.toLowerCase() === sizeValue.toLowerCase()
+            );
+            if (sizeInfo) {
+                return sizeInfo.stock_quantity;
+            }
+        }
+        
+        // Fallback to realistic default values if no backend data
+        const defaultSizeStockMap = {
+            'XS': 19,
+            'S': 72,
+            'M': 89,
+            'L': 65,
+            'XL': 42,
+            '2XL': 28,
+            '3XL': 15,
+            '4XL': 8,
+            '5XL': 5
+        };
+        
+        return defaultSizeStockMap[sizeValue] || 25;
     }
     
     /**

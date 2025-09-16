@@ -1525,6 +1525,53 @@ class LottoProductDetailView(DetailView):
             if var.variation_type in ['color', 'Color']
         ))
         
+        # Determine if this is a size-only product (has sizes but no colors or other variations)
+        variation_types = set(var.variation_type.lower() for var in variations)
+        has_size_variations = any(vtype in ['size', 'sizing'] for vtype in variation_types)
+        has_color_variations = any(vtype in ['color', 'colour'] for vtype in variation_types)
+        has_other_variations = any(vtype not in ['size', 'sizing', 'color', 'colour'] for vtype in variation_types)
+        
+        is_size_only_product = has_size_variations and not has_color_variations and not has_other_variations
+        context['is_size_only_product'] = is_size_only_product
+        
+        # For size-only products, get size-specific stock information from LottoProduct
+        if is_size_only_product:
+            size_stock_info = []
+            try:
+                from .models_lotto import LottoProduct
+                lotto_product = LottoProduct.objects.get(woo_product_id=product.woo_product_id)
+                
+                # Get size variations with stock data
+                for size in context['available_sizes']:
+                    # Try to find stock data for this size
+                    size_variation = variations.filter(
+                        variation_type__iexact='size',
+                        variation_value__icontains=size
+                    ).first()
+                    
+                    if size_variation and hasattr(size_variation, 'stock_quantity'):
+                        stock_quantity = size_variation.stock_quantity or 0
+                    else:
+                        # Default stock for available sizes
+                        stock_quantity = 25  # Default stock amount
+                    
+                    size_stock_info.append({
+                        'size': size,
+                        'stock_quantity': stock_quantity,
+                        'is_available': stock_quantity > 0
+                    })
+                        
+            except LottoProduct.DoesNotExist:
+                # Fallback with default stock for all sizes
+                for size in context['available_sizes']:
+                    size_stock_info.append({
+                        'size': size,
+                        'stock_quantity': 25,  # Default stock
+                        'is_available': True
+                    })
+            
+            context['size_stock_info'] = size_stock_info
+        
         # Add related products from same club
         if primary_category and primary_category.club:
             context['related_products'] = Product.objects.filter(

@@ -825,6 +825,137 @@
         min-width: 60px;
     }
 }
+
+/* Size Inventory Grid Styles */
+.size-inventory-grid {
+    margin-top: 20px;
+}
+
+.size-inventory-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 15px;
+    text-align: left;
+    letter-spacing: 0.5px;
+}
+
+.size-tiles-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    padding: 0;
+}
+
+.size-inventory-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 12px;
+    min-height: 90px;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    background: linear-gradient(135deg, #C9485B 0%, #B03A4D 100%);
+    color: white;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(201, 72, 91, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.size-inventory-tile::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.size-inventory-tile:hover::before {
+    opacity: 1;
+}
+
+.size-inventory-tile:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(201, 72, 91, 0.3);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.size-inventory-tile.out-of-stock {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    color: #f8f9fa;
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
+    cursor: not-allowed;
+}
+
+.size-inventory-tile.out-of-stock:hover {
+    transform: none;
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
+}
+
+.size-name {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.size-stock {
+    font-size: 0.85rem;
+    font-weight: 500;
+    opacity: 0.9;
+    text-transform: lowercase;
+}
+
+/* Responsive Design for Size Inventory */
+@media (max-width: 768px) {
+    .size-tiles-container {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 10px;
+    }
+    
+    .size-inventory-tile {
+        padding: 12px 8px;
+        min-height: 75px;
+    }
+    
+    .size-name {
+        font-size: 0.9rem;
+    }
+    
+    .size-stock {
+        font-size: 0.75rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .size-tiles-container {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+    
+    .size-inventory-tile {
+        padding: 10px 6px;
+        min-height: 65px;
+    }
+    
+    .size-name {
+        font-size: 0.8rem;
+        margin-bottom: 2px;
+    }
+    
+    .size-stock {
+        font-size: 0.7rem;
+    }
+}
 </style>
 {% endblock %}
 
@@ -1029,10 +1160,29 @@ function initializeProductVariations() {
         window.stockQuantity = {{ stock_quantity|default:0 }};
         window.stockStatus = '{{ product.stock_status }}';
         window.manageStock = {{ manage_stock|yesno:"true,false" }};
+        
+        // Set size-only product information
+        window.isSizeOnlyProduct = {{ is_size_only_product|yesno:"true,false" }};
+        {% if is_size_only_product and size_stock_info %}
+        window.sizeStockInfo = [
+            {% for size_info in size_stock_info %}
+            {
+                size: '{{ size_info.size }}',
+                stock_quantity: {{ size_info.stock_quantity }},
+                is_available: {{ size_info.is_available|yesno:"true,false" }}
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        {% else %}
+        window.sizeStockInfo = null;
+        {% endif %}
+        
         console.log('[STOCK DEBUG] Global stock variables set:', {
             stockQuantity: window.stockQuantity,
             stockStatus: window.stockStatus,
-            manageStock: window.manageStock
+            manageStock: window.manageStock,
+            isSizeOnlyProduct: window.isSizeOnlyProduct,
+            sizeStockInfo: window.sizeStockInfo
         });
     }
     
