@@ -19,7 +19,7 @@
 class ProductVariationManager {
     constructor(productId, productType = 'lotto', options = {}) {
         this.productId = productId;
-        this.productType = productType.toLowerCase();
+        this.productType = (productType || 'lotto').toLowerCase();
         this.selectedVariations = {};
         this.variations = {};
         this.groupedVariations = {};
@@ -114,7 +114,7 @@ class ProductVariationManager {
             container: document.querySelector('.variation-section, #productVariations'),
             colorOptions: document.querySelector('.color-options'),
             sizeOptions: document.querySelector('.size-options'),
-            ageGroupOptions: document.querySelector('.age-group-options'),
+            ageGroupOptions: document.querySelector('.category-options'), // Use category-options for SAS products
             priceDisplay: document.querySelector('.current-price, #productPrice'),
             stockStatus: document.querySelector('.stock-status'),
             addToCartBtn: document.querySelector('.add-to-cart-btn, .btn-add-to-cart'),
@@ -421,7 +421,7 @@ class ProductVariationManager {
             return;
         }
 
-        const ageGroups = this.groupedVariations.age_group || this.groupedVariations.gender || this.groupedVariations['select main category'] || [];
+        const ageGroups = this.groupedVariations.age_group || this.groupedVariations.gender || [];
         if (ageGroups.length === 0) return;
 
         // For SAS products, render as clickable swatches like colors
@@ -587,7 +587,7 @@ class ProductVariationManager {
         // Stock info will be shown in the size tiles instead
         const isUnavailable = target.dataset.available === 'false';
         const isColorSwatch = target.dataset.variationType === 'color';
-        const isCategorySwatch = target.dataset.variationType === 'age_group' || target.dataset.variationType === 'gender' || target.dataset.variationType === 'select main category';
+        const isCategorySwatch = target.dataset.variationType === 'age_group' || target.dataset.variationType === 'gender';
         const isSasProduct = this.productType === 'sas';
 
         if (!target || (isUnavailable && !((isColorSwatch || isCategorySwatch) && isSasProduct))) return;
@@ -622,7 +622,7 @@ class ProductVariationManager {
             // Apply same logic as click handler for SAS color and category swatches
             const isUnavailable = target.dataset.available === 'false';
             const isColorSwatch = target.dataset.variationType === 'color';
-            const isCategorySwatch = target.dataset.variationType === 'age_group' || target.dataset.variationType === 'gender' || target.dataset.variationType === 'select main category';
+            const isCategorySwatch = target.dataset.variationType === 'age_group' || target.dataset.variationType === 'gender';
             const isSasProduct = this.productType === 'sas';
             const isSize = target.dataset.variationType === 'size';
 
@@ -652,7 +652,7 @@ class ProductVariationManager {
         this.hasUserInteraction = true;
         
         // For SAS products, handle size filtering when age group changes
-        if (this.productType === 'sas' && (type === 'age_group' || type === 'gender' || type === 'select main category')) {
+        if (this.productType === 'sas' && (type === 'age_group' || type === 'gender')) {
             this.updateSizeOptionsForAgeGroup(value);
             // Also display category-size stock information like colors do
             console.log('[STOCK DEBUG] Category selected, calling displayCategorySizeStock with:', value);
@@ -1951,7 +1951,7 @@ class ProductVariationManager {
             'silver': '#c0c0c0'
         };
         
-        return colorMap[colorName.toLowerCase()] || '#6c757d';
+        return colorMap[(colorName || '').toLowerCase()] || '#6c757d';
     }
     
     /**
@@ -2345,8 +2345,8 @@ class ProductVariationManager {
     getSizeStockQuantity(sizeValue) {
         // First try to get from backend size stock data
         if (window.sizeStockInfo && Array.isArray(window.sizeStockInfo)) {
-            const sizeInfo = window.sizeStockInfo.find(info => 
-                info.size === sizeValue || info.size.toLowerCase() === sizeValue.toLowerCase()
+            const sizeInfo = window.sizeStockInfo.find(info =>
+                info.size === sizeValue || (info.size || '').toLowerCase() === (sizeValue || '').toLowerCase()
             );
             if (sizeInfo) {
                 return sizeInfo.stock_quantity;
@@ -2731,17 +2731,17 @@ class ProductVariationManager {
             return allSizes;
         }
         
-        const selectedAgeGroup = this.selectedVariations.age_group || this.selectedVariations.gender || this.selectedVariations['select main category'];
+        const selectedAgeGroup = this.selectedVariations.age_group || this.selectedVariations.gender;
         
         if (!selectedAgeGroup) {
             // No age group selected, show all sizes
             return allSizes;
         }
         
-        const ageGroupValue = selectedAgeGroup.value.toLowerCase();
+        const ageGroupValue = (selectedAgeGroup.value || '').toLowerCase();
         
         return allSizes.filter(size => {
-            const sizeValue = size.value.toLowerCase();
+            const sizeValue = (size.value || '').toLowerCase();
             
             if (ageGroupValue === 'adults' || ageGroupValue === 'adult') {
                 // Adult sizes: XS, S, M, L, XL, 2XL, 3XL, 4XL, 5XL
@@ -2761,8 +2761,8 @@ class ProductVariationManager {
      */
     sortSizes(sizes) {
         return sizes.sort((a, b) => {
-            const aValue = a.value.toLowerCase();
-            const bValue = b.value.toLowerCase();
+            const aValue = (a.value || '').toLowerCase();
+            const bValue = (b.value || '').toLowerCase();
             
             // Define sort order for adult sizes
             const adultOrder = ['xs', 's', 'm', 'l', 'xl', '2xl', '3xl', '4xl', '5xl'];
@@ -3016,13 +3016,21 @@ class ProductVariationManager {
         console.log('[STOCK DEBUG] *** FUNCTION CALLED *** Displaying stock for color:', colorValue);
         console.log('[STOCK DEBUG] Available variations count:', this.variations ? this.variations.length : 'undefined');
         console.log('[STOCK DEBUG] Available variations:', this.variations);
-        
+
         // Show loading state briefly
         this.showColorSizeStockLoading();
-        
+
+        // Check if variations are available
+        if (!this.variations || !Array.isArray(this.variations)) {
+            console.log('[STOCK DEBUG] No variations available for color filtering');
+            this.hideColorSizeStockDisplay();
+            return;
+        }
+
         // Filter variations for the selected color and extract size/stock data
         const colorVariations = this.variations.filter(v => {
-            const varColor = v.attributes?.color || 
+            if (!v) return false;
+            const varColor = v.attributes?.color ||
                            (v.value && v.value.includes(' - ') ? v.value.split(' - ')[1] : null);
             return varColor === colorValue;
         });
@@ -3037,10 +3045,10 @@ class ProductVariationManager {
         
         // Convert variations to size data format expected by display function
         const sizes = colorVariations.map(v => {
-            const size = v.attributes?.size || 
-                        (v.value && v.value.includes(' - ') ? v.value.split(' - ')[0] : v.value);
-            const stockQuantity = parseInt(v.stock) || 0;
-            const isAvailable = v.is_in_stock === true && stockQuantity > 0;
+            const size = v?.attributes?.size ||
+                        (v?.value && v.value.includes(' - ') ? v.value.split(' - ')[0] : v?.value || 'Unknown');
+            const stockQuantity = parseInt(v?.stock) || 0;
+            const isAvailable = v?.is_in_stock === true && stockQuantity > 0;
             
             console.log('[STOCK DEBUG] Processing variation:', {
                 variation: v,
@@ -3118,7 +3126,7 @@ class ProductVariationManager {
                                  colorName !== 'Bottle' &&
                                  colorName !== 'undefined' &&
                                  colorName !== '' &&
-                                 !colorName.toLowerCase().includes('bottle');
+                                 !(colorName || '').toLowerCase().includes('bottle');
 
         const headerText = isValidColorName
             ? `Stock Available for <strong>${colorName}</strong>`
@@ -3289,11 +3297,18 @@ class ProductVariationManager {
         // Show loading state briefly
         this.showColorSizeStockLoading();
 
+        // Check if variations are available
+        if (!this.variations || !Array.isArray(this.variations)) {
+            console.log('[STOCK DEBUG] No variations available for category filtering');
+            this.hideColorSizeStockDisplay();
+            return;
+        }
+
         // For SAS products with separate category and size variations,
         // show all size variations when a category is selected
         const categoryVariations = this.variations.filter(v => {
             // Check if this is a size variation
-            return v.type === 'size' && v.attributes && v.attributes.size;
+            return v && v.type === 'size' && v.attributes && v.attributes.size;
         });
 
         console.log('[STOCK DEBUG] Filtered variations for category', categoryValue, ':', categoryVariations);
@@ -3306,10 +3321,10 @@ class ProductVariationManager {
 
         // Convert variations to size data format expected by display function
         const sizes = categoryVariations.map(v => {
-            const size = v.attributes?.size ||
-                        (v.value && v.value.includes(' - ') ? v.value.split(' - ')[0] : v.value);
-            const stockQuantity = parseInt(v.stock) || 0;
-            const isAvailable = v.is_in_stock === true && stockQuantity > 0;
+            const size = v?.attributes?.size ||
+                        (v?.value && v.value.includes(' - ') ? v.value.split(' - ')[0] : v?.value || 'Unknown');
+            const stockQuantity = parseInt(v?.stock) || 0;
+            const isAvailable = v?.is_in_stock === true && stockQuantity > 0;
 
             console.log('[STOCK DEBUG] Processing category variation:', {
                 variation: v,
@@ -3360,7 +3375,7 @@ class ProductVariationManager {
         const adultSizeOrder = ['XS', 'S', 'M', 'L', 'XL', '2XL', 'XXL', '3XL', 'XXXL'];
         const kidsSizeOrder = ['4K', '6K', '8K', '10K', '12K', '14K', '16K'];
 
-        const isKidsCategory = categoryName.toLowerCase().includes('kid') || categoryName.toLowerCase().includes('child');
+        const isKidsCategory = (categoryName || '').toLowerCase().includes('kid') || (categoryName || '').toLowerCase().includes('child');
         const sizeOrder = isKidsCategory ? kidsSizeOrder : adultSizeOrder;
 
         const sortedSizes = sizes.sort((a, b) => {
@@ -3524,8 +3539,8 @@ class ProductVariationManager {
     getSASizeStockQuantity(sizeValue) {
         // First try to get from SAS-specific backend size stock data
         if (window.sasStockInfo && Array.isArray(window.sasStockInfo)) {
-            const sizeInfo = window.sasStockInfo.find(info => 
-                info.size === sizeValue || info.size.toLowerCase() === sizeValue.toLowerCase()
+            const sizeInfo = window.sasStockInfo.find(info =>
+                info.size === sizeValue || (info.size || '').toLowerCase() === (sizeValue || '').toLowerCase()
             );
             if (sizeInfo) {
                 return sizeInfo.stock_quantity;
@@ -3534,8 +3549,8 @@ class ProductVariationManager {
         
         // Fallback to general size stock data
         if (window.sizeStockInfo && Array.isArray(window.sizeStockInfo)) {
-            const sizeInfo = window.sizeStockInfo.find(info => 
-                info.size === sizeValue || info.size.toLowerCase() === sizeValue.toLowerCase()
+            const sizeInfo = window.sizeStockInfo.find(info =>
+                info.size === sizeValue || (info.size || '').toLowerCase() === (sizeValue || '').toLowerCase()
             );
             if (sizeInfo) {
                 return sizeInfo.stock_quantity;
