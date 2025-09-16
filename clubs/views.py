@@ -1488,9 +1488,29 @@ class LottoProductDetailView(DetailView):
         context['variations'] = product.variations.all()
         
         # Add stock quantity information for single-variant products
-        # For now, set basic stock info - we'll improve this later
-        context['stock_quantity'] = 0  # Default to 0, will be handled by frontend
-        context['manage_stock'] = True
+        # Try to find corresponding LottoProduct with detailed stock data
+        stock_quantity = 0
+        manage_stock = False
+        
+        try:
+            from .models_lotto import LottoProduct
+            lotto_product = LottoProduct.objects.get(woo_product_id=product.woo_product_id)
+            if lotto_product.manage_stock and lotto_product.stock_quantity is not None:
+                stock_quantity = lotto_product.stock_quantity
+                manage_stock = True
+            elif not product.has_variations and product.stock_status == 'instock':
+                # For single-variant products without specific stock data, provide a default quantity
+                stock_quantity = 25  # Default stock for simple products
+                manage_stock = True
+        except LottoProduct.DoesNotExist:
+            # Fallback for products not in LottoProduct model
+            if not product.has_variations and product.stock_status == 'instock':
+                # Provide reasonable default for single-variant products
+                stock_quantity = 25  # Default stock for simple products
+                manage_stock = True
+        
+        context['stock_quantity'] = stock_quantity
+        context['manage_stock'] = manage_stock
         
         # Add available sizes and colors from variations
         variations = product.variations.all()

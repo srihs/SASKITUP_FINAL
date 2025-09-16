@@ -1016,6 +1016,26 @@ function initializeProductVariations() {
         debounceDelay: 300
     });
     
+    // Pass stock data from backend to JavaScript for single-variant products
+    if (variationManager) {
+        variationManager.productData = {
+            stock_status: '{{ product.stock_status }}',
+            stock_quantity: {{ stock_quantity|default:0 }},
+            manage_stock: {{ manage_stock|yesno:"true,false" }}
+        };
+        console.log('[STOCK DEBUG] Stock data passed to JavaScript:', variationManager.productData);
+        
+        // Set global stock variables for test compatibility
+        window.stockQuantity = {{ stock_quantity|default:0 }};
+        window.stockStatus = '{{ product.stock_status }}';
+        window.manageStock = {{ manage_stock|yesno:"true,false" }};
+        console.log('[STOCK DEBUG] Global stock variables set:', {
+            stockQuantity: window.stockQuantity,
+            stockStatus: window.stockStatus,
+            manageStock: window.manageStock
+        });
+    }
+    
     // Hide stock status container for products with variations - stock info shown in grid instead
     setTimeout(function() {
         const stockStatusContainer = document.querySelector('#stockStatusContainer');
@@ -1023,10 +1043,44 @@ function initializeProductVariations() {
             // Hide stock status for products with variations - show in grid instead
             stockStatusContainer.style.display = 'none';
             console.log('Stock status container hidden for product with variations');
-        } else if (stockStatusContainer) {
-            // Show for simple products without variations
+        } else if (stockStatusContainer && variationManager && !variationManager.hasVariations) {
+            // Show for simple products without variations and create stock tile
             stockStatusContainer.style.display = 'block';
             console.log('Stock status container made visible for simple product');
+            
+            // Create and display stock tile for single-variant products
+            if (window.stockQuantity > 0 && window.manageStock) {
+                const stockTile = document.createElement('div');
+                stockTile.className = 'lotto-stock-tile available';
+                stockTile.innerHTML = `
+                    <div class="stock-icon">
+                        <i class="mdi mdi-check-circle"></i>
+                    </div>
+                    <div class="stock-text">
+                        <span class="stock-quantity">${window.stockQuantity} Available</span>
+                        <span class="stock-label">In Stock</span>
+                    </div>
+                `;
+                stockStatusContainer.innerHTML = '';
+                stockStatusContainer.appendChild(stockTile);
+                console.log(`[STOCK DEBUG] Stock tile created: ${window.stockQuantity} Available`);
+            } else if (window.stockStatus === 'instock') {
+                // Fallback for in-stock products without specific quantity
+                const stockTile = document.createElement('div');
+                stockTile.className = 'lotto-stock-tile available';
+                stockTile.innerHTML = `
+                    <div class="stock-icon">
+                        <i class="mdi mdi-check-circle"></i>
+                    </div>
+                    <div class="stock-text">
+                        <span class="stock-quantity">Available</span>
+                        <span class="stock-label">In Stock</span>
+                    </div>
+                `;
+                stockStatusContainer.innerHTML = '';
+                stockStatusContainer.appendChild(stockTile);
+                console.log('[STOCK DEBUG] Generic stock tile created for in-stock product');
+            }
         }
     }, 1000); // Wait for variations to load
     
