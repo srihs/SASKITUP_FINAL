@@ -1,0 +1,34 @@
+{
+  "total": 4,
+  "passed": 4,
+  "failed": 0,
+  "results": [
+    {
+      "test": "Category Swatches Exist",
+      "status": "PASS",
+      "message": "Found 2 category swatches",
+      "details": [
+        "Adults",
+        "Kids"
+      ]
+    },
+    {
+      "test": "Category Swatches Clickable",
+      "status": "PASS",
+      "message": "Successfully clicked and selected category: Adults",
+      "details": "Category swatch is clickable and shows selection state"
+    },
+    {
+      "test": "Stock Banner Display",
+      "status": "PASS",
+      "message": "Stock banner displayed correctly for category: Adults",
+      "details": "Header text: \ud83d\udce6\nStock Available for Adults"
+    },
+    {
+      "test": "Size Tiles Display",
+      "status": "PASS",
+      "message": "Size tiles displayed correctly: 7/7 valid",
+      "details": "Size tiles contain size names and stock information"
+    }
+  ]
+}

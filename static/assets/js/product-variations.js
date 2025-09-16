@@ -421,7 +421,7 @@ class ProductVariationManager {
             return;
         }
 
-        const ageGroups = this.groupedVariations.age_group || this.groupedVariations.gender || [];
+        const ageGroups = this.groupedVariations.age_group || this.groupedVariations.gender || this.groupedVariations['select main category'] || [];
         if (ageGroups.length === 0) return;
 
         // For SAS products, render as clickable swatches like colors
@@ -472,10 +472,8 @@ class ProductVariationManager {
 
         // For SAS, categories should always be clickable (like colors)
         // We show stock info in the size tiles instead
-        if (!variation.is_available) {
-            swatch.classList.add('disabled');
-            swatch.setAttribute('aria-disabled', 'true');
-        }
+        // Category swatches should behave like color swatches - always clickable
+        // Stock availability will be shown in the size grid when category is selected
 
         return swatch;
     }
@@ -589,7 +587,7 @@ class ProductVariationManager {
         // Stock info will be shown in the size tiles instead
         const isUnavailable = target.dataset.available === 'false';
         const isColorSwatch = target.dataset.variationType === 'color';
-        const isCategorySwatch = target.dataset.variationType === 'age_group' || target.dataset.variationType === 'gender';
+        const isCategorySwatch = target.dataset.variationType === 'age_group' || target.dataset.variationType === 'gender' || target.dataset.variationType === 'select main category';
         const isSasProduct = this.productType === 'sas';
 
         if (!target || (isUnavailable && !((isColorSwatch || isCategorySwatch) && isSasProduct))) return;
@@ -624,7 +622,7 @@ class ProductVariationManager {
             // Apply same logic as click handler for SAS color and category swatches
             const isUnavailable = target.dataset.available === 'false';
             const isColorSwatch = target.dataset.variationType === 'color';
-            const isCategorySwatch = target.dataset.variationType === 'age_group' || target.dataset.variationType === 'gender';
+            const isCategorySwatch = target.dataset.variationType === 'age_group' || target.dataset.variationType === 'gender' || target.dataset.variationType === 'select main category';
             const isSasProduct = this.productType === 'sas';
             const isSize = target.dataset.variationType === 'size';
 
@@ -3291,13 +3289,11 @@ class ProductVariationManager {
         // Show loading state briefly
         this.showColorSizeStockLoading();
 
-        // Filter variations for the selected category and extract size/stock data
+        // For SAS products with separate category and size variations,
+        // show all size variations when a category is selected
         const categoryVariations = this.variations.filter(v => {
-            const varCategory = v.attributes?.age_group || v.attributes?.gender ||
-                               (v.value && v.value.includes(' - ') ? v.value.split(' - ')[1] : null);
-            return varCategory === categoryValue ||
-                   (categoryValue.toLowerCase() === 'adults' && varCategory === 'Adult') ||
-                   (categoryValue.toLowerCase() === 'kids' && varCategory === 'Kids');
+            // Check if this is a size variation
+            return v.type === 'size' && v.attributes && v.attributes.size;
         });
 
         console.log('[STOCK DEBUG] Filtered variations for category', categoryValue, ':', categoryVariations);
