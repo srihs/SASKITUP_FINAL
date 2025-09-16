@@ -1073,6 +1073,40 @@ html {
     color: #6c757d !important;
 }
 
+/* LOTTO Page Size Button Styling - Use LOTTO Brand Colors */
+.lotto-page .variation-section .size-button,
+.lotto-product-page .variation-section .size-button {
+    background-color: #ffffff !important;
+    border: 2px solid var(--lotto-primary) !important;
+    color: var(--lotto-primary) !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+}
+
+.lotto-page .variation-section .size-button:hover,
+.lotto-product-page .variation-section .size-button:hover {
+    background-color: var(--lotto-primary-light) !important;
+    border-color: var(--lotto-primary) !important;
+    color: var(--lotto-primary) !important;
+    transform: none !important;
+}
+
+.lotto-page .variation-section .size-button.selected,
+.lotto-product-page .variation-section .size-button.selected {
+    background-color: var(--lotto-primary) !important;
+    border-color: var(--lotto-primary) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 8px var(--lotto-shadow-focus) !important;
+}
+
+.lotto-page .variation-section .size-button.disabled,
+.lotto-product-page .variation-section .size-button.disabled {
+    opacity: 0.4 !important;
+    background-color: #f8f9fa !important;
+    border-color: #dee2e6 !important;
+    color: #6c757d !important;
+}
+
 /* Ensure size labels are not focusable */
 .variation-section .size-button:focus {
     outline: none !important;
@@ -2075,6 +2109,20 @@ html {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
+/* LOTTO Page Stock Container Styling */
+.lotto-page .color-size-stock-display,
+.lotto-product-page .color-size-stock-display {
+    background: linear-gradient(135deg, var(--lotto-lighter) 0%, #ffffff 100%);
+    border: 2px solid var(--lotto-primary-light);
+    box-shadow: 0 4px 15px var(--lotto-shadow-soft);
+}
+
+.lotto-page .color-size-stock-display:hover,
+.lotto-product-page .color-size-stock-display:hover {
+    border-color: var(--lotto-primary);
+    box-shadow: 0 6px 20px var(--lotto-shadow-primary);
+}
+
 .color-size-stock-header {
     border-bottom: 1px solid #e9ecef;
     padding-bottom: 0.75rem;
@@ -2085,6 +2133,18 @@ html {
     font-weight: 600;
     color: #495057;
     margin-bottom: 0;
+}
+
+/* LOTTO Page Stock Header Styling */
+.lotto-page .color-size-stock-header h6,
+.lotto-product-page .color-size-stock-header h6 {
+    color: var(--lotto-primary) !important;
+    font-weight: 700;
+}
+
+.lotto-page .color-size-stock-header,
+.lotto-product-page .color-size-stock-header {
+    border-bottom-color: var(--lotto-primary-light);
 }
 
 .stock-grid .stock-item {
@@ -2183,11 +2243,67 @@ html {
 
 /* Brand-specific color adjustments */
 .lotto-page .color-size-stock-header .fa-tshirt {
-    color: #C9485B !important;
+    color: var(--lotto-primary) !important;
 }
 
 .sas-page .color-size-stock-header .fa-tshirt {
     color: #205295 !important;
+}
+
+/* Fix JavaScript-Generated Styles for LOTTO Pages */
+.lotto-page .size-button:hover,
+.lotto-page .age-group-button:hover,
+.lotto-page .variation-button:hover,
+.lotto-product-page .size-button:hover,
+.lotto-product-page .age-group-button:hover,
+.lotto-product-page .variation-button:hover {
+    border-color: var(--lotto-primary) !important;
+    background: var(--lotto-primary-light) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.lotto-page .size-button.selected,
+.lotto-page .age-group-button.selected,
+.lotto-page .variation-button.selected,
+.lotto-product-page .size-button.selected,
+.lotto-product-page .age-group-button.selected,
+.lotto-product-page .variation-button.selected {
+    border-color: var(--lotto-primary) !important;
+    background: var(--lotto-primary) !important;
+    color: white !important;
+    transform: translateY(-1px);
+    box-shadow: var(--lotto-shadow-primary) !important;
+}
+
+/* LOTTO Color Swatch Overrides for JavaScript-Generated Elements */
+.lotto-page .color-swatch:hover,
+.lotto-product-page .color-swatch:hover {
+    border-color: var(--lotto-primary) !important;
+    box-shadow: 0 4px 15px var(--lotto-shadow-primary) !important;
+}
+
+.lotto-page .color-swatch.selected,
+.lotto-product-page .color-swatch.selected {
+    border-color: var(--lotto-primary) !important;
+    box-shadow: 0 0 0 3px var(--lotto-primary), 0 4px 15px var(--lotto-shadow-primary) !important;
+}
+
+/* LOTTO Loading Spinner Colors */
+.lotto-page .loading-spinner,
+.lotto-product-page .loading-spinner {
+    border-top-color: var(--lotto-primary) !important;
+}
+
+/* LOTTO Focus States for Accessibility */
+.lotto-page .size-button:focus,
+.lotto-page .color-swatch:focus,
+.lotto-page .variation-button:focus,
+.lotto-product-page .size-button:focus,
+.lotto-product-page .color-swatch:focus,
+.lotto-product-page .variation-button:focus {
+    outline: 2px solid var(--lotto-primary) !important;
+    outline-offset: 2px !important;
 }
 
 /* Dark mode support */

@@ -397,7 +397,7 @@
     display: block;
 }
 
-/* LOTTO Product Color Variations */
+/* LOTTO Product Color Variations with Enhanced LOTTO Styling */
 .variation-section {
     margin: 20px 0;
     padding: 0;
@@ -408,11 +408,12 @@
     padding: 0;
 }
 
-.variation-title {
+.variation-title,
+.option-label h6 {
     font-weight: 600;
     margin-bottom: 10px;
     font-size: 16px;
-    color: #333;
+    color: var(--lotto-primary) !important;
 }
 
 .color-swatches {
@@ -426,24 +427,33 @@
     display: inline-block;
     width: 80px;
     height: 80px;
-    border: 2px solid #dee2e6;
+    border: 3px solid var(--lotto-primary-light);
     margin: 0;
     cursor: pointer;
     border-radius: 8px;
     overflow: hidden;
     position: relative;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
     background: #f8f9fa;
+    box-shadow: 0 2px 8px var(--lotto-shadow-soft);
 }
 
 .color-swatch:hover {
     border-color: var(--lotto-primary);
     transform: scale(1.05);
+    box-shadow: 0 4px 15px var(--lotto-shadow-primary);
 }
 
 .color-swatch.selected {
     border-color: var(--lotto-primary);
-    box-shadow: 0 0 0 2px var(--lotto-shadow-focus);
+    box-shadow: 0 0 0 3px var(--lotto-primary), 0 4px 15px var(--lotto-shadow-primary);
+    transform: scale(1.05);
+}
+
+.color-swatch.disabled {
+    opacity: 0.5;
+    border-color: #dee2e6;
+    box-shadow: none;
 }
 
 .color-swatch-image {
