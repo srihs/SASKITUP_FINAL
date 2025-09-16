@@ -420,23 +420,66 @@ class ProductVariationManager {
             console.log('No grouped variations available for age groups');
             return;
         }
-        
+
         const ageGroups = this.groupedVariations.age_group || this.groupedVariations.gender || [];
         if (ageGroups.length === 0) return;
-        
-        // For SAS products, show as "Select Main Category" instead of "Age Group"
-        const title = this.productType === 'sas' ? 'Select Main Category' : 'Age Group';
-        const container = this.elements.ageGroupOptions || this.createVariationContainer('age_group', title);
-        container.innerHTML = `<div class="variation-title">${title}:</div><div class="age-group-buttons"></div>`;
-        
-        const buttonContainer = container.querySelector('.age-group-buttons');
-        
-        ageGroups.forEach(variation => {
-            const button = this.createAgeGroupButton(variation);
-            buttonContainer.appendChild(button);
-        });
+
+        // For SAS products, render as clickable swatches like colors
+        if (this.productType === 'sas') {
+            // Use the category-options container from the template
+            const container = document.querySelector('.category-options');
+            if (!container) return;
+
+            const swatchContainer = container.querySelector('.category-swatches');
+            if (!swatchContainer) return;
+
+            // Clear existing content
+            swatchContainer.innerHTML = '';
+
+            ageGroups.forEach(variation => {
+                const swatch = this.createCategorySwatch(variation);
+                swatchContainer.appendChild(swatch);
+            });
+        } else {
+            // Original LOTTO behavior - use buttons
+            const title = 'Age Group';
+            const container = this.elements.ageGroupOptions || this.createVariationContainer('age_group', title);
+            container.innerHTML = `<div class="variation-title">${title}:</div><div class="age-group-buttons"></div>`;
+
+            const buttonContainer = container.querySelector('.age-group-buttons');
+
+            ageGroups.forEach(variation => {
+                const button = this.createAgeGroupButton(variation);
+                buttonContainer.appendChild(button);
+            });
+        }
     }
     
+    /**
+     * Create a category swatch element (for SAS products)
+     */
+    createCategorySwatch(variation) {
+        const swatch = document.createElement('div');
+        swatch.className = 'category-swatch';
+        swatch.dataset.variationType = variation.type;
+        swatch.dataset.variationValue = variation.value;
+        swatch.dataset.variationId = variation.id;
+        swatch.dataset.available = variation.is_available;
+        swatch.setAttribute('role', 'button');
+        swatch.setAttribute('tabindex', '0');
+        swatch.setAttribute('aria-label', `Select ${variation.value}`);
+        swatch.textContent = variation.value;
+
+        // For SAS, categories should always be clickable (like colors)
+        // We show stock info in the size tiles instead
+        if (!variation.is_available) {
+            swatch.classList.add('disabled');
+            swatch.setAttribute('aria-disabled', 'true');
+        }
+
+        return swatch;
+    }
+
     /**
      * Create an age group button element
      */
@@ -450,13 +493,13 @@ class ProductVariationManager {
         button.setAttribute('role', 'button');
         button.setAttribute('aria-label', `Select ${variation.value}`);
         button.textContent = variation.value;
-        
+
         if (!variation.is_available) {
             button.disabled = true;
             button.classList.add('disabled');
             button.setAttribute('aria-disabled', 'true');
         }
-        
+
         return button;
     }
     
@@ -542,13 +585,14 @@ class ProductVariationManager {
     handleVariationClick(event) {
         const target = event.target.closest('[data-variation-type]');
 
-        // For SAS products, allow clicking on color swatches even when marked unavailable
+        // For SAS products, allow clicking on color swatches and category swatches even when marked unavailable
         // Stock info will be shown in the size tiles instead
         const isUnavailable = target.dataset.available === 'false';
         const isColorSwatch = target.dataset.variationType === 'color';
+        const isCategorySwatch = target.dataset.variationType === 'age_group' || target.dataset.variationType === 'gender';
         const isSasProduct = this.productType === 'sas';
 
-        if (!target || (isUnavailable && !(isColorSwatch && isSasProduct))) return;
+        if (!target || (isUnavailable && !((isColorSwatch || isCategorySwatch) && isSasProduct))) return;
         
         const variationType = target.dataset.variationType;
         
@@ -577,13 +621,14 @@ class ProductVariationManager {
         if (event.key === 'Enter' || event.key === ' ') {
             const target = event.target.closest('[data-variation-type]');
 
-            // Apply same logic as click handler for SAS color swatches
+            // Apply same logic as click handler for SAS color and category swatches
             const isUnavailable = target.dataset.available === 'false';
             const isColorSwatch = target.dataset.variationType === 'color';
+            const isCategorySwatch = target.dataset.variationType === 'age_group' || target.dataset.variationType === 'gender';
             const isSasProduct = this.productType === 'sas';
             const isSize = target.dataset.variationType === 'size';
 
-            if (target && !isSize && (target.dataset.available !== 'false' || (isColorSwatch && isSasProduct))) {
+            if (target && !isSize && (target.dataset.available !== 'false' || ((isColorSwatch || isCategorySwatch) && isSasProduct))) {
                 event.preventDefault();
                 this.handleVariationClick(event);
             }
@@ -611,15 +656,18 @@ class ProductVariationManager {
         // For SAS products, handle size filtering when age group changes
         if (this.productType === 'sas' && (type === 'age_group' || type === 'gender' || type === 'select main category')) {
             this.updateSizeOptionsForAgeGroup(value);
+            // Also display category-size stock information like colors do
+            console.log('[STOCK DEBUG] Category selected, calling displayCategorySizeStock with:', value);
+            this.displayCategorySizeStock(value);
         }
-        
+
         // Update price and check stock
         this.updatePrice();
         if (this.options.enableStockCheck && showStock) {
             this.showStockStatusAfterSelection();
             this.debouncedStockCheck();
         }
-        
+
         // Display color-size stock information when a color is selected
         if (type === 'color') {
             console.log('[STOCK DEBUG] Color selected, calling displayColorSizeStock with:', value);
@@ -3229,6 +3277,183 @@ class ProductVariationManager {
             container.style.display = 'none';
             container.innerHTML = ''; // Clear the content
         }
+    }
+
+    /**
+     * Display stock information for all sizes in a specific category (Adults/Kids)
+     * Similar to displayColorSizeStock but for SAS category variations
+     * @param {string} categoryValue - The selected category value (Adults/Kids)
+     */
+    displayCategorySizeStock(categoryValue) {
+        console.log('[STOCK DEBUG] *** FUNCTION CALLED *** Displaying stock for category:', categoryValue);
+        console.log('[STOCK DEBUG] Available variations count:', this.variations ? this.variations.length : 'undefined');
+
+        // Show loading state briefly
+        this.showColorSizeStockLoading();
+
+        // Filter variations for the selected category and extract size/stock data
+        const categoryVariations = this.variations.filter(v => {
+            const varCategory = v.attributes?.age_group || v.attributes?.gender ||
+                               (v.value && v.value.includes(' - ') ? v.value.split(' - ')[1] : null);
+            return varCategory === categoryValue ||
+                   (categoryValue.toLowerCase() === 'adults' && varCategory === 'Adult') ||
+                   (categoryValue.toLowerCase() === 'kids' && varCategory === 'Kids');
+        });
+
+        console.log('[STOCK DEBUG] Filtered variations for category', categoryValue, ':', categoryVariations);
+
+        if (categoryVariations.length === 0) {
+            console.log('No variations found for category:', categoryValue);
+            this.hideColorSizeStockDisplay();
+            return;
+        }
+
+        // Convert variations to size data format expected by display function
+        const sizes = categoryVariations.map(v => {
+            const size = v.attributes?.size ||
+                        (v.value && v.value.includes(' - ') ? v.value.split(' - ')[0] : v.value);
+            const stockQuantity = parseInt(v.stock) || 0;
+            const isAvailable = v.is_in_stock === true && stockQuantity > 0;
+
+            console.log('[STOCK DEBUG] Processing category variation:', {
+                variation: v,
+                size: size,
+                stock: stockQuantity,
+                is_available: isAvailable
+            });
+
+            return {
+                size: size,
+                stock_quantity: stockQuantity,
+                is_available: isAvailable,
+                stock_status: stockQuantity > 0 ? 'instock' : 'outofstock'
+            };
+        });
+
+        // Create data object in expected format
+        const data = {
+            success: true,
+            category: categoryValue,
+            sizes: sizes
+        };
+
+        console.log('[STOCK DEBUG] Final category stock data:', data);
+
+        // Save the stock data and show the stock display with a small delay to show loading
+        this.lastStockData = data;
+        setTimeout(() => {
+            this.showCategorySizeStockDisplay(data);
+        }, 200);
+    }
+
+    /**
+     * Display the category stock information in a formatted way
+     * @param {Object} data - The stock data for category
+     */
+    showCategorySizeStockDisplay(data) {
+        const container = this.getOrCreateColorSizeStockContainer();
+        if (!container || !data || !data.sizes || data.sizes.length === 0) {
+            this.hideColorSizeStockDisplay();
+            return;
+        }
+
+        const categoryName = data.category;
+        const sizes = data.sizes;
+
+        // Sort sizes in proper order for display: XS, S, M, L, XL, 2XL, 3XL for Adults; 4K, 6K, etc. for Kids
+        const adultSizeOrder = ['XS', 'S', 'M', 'L', 'XL', '2XL', 'XXL', '3XL', 'XXXL'];
+        const kidsSizeOrder = ['4K', '6K', '8K', '10K', '12K', '14K', '16K'];
+
+        const isKidsCategory = categoryName.toLowerCase().includes('kid') || categoryName.toLowerCase().includes('child');
+        const sizeOrder = isKidsCategory ? kidsSizeOrder : adultSizeOrder;
+
+        const sortedSizes = sizes.sort((a, b) => {
+            const aIndex = sizeOrder.indexOf(a.size);
+            const bIndex = sizeOrder.indexOf(b.size);
+            return (aIndex !== -1 ? aIndex : 999) - (bIndex !== -1 ? bIndex : 999);
+        });
+
+        // Create header text for category
+        const headerText = `Stock Available for <strong>${categoryName}</strong>`;
+
+        let stockHtml = `
+            <div class="stock-grid-header mb-3 d-flex align-items-center">
+                <span class="me-2" style="font-size: 1.2rem;">📦</span>
+                <h6 class="mb-0">${headerText}</h6>
+            </div>
+            <div class="stock-grid-4x2">
+        `;
+
+        // Create first row (up to 4 sizes)
+        const firstRowSizes = sortedSizes.slice(0, 4);
+        firstRowSizes.forEach(sizeInfo => {
+            const isAvailable = sizeInfo.is_available;
+            const stockQuantity = sizeInfo.stock_quantity;
+            const stockStatus = sizeInfo.stock_status;
+            const sizeName = sizeInfo.size;
+
+            let stockText = '';
+            let badgeClass = 'text-white sas-stock-available';
+
+            if (isAvailable && stockQuantity > 0) {
+                stockText = `${stockQuantity} available`;
+                badgeClass = 'text-white sas-stock-available';
+            } else if (stockStatus === 'onbackorder') {
+                stockText = 'On backorder';
+                badgeClass = 'bg-warning text-dark';
+            } else {
+                stockText = 'Out of stock';
+                badgeClass = 'bg-secondary text-white';
+            }
+
+            stockHtml += `
+                <div class="size-tile">
+                    <div class="size-name">SIZE ${sizeName}</div>
+                    <span class="stock-badge ${badgeClass}">${stockText}</span>
+                </div>
+            `;
+        });
+
+        stockHtml += `</div>`;
+
+        // Create second row if more sizes exist
+        const secondRowSizes = sortedSizes.slice(4, 7);
+        if (secondRowSizes.length > 0) {
+            stockHtml += `<div class="stock-grid-4x2 mt-2">`;
+
+            secondRowSizes.forEach(sizeInfo => {
+                const isAvailable = sizeInfo.is_available;
+                const stockQuantity = sizeInfo.stock_quantity;
+                const stockStatus = sizeInfo.stock_status;
+                const sizeName = sizeInfo.size;
+
+                let stockText = '';
+                let badgeClass = 'text-white sas-stock-available';
+
+                if (isAvailable && stockQuantity > 0) {
+                    stockText = `${stockQuantity} available`;
+                    badgeClass = 'text-white sas-stock-available';
+                } else if (stockStatus === 'onbackorder') {
+                    stockText = 'On backorder';
+                    badgeClass = 'bg-warning text-dark';
+                } else {
+                    stockText = 'Out of stock';
+                    badgeClass = 'bg-secondary text-white';
+                }
+
+                stockHtml += `
+                    <div class="size-tile">
+                        <div class="size-name">SIZE ${sizeName}</div>
+                        <span class="stock-badge ${badgeClass}">${stockText}</span>
+                    </div>
+                `;
+            });
+
+            stockHtml += `</div>`;
+        }
+
+        container.innerHTML = stockHtml;
+        container.style.display = 'block';
     }
     
     /**

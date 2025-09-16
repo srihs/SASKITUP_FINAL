@@ -415,7 +415,57 @@
     font-weight: 600;
     margin-bottom: 10px;
     font-size: 16px;
-    color: var(--sas-primary) !important;
+    color: #205295 !important;
+}
+
+/* Category Swatches - Styled like color swatches for consistency */
+.category-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+}
+
+.category-swatch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 120px;
+    height: 80px;
+    border: 3px solid rgba(32, 82, 149, 0.3);
+    margin: 0;
+    cursor: pointer;
+    border-radius: 8px;
+    position: relative;
+    transition: all 0.3s ease;
+    background: #f8f9fa;
+    box-shadow: 0 2px 8px rgba(32, 82, 149, 0.1);
+    font-weight: 600;
+    font-size: 16px;
+    color: #495057;
+    text-align: center;
+    padding: 8px;
+}
+
+.category-swatch:hover {
+    border-color: #205295;
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(32, 82, 149, 0.3);
+}
+
+.category-swatch.selected {
+    border-color: #205295;
+    background-color: #205295;
+    color: white;
+    box-shadow: 0 0 0 3px #205295, 0 4px 15px rgba(32, 82, 149, 0.3);
+    transform: scale(1.05);
+}
+
+.category-swatch.disabled {
+    opacity: 0.5;
+    border-color: #dee2e6;
+    box-shadow: none;
+    cursor: not-allowed;
 }
 
 .color-swatches {
@@ -429,7 +479,7 @@
     display: inline-block;
     width: 80px;
     height: 80px;
-    border: 3px solid var(--sas-primary-light);
+    border: 3px solid rgba(32, 82, 149, 0.3);
     margin: 0;
     cursor: pointer;
     border-radius: 8px;
@@ -437,18 +487,18 @@
     position: relative;
     transition: all 0.3s ease;
     background: #f8f9fa;
-    box-shadow: 0 2px 8px var(--sas-shadow-soft);
+    box-shadow: 0 2px 8px rgba(32, 82, 149, 0.1);
 }
 
 .color-swatch:hover {
-    border-color: var(--sas-primary);
+    border-color: #205295;
     transform: scale(1.05);
-    box-shadow: 0 4px 15px var(--sas-shadow-primary);
+    box-shadow: 0 4px 15px rgba(32, 82, 149, 0.3);
 }
 
 .color-swatch.selected {
-    border-color: var(--sas-primary);
-    box-shadow: 0 0 0 3px var(--sas-primary), 0 4px 15px var(--sas-shadow-primary);
+    border-color: #205295;
+    box-shadow: 0 0 0 3px #205295, 0 4px 15px rgba(32, 82, 149, 0.3);
     transform: scale(1.05);
 }
 
@@ -1076,6 +1126,16 @@
 
                 <!-- Dynamic Product Variations -->
                 <div class="variation-section" id="productVariations">
+                    <!-- Category Options (Adults/Kids) - Styled like color swatches -->
+                    <div class="category-options mb-4">
+                        <div class="option-label mb-3">
+                            <h6 class="mb-2">Category:</h6>
+                        </div>
+                        <div class="category-swatches">
+                            <!-- Category swatches will be dynamically loaded here -->
+                        </div>
+                    </div>
+
                     <!-- Color Options -->
                     <div class="color-options mb-4">
                         <div class="option-label mb-3">

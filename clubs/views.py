@@ -2582,11 +2582,11 @@ def sas_product_variations_api(request, product_id):
                 else:
                     stock_status = 'outofstock'
 
-                # For SAS products, colors should always be selectable regardless of stock
+                # For SAS products, colors and categories should always be selectable regardless of stock
                 # Stock information is shown in the size tiles instead
                 is_available = is_in_stock
-                if var_type in ['color', 'colour']:
-                    is_available = True  # Always allow color selection for SAS
+                if var_type in ['color', 'colour', 'age_group', 'gender']:
+                    is_available = True  # Always allow color and category selection for SAS
 
                 enhanced_variation = {
                     'id': variation['id'],
