@@ -1,605 +1,350 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static club_extras %}
+
+{% block body_class %} class="sas-page sas-product-detail-page"{% endblock %}
 
 {% block extra_css %}
 <style>
-/* Modern E-commerce Product Page Design - Inspired by Reference */
-
-/* Container */
-.product-detail-container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 2rem 1rem;
+/* SAS Product Detail Page Styles */
+.sas-product-page {
+    background-color: #fafbfc;
+    min-height: 100vh;
 }
 
-/* Main Product Layout */
-.product-main {
-    background: #fff;
-    border-radius: 16px;
-    box-shadow: 0 2px 20px rgba(0,0,0,0.08);
-    overflow: hidden;
-    margin-bottom: 2rem;
-}
-
-/* Left Side - Image Gallery */
+/* Product Image Gallery */
 .product-gallery {
     position: relative;
-    background: #fafafa;
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    padding: 2rem;
-}
-
-.thumbnail-sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    width: 80px;
-    flex-shrink: 0;
-}
-
-.thumbnail-image {
-    width: 80px;
-    height: 80px;
-    object-fit: cover;
-    border-radius: 8px;
-    border: 2px solid transparent;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    background: #fff;
-}
-
-.thumbnail-image:hover {
-    border-color: #205295;
-    transform: scale(1.05);
-}
-
-.thumbnail-image.active {
-    border-color: #205295;
-    box-shadow: 0 4px 12px rgba(32, 82, 149, 0.3);
-}
-
-.main-image-container {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 500px;
 }
 
 .main-product-image {
-    max-width: 100%;
-    max-height: 500px;
-    object-fit: contain;
+    position: relative;
     border-radius: 12px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border: 2px solid rgba(32, 82, 149, 0.1);
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
 }
 
-/* Right Side - Product Information */
+.main-product-image:hover {
+    border-color: rgba(32, 82, 149, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 35px rgba(32, 82, 149, 0.15);
+}
+
+.main-product-image img {
+    width: 100%;
+    height: 500px;
+    object-fit: contain;
+    transition: transform 0.3s ease;
+}
+
+.main-product-image:hover img {
+    transform: scale(1.05);
+}
+
+.product-thumbnails {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.thumbnail-item {
+    width: 100px;
+    height: 100px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid #e9ecef;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.thumbnail-item:hover,
+.thumbnail-item.active {
+    border-color: #205295;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(32, 82, 149, 0.3);
+}
+
+.thumbnail-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* Color Variation Thumbnail Sidebar */
+.thumbnail-sidebar {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.thumbnail-sidebar .thumbnail-image {
+    width: 100px;
+    height: 100px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid #e9ecef;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    object-fit: contain;
+}
+
+.thumbnail-sidebar .thumbnail-image:hover,
+.thumbnail-sidebar .thumbnail-image.active {
+    border-color: #205295;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(32, 82, 149, 0.3);
+}
+
+/* Product Information */
 .product-info {
-    padding: 3rem;
+    padding: 2rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(32, 82, 149, 0.1);
 }
 
-/* Product Title */
 .product-title {
-    font-size: 2.5rem;
-    font-weight: 600;
-    color: #1a1a1a;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #2c3e50;
     margin-bottom: 1rem;
-    line-height: 1.2;
+    line-height: 1.3;
 }
 
-/* Star Rating */
-.product-rating {
+.product-club-info {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 12px;
     margin-bottom: 1.5rem;
+    padding: 12px 16px;
+    background: rgba(32, 82, 149, 0.05);
+    border-radius: 8px;
+    border-left: 4px solid #205295;
 }
 
-.stars {
-    display: flex;
-    gap: 2px;
+.club-logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #205295;
 }
 
-.star {
-    color: #ddd;
-    font-size: 1.2rem;
+.club-name {
+    font-weight: 600;
+    color: #205295;
+    font-size: 1.1rem;
 }
 
-.star.filled {
-    color: #ffc107;
-}
-
-.rating-text {
-    color: #666;
-    font-size: 0.9rem;
-    margin-left: 0.5rem;
-}
-
-/* Price */
-.price-container {
+/* Pricing */
+.product-pricing {
     margin-bottom: 2rem;
+}
+
+.price-container {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
 }
 
 .current-price {
     font-size: 2.5rem;
     font-weight: 700;
-    color: #1a1a1a;
-    display: inline-block;
+    color: #205295;
 }
 
 .original-price {
-    font-size: 1.5rem;
-    color: #999;
-    text-decoration: line-through;
-    margin-left: 1rem;
-}
-
-/* Stock Status and Purchase Info */
-.purchase-info {
-    margin-bottom: 2rem;
-}
-
-.stock-indicator {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
-}
-
-.stock-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #28a745;
-}
-
-.stock-text {
-    font-weight: 500;
-    color: #1a1a1a;
-}
-
-.viewing-info {
-    color: #666;
-    font-size: 0.9rem;
-    margin-bottom: 0.5rem;
-}
-
-.sold-info {
-    color: #ff6b6b;
-    font-size: 0.9rem;
-}
-
-/* Variation Selectors */
-.variation-group {
-    margin-bottom: 2rem;
-}
-
-.variation-label {
-    font-weight: 600;
-    color: #1a1a1a;
-    margin-bottom: 1rem;
-    font-size: 1.1rem;
-}
-
-/* Enhanced Color Selector with SAS Brand Colors */
-.color-options {
-    display: flex;
-    gap: 0.75rem;
-    margin-bottom: 2rem;
-}
-
-.color-option {
-    width: 50px;
-    height: 50px;
-    border-radius: 8px;
-    cursor: pointer;
-    border: 3px solid transparent;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.color-option:hover {
-    transform: scale(1.1);
-    border-color: #205295;
-}
-
-.color-option.selected {
-    border-color: #205295;
-    box-shadow: 0 4px 12px rgba(32, 82, 149, 0.3);
-}
-
-.color-option.selected::after {
-    content: '✓';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: white;
-    font-weight: bold;
-    font-size: 1.2rem;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-    z-index: 2;
-}
-
-/* Color Swatch Image Support */
-.color-swatch-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 5px;
-    transition: transform 0.2s ease;
-}
-
-.color-swatch:hover .color-swatch-image {
-    transform: scale(1.1);
-}
-
-.color-swatch.selected .color-swatch-image {
-    transform: scale(1.1);
-}
-
-/* Enhanced thumbnail gallery for color variations */
-.thumbnail-image {
-    transition: all 0.3s ease;
-}
-
-.thumbnail-image[data-color-value] {
-    border: 2px solid #e0e0e0;
-}
-
-.thumbnail-image[data-color-value]:hover {
-    border-color: #007bff;
-    transform: scale(1.05);
-}
-
-.thumbnail-image[data-color-value].active {
-    border-color: #007bff;
-    box-shadow: 0 4px 12px rgba(0,123,255,0.3);
-}
-
-/* Size Selector */
-.size-options {
-    display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-    margin-bottom: 2rem;
-}
-
-.size-option {
-    padding: 0.75rem 1.25rem;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    background: #fff;
-    cursor: pointer;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    min-width: 50px;
-    text-align: center;
-    color: #1a1a1a;
-}
-
-.size-option:hover {
-    border-color: #205295;
-    background: rgba(32, 82, 149, 0.08);
-}
-
-.size-option.selected {
-    border-color: #205295;
-    background: #205295;
-    color: white;
-}
-
-.size-option:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    font-size: 1.8rem;
+    color: #6c757d;
     text-decoration: line-through;
 }
 
-/* Size Guide Link */
-.size-guide {
-    color: #666;
-    text-decoration: underline;
-    font-size: 0.9rem;
-    cursor: pointer;
-    float: right;
-}
-
-/* Quantity and Add to Cart */
-.purchase-section {
-    margin-bottom: 2rem;
-}
-
-.quantity-row {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.quantity-control {
-    display: flex;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.quantity-btn {
-    background: #f8f9fa;
-    border: none;
-    padding: 0.75rem 1rem;
-    cursor: pointer;
-    font-size: 1.2rem;
-    font-weight: bold;
-    color: #666;
-    transition: all 0.3s ease;
-}
-
-.quantity-btn:hover {
-    background: #205295;
+.discount-badge {
+    background: linear-gradient(135deg, #205295, #2C74B3);
     color: white;
-}
-
-.quantity-input {
-    border: none;
-    padding: 0.75rem;
-    width: 80px;
-    text-align: center;
-    font-weight: 600;
-    background: #fff;
-    font-size: 1.1rem;
-}
-
-/* Action Buttons */
-.action-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    margin-bottom: 2rem;
-}
-
-.btn-add-to-cart {
-    background: #000;
-    color: white;
-    border: none;
-    padding: 1.25rem 2rem;
-    border-radius: 8px;
-    font-size: 1.1rem;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    width: 100%;
 }
 
-.btn-add-to-cart:hover {
-    background: #333;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+.price-note {
+    font-size: 0.9rem;
+    color: #6c757d;
+    font-style: italic;
 }
 
-.btn-buy-now {
-    background: #f5f5f5;
-    color: #1a1a1a;
-    border: 2px solid #e0e0e0;
-    padding: 1.25rem 2rem;
-    border-radius: 8px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    width: 100%;
-}
-
-.btn-buy-now:hover {
-    background: #e9ecef;
-    border-color: #ccc;
-}
-
-/* Secondary Actions */
-.secondary-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 1.5rem;
-    border-top: 1px solid #e0e0e0;
+/* Product Variations */
+.variation-section {
     margin-bottom: 2rem;
 }
 
-.action-link {
+.variation-title {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 12px;
+    font-size: 1.1rem;
+}
+
+.variation-options {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: #666;
-    text-decoration: none;
-    font-size: 0.9rem;
-    transition: color 0.3s ease;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
-.action-link:hover {
-    color: #205295;
-}
-
-/* Product Info Section */
-.product-info-section {
-    border-top: 1px solid #e0e0e0;
-    padding-top: 2rem;
-}
-
-.info-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-    color: #666;
-    font-size: 0.9rem;
-}
-
-.info-icon {
-    color: #205295;
-    margin-top: 2px;
-    flex-shrink: 0;
-}
-
-/* Vendor Info */
-.vendor-info {
-    margin-top: 2rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid #e0e0e0;
-}
-
-.vendor-row {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
-}
-
-.vendor-label {
-    color: #666;
-    font-size: 0.9rem;
-}
-
-.vendor-value {
-    color: #1a1a1a;
-    font-weight: 500;
-}
-
-/* Product Details Tabs */
-.product-details {
-    background: #fff;
-    border-radius: 16px;
-    box-shadow: 0 2px 20px rgba(0,0,0,0.08);
-    overflow: hidden;
-}
-
-.details-nav {
-    display: flex;
-    border-bottom: 1px solid #e0e0e0;
-}
-
-.details-tab {
-    padding: 1.5rem 2rem;
-    background: none;
-    border: none;
-    font-weight: 500;
-    color: #666;
+.variation-option {
+    padding: 12px 20px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.3s ease;
-    border-bottom: 3px solid transparent;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    background: white;
 }
 
-.details-tab.active {
-    color: #205295;
-    border-bottom-color: #205295;
-    background: rgba(32, 82, 149, 0.08);
+.variation-option:hover {
+    border-color: #205295;
+    background-color: rgba(32, 82, 149, 0.05);
 }
 
-.details-content {
-    padding: 2rem;
-    display: none;
+.variation-option.selected {
+    border-color: #205295;
+    background-color: #205295;
+    color: white;
 }
 
-.details-content.active {
-    display: block;
+.variation-option.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: #f8f9fa;
 }
 
 /* Responsive Design */
-@media (max-width: 991.98px) {
-    .product-main {
-        border-radius: 0;
-        box-shadow: none;
-    }
-    
-    .product-gallery {
-        flex-direction: column;
-        align-items: center;
-    }
-    
-    .thumbnail-sidebar {
-        flex-direction: row;
-        width: auto;
-        justify-content: center;
-        order: 2;
-    }
-    
-    .main-image-container {
-        order: 1;
-        min-height: 400px;
-    }
-    
-    .product-info {
-        padding: 2rem 1.5rem;
-    }
-    
+@media (max-width: 1024px) {
     .product-title {
-        font-size: 2rem;
+        font-size: 1.75rem;
     }
-    
+
     .current-price {
         font-size: 2rem;
+    }
+
+    .original-price {
+        font-size: 1.5rem;
+    }
+
+    .main-product-image img {
+        height: 450px;
+    }
+}
+
+@media (max-width: 992px) {
+    .main-product-image img {
+        height: 400px;
+    }
+
+    .thumbnail-item {
+        width: 90px;
+        height: 90px;
+    }
+
+    .thumbnail-sidebar .thumbnail-image {
+        width: 90px;
+        height: 90px;
+    }
+
+    .color-swatch {
+        width: 70px;
+        height: 70px;
     }
 }
 
 @media (max-width: 768px) {
-    .product-detail-container {
-        padding: 1rem 0.5rem;
+    .sas-product-page {
+        padding: 1rem 0;
     }
-    
+
     .product-info {
-        padding: 1.5rem 1rem;
+        padding: 1.5rem;
+        margin-top: 2rem;
     }
-    
+
     .product-title {
-        font-size: 1.75rem;
+        font-size: 1.5rem;
     }
-    
+
     .current-price {
-        font-size: 1.75rem;
+        font-size: 1.8rem;
     }
-    
-    .size-options {
-        justify-content: center;
+
+    .main-product-image img {
+        height: 350px;
+        object-fit: contain;
     }
-    
-    .quantity-row {
-        justify-content: center;
-        flex-wrap: wrap;
-    }
-    
-    .secondary-actions {
+}
+
+@media (max-width: 576px) {
+    .price-container {
         flex-direction: column;
-        gap: 1rem;
-        align-items: stretch;
+        align-items: flex-start;
+        gap: 8px;
     }
-    
-    .details-nav {
-        flex-wrap: wrap;
+
+    .main-product-image img {
+        height: 280px;
+        object-fit: contain;
     }
-    
-    .details-tab {
-        flex: 1;
-        min-width: 120px;
-        padding: 1rem;
-        text-align: center;
+
+    .product-thumbnails {
+        justify-content: center;
+    }
+
+    .thumbnail-item {
+        width: 80px;
+        height: 80px;
+    }
+
+    .variation-options {
+        justify-content: center;
+    }
+
+    .club-logo {
+        width: 32px;
+        height: 32px;
+    }
+
+    .club-name {
+        font-size: 1rem;
     }
 }
 
 /* Loading States */
-.loading {
-    opacity: 0.6;
-    pointer-events: none;
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    z-index: 10;
 }
 
-.spinner {
-    display: inline-block;
-    width: 20px;
-    height: 20px;
-    border: 3px solid #f3f3f3;
-    border-top: 3px solid #205295;
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e9ecef;
+    border-top: 4px solid #205295;
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -609,27 +354,30 @@
     100% { transform: rotate(360deg); }
 }
 
-/* Animation for variation changes */
-.variation-changing {
-    transition: all 0.3s ease;
+/* Accessibility */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
-/* ========== STOCK CONTAINER STYLES ========== */
-
-/* Stock Grid Container */
-.stock-grid-container {
-    opacity: 1;
-    transition: opacity 0.3s ease;
+/* Focus states */
+.thumbnail-item:focus,
+.variation-option:focus {
+    outline: 2px solid #205295;
+    outline-offset: 2px;
 }
 
-/* Stock Status Container */
+/* Stock Status Visibility */
 .stock-status-container {
     opacity: 1;
     transition: opacity 0.3s ease;
-    padding: 1rem;
-    background: rgba(248, 249, 250, 0.5);
-    border-radius: 8px;
-    border: 1px solid #e9ecef;
 }
 
 .stock-status-hidden {
@@ -639,10 +387,157 @@
 
 .stock-status-visible {
     opacity: 1;
-    pointer-events: all;
+    pointer-events: auto;
 }
 
-/* SAS Brand Stock Tiles */
+/* Variations Section Visibility */
+.variation-section-hidden {
+    display: none !important;
+}
+
+.variation-section-visible {
+    display: block;
+}
+
+/* SAS Product Color Variations with Enhanced SAS Styling */
+.variation-section {
+    margin: 20px 0;
+    padding: 0;
+}
+
+.variation-group {
+    margin: 15px 0;
+    padding: 0;
+}
+
+.variation-title,
+.option-label h6 {
+    font-weight: 600;
+    margin-bottom: 10px;
+    font-size: 16px;
+    color: var(--sas-primary) !important;
+}
+
+.color-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+}
+
+.color-swatch {
+    display: inline-block;
+    width: 80px;
+    height: 80px;
+    border: 3px solid var(--sas-primary-light);
+    margin: 0;
+    cursor: pointer;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    transition: all 0.3s ease;
+    background: #f8f9fa;
+    box-shadow: 0 2px 8px var(--sas-shadow-soft);
+}
+
+.color-swatch:hover {
+    border-color: var(--sas-primary);
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px var(--sas-shadow-primary);
+}
+
+.color-swatch.selected {
+    border-color: var(--sas-primary);
+    box-shadow: 0 0 0 3px var(--sas-primary), 0 4px 15px var(--sas-shadow-primary);
+    transform: scale(1.05);
+}
+
+.color-swatch.disabled {
+    opacity: 0.5;
+    border-color: #dee2e6;
+    box-shadow: none;
+}
+
+.color-swatch-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.variation-loading {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+}
+
+.loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #ddd;
+    border-top: 2px solid #333;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Stock Status Styles */
+.stock-status-container {
+    padding: 1rem;
+    background: rgba(248, 249, 250, 0.5);
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.stock-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+}
+
+.stock-status.in-stock {
+    background-color: rgba(40, 167, 69, 0.1);
+    color: #28a745;
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.stock-status.low-stock {
+    background-color: rgba(255, 193, 7, 0.1);
+    color: #ffc107;
+    border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.stock-status.out-of-stock {
+    background-color: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+    border: 1px solid rgba(220, 53, 69, 0.3);
+}
+
+.stock-status.on-backorder {
+    background-color: rgba(23, 162, 184, 0.1);
+    color: #17a2b8;
+    border: 1px solid rgba(23, 162, 184, 0.3);
+}
+
+.stock-status i {
+    font-size: 1.1em;
+}
+
+.stock-status:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* SAS Stock Tiles for Two-Scenario System */
 .sas-stock-tile {
     display: flex;
     align-items: center;
@@ -654,13 +549,12 @@
     text-align: center;
     transition: all 0.3s ease;
     border: 2px solid transparent;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
     position: relative;
     overflow: hidden;
-    margin-bottom: 8px;
-    animation: stockTileSlideIn 0.4s ease-out;
+    min-height: 80px;
 }
 
-/* SAS Brand Animation Effect */
 .sas-stock-tile::before {
     content: '';
     position: absolute;
@@ -733,25 +627,104 @@
 .stock-quantity {
     font-weight: 700;
     font-size: 1.2rem;
-    display: block;
-    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 2;
 }
 
-.stock-label {
-    font-weight: 500;
-    font-size: 0.9rem;
-    opacity: 0.8;
-    display: block;
-    margin-top: 2px;
-}
-
+/* Icon Support for Stock Tiles */
 .sas-stock-tile .stock-icon {
     font-size: 1.4rem;
     margin-right: 8px;
     opacity: 0.8;
 }
 
-/* Stock Grid 4x2 Layout for Size-Only Products */
+/* Animation for stock tiles appearing */
+.sas-stock-tile {
+    animation: stockTileSlideIn 0.4s ease-out;
+}
+
+@keyframes stockTileSlideIn {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive Design for Stock Tiles */
+@media (max-width: 768px) {
+    .sas-stock-tile {
+        padding: 16px;
+        font-size: 1rem;
+        min-height: 70px;
+    }
+
+    .stock-quantity {
+        font-size: 1.1rem;
+    }
+
+    .sas-stock-tile .stock-icon {
+        font-size: 1.2rem;
+        margin-right: 6px;
+    }
+}
+
+@media (max-width: 576px) {
+    .sas-stock-tile {
+        padding: 12px;
+        font-size: 0.95rem;
+        min-height: 60px;
+    }
+
+    .stock-quantity {
+        font-size: 1rem;
+    }
+
+    .sas-stock-tile .stock-icon {
+        font-size: 1.1rem;
+        margin-right: 4px;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .sas-stock-tile {
+        border-width: 3px;
+    }
+
+    .sas-stock-tile.in-stock {
+        border-color: #28a745;
+        background: rgba(40, 167, 69, 0.2);
+    }
+
+    .sas-stock-tile.low-stock {
+        border-color: #ffc107;
+        background: rgba(255, 193, 7, 0.2);
+    }
+
+    .sas-stock-tile.out-of-stock {
+        border-color: #dc3545;
+        background: rgba(220, 53, 69, 0.2);
+    }
+
+    .sas-stock-tile.contact {
+        border-color: #205295;
+        background: rgba(32, 82, 149, 0.2);
+    }
+}
+
+/* Focus states for accessibility */
+.sas-stock-tile:focus {
+    outline: 3px solid #205295;
+    outline-offset: 2px;
+}
+
+/* Stock Grid 4x2 Layout for Scenario 1 */
 .stock-grid-4x2 {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -766,46 +739,36 @@
     padding: 16px 12px;
     text-align: center;
     transition: all 0.3s ease;
-    min-height: 90px;
+    min-height: 100px;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
-    position: relative;
-    overflow: hidden;
 }
 
-.size-tile.available {
-    background: linear-gradient(135deg, rgba(32, 82, 149, 0.08), rgba(32, 82, 149, 0.03));
-    border-color: rgba(32, 82, 149, 0.4);
-    color: #205295;
-}
-
-.size-tile.available:hover {
-    background: linear-gradient(135deg, rgba(32, 82, 149, 0.12), rgba(32, 82, 149, 0.06));
+.size-tile:hover {
     border-color: #205295;
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(32, 82, 149, 0.15);
-}
-
-.size-tile.out-of-stock {
-    background: linear-gradient(135deg, rgba(220, 53, 69, 0.08), rgba(220, 53, 69, 0.03));
-    border-color: rgba(220, 53, 69, 0.4);
-    color: #dc3545;
-    opacity: 0.7;
+    box-shadow: 0 4px 12px rgba(32, 82, 149, 0.15);
 }
 
 .size-name {
-    font-weight: 700;
-    font-size: 1rem;
-    margin-bottom: 4px;
-    display: block;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #495057;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.size-stock {
-    font-size: 0.85rem;
-    font-weight: 500;
-    opacity: 0.8;
+.stock-badge {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 16px;
+    white-space: nowrap;
+    min-width: 80px;
+    text-align: center;
 }
 
 .stock-grid-header {
@@ -819,707 +782,543 @@
     font-weight: 600;
 }
 
-/* Animation for stock tiles appearing */
-@keyframes stockTileSlideIn {
-    0% {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    100% {
-        opacity: 1;
-        transform: translateY(0);
-    }
+/* Color Size Stock Container Positioning */
+.color-size-stock-display {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
 }
 
 /* Responsive adjustments for stock grid */
-@media (max-width: 992px) {
-    .sas-stock-tile {
-        padding: 16px;
-        font-size: 1rem;
-        min-height: 70px;
-    }
-    
-    .stock-quantity {
-        font-size: 1.1rem;
-    }
-    
-    .sas-stock-tile .stock-icon {
-        font-size: 1.2rem;
-        margin-right: 6px;
-    }
-    
+@media (max-width: 768px) {
     .stock-grid-4x2 {
         grid-template-columns: repeat(2, 1fr);
         gap: 10px;
     }
-    
+
     .size-tile {
         min-height: 80px;
         padding: 12px 8px;
     }
+
+    .size-name {
+        font-size: 0.8rem;
+        margin-bottom: 6px;
+    }
+
+    .stock-badge {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        min-width: 70px;
+    }
 }
 
 @media (max-width: 576px) {
-    .sas-stock-tile {
-        padding: 12px;
-        font-size: 0.95rem;
-        min-height: 60px;
-    }
-    
-    .stock-quantity {
-        font-size: 1rem;
-    }
-    
-    .sas-stock-tile .stock-icon {
-        font-size: 1.1rem;
-        margin-right: 4px;
-    }
-    
     .stock-grid-4x2 {
         grid-template-columns: repeat(2, 1fr);
         gap: 8px;
     }
-    
+
     .size-tile {
         min-height: 70px;
         padding: 10px 6px;
     }
-}
 
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-    .sas-stock-tile {
-        border-width: 3px;
+    .size-name {
+        font-size: 0.75rem;
+        margin-bottom: 4px;
     }
-    
-    .sas-stock-tile.in-stock {
-        border-color: #28a745;
-        background: rgba(40, 167, 69, 0.2);
-    }
-    
-    .sas-stock-tile.low-stock {
-        border-color: #ffc107;
-        background: rgba(255, 193, 7, 0.2);
-    }
-    
-    .sas-stock-tile.out-of-stock {
-        border-color: #dc3545;
-        background: rgba(220, 53, 69, 0.2);
-    }
-    
-    .sas-stock-tile.contact {
-        border-color: #205295;
-        background: rgba(32, 82, 149, 0.2);
+
+    .stock-badge {
+        font-size: 0.7rem;
+        padding: 3px 6px;
+        min-width: 60px;
     }
 }
 
-/* Focus states for accessibility */
-.sas-stock-tile:focus {
-    outline: 3px solid #205295;
-    outline-offset: 2px;
+/* Size Inventory Grid Styles */
+.size-inventory-grid {
+    margin-top: 20px;
+}
+
+.size-inventory-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 15px;
+    text-align: left;
+    letter-spacing: 0.5px;
+}
+
+.size-tiles-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    padding: 0;
+}
+
+.size-inventory-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 12px;
+    min-height: 90px;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    background: linear-gradient(135deg, #205295 0%, #1B4A89 100%);
+    color: white;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(32, 82, 149, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.size-inventory-tile::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.size-inventory-tile:hover::before {
+    opacity: 1;
+}
+
+.size-inventory-tile:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(32, 82, 149, 0.3);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.size-inventory-tile.out-of-stock {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    color: #f8f9fa;
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
+    cursor: not-allowed;
+}
+
+.size-inventory-tile.out-of-stock:hover {
+    transform: none;
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
+}
+
+.size-name {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.size-stock {
+    font-size: 0.85rem;
+    font-weight: 500;
+    opacity: 0.9;
+    text-transform: lowercase;
+}
+
+/* Responsive Design for Size Inventory */
+@media (max-width: 768px) {
+    .size-tiles-container {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 10px;
+    }
+
+    .size-inventory-tile {
+        padding: 12px 8px;
+        min-height: 75px;
+    }
+
+    .size-name {
+        font-size: 0.9rem;
+    }
+
+    .size-stock {
+        font-size: 0.75rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .size-tiles-container {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+
+    .size-inventory-tile {
+        padding: 10px 6px;
+        min-height: 65px;
+    }
+
+    .size-name {
+        font-size: 0.8rem;
+        margin-bottom: 2px;
+    }
+
+    .size-stock {
+        font-size: 0.7rem;
+    }
 }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="sas-page">
-
-    <!-- Product Detail Container -->
-    <div class="product-detail-container">
-        <!-- Main Product Section -->
-        <div class="product-main">
-            <div class="row g-0">
-                <!-- Left Column: Image Gallery -->
-                <div class="col-lg-6">
-                    <div class="product-gallery">
-                        <!-- Thumbnail Sidebar -->
-                        {% if product.gallery_urls %}
-                        <div class="thumbnail-sidebar">
-                            <!-- Main image thumbnail -->
-                            {% if product.image_url %}
-                            <img src="{% url 'clubs:proxy-image' %}?url={{ product.image_url|urlencode }}" 
-                                 alt="{{ product.name }}" 
-                                 class="thumbnail-image active" 
-                                 onclick="changeMainImage(this.src)">
-                            {% endif %}
-                            
-                            <!-- Additional gallery images -->
-                            {% for gallery_url in product.gallery_urls %}
-                            <img src="{% url 'clubs:proxy-image' %}?url={{ gallery_url|urlencode }}" 
-                                 alt="{{ product.name }}" 
-                                 class="thumbnail-image" 
-                                 onclick="changeMainImage(this.src)"
-                                 onerror="this.style.display='none'">
-                            {% endfor %}
+<div class="sas-product-page">
+    <div class="row">
+        <!-- Product Image Gallery -->
+        <div class="col-lg-6 col-md-12">
+            <div class="product-gallery">
+                <div class="main-product-image" id="mainImageContainer">
+                    {% if product.image_url %}
+                        <img src="{{ product.image_url }}"
+                             alt="{{ product.name }}"
+                             id="mainProductImage"
+                             class="img-fluid">
+                    {% else %}
+                        <div class="d-flex align-items-center justify-content-center h-100" style="min-height: 500px;">
+                            <div class="text-center text-muted">
+                                <i class="uil-image-broken font-size-48 mb-3"></i>
+                                <p>No image available</p>
+                            </div>
                         </div>
-                        {% endif %}
-
-                        <!-- Main Product Image -->
-                        <div class="main-image-container">
-                            {% if product.image_url %}
-                                <img src="{% url 'clubs:proxy-image' %}?url={{ product.image_url|urlencode }}" 
-                                     alt="{{ product.name }}" 
-                                     class="main-product-image" 
-                                     id="mainProductImage"
-                                     onerror="this.src='{% static 'assets/images/product-placeholder.jpg' %}'">
-                            {% else %}
-                                <div class="main-product-image d-flex align-items-center justify-content-center">
-                                    <div class="text-center">
-                                        <i class="uil-shopping-bag font-size-48 text-muted mb-3"></i>
-                                        <p class="text-muted">No Image Available</p>
-                                    </div>
-                                </div>
-                            {% endif %}
-                        </div>
-
-                        <!-- Stock Availability Grid (positioned under main image as per design) -->
-                        <div class="stock-grid-container mt-3">
-                            <!-- Stock availability will be displayed here for products with variations -->
-                        </div>
-                        
-                        <!-- Stock Status Container for Single-Variant Products -->
-                        <div id="stockStatusContainer" class="stock-status-container mt-3" style="display: none;">
-                            <!-- Stock tile for single-variant products will be populated by JavaScript -->
-                        </div>
-                    </div>
+                    {% endif %}
                 </div>
 
-                <!-- Right Column: Product Information -->
-                <div class="col-lg-6">
-                    <div class="product-info">
-                        <!-- Product Title -->
-                        <h1 class="product-title">{{ product.name }}</h1>
-
-                        <!-- Product Rating (placeholder for future) -->
-                        <div class="product-rating">
-                            <div class="stars">
-                                <span class="star filled">★</span>
-                                <span class="star filled">★</span>
-                                <span class="star filled">★</span>
-                                <span class="star filled">★</span>
-                                <span class="star">★</span>
-                            </div>
-                            <span class="rating-text">(4.2) • 128 reviews</span>
-                        </div>
-
-                        <!-- Price Container -->
-                        <div class="price-container">
-                            <span class="current-price">R{{ product.effective_price }}</span>
-                            {% if product.is_on_sale %}
-                                <span class="original-price">R{{ product.regular_price }}</span>
-                            {% endif %}
-                        </div>
-
-                        <!-- Purchase Info -->
-                        <div class="purchase-info">
-                            <div class="stock-indicator">
-                                <span class="stock-dot {% if product.stock_status != 'instock' %}bg-danger{% endif %}"></span>
-                                <span class="stock-text">
-                                    {% if product.stock_status == 'instock' %}
-                                        In Stock
-                                    {% elif product.stock_status == 'outofstock' %}
-                                        Out of Stock
-                                    {% else %}
-                                        Available on Backorder
-                                    {% endif %}
-                                </span>
-                            </div>
-                            <div class="viewing-info">👁 12 people are viewing this product</div>
-                            <div class="sold-info">🔥 3 sold in last 24 hours</div>
-                        </div>
-
-                        <!-- Product Description -->
-                        {% if product.short_description %}
-                        <div class="product-description mb-4">
-                            {{ product.short_description|striptags|truncatewords:30 }}
-                        </div>
-                        {% endif %}
-
-                        <!-- Dynamic Product Variations -->
-                        <div class="variation-section" id="productVariations">
-                            <!-- Variations will be dynamically loaded here -->
-                            <div class="variation-loading">
-                                <div class="d-flex align-items-center">
-                                    <div class="spinner me-3"></div>
-                                    <span>Loading product options...</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Purchase Section -->
-                        <div class="purchase-section">
-                            <!-- Quantity Selector -->
-                            <div class="quantity-row">
-                                <label class="me-3 fw-bold">Quantity:</label>
-                                <div class="quantity-control">
-                                    <button type="button" class="quantity-btn" onclick="decreaseQuantity()">−</button>
-                                    <input type="number" class="quantity-input" id="productQuantity" value="1" min="1" max="99">
-                                    <button type="button" class="quantity-btn" onclick="increaseQuantity()">+</button>
-                                </div>
-                            </div>
-
-                            <!-- Action Buttons -->
-                            <div class="action-buttons">
-                                {% if product.stock_status != 'outofstock' %}
-                                <button type="button" class="btn-add-to-cart" onclick="addToCart()">
-                                    <i class="uil-shopping-cart me-2"></i>
-                                    Add to Cart
-                                </button>
-                                <button type="button" class="btn-buy-now">
-                                    Buy Now
-                                </button>
-                                {% else %}
-                                <button type="button" class="btn-add-to-cart" disabled>
-                                    <i class="uil-times-circle me-2"></i>
-                                    Out of Stock
-                                </button>
-                                {% endif %}
-                            </div>
-
-                            <!-- Secondary Actions -->
-                            <div class="secondary-actions">
-                                <a href="#" class="action-link" onclick="addToWishlist()">
-                                    <i class="uil-heart"></i>
-                                    <span>Add to Wishlist</span>
-                                </a>
-                                <a href="#" class="action-link">
-                                    <i class="uil-share-alt"></i>
-                                    <span>Share</span>
-                                </a>
-                                <a href="#" class="action-link">
-                                    <i class="uil-question-circle"></i>
-                                    <span>Ask a Question</span>
-                                </a>
-                            </div>
-                        </div>
-
-                        <!-- Product Info Section -->
-                        <div class="product-info-section">
-                            <div class="info-item">
-                                <i class="uil-truck info-icon"></i>
-                                <span>Free shipping on orders over R500</span>
-                            </div>
-                            <div class="info-item">
-                                <i class="uil-redo info-icon"></i>
-                                <span>30-day return policy</span>
-                            </div>
-                            <div class="info-item">
-                                <i class="uil-shield-check info-icon"></i>
-                                <span>1-year warranty included</span>
-                            </div>
-                        </div>
-
-                        <!-- Vendor Info -->
-                        <div class="vendor-info">
-                            <div class="vendor-row">
-                                <span class="vendor-label">Club:</span>
-                                <span class="vendor-value">{{ product.club.name }}</span>
-                            </div>
-                            <div class="vendor-row">
-                                <span class="vendor-label">Sport:</span>
-                                <span class="vendor-value">{{ product.club.sport.name|default:"General" }}</span>
-                            </div>
-                            {% if product.sku %}
-                            <div class="vendor-row">
-                                <span class="vendor-label">SKU:</span>
-                                <span class="vendor-value">{{ product.sku }}</span>
-                            </div>
-                            {% endif %}
-                        </div>
+                <!-- Thumbnail Gallery -->
+                {% if product.images %}
+                <div class="product-thumbnails" id="thumbnailGallery">
+                    {% for image in product.images %}
+                    <div class="thumbnail-item {% if forloop.first %}active{% endif %}"
+                         data-image="{{ image.src|proxy_image_url }}"
+                         role="button"
+                         tabindex="0"
+                         aria-label="View product image {{ forloop.counter }}">
+                        <img src="{{ image.src|proxy_image_url }}"
+                             alt="{{ product.name }} - Image {{ forloop.counter }}"
+                             class="img-fluid">
                     </div>
+                    {% endfor %}
                 </div>
+                {% endif %}
+
+                <!-- Color Variation Thumbnail Sidebar (for dynamic color images) -->
+                <div class="thumbnail-sidebar" id="colorThumbnailSidebar" style="display: none;">
+                    <!-- Color variation thumbnails will be inserted here by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Stock Availability Grid (positioned under main image as per design) -->
+            <div class="stock-grid-container mt-3">
+                <!-- Stock availability will be displayed here for products with variations -->
+            </div>
+
+            <!-- Stock Status Container for Single-Variant Products -->
+            <div id="stockStatusContainer" class="stock-status-container mt-3" style="display: none;">
+                <!-- Stock tile for single-variant products will be populated by JavaScript -->
             </div>
         </div>
 
-        <!-- Product Details Section -->
-        <div class="product-details">
-            <div class="details-nav">
-                <button class="details-tab active" onclick="showDetailsTab(this, 'description')">Description</button>
-                {% if product.weight or product.dimensions %}
-                <button class="details-tab" onclick="showDetailsTab(this, 'specifications')">Specifications</button>
-                {% endif %}
-                {% if product.attributes %}
-                <button class="details-tab" onclick="showDetailsTab(this, 'attributes')">Attributes</button>
-                {% endif %}
-                <button class="details-tab" onclick="showDetailsTab(this, 'shipping')">Shipping & Returns</button>
-            </div>
-            
-            <!-- Description Tab -->
-            <div class="details-content active" id="description">
-                {% if product.description %}
-                    {{ product.description|striptags|linebreaks }}
-                {% else %}
-                    <p class="text-muted">No detailed description available for this product.</p>
-                {% endif %}
-            </div>
-            
-            <!-- Specifications Tab -->
-            {% if product.weight or product.dimensions %}
-            <div class="details-content" id="specifications">
-                <div class="table-responsive">
-                    <table class="table table-borderless">
-                        {% if product.weight %}
-                        <tr>
-                            <td class="fw-semibold" style="width: 30%;">Weight:</td>
-                            <td>{{ product.weight }}</td>
-                        </tr>
-                        {% endif %}
-                        {% if product.dimensions %}
-                            {% for key, value in product.dimensions.items %}
-                            <tr>
-                                <td class="fw-semibold">{{ key|title }}:</td>
-                                <td>{{ value }}</td>
-                            </tr>
-                            {% endfor %}
-                        {% endif %}
-                    </table>
+        <!-- Product Information -->
+        <div class="col-lg-6 col-md-12">
+            <div class="product-info">
+                <!-- Club Information -->
+                <div class="product-club-info">
+                    {% if primary_category.club.logo %}
+                        <img src="{{ primary_category.club.logo|proxy_image_url }}"
+                             alt="{{ primary_category.club.name }} logo"
+                             class="club-logo">
+                    {% else %}
+                        <div class="club-logo d-flex align-items-center justify-content-center bg-sas-primary text-white">
+                            <i class="uil-building font-size-16"></i>
+                        </div>
+                    {% endif %}
+                    <div>
+                        <div class="club-name">{{ primary_category.club.name }}</div>
+                        <small class="text-muted">{{ primary_category.name }}</small>
+                    </div>
+                    <span class="badge badge-sas ms-auto">SAS</span>
                 </div>
-            </div>
-            {% endif %}
-            
-            <!-- Attributes Tab -->
-            {% if product.attributes %}
-            <div class="details-content" id="attributes">
-                <div class="table-responsive">
-                    <table class="table table-borderless">
-                        {% for attribute in product.attributes %}
-                        <tr>
-                            <td class="fw-semibold" style="width: 30%;">{{ attribute.name }}:</td>
-                            <td>
-                                {% if attribute.options %}
-                                    {{ attribute.options|join:", " }}
-                                {% else %}
-                                    {{ attribute.option|default:"Not specified" }}
-                                {% endif %}
-                            </td>
-                        </tr>
+
+                <!-- Product Title -->
+                <h1 class="product-title">{{ product.name }}</h1>
+
+                <!-- Product Pricing -->
+                <div class="product-pricing">
+                    <div class="price-container">
+                        <div class="current-price" id="productPrice">${{ product.effective_price|floatformat:2 }}</div>
+
+                        {% if product.is_on_sale %}
+                            <div class="original-price">${{ product.regular_price|floatformat:2 }}</div>
+                            <span class="discount-badge">
+                                {{ product.discount_percentage|floatformat:0 }}% OFF
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    {% if product.price_html %}
+                        <div class="price-note">{{ product.price_html|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Dynamic Product Variations -->
+                <div class="variation-section" id="productVariations">
+                    <!-- Color Options -->
+                    <div class="color-options mb-4">
+                        <div class="option-label mb-3">
+                            <h6 class="mb-2">Available Colors</h6>
+                        </div>
+                        <div class="color-swatches">
+                            <!-- Color swatches will be dynamically loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Size Options -->
+                    <div class="size-options mb-4">
+                        <div class="option-label mb-3">
+                            <h6 class="mb-2">Select Size</h6>
+                        </div>
+                        <div class="size-buttons">
+                            <!-- Size buttons will be dynamically loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stock Status removed - Stock information is displayed in the grid under the product image for products with variations -->
+
+                <!-- Product Meta Information -->
+                <div class="product-meta">
+                    {% if product.sku %}
+                    <p class="mb-2">
+                        <strong>SKU:</strong>
+                        <span class="text-muted">{{ product.sku }}</span>
+                    </p>
+                    {% endif %}
+
+                    {% if product.tags %}
+                    <p class="mb-2">
+                        <strong>Tags:</strong>
+                        {% for tag in product.tags %}
+                            <span class="badge bg-soft-sas-primary text-sas-primary me-1">{{ tag.name }}</span>
                         {% endfor %}
-                    </table>
-                </div>
-            </div>
-            {% endif %}
-            
-            <!-- Shipping & Returns Tab -->
-            <div class="details-content" id="shipping">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6 class="fw-bold mb-3">Shipping Information</h6>
-                        <ul class="list-unstyled">
-                            <li class="mb-2">
-                                <i class="uil-truck me-2 text-success"></i>
-                                Free shipping on orders over R500
-                            </li>
-                            <li class="mb-2">
-                                <i class="uil-clock me-2 text-info"></i>
-                                3-5 business days delivery
-                            </li>
-                            <li class="mb-2">
-                                <i class="uil-map-marker me-2 text-warning"></i>
-                                Nationwide delivery available
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="col-md-6">
-                        <h6 class="fw-bold mb-3">Return Policy</h6>
-                        <ul class="list-unstyled">
-                            <li class="mb-2">
-                                <i class="uil-redo me-2 text-success"></i>
-                                30-day return window
-                            </li>
-                            <li class="mb-2">
-                                <i class="uil-shield-check me-2 text-info"></i>
-                                Quality guarantee
-                            </li>
-                            <li class="mb-2">
-                                <i class="uil-question-circle me-2 text-warning"></i>
-                                Customer support available
-                            </li>
-                        </ul>
-                    </div>
+                    </p>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <!-- Include the Product Variations Library -->
-<script src="{% static 'assets/js/product-variations.js' %}?v=20250915-1315"></script>
+<script src="{% static 'assets/js/product-variations.js' %}?v=20250916-2"></script>
 
-<!-- JavaScript for Interactive Elements -->
 <script>
 // Global variables for product variation management
 let variationManager;
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize product variations
-    initializeProductVariations();
-    
-    // Initialize other interactive elements
+    // Initialize product detail functionality
     initializeImageGallery();
-    initializeQuantityControls();
-    initializeAddToCart();
+
+    // Initialize dynamic product variations
+    initializeProductVariations();
+
+    // Initialize tooltips
+    var tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltips.map(function(tooltip) {
+        return new bootstrap.Tooltip(tooltip);
+    });
 });
 
 // Initialize Product Variations
 function initializeProductVariations() {
-    const productId = {{ product.id }};
+    const productId = {{ product.woo_product_id }};
     const productType = 'sas';
-    
-    console.log('🔧 Initializing ProductVariationManager for SAS product:', productId);
-    console.log('🔧 Product type:', productType);
-    console.log('🔧 ProductVariationManager class available:', typeof ProductVariationManager);
-    
+
+    // Ensure price display shows correct initial value (fix for empty $ display)
+    const priceElement = document.querySelector('#productPrice, .current-price');
+    if (priceElement && priceElement.textContent.trim() === '$') {
+        priceElement.textContent = '${{ product.effective_price|floatformat:2 }}';
+    }
+
     // Create variation manager
     variationManager = new ProductVariationManager(productId, productType, {
-        enableStockCheck: true,
+        enableStockCheck: true, // Always enable stock checking for consistent display
         enablePriceUpdates: true,
         enableLoadingStates: true,
         debounceDelay: 300
     });
-    
-    console.log('🔧 Variation manager created:', variationManager);
-    
+
+    // Pass stock data from backend to JavaScript for single-variant products
+    if (variationManager) {
+        variationManager.productData = {
+            stock_status: '{{ product.stock_status }}',
+            stock_quantity: {{ stock_quantity|default:0 }},
+            manage_stock: {{ manage_stock|yesno:"true,false" }}
+        };
+        console.log('[STOCK DEBUG] Stock data passed to JavaScript:', variationManager.productData);
+
+        // Set global stock variables for test compatibility
+        window.stockQuantity = {{ stock_quantity|default:0 }};
+        window.stockStatus = '{{ product.stock_status }}';
+        window.manageStock = {{ manage_stock|yesno:"true,false" }};
+
+        // Set size-only product information
+        window.isSizeOnlyProduct = {{ is_size_only_product|yesno:"true,false" }};
+        {% if is_size_only_product and size_stock_info %}
+        window.sizeStockInfo = [
+            {% for size_info in size_stock_info %}
+            {
+                size: '{{ size_info.size }}',
+                stock_quantity: {{ size_info.stock_quantity }},
+                is_available: {{ size_info.is_available|yesno:"true,false" }}
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        {% else %}
+        window.sizeStockInfo = null;
+        {% endif %}
+
+        console.log('[STOCK DEBUG] Global stock variables set:', {
+            stockQuantity: window.stockQuantity,
+            stockStatus: window.stockStatus,
+            manageStock: window.manageStock,
+            isSizeOnlyProduct: window.isSizeOnlyProduct,
+            sizeStockInfo: window.sizeStockInfo
+        });
+    }
+
+    // Hide stock status container for products with variations - stock info shown in grid instead
+    setTimeout(function() {
+        const stockStatusContainer = document.querySelector('#stockStatusContainer');
+        if (stockStatusContainer && variationManager && variationManager.hasVariations) {
+            // Hide stock status for products with variations - show in grid instead
+            stockStatusContainer.style.display = 'none';
+            console.log('Stock status container hidden for product with variations');
+        } else if (stockStatusContainer && variationManager && !variationManager.hasVariations) {
+            // Show for simple products without variations and create stock tile
+            stockStatusContainer.style.display = 'block';
+            console.log('Stock status container made visible for simple product');
+
+            // Create and display stock tile for single-variant products
+            if (window.stockQuantity > 0 && window.manageStock) {
+                const stockTile = document.createElement('div');
+                stockTile.className = 'sas-stock-tile available';
+                stockTile.innerHTML = `
+                    <div class="stock-icon">
+                        <i class="mdi mdi-check-circle"></i>
+                    </div>
+                    <div class="stock-text">
+                        <span class="stock-quantity">${window.stockQuantity} Available</span>
+                        <span class="stock-label">In Stock</span>
+                    </div>
+                `;
+                stockStatusContainer.innerHTML = '';
+                stockStatusContainer.appendChild(stockTile);
+                console.log(`[STOCK DEBUG] Stock tile created: ${window.stockQuantity} Available`);
+            } else if (window.stockStatus === 'instock') {
+                // Fallback for in-stock products without specific quantity
+                const stockTile = document.createElement('div');
+                stockTile.className = 'sas-stock-tile available';
+                stockTile.innerHTML = `
+                    <div class="stock-icon">
+                        <i class="mdi mdi-check-circle"></i>
+                    </div>
+                    <div class="stock-text">
+                        <span class="stock-quantity">Available</span>
+                        <span class="stock-label">In Stock</span>
+                    </div>
+                `;
+                stockStatusContainer.innerHTML = '';
+                stockStatusContainer.appendChild(stockTile);
+                console.log('[STOCK DEBUG] Generic stock tile created for in-stock product');
+            }
+        }
+    }, 1000); // Wait for variations to load
+
     // Listen for variation changes
     document.addEventListener('variationChanged', function(event) {
         const detail = event.detail;
         console.log('Variation changed:', detail);
-        
+
         // Update any additional UI elements based on variation selection
         updateProductInfo(detail);
-        
-        // If color variation changed, update gallery and main image
-        if (detail.type === 'color') {
-            console.log('Color variation changed, gallery will be updated automatically');
-        }
     });
 }
 
 // Update product information based on variation selection
 function updateProductInfo(variationDetail) {
-    // The ProductVariationManager now handles image updates automatically
-    console.log('Product info updated for variation:', variationDetail);
+    // Update SKU display if available
+    const skuElement = document.querySelector('.product-sku');
+    if (skuElement && variationDetail.selectedVariations) {
+        // This would be updated based on the selected variation
+        // Implementation depends on your specific needs
+    }
+
+    // Update product image based on color selection
+    if (variationDetail.type === 'color') {
+        updateProductImageForColor(variationDetail.value);
+    }
 }
 
-// Legacy function for backward compatibility
+// Update main product image when color is selected
 function updateProductImageForColor(colorValue) {
-    console.log('Color selected (legacy):', colorValue);
-    // The ProductVariationManager now handles this automatically
+    // This function can be enhanced to show color-specific images
+    // For now, it's a placeholder for future enhancement
+    console.log('Color selected:', colorValue);
 }
 
-// Image gallery functionality
+// Image Gallery Functions
 function initializeImageGallery() {
-    const thumbnails = document.querySelectorAll('.thumbnail-image');
+    const thumbnails = document.querySelectorAll('.thumbnail-item');
     const mainImage = document.getElementById('mainProductImage');
-    
-    // Initialize static gallery (will be enhanced by ProductVariationManager for color variations)
+
     thumbnails.forEach(thumbnail => {
         thumbnail.addEventListener('click', function() {
+            // Remove active class from all thumbnails
+            thumbnails.forEach(t => t.classList.remove('active'));
+
+            // Add active class to clicked thumbnail
+            this.classList.add('active');
+
+            // Update main image
             if (mainImage) {
-                mainImage.src = this.src;
-                
-                // Update active thumbnail
-                thumbnails.forEach(thumb => thumb.classList.remove('active'));
-                this.classList.add('active');
+                const newImageSrc = this.getAttribute('data-image');
+                mainImage.src = newImageSrc;
+
+                // Add loading effect
+                mainImage.style.opacity = '0.5';
+                setTimeout(() => {
+                    mainImage.style.opacity = '1';
+                }, 150);
+            }
+        });
+
+        // Keyboard navigation
+        thumbnail.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.click();
             }
         });
     });
-    
-    // Log initial gallery setup
-    console.log(`Initialized static gallery with ${thumbnails.length} thumbnails`);
 }
 
-function changeMainImage(src) {
-    const mainImage = document.getElementById('mainProductImage');
-    const thumbnails = document.querySelectorAll('.thumbnail-image');
-    
-    if (mainImage) {
-        mainImage.src = src;
-        
-        // Update active thumbnail
-        thumbnails.forEach(thumb => thumb.classList.remove('active'));
-        event.target.classList.add('active');
-    }
-}
+// Utility Functions
 
-// Quantity controls
-function initializeQuantityControls() {
-    const quantityInput = document.getElementById('productQuantity');
-    const increaseBtn = document.querySelector('.quantity-btn[onclick="increaseQuantity()"]');
-    const decreaseBtn = document.querySelector('.quantity-btn[onclick="decreaseQuantity()"]');
-    
-    if (increaseBtn) {
-        increaseBtn.onclick = function() {
-            const currentValue = parseInt(quantityInput.value);
-            const maxValue = parseInt(quantityInput.max) || 99;
-            
-            if (currentValue < maxValue) {
-                quantityInput.value = currentValue + 1;
-            }
-        };
-    }
-    
-    if (decreaseBtn) {
-        decreaseBtn.onclick = function() {
-            const currentValue = parseInt(quantityInput.value);
-            const minValue = parseInt(quantityInput.min) || 1;
-            
-            if (currentValue > minValue) {
-                quantityInput.value = currentValue - 1;
-            }
-        };
-    }
-    
-    if (quantityInput) {
-        quantityInput.addEventListener('change', function() {
-            const value = parseInt(this.value);
-            const min = parseInt(this.min) || 1;
-            const max = parseInt(this.max) || 99;
-            
-            if (value < min) this.value = min;
-            if (value > max) this.value = max;
-        });
-    }
-}
-
-function increaseQuantity() {
-    const input = document.getElementById('productQuantity');
-    const currentValue = parseInt(input.value);
-    const maxValue = parseInt(input.max) || 99;
-    
-    if (currentValue < maxValue) {
-        input.value = currentValue + 1;
-    }
-}
-
-function decreaseQuantity() {
-    const input = document.getElementById('productQuantity');
-    const currentValue = parseInt(input.value);
-    const minValue = parseInt(input.min) || 1;
-    
-    if (currentValue > minValue) {
-        input.value = currentValue - 1;
-    }
-}
-
-// Add to cart functionality
-function initializeAddToCart() {
-    const addToCartBtn = document.querySelector('.btn-add-to-cart');
-    if (addToCartBtn) {
-        addToCartBtn.onclick = addToCart;
-    }
-}
-
-function addToCart() {
-    const quantity = document.getElementById('productQuantity').value;
-    const productId = {{ product.id }};
-    
-    // Get selected variations from the variation manager
-    let selectedVariations = {};
-    if (variationManager) {
-        selectedVariations = variationManager.getSelectedVariations();
-    }
-    
-    // Show loading state
-    const button = event.target;
-    const originalText = button.innerHTML;
-    button.innerHTML = '<i class="uil-spinner-alt spin me-2"></i>Adding...';
-    button.disabled = true;
-    
-    // Simulate API call (replace with actual implementation)
-    setTimeout(() => {
-        button.innerHTML = '<i class="uil-check me-2"></i>Added!';
-        
-        setTimeout(() => {
-            button.innerHTML = originalText;
-            button.disabled = false;
-        }, 2000);
-        
-        // Show success message
-        showNotification('Product added to cart successfully!', 'success');
-    }, 1000);
-}
-
-// Add to wishlist functionality
-function addToWishlist() {
-    const button = event.target;
-    const icon = button.querySelector('i');
-    
-    // Toggle wishlist state
-    if (icon.classList.contains('uil-heart')) {
-        icon.classList.remove('uil-heart');
-        icon.classList.add('uil-heart-alt');
-        button.style.background = '#dc3545';
-        button.style.borderColor = '#dc3545';
-        button.style.color = 'white';
-        showNotification('Added to wishlist!', 'success');
-    } else {
-        icon.classList.remove('uil-heart-alt');
-        icon.classList.add('uil-heart');
-        button.style.background = 'rgba(32, 82, 149, 0.08)';
-        button.style.borderColor = '#205295';
-        button.style.color = '#205295';
-        showNotification('Removed from wishlist!', 'info');
-    }
-}
-
-// Tab functionality for product details
-function showDetailsTab(tabButton, tabId) {
-    // Remove active class from all tabs and content
-    document.querySelectorAll('.details-tab').forEach(tab => tab.classList.remove('active'));
-    document.querySelectorAll('.details-content').forEach(content => content.classList.remove('active'));
-    
-    // Add active class to clicked tab and corresponding content
-    tabButton.classList.add('active');
-    document.getElementById(tabId).classList.add('active');
-}
-
-// Notification system
-function showNotification(message, type = 'info') {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-    notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
-    notification.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
-    `;
-    
-    document.body.appendChild(notification);
-    
-    // Auto-remove after 5 seconds
-    setTimeout(() => {
-        if (notification.parentElement) {
-            notification.remove();
-        }
-    }, 5000);
-}
-
-// Quantity input validation
-document.addEventListener('DOMContentLoaded', function() {
-    const quantityInput = document.getElementById('productQuantity');
-    
-    quantityInput.addEventListener('change', function() {
-        const value = parseInt(this.value);
-        const min = parseInt(this.min) || 1;
-        const max = parseInt(this.max) || 99;
-        
-        if (value < min) {
-            this.value = min;
-        } else if (value > max) {
-            this.value = max;
-        }
-    });
-    
-    // Add CSS animation class for spinners
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .spin { animation: spin 1s linear infinite; }
-    `;
-    document.head.appendChild(style);
+// Error handling
+window.addEventListener('error', function(e) {
+    console.error('Product detail page error:', e.error);
 });
 </script>
 {% endblock %}
