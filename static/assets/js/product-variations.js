@@ -2269,11 +2269,11 @@ class ProductVariationManager {
             const stockQuantity = this.getSizeStockQuantity(size.value);
             const isAvailable = stockQuantity > 0;
             const statusClass = isAvailable ? 'available' : 'out-of-stock';
-            const stockText = isAvailable ? `${stockQuantity} available` : 'Out of stock';
-            
+            const stockText = isAvailable ? `SIZE ${size.value} - ${stockQuantity} available` : `SIZE ${size.value} - Out of stock`;
+
             // Use appropriate CSS class based on product type
             const tileClass = this.productType === 'sas' ? 'sas-stock-tile' : 'lotto-stock-tile';
-            
+
             sizeGridHtml += `
                 <div class="size-inventory-tile ${tileClass} ${statusClass}" data-size="${size.value}">
                     <div class="size-name">${size.value}</div>
@@ -3276,8 +3276,8 @@ class ProductVariationManager {
             const stockQuantity = this.getSASizeStockQuantity(size.value);
             const isAvailable = stockQuantity > 0;
             const statusClass = isAvailable ? 'available' : 'out-of-stock';
-            const stockText = isAvailable ? `${stockQuantity} available` : 'Out of stock';
-            
+            const stockText = isAvailable ? `SIZE ${size.value} - ${stockQuantity} available` : `SIZE ${size.value} - Out of stock`;
+
             sizeGridHtml += `
                 <div class="size-inventory-tile sas-stock-tile ${statusClass}" data-size="${size.value}">
                     <div class="size-name">${size.value}</div>
