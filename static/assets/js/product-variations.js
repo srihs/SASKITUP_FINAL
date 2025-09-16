@@ -245,9 +245,16 @@ class ProductVariationManager {
         if (colors.length === 0) return;
         
         const container = this.elements.colorOptions || this.createVariationContainer('color', 'Color');
-        container.innerHTML = '<div class="variation-title">Color:</div><div class="color-swatches"></div>';
-        
-        const swatchContainer = container.querySelector('.color-swatches');
+
+        // Preserve existing HTML structure from template, only update swatches container
+        let swatchContainer = container.querySelector('.color-swatches');
+        if (!swatchContainer) {
+            container.innerHTML = '<div class="variation-title">Color:</div><div class="color-swatches"></div>';
+            swatchContainer = container.querySelector('.color-swatches');
+        } else {
+            // Clear existing swatches but preserve the container and label
+            swatchContainer.innerHTML = '';
+        }
         
         // Enhance color data with images from detailed variations
         const enhancedColors = colors.map(colorGroup => {
@@ -351,9 +358,18 @@ class ProductVariationManager {
         if (sizes.length === 0) return;
         
         const container = this.elements.sizeOptions || this.createVariationContainer('size', 'Size');
-        container.innerHTML = '<div class="variation-title">Size:</div><div class="size-buttons"></div>';
-        
-        const buttonContainer = container.querySelector('.size-buttons');
+
+        // Preserve existing HTML structure from template (no "Select Size" label for SAS)
+        let buttonContainer = container.querySelector('.size-buttons');
+        if (!buttonContainer) {
+            // Only add Size: label for non-SAS products or if no template structure exists
+            const titleHtml = this.productType === 'sas' ? '' : '<div class="variation-title">Size:</div>';
+            container.innerHTML = titleHtml + '<div class="size-buttons"></div>';
+            buttonContainer = container.querySelector('.size-buttons');
+        } else {
+            // Clear existing buttons but preserve the container structure
+            buttonContainer.innerHTML = '';
+        }
         
         // Apply filtering for SAS products
         let filteredSizes = sizes;
@@ -3051,10 +3067,21 @@ class ProductVariationManager {
             return (aIndex !== -1 ? aIndex : 999) - (bIndex !== -1 ? bIndex : 999);
         });
         
+        // Create appropriate header text based on color name validity
+        const isValidColorName = colorName &&
+                                 colorName !== 'Bottle' &&
+                                 colorName !== 'undefined' &&
+                                 colorName !== '' &&
+                                 !colorName.toLowerCase().includes('bottle');
+
+        const headerText = isValidColorName
+            ? `Stock Available for <strong>${colorName}</strong>`
+            : `Size Inventory`;
+
         let stockHtml = `
             <div class="stock-grid-header mb-3 d-flex align-items-center">
                 <span class="me-2" style="font-size: 1.2rem;">📦</span>
-                <h6 class="mb-0">Stock Available for <strong>${colorName}</strong></h6>
+                <h6 class="mb-0">${headerText}</h6>
             </div>
             <div class="stock-grid-4x2">
         `;
