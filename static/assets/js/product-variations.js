@@ -73,6 +73,15 @@ class ProductVariationManager {
         this.bindEvents();
         await this.loadVariations();
         this.setupInitialState();
+        
+        // For LOTTO products without variations, ensure stock is displayed immediately
+        if (this.productType.toLowerCase() === 'lotto' && 
+            (!this.variations || this.variations.length === 0) &&
+            (!this.groupedVariations || Object.keys(this.groupedVariations).length === 0)) {
+            console.log('[STOCK DEBUG] Single variant LOTTO product detected, showing stock immediately');
+            await this.displaySingleVariantStockTile();
+        }
+        
         this.applyBrandStyling();
     }
     

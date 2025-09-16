@@ -1,0 +1,31 @@
+LOTTO Stock Display Test Summary Report
+==================================================
+
+Test Date: 2025-09-16T09:55:22.991166
+Base URL: http://localhost:8076
+Duration: 27.28 seconds
+
+Overall Result: FAILURE
+Tests Passed: 1/2
+Pass Rate: 50.0%
+
+Test 1: Franklin United Beanie
+  Type: without_variations
+  URL: http://localhost:8076/clubs/lotto/product/franklin-utd-beanie-151849/
+  Result: FAILED
+  Stock Display: Hidden
+  Has Variations: Yes
+  Console Errors: 0
+
+Test 2: NZF Referee Shirt
+  Type: with_variations
+  URL: http://localhost:8076/clubs/lotto/product/nzf-referee-shirt-men-23679/
+  Result: PASSED
+  Stock Display: Hidden
+  Has Variations: Yes
+  Console Errors: 0
+
+Recommendations:
+--------------------
+❌ Some tests failed. Review the following:
+  - Franklin United Beanie: Check without_variations functionality
