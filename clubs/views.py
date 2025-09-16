@@ -1827,21 +1827,21 @@ def product_variations_api(request, product_id, store_type=None):
             # Look for SAS product
             try:
                 from .models_sas import SASProduct
-                product = SASProduct.objects.get(id=product_id)
+                product = SASProduct.objects.get(woo_product_id=product_id)
             except SASProduct.DoesNotExist:
                 pass
         
         if not product and (not store_type or store_type.upper() == 'LOTTO'):
             # Look for LOTTO product
             try:
-                product = LottoProduct.objects.get(id=product_id)
+                product = LottoProduct.objects.get(woo_product_id=product_id)
             except LottoProduct.DoesNotExist:
                 pass
         
         if not product:
             # Fallback to generic Product
             try:
-                product = Product.objects.get(id=product_id)
+                product = Product.objects.get(woo_product_id=product_id)
             except Product.DoesNotExist:
                 return JsonResponse({
                     'success': False,
@@ -1871,6 +1871,12 @@ def product_variations_api(request, product_id, store_type=None):
                     })
         
         if not has_variations:
+            # For single-variant products, include stock information
+            stock_status = getattr(product, 'stock_status', 'instock')
+            stock_quantity = getattr(product, 'stock_quantity', 0)
+            manage_stock = getattr(product, 'manage_stock', False)
+            is_in_stock = stock_status == 'instock'
+            
             return JsonResponse({
                 'success': True,
                 'product_id': product_id,
@@ -1880,6 +1886,10 @@ def product_variations_api(request, product_id, store_type=None):
                 'data': {
                     'product_id': product_id,
                     'has_variations': False,
+                    'stock_status': stock_status,
+                    'stock_quantity': stock_quantity if manage_stock else 0,
+                    'is_in_stock': is_in_stock,
+                    'manage_stock': manage_stock,
                     'message': 'This product does not have variations'
                 }
             })
@@ -1957,21 +1967,21 @@ def check_variation_availability(request, product_id, store_type=None):
             # Look for SAS product
             try:
                 from .models_sas import SASProduct
-                product = SASProduct.objects.get(id=product_id)
+                product = SASProduct.objects.get(woo_product_id=product_id)
             except SASProduct.DoesNotExist:
                 pass
         
         if not product and (not store_type or store_type.upper() == 'LOTTO'):
             # Look for LOTTO product
             try:
-                product = LottoProduct.objects.get(id=product_id)
+                product = LottoProduct.objects.get(woo_product_id=product_id)
             except LottoProduct.DoesNotExist:
                 pass
         
         if not product:
             # Fallback to generic Product
             try:
-                product = Product.objects.get(id=product_id)
+                product = Product.objects.get(woo_product_id=product_id)
             except Product.DoesNotExist:
                 return JsonResponse({
                     'success': False,
@@ -2031,7 +2041,7 @@ def get_variation_details(request, product_id, store_type=None):
             # Look for SAS product
             try:
                 from .models_sas import SASProduct, SASProductVariation
-                product = SASProduct.objects.get(id=product_id)
+                product = SASProduct.objects.get(woo_product_id=product_id)
                 variation_model = SASProductVariation
             except SASProduct.DoesNotExist:
                 pass
@@ -2039,7 +2049,7 @@ def get_variation_details(request, product_id, store_type=None):
         if not product and (not store_type or store_type.upper() == 'LOTTO'):
             # Look for LOTTO product
             try:
-                product = LottoProduct.objects.get(id=product_id)
+                product = LottoProduct.objects.get(woo_product_id=product_id)
                 variation_model = LottoProductVariation
             except LottoProduct.DoesNotExist:
                 pass
@@ -2047,7 +2057,7 @@ def get_variation_details(request, product_id, store_type=None):
         if not product:
             # Fallback to generic Product
             try:
-                product = Product.objects.get(id=product_id)
+                product = Product.objects.get(woo_product_id=product_id)
                 # Import the ProductVariation model for generic products
                 from .models_lotto import LottoProductVariation as ProductVariation
                 variation_model = ProductVariation
@@ -2137,7 +2147,7 @@ def get_available_options(request, product_id, attribute_type, store_type=None):
             product = LottoProduct.objects.get(id=product_id)
         except LottoProduct.DoesNotExist:
             try:
-                product = Product.objects.get(id=product_id)
+                product = Product.objects.get(woo_product_id=product_id)
             except Product.DoesNotExist:
                 return JsonResponse({
                     'success': False,
@@ -2220,19 +2230,19 @@ def check_stock_api(request):
         if product_type == 'sas':
             try:
                 from .models_sas import SASProduct
-                product = SASProduct.objects.get(id=product_id)
+                product = SASProduct.objects.get(woo_product_id=product_id)
             except SASProduct.DoesNotExist:
                 pass
         
         if not product and product_type == 'lotto':
             try:
-                product = LottoProduct.objects.get(id=product_id)
+                product = LottoProduct.objects.get(woo_product_id=product_id)
             except LottoProduct.DoesNotExist:
                 pass
         
         if not product:
             try:
-                product = Product.objects.get(id=product_id)
+                product = Product.objects.get(woo_product_id=product_id)
             except Product.DoesNotExist:
                 return JsonResponse({
                     'success': False,
@@ -2765,20 +2775,20 @@ def product_color_size_stock_api(request):
         if product_type == 'sas':
             try:
                 from .models_sas import SASProduct
-                product = SASProduct.objects.get(id=product_id)
+                product = SASProduct.objects.get(woo_product_id=product_id)
             except SASProduct.DoesNotExist:
                 pass
         elif product_type == 'lotto':
             try:
                 from .models_lotto import LottoProduct
-                product = LottoProduct.objects.get(id=product_id)
+                product = LottoProduct.objects.get(woo_product_id=product_id)
             except LottoProduct.DoesNotExist:
                 pass
         
         # Fallback to generic Product model
         if not product:
             try:
-                product = Product.objects.get(id=product_id)
+                product = Product.objects.get(woo_product_id=product_id)
             except Product.DoesNotExist:
                 return JsonResponse({
                     'success': False,

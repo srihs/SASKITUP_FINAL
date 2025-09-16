@@ -2112,6 +2112,59 @@ html {
 }
 
 /* Single Variant Stock Display for LOTTO Products */
+.lotto-page .stock-info.single-variant {
+    background: #fff;
+    border: 2px solid #E89DA2;
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+    box-shadow: 0 2px 4px rgba(201, 72, 91, 0.1);
+}
+
+.lotto-page .stock-info.single-variant h6 {
+    color: #C9485B;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+}
+
+.lotto-page .stock-info.single-variant .stock-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    border-radius: 4px;
+    background: #f8f9fa;
+}
+
+.lotto-page .stock-info.single-variant .stock-item.in-stock {
+    background: rgba(40, 167, 69, 0.1);
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.lotto-page .stock-info.single-variant .stock-item.out-of-stock {
+    background: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+}
+
+.lotto-page .stock-info.single-variant .stock-status {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.lotto-page .stock-info.single-variant .stock-item.in-stock .stock-status {
+    color: #28a745;
+}
+
+.lotto-page .stock-info.single-variant .stock-item.out-of-stock .stock-status {
+    color: #dc3545;
+}
+
+.lotto-page .stock-info.single-variant .stock-quantity {
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-weight: 500;
+}
 .stock-info.single-variant {
     background: #f8f9fa;
     border: 1px solid #e9ecef;

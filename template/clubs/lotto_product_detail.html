@@ -372,6 +372,31 @@
     outline-offset: 2px;
 }
 
+/* Stock Status Visibility */
+.stock-status-container {
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.stock-status-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.stock-status-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Variations Section Visibility */
+.variation-section-hidden {
+    display: none !important;
+}
+
+.variation-section-visible {
+    display: block;
+}
+
 /* LOTTO Product Color Variations */
 .variation-section {
     margin: 20px 0;
@@ -447,6 +472,359 @@
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* Stock Status Styles */
+.stock-status-container {
+    padding: 1rem;
+    background: rgba(248, 249, 250, 0.5);
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.stock-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+}
+
+.stock-status.in-stock {
+    background-color: rgba(40, 167, 69, 0.1);
+    color: #28a745;
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.stock-status.low-stock {
+    background-color: rgba(255, 193, 7, 0.1);
+    color: #ffc107;
+    border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.stock-status.out-of-stock {
+    background-color: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+    border: 1px solid rgba(220, 53, 69, 0.3);
+}
+
+.stock-status.on-backorder {
+    background-color: rgba(23, 162, 184, 0.1);
+    color: #17a2b8;
+    border: 1px solid rgba(23, 162, 184, 0.3);
+}
+
+.stock-status i {
+    font-size: 1.1em;
+}
+
+.stock-status:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* LOTTO Stock Tiles for Two-Scenario System */
+.lotto-stock-tile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+    min-height: 80px;
+}
+
+.lotto-stock-tile::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+    transition: left 0.5s ease;
+}
+
+.lotto-stock-tile:hover::before {
+    left: 100%;
+}
+
+/* LOTTO Brand Stock Status Colors */
+.lotto-stock-tile.in-stock {
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.1), rgba(40, 167, 69, 0.05));
+    color: #28a745;
+    border-color: rgba(40, 167, 69, 0.3);
+}
+
+.lotto-stock-tile.in-stock:hover {
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.15), rgba(40, 167, 69, 0.1));
+    border-color: #28a745;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(40, 167, 69, 0.2);
+}
+
+.lotto-stock-tile.low-stock {
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 193, 7, 0.05));
+    color: #ffc107;
+    border-color: rgba(255, 193, 7, 0.3);
+}
+
+.lotto-stock-tile.low-stock:hover {
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.15), rgba(255, 193, 7, 0.1));
+    border-color: #ffc107;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(255, 193, 7, 0.2);
+}
+
+.lotto-stock-tile.out-of-stock {
+    background: linear-gradient(135deg, rgba(220, 53, 69, 0.1), rgba(220, 53, 69, 0.05));
+    color: #dc3545;
+    border-color: rgba(220, 53, 69, 0.3);
+}
+
+.lotto-stock-tile.out-of-stock:hover {
+    background: linear-gradient(135deg, rgba(220, 53, 69, 0.15), rgba(220, 53, 69, 0.1));
+    border-color: #dc3545;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(220, 53, 69, 0.2);
+}
+
+.lotto-stock-tile.contact {
+    background: linear-gradient(135deg, rgba(201, 72, 91, 0.1), rgba(201, 72, 91, 0.05));
+    color: #C9485B;
+    border-color: rgba(201, 72, 91, 0.3);
+}
+
+.lotto-stock-tile.contact:hover {
+    background: linear-gradient(135deg, rgba(201, 72, 91, 0.15), rgba(201, 72, 91, 0.1));
+    border-color: #C9485B;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(201, 72, 91, 0.2);
+}
+
+/* Stock Quantity Text Styling */
+.stock-quantity {
+    font-weight: 700;
+    font-size: 1.2rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 2;
+}
+
+/* Icon Support for Stock Tiles */
+.lotto-stock-tile .stock-icon {
+    font-size: 1.4rem;
+    margin-right: 8px;
+    opacity: 0.8;
+}
+
+/* Animation for stock tiles appearing */
+.lotto-stock-tile {
+    animation: stockTileSlideIn 0.4s ease-out;
+}
+
+@keyframes stockTileSlideIn {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive Design for Stock Tiles */
+@media (max-width: 768px) {
+    .lotto-stock-tile {
+        padding: 16px;
+        font-size: 1rem;
+        min-height: 70px;
+    }
+    
+    .stock-quantity {
+        font-size: 1.1rem;
+    }
+    
+    .lotto-stock-tile .stock-icon {
+        font-size: 1.2rem;
+        margin-right: 6px;
+    }
+}
+
+@media (max-width: 576px) {
+    .lotto-stock-tile {
+        padding: 12px;
+        font-size: 0.95rem;
+        min-height: 60px;
+    }
+    
+    .stock-quantity {
+        font-size: 1rem;
+    }
+    
+    .lotto-stock-tile .stock-icon {
+        font-size: 1.1rem;
+        margin-right: 4px;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .lotto-stock-tile {
+        border-width: 3px;
+    }
+    
+    .lotto-stock-tile.in-stock {
+        border-color: #28a745;
+        background: rgba(40, 167, 69, 0.2);
+    }
+    
+    .lotto-stock-tile.low-stock {
+        border-color: #ffc107;
+        background: rgba(255, 193, 7, 0.2);
+    }
+    
+    .lotto-stock-tile.out-of-stock {
+        border-color: #dc3545;
+        background: rgba(220, 53, 69, 0.2);
+    }
+    
+    .lotto-stock-tile.contact {
+        border-color: #C9485B;
+        background: rgba(201, 72, 91, 0.2);
+    }
+}
+
+/* Focus states for accessibility */
+.lotto-stock-tile:focus {
+    outline: 3px solid #C9485B;
+    outline-offset: 2px;
+}
+
+/* Stock Grid 4x2 Layout for Scenario 1 */
+.stock-grid-4x2 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.size-tile {
+    background: #fff;
+    border: 2px solid #e0e6ed;
+    border-radius: 8px;
+    padding: 16px 12px;
+    text-align: center;
+    transition: all 0.3s ease;
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.size-tile:hover {
+    border-color: #C9485B;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(201, 72, 91, 0.15);
+}
+
+.size-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #495057;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stock-badge {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 16px;
+    white-space: nowrap;
+    min-width: 80px;
+    text-align: center;
+}
+
+.stock-grid-header {
+    padding: 12px 0;
+    border-bottom: 1px solid #e9ecef;
+    margin-bottom: 16px;
+}
+
+.stock-grid-header h6 {
+    color: #495057;
+    font-weight: 600;
+}
+
+/* Color Size Stock Container Positioning */
+.color-size-stock-display {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+/* Responsive adjustments for stock grid */
+@media (max-width: 768px) {
+    .stock-grid-4x2 {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .size-tile {
+        min-height: 80px;
+        padding: 12px 8px;
+    }
+    
+    .size-name {
+        font-size: 0.8rem;
+        margin-bottom: 6px;
+    }
+    
+    .stock-badge {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        min-width: 70px;
+    }
+}
+
+@media (max-width: 576px) {
+    .stock-grid-4x2 {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    
+    .size-tile {
+        min-height: 70px;
+        padding: 10px 6px;
+    }
+    
+    .size-name {
+        font-size: 0.75rem;
+        margin-bottom: 4px;
+    }
+    
+    .stock-badge {
+        font-size: 0.7rem;
+        padding: 3px 6px;
+        min-width: 60px;
+    }
+}
 </style>
 {% endblock %}
 
@@ -495,9 +873,9 @@
                 </div>
             </div>
             
-            <!-- Stock Availability Grid (positioned under main image) -->
+            <!-- Stock Availability Grid (positioned under main image as per design) -->
             <div class="stock-grid-container mt-3">
-                <!-- Stock availability will be displayed here for single-variant products -->
+                <!-- Stock availability will be displayed here for products with variations -->
             </div>
         </div>
 
@@ -545,14 +923,28 @@
 
                 <!-- Dynamic Product Variations -->
                 <div class="variation-section" id="productVariations">
-                    <!-- Variations will be dynamically loaded here -->
-                    <div class="variation-loading">
-                        <div class="d-flex align-items-center">
-                            <div class="loading-spinner me-3"></div>
-                            <span>Loading product options...</span>
+                    <!-- Color Options -->
+                    <div class="color-options mb-4">
+                        <div class="option-label mb-3">
+                            <h6 class="mb-2">Available Colors</h6>
+                        </div>
+                        <div class="color-swatches">
+                            <!-- Color swatches will be dynamically loaded here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Size Options -->
+                    <div class="size-options mb-4">
+                        <div class="option-label mb-3">
+                            <h6 class="mb-2">Select Size</h6>
+                        </div>
+                        <div class="size-buttons">
+                            <!-- Size buttons will be dynamically loaded here -->
                         </div>
                     </div>
                 </div>
+
+                <!-- Stock Status removed - Stock information is displayed in the grid under the product image for products with variations -->
 
                 <!-- Product Meta Information -->
                 <div class="product-meta">
@@ -580,7 +972,7 @@
 
 {% block extra_js %}
 <!-- Include the Product Variations Library -->
-<script src="{% static 'assets/js/product-variations.js' %}"></script>
+<script src="{% static 'assets/js/product-variations.js' %}?v=20250916-2"></script>
 
 <script>
 // Global variables for product variation management
@@ -602,7 +994,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Initialize Product Variations
 function initializeProductVariations() {
-    const productId = {{ product.id }};
+    const productId = {{ product.woo_product_id }};
     const productType = 'lotto';
     
     // Ensure price display shows correct initial value (fix for empty $ display)
@@ -613,11 +1005,25 @@ function initializeProductVariations() {
     
     // Create variation manager
     variationManager = new ProductVariationManager(productId, productType, {
-        enableStockCheck: false, // Disabled stock checking
+        enableStockCheck: true, // Always enable stock checking for consistent display
         enablePriceUpdates: true,
         enableLoadingStates: true,
         debounceDelay: 300
     });
+    
+    // Hide stock status container for products with variations - stock info shown in grid instead
+    setTimeout(function() {
+        const stockStatusContainer = document.querySelector('#stockStatusContainer');
+        if (stockStatusContainer && variationManager && variationManager.hasVariations) {
+            // Hide stock status for products with variations - show in grid instead
+            stockStatusContainer.style.display = 'none';
+            console.log('Stock status container hidden for product with variations');
+        } else if (stockStatusContainer) {
+            // Show for simple products without variations
+            stockStatusContainer.style.display = 'block';
+            console.log('Stock status container made visible for simple product');
+        }
+    }, 1000); // Wait for variations to load
     
     // Listen for variation changes
     document.addEventListener('variationChanged', function(event) {

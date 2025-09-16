@@ -29,7 +29,7 @@ class ProductVariationManager {
         
         // Configuration options
         this.options = {
-            enableStockCheck: productType.toLowerCase() !== 'lotto', // Disable stock check for LOTTO products
+            enableStockCheck: true, // Enable stock check by default (can be overridden in options)
             enablePriceUpdates: true,
             enableLoadingStates: true,
             debounceDelay: 300,
@@ -139,6 +139,8 @@ class ProductVariationManager {
                 this.basePrice = data.base_price || 0;
                 this.currentPrice = this.basePrice;
                 
+                // Store additional product data for single-variant products
+                this.productData = data.data || data;
                 
                 this.renderVariations();
             } else {
@@ -559,7 +561,9 @@ class ProductVariationManager {
         
         // Display color-size stock information when a color is selected
         if (type === 'color') {
+            console.log('[STOCK DEBUG] Color selected, calling displayColorSizeStock with:', value);
             this.displayColorSizeStock(value);
+            console.log('[STOCK DEBUG] After calling displayColorSizeStock');
         }
         
         // Trigger custom event
@@ -1623,14 +1627,12 @@ class ProductVariationManager {
      * Setup initial state
      */
     setupInitialState() {
-        // Check if this is a LOTTO product with no selectable variations
-        const hasSelectableVariations = this.hasUserSelectableVariations();
-        
-        if (this.productType.toLowerCase() === 'lotto' && !hasSelectableVariations) {
-            // For LOTTO products with no variations, show stock availability immediately
-            this.showStockAvailabilityForSingleVariant();
+        // For LOTTO products, always show overall stock status initially
+        if (this.productType.toLowerCase() === 'lotto') {
+            // Show overall product stock availability for all LOTTO products
+            this.showInitialStockForLottoProduct();
         } else {
-            // Hide stock status initially - will be shown only after user interaction
+            // For non-LOTTO products, hide stock status initially
             this.hideStockStatusInitially();
         }
         
@@ -1666,7 +1668,7 @@ class ProductVariationManager {
             stockStatusVisible: this.stockStatusVisible,
             basePrice: this.basePrice,
             currentPrice: this.currentPrice,
-            hasSelectableVariations: hasSelectableVariations
+            hasSelectableVariations: this.hasVariations
         });
     }
     
@@ -1955,12 +1957,30 @@ class ProductVariationManager {
     }
     
     /**
+     * Show initial stock status for LOTTO products (with or without variations)
+     */
+    showInitialStockForLottoProduct() {
+        console.log('Showing initial stock status for LOTTO product');
+        
+        // Always show stock status for LOTTO products
+        this.showStockStatusAfterSelection();
+        
+        // Show overall product stock immediately
+        this.showOverallProductStock();
+        
+        // If there are no user selectable variations, also load the stock grid
+        if (!this.hasUserSelectableVariations()) {
+            this.loadStockAvailabilityGrid();
+        }
+    }
+    
+    /**
      * Load and display stock availability grid
      */
     async loadStockAvailabilityGrid() {
         const stockGridContainer = document.querySelector('.stock-grid-container');
         if (!stockGridContainer) {
-            console.warn('Stock grid container not found');
+            console.log('Stock grid container not found');
             return;
         }
         
@@ -1969,26 +1989,39 @@ class ProductVariationManager {
             console.log('[STOCK DEBUG] loadStockAvailabilityGrid - groupedVariations:', this.groupedVariations);
             console.log('[STOCK DEBUG] loadStockAvailabilityGrid - variations:', this.variations);
             
-            // Check if we have size variations
-            const sizeVariations = this.groupedVariations.size || [];
-            console.log('[STOCK DEBUG] Size variations found:', sizeVariations);
-            
-            if (sizeVariations.length > 0) {
-                // Show stock for each size
-                this.displayStockBySize(sizeVariations);
-            } else if (this.variations && this.variations.length > 0) {
-                // No size variations - show total stock for the single product
-                const totalStock = this.calculateTotalStock();
-                this.displayTotalStock(totalStock);
-            } else {
-                // Fallback to showing basic availability message
-                stockGridContainer.innerHTML = `
-                    <div class="stock-info">
-                        <h6>Stock Availability</h6>
-                        <p>Please contact us for availability information.</p>
-                    </div>
-                `;
+            // SCENARIO 1: Products WITH variations (colors, sizes, etc.)
+            if (this.variations && this.variations.length > 0) {
+                console.log('[STOCK DEBUG] SCENARIO 1: Product with variations - will show stock grid when user selects options');
+                
+                // Hide stock grid initially until user selects a variation
+                stockGridContainer.style.display = 'none';
+                
+                // Keep the variation section visible for selection
+                const variationSection = document.querySelector('#productVariations, .variation-section');
+                if (variationSection) {
+                    variationSection.style.display = 'block';
+                    variationSection.classList.remove('variation-section-hidden');
+                    variationSection.classList.add('variation-section-visible');
+                }
+                
+                return; // Stock grid will be shown when user selects variations
             }
+            
+            // SCENARIO 2: Products WITHOUT variations (caps, bags, beanies)
+            console.log('[STOCK DEBUG] SCENARIO 2: Single-variant product - hiding variation card and showing simple stock tile');
+            
+            // Hide the variation section completely
+            const variationSection = document.querySelector('#productVariations, .variation-section');
+            if (variationSection) {
+                variationSection.style.display = 'none';
+                variationSection.classList.add('variation-section-hidden');
+                variationSection.classList.remove('variation-section-visible');
+                console.log('[STOCK DEBUG] Variation section hidden for single-variant product');
+            }
+            
+            // Show simple stock tile for single-variant products
+            await this.displaySingleVariantStockTile();
+            
         } catch (error) {
             console.error('Error loading stock availability:', error);
             stockGridContainer.innerHTML = `
@@ -2003,15 +2036,24 @@ class ProductVariationManager {
     /**
      * Display stock information for single variant products
      */
-    displaySingleVariantStock(stockInfo) {
+    async displaySingleVariantStock(stockInfo = null) {
         const stockGridContainer = document.querySelector('.stock-grid-container');
         if (!stockGridContainer) return;
         
         // For size-only products, show a summary of available sizes
         if (this.groupedVariations && this.groupedVariations.size) {
             this.displaySizeOnlyStockInfo(stockGridContainer);
-        } else {
-            // For truly single-variant products
+            return;
+        }
+        
+        // If no stockInfo provided, fetch it for single-variant product
+        if (!stockInfo) {
+            console.log('[STOCK DEBUG] No stock info provided, fetching for single-variant product');
+            stockInfo = await this.getSingleVariantStockInfo();
+        }
+        
+        // For truly single-variant products
+        if (stockInfo) {
             const statusClass = stockInfo.is_in_stock ? 'in-stock' : 'out-of-stock';
             const statusText = stockInfo.is_in_stock ? 'In Stock' : 'Out of Stock';
             const quantityText = stockInfo.stock_quantity > 0 ? 
@@ -2019,7 +2061,7 @@ class ProductVariationManager {
                 'Contact for availability';
             
             stockGridContainer.innerHTML = `
-                <div class="stock-info single-variant">
+                <div class="stock-info single-variant lotto-brand">
                     <h6>Availability</h6>
                     <div class="stock-item ${statusClass}">
                         <span class="stock-status">${statusText}</span>
@@ -2027,9 +2069,122 @@ class ProductVariationManager {
                     </div>
                 </div>
             `;
+        } else {
+            // Fallback if stock info couldn't be fetched
+            stockGridContainer.innerHTML = `
+                <div class="stock-info single-variant lotto-brand">
+                    <h6>Availability</h6>
+                    <div class="stock-item">
+                        <span class="stock-status">Available</span>
+                        <span class="stock-quantity">Contact for details</span>
+                    </div>
+                </div>
+            `;
         }
         
-        console.log('Single variant stock displayed:', stockInfo);
+        console.log('[STOCK DEBUG] Single variant stock displayed:', stockInfo);
+    }
+    
+    /**
+     * Get stock information for single variant products
+     */
+    async getSingleVariantStockInfo() {
+        try {
+            console.log('[STOCK DEBUG] Fetching single variant stock info for product:', this.productId);
+            
+            // Try to use existing product data first
+            if (this.productData && this.productData.stock_status) {
+                console.log('[STOCK DEBUG] Using cached product data:', this.productData);
+                return {
+                    is_in_stock: this.productData.stock_status === 'instock',
+                    stock_quantity: this.productData.stock_quantity || 0,
+                    stock_status: this.productData.stock_status
+                };
+            }
+            
+            // Fallback to API call if needed
+            const response = await fetch(`/clubs/api/${this.productType}/product/${this.productId}/check-availability/`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('[STOCK DEBUG] API stock response:', data);
+                
+                if (data.success) {
+                    return {
+                        is_in_stock: data.is_in_stock || data.stock_status === 'instock',
+                        stock_quantity: data.stock_quantity || 0,
+                        stock_status: data.stock_status || 'unknown'
+                    };
+                }
+            }
+            
+            console.log('[STOCK DEBUG] Could not fetch stock info, using default');
+            return {
+                is_in_stock: true, // Default to available for LOTTO products
+                stock_quantity: 0,
+                stock_status: 'contact'
+            };
+        } catch (error) {
+            console.error('[STOCK DEBUG] Error fetching single variant stock:', error);
+            return {
+                is_in_stock: true, // Default to available for LOTTO products
+                stock_quantity: 0,
+                stock_status: 'contact'
+            };
+        }
+    }
+    
+    /**
+     * Display simple stock tile for single-variant products (SCENARIO 2)
+     */
+    async displaySingleVariantStockTile() {
+        const stockGridContainer = document.querySelector('.stock-grid-container');
+        if (!stockGridContainer) return;
+        
+        console.log('[STOCK DEBUG] Displaying single-variant stock tile');
+        
+        // Get stock info for the single product
+        const stockInfo = await this.getSingleVariantStockInfo();
+        
+        if (stockInfo) {
+            let stockDisplay = '';
+            let tileClass = '';
+            let iconClass = '';
+            
+            if (stockInfo.stock_status === 'instock' && stockInfo.stock_quantity > 0) {
+                // In stock with quantity
+                tileClass = 'lotto-stock-tile in-stock';
+                iconClass = 'uil-check-circle';
+                stockDisplay = `${stockInfo.stock_quantity} Available`;
+            } else if (stockInfo.stock_status === 'instock') {
+                // In stock but no quantity info
+                tileClass = 'lotto-stock-tile in-stock';
+                iconClass = 'uil-check-circle';
+                stockDisplay = 'In Stock';
+            } else if (stockInfo.stock_status === 'outofstock') {
+                // Out of stock
+                tileClass = 'lotto-stock-tile out-of-stock';
+                iconClass = 'uil-times-circle';
+                stockDisplay = 'Out of Stock';
+            } else {
+                // Contact for availability
+                tileClass = 'lotto-stock-tile contact';
+                iconClass = 'uil-phone';
+                stockDisplay = 'Contact for Availability';
+            }
+            
+            stockGridContainer.innerHTML = `
+                <div class="${tileClass}">
+                    <i class="${iconClass} stock-icon" aria-hidden="true"></i>
+                    <div class="stock-quantity">${stockDisplay}</div>
+                </div>
+            `;
+            
+            // Show the container
+            stockGridContainer.style.display = 'block';
+            
+            console.log('[STOCK DEBUG] Single-variant stock tile displayed:', stockDisplay);
+        }
     }
     
     /**
@@ -2619,42 +2774,65 @@ class ProductVariationManager {
      * Display stock information for all sizes in a specific color
      * @param {string} colorValue - The selected color value
      */
-    async displayColorSizeStock(colorValue) {
-        try {
-            // Show loading state
-            this.showColorSizeStockLoading();
+    displayColorSizeStock(colorValue) {
+        console.log('[STOCK DEBUG] *** FUNCTION CALLED *** Displaying stock for color:', colorValue);
+        console.log('[STOCK DEBUG] Available variations count:', this.variations ? this.variations.length : 'undefined');
+        console.log('[STOCK DEBUG] Available variations:', this.variations);
+        
+        // Show loading state briefly
+        this.showColorSizeStockLoading();
+        
+        // Filter variations for the selected color and extract size/stock data
+        const colorVariations = this.variations.filter(v => {
+            const varColor = v.attributes?.color || 
+                           (v.value && v.value.includes(' - ') ? v.value.split(' - ')[1] : null);
+            return varColor === colorValue;
+        });
+        
+        console.log('[STOCK DEBUG] Filtered variations for color', colorValue, ':', colorVariations);
+        
+        if (colorVariations.length === 0) {
+            console.log('No variations found for color:', colorValue);
+            this.hideColorSizeStockDisplay();
+            return;
+        }
+        
+        // Convert variations to size data format expected by display function
+        const sizes = colorVariations.map(v => {
+            const size = v.attributes?.size || 
+                        (v.value && v.value.includes(' - ') ? v.value.split(' - ')[0] : v.value);
+            const stockQuantity = parseInt(v.stock) || 0;
+            const isAvailable = v.is_in_stock === true && stockQuantity > 0;
             
-            // Call the API to get stock information
-            const response = await fetch('/clubs/api/product/color-size-stock/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': this.getCsrfToken()
-                },
-                body: JSON.stringify({
-                    product_id: this.productId,
-                    product_type: this.productType,
-                    color: colorValue
-                })
+            console.log('[STOCK DEBUG] Processing variation:', {
+                variation: v,
+                size: size,
+                stock: stockQuantity,
+                is_available: isAvailable
             });
             
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data.success && data.sizes && data.sizes.length > 0) {
-                this.showColorSizeStockDisplay(data);
-            } else {
-                console.log('No stock information available for color:', colorValue);
-                this.hideColorSizeStockDisplay();
-            }
-            
-        } catch (error) {
-            console.error('Error fetching color size stock:', error);
-            this.hideColorSizeStockDisplay();
-        }
+            return {
+                size: size,
+                stock_quantity: stockQuantity,
+                is_available: isAvailable,
+                stock_status: stockQuantity > 0 ? 'instock' : 'outofstock'
+            };
+        });
+        
+        // Create data object in expected format
+        const data = {
+            success: true,
+            color: colorValue,
+            sizes: sizes
+        };
+        
+        console.log('[STOCK DEBUG] Final stock data:', data);
+        
+        // Save the stock data and show the stock display with a small delay to show loading
+        this.lastStockData = data;
+        setTimeout(() => {
+            this.showColorSizeStockDisplay(data);
+        }, 200);
     }
     
     /**
@@ -2681,7 +2859,7 @@ class ProductVariationManager {
      */
     showColorSizeStockDisplay(data) {
         const container = this.getOrCreateColorSizeStockContainer();
-        if (!container || !data.sizes || data.sizes.length === 0) {
+        if (!container || !data || !data.sizes || data.sizes.length === 0) {
             this.hideColorSizeStockDisplay();
             return;
         }
@@ -2689,52 +2867,89 @@ class ProductVariationManager {
         const colorName = data.color;
         const sizes = data.sizes;
         
+        // Sort sizes in proper order for display: XS, S, M, L, XL, 2XL, 3XL
+        const sizeOrder = ['XS', 'S', 'M', 'L', 'XL', '2XL', 'XXL', '3XL', 'XXXL'];
+        const sortedSizes = sizes.sort((a, b) => {
+            const aIndex = sizeOrder.indexOf(a.size);
+            const bIndex = sizeOrder.indexOf(b.size);
+            return (aIndex !== -1 ? aIndex : 999) - (bIndex !== -1 ? bIndex : 999);
+        });
+        
         let stockHtml = `
-            <div class="color-size-stock-header mb-2">
-                <h6 class="mb-0 d-flex align-items-center">
-                    <i class="fas fa-tshirt me-2 text-${this.productType === 'lotto' ? 'danger' : 'primary'}"></i>
-                    <span>Stock Available for <strong>${colorName}</strong></span>
-                </h6>
+            <div class="stock-grid-header mb-3 d-flex align-items-center">
+                <span class="me-2" style="font-size: 1.2rem;">📦</span>
+                <h6 class="mb-0">Stock Available for <strong>${colorName}</strong></h6>
             </div>
-            <div class="stock-grid row g-2">
+            <div class="stock-grid-4x2">
         `;
         
-        // Create stock display for each size
-        sizes.forEach(sizeInfo => {
+        // Create first row (up to 4 sizes)
+        const firstRowSizes = sortedSizes.slice(0, 4);
+        firstRowSizes.forEach(sizeInfo => {
             const isAvailable = sizeInfo.is_available;
             const stockQuantity = sizeInfo.stock_quantity;
             const stockStatus = sizeInfo.stock_status;
             const sizeName = sizeInfo.size;
             
             let stockText = '';
-            let badgeClass = '';
+            let badgeClass = 'bg-success text-white';
             
             if (isAvailable && stockQuantity > 0) {
                 stockText = `${stockQuantity} available`;
-                badgeClass = 'bg-success';
+                badgeClass = 'bg-success text-white';
             } else if (stockStatus === 'onbackorder') {
                 stockText = 'On backorder';
                 badgeClass = 'bg-warning text-dark';
             } else {
                 stockText = 'Out of stock';
-                badgeClass = 'bg-secondary';
+                badgeClass = 'bg-secondary text-white';
             }
             
             stockHtml += `
-                <div class="col-6 col-md-4 col-lg-3">
-                    <div class="stock-item p-2 border rounded ${isAvailable ? 'border-success' : 'border-secondary'}">
-                        <div class="size-label fw-bold text-center mb-1">Size ${sizeName}</div>
-                        <div class="stock-status text-center">
-                            <span class="badge ${badgeClass} small">${stockText}</span>
-                        </div>
-                    </div>
+                <div class="size-tile">
+                    <div class="size-name">SIZE ${sizeName}</div>
+                    <span class="stock-badge ${badgeClass}">${stockText}</span>
                 </div>
             `;
         });
         
-        stockHtml += `
-            </div>
-        `;
+        stockHtml += `</div>`;
+        
+        // Create second row if more sizes exist
+        const secondRowSizes = sortedSizes.slice(4, 7);
+        if (secondRowSizes.length > 0) {
+            stockHtml += `<div class="stock-grid-4x2 mt-2">`;
+            
+            secondRowSizes.forEach(sizeInfo => {
+                const isAvailable = sizeInfo.is_available;
+                const stockQuantity = sizeInfo.stock_quantity;
+                const stockStatus = sizeInfo.stock_status;
+                const sizeName = sizeInfo.size;
+                
+                let stockText = '';
+                let badgeClass = 'bg-success text-white';
+                
+                if (isAvailable && stockQuantity > 0) {
+                    stockText = `${stockQuantity} available`;
+                    badgeClass = 'bg-success text-white';
+                } else if (stockStatus === 'onbackorder') {
+                    stockText = 'On backorder';
+                    badgeClass = 'bg-warning text-dark';
+                } else {
+                    stockText = 'Out of stock';
+                    badgeClass = 'bg-secondary text-white';
+                }
+                
+                stockHtml += `
+                    <div class="size-tile">
+                        <div class="size-name">SIZE ${sizeName}</div>
+                        <span class="stock-badge ${badgeClass}">${stockText}</span>
+                    </div>
+                `;
+            });
+            
+            stockHtml += `</div>`;
+        }
         
         container.innerHTML = stockHtml;
         container.style.display = 'block';
@@ -2744,31 +2959,25 @@ class ProductVariationManager {
      * Get or create the color-size stock display container
      */
     getOrCreateColorSizeStockContainer() {
-        let container = document.getElementById('color-size-stock-display');
+        // Use the existing stock-grid-container from the template (positioned under main image)
+        let container = document.querySelector('.stock-grid-container');
         
         if (!container) {
-            // Find a good location to insert the container - prioritize left column (product gallery)
+            // Fallback: create the container if it doesn't exist
             const productGallery = document.querySelector('.product-gallery');
-            const stockSection = document.querySelector('.product-gallery .stock-status');
-            const variationSection = document.querySelector('.variation-section, .product-variations, #productVariations');
-            
-            container = document.createElement('div');
-            container.id = 'color-size-stock-display';
-            container.className = 'color-size-stock-display mt-3 p-3 bg-light rounded';
-            container.style.display = 'none';
-            
-            // Try to insert in product gallery after stock status first, then variations section
-            if (stockSection) {
-                stockSection.insertAdjacentElement('afterend', container);
-            } else if (productGallery) {
+            if (productGallery) {
+                container = document.createElement('div');
+                container.className = 'stock-grid-container mt-3';
                 productGallery.appendChild(container);
-            } else if (variationSection) {
-                variationSection.insertAdjacentElement('afterend', container);
+                console.log('Stock container created in product gallery');
             } else {
-                // Fallback: try to find the product info section
+                // Last resort: product info section
                 const productInfo = document.querySelector('.product-info, .product-details');
                 if (productInfo) {
+                    container = document.createElement('div');
+                    container.className = 'stock-grid-container mt-3';
                     productInfo.appendChild(container);
+                    console.log('Stock container created in product info (fallback)');
                 }
             }
         }
@@ -2780,9 +2989,10 @@ class ProductVariationManager {
      * Hide the color-size stock display
      */
     hideColorSizeStockDisplay() {
-        const container = document.getElementById('color-size-stock-display');
+        const container = document.querySelector('.stock-grid-container');
         if (container) {
             container.style.display = 'none';
+            container.innerHTML = ''; // Clear the content
         }
     }
     
