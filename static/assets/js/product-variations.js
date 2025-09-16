@@ -426,7 +426,7 @@ class ProductVariationManager {
             return;
         }
 
-        const ageGroups = this.groupedVariations.age_group || this.groupedVariations.gender || [];
+        const ageGroups = this.groupedVariations.age_group || this.groupedVariations.gender || this.groupedVariations['select main category'] || [];
         if (ageGroups.length === 0) return;
 
         // For SAS products, render as clickable swatches like colors
@@ -629,7 +629,7 @@ class ProductVariationManager {
         // Stock info will be shown in the size tiles instead
         const isUnavailable = target.dataset.available === 'false';
         const isColorSwatch = target.dataset.variationType === 'color';
-        const isCategorySwatch = target.dataset.variationType === 'age_group' || target.dataset.variationType === 'gender';
+        const isCategorySwatch = target.dataset.variationType === 'age_group' || target.dataset.variationType === 'gender' || target.dataset.variationType === 'select main category';
         const isSasProduct = this.productType === 'sas';
 
         if (!target || (isUnavailable && !((isColorSwatch || isCategorySwatch) && isSasProduct))) return;
@@ -664,7 +664,7 @@ class ProductVariationManager {
             // Apply same logic as click handler for SAS color and category swatches
             const isUnavailable = target.dataset.available === 'false';
             const isColorSwatch = target.dataset.variationType === 'color';
-            const isCategorySwatch = target.dataset.variationType === 'age_group' || target.dataset.variationType === 'gender';
+            const isCategorySwatch = target.dataset.variationType === 'age_group' || target.dataset.variationType === 'gender' || target.dataset.variationType === 'select main category';
             const isSasProduct = this.productType === 'sas';
             const isSize = target.dataset.variationType === 'size';
 
