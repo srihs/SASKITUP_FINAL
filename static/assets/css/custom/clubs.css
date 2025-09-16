@@ -208,87 +208,119 @@
 }
 
 /* ============================================
-   LOTTO Brand Colors - Updated Brand Identity
+   LOTTO Brand Colors - Comprehensive Brand Identity System
    ============================================ */
 
-/* Primary LOTTO brand color: Deep Rose */
-.text-lotto-primary { color: #C9485B !important; }
-.bg-lotto-primary { background-color: #C9485B !important; }
-.border-lotto-primary { border-color: #C9485B !important; }
+/* CSS Custom Properties for LOTTO Brand System */
+:root {
+  /* LOTTO Primary Brand Colors */
+  --lotto-primary: #C9485B;
+  --lotto-primary-hover: #E89DA2;
+  --lotto-primary-active: #B33D50;
+  --lotto-primary-light: rgba(201, 72, 91, 0.1);
+  --lotto-primary-lighter: rgba(201, 72, 91, 0.05);
+  
+  /* LOTTO Secondary Colors */
+  --lotto-secondary: #E89DA2;
+  --lotto-secondary-hover: #F5BCC1;
+  --lotto-secondary-active: #D88087;
+  
+  /* LOTTO Neutral Colors */
+  --lotto-dark: #B33D50;
+  --lotto-darker: #9A2B3D;
+  --lotto-light: #F5E6E8;
+  --lotto-lighter: #FAF2F3;
+  
+  /* LOTTO Gradients */
+  --lotto-gradient-primary: linear-gradient(135deg, #C9485B 0%, #E89DA2 100%);
+  --lotto-gradient-reverse: linear-gradient(135deg, #E89DA2 0%, #C9485B 100%);
+  --lotto-gradient-soft: linear-gradient(135deg, rgba(201, 72, 91, 0.1) 0%, rgba(232, 157, 162, 0.05) 100%);
+  
+  /* LOTTO Box Shadows */
+  --lotto-shadow-primary: 0 6px 15px rgba(201, 72, 91, 0.3);
+  --lotto-shadow-hover: 0 8px 25px rgba(201, 72, 91, 0.25);
+  --lotto-shadow-focus: 0 0 0 0.2rem rgba(201, 72, 91, 0.25);
+  --lotto-shadow-soft: 0 4px 15px rgba(201, 72, 91, 0.08);
+}
 
-/* Secondary LOTTO brand color: Light Rose */
-.text-lotto-secondary { color: #E89DA2 !important; }
-.bg-lotto-secondary { background-color: #E89DA2 !important; }
-.border-lotto-secondary { border-color: #E89DA2 !important; }
+/* Primary LOTTO brand color utilities */
+.text-lotto-primary { color: var(--lotto-primary) !important; }
+.bg-lotto-primary { background-color: var(--lotto-primary) !important; }
+.border-lotto-primary { border-color: var(--lotto-primary) !important; }
+
+/* Secondary LOTTO brand color utilities */
+.text-lotto-secondary { color: var(--lotto-secondary) !important; }
+.bg-lotto-secondary { background-color: var(--lotto-secondary) !important; }
+.border-lotto-secondary { border-color: var(--lotto-secondary) !important; }
 
 /* Legacy support - map old classes to new primary */
-.text-lotto { color: #C9485B !important; }
-.bg-lotto { background-color: #C9485B !important; }
-.border-lotto { border-color: #C9485B !important; }
+.text-lotto { color: var(--lotto-primary) !important; }
+.bg-lotto { background-color: var(--lotto-primary) !important; }
+.border-lotto { border-color: var(--lotto-primary) !important; }
 
 /* LOTTO Primary Buttons */
 .btn-lotto {
-    background-color: #C9485B;
-    border-color: #C9485B;
+    background-color: var(--lotto-primary);
+    border-color: var(--lotto-primary);
     color: #fff;
     transition: all 0.3s ease;
     font-weight: 500;
 }
 
 .btn-lotto:hover {
-    background-color: #E89DA2;
-    border-color: #E89DA2;
+    background-color: var(--lotto-primary-hover);
+    border-color: var(--lotto-primary-hover);
     color: #fff;
     transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(201, 72, 91, 0.3);
+    box-shadow: var(--lotto-shadow-primary);
 }
 
 .btn-lotto:focus {
-    background-color: #B33D50;
-    border-color: #B33D50;
+    background-color: var(--lotto-primary-active);
+    border-color: var(--lotto-primary-active);
     color: #fff;
-    box-shadow: 0 0 0 0.2rem rgba(201, 72, 91, 0.25);
+    box-shadow: var(--lotto-shadow-focus);
 }
 
 .btn-lotto:active {
-    background-color: #B33D50 !important;
-    border-color: #B33D50 !important;
+    background-color: var(--lotto-primary-active) !important;
+    border-color: var(--lotto-primary-active) !important;
     color: #fff;
 }
 
 /* LOTTO Soft Buttons */
 .btn-soft-lotto {
-    background-color: rgba(201, 72, 91, 0.1);
-    border-color: rgba(201, 72, 91, 0.1);
-    color: #C9485B;
+    background-color: var(--lotto-primary-light);
+    border-color: var(--lotto-primary-light);
+    color: var(--lotto-primary);
     transition: all 0.3s ease;
 }
 
 .btn-soft-lotto:hover {
-    background-color: #C9485B;
-    border-color: #C9485B;
+    background-color: var(--lotto-primary);
+    border-color: var(--lotto-primary);
     color: #fff;
     transform: translateY(-1px);
 }
 
 .btn-soft-lotto:focus {
-    background-color: rgba(201, 72, 91, 0.15);
-    border-color: #C9485B;
-    color: #C9485B;
-    box-shadow: 0 0 0 0.2rem rgba(201, 72, 91, 0.25);
+    background-color: var(--lotto-primary-light);
+    border-color: var(--lotto-primary);
+    color: var(--lotto-primary);
+    box-shadow: var(--lotto-shadow-focus);
 }
 
 /* LOTTO Outline Buttons */
 .btn-outline-lotto {
     background-color: transparent;
-    border: 2px solid #C9485B;
-    color: #C9485B;
+    border: 2px solid var(--lotto-primary);
+    color: var(--lotto-primary);
     transition: all 0.3s ease;
 }
 
 .btn-outline-lotto:hover {
-    background-color: #C9485B;
-    border-color: #C9485B;
+    background-color: var(--lotto-primary);
+    border-color: var(--lotto-primary);
     color: #fff;
     transform: translateY(-1px);
 }
@@ -297,13 +329,13 @@
 .btn-link-lotto {
     background: none;
     border: none;
-    color: #C9485B;
+    color: var(--lotto-primary);
     text-decoration: underline;
     transition: color 0.3s ease;
 }
 
 .btn-link-lotto:hover {
-    color: #E89DA2;
+    color: var(--lotto-primary-hover);
     text-decoration: none;
 }
 
@@ -1318,34 +1350,64 @@ html {
    LOTTO Brand Extensions & Utilities
    ============================================ */
 
+/* LOTTO Advanced Color Utilities */
+.text-lotto-muted { color: rgba(201, 72, 91, 0.7) !important; }
+.text-lotto-light { color: var(--lotto-light) !important; }
+.text-lotto-dark { color: var(--lotto-dark) !important; }
+.text-lotto-darker { color: var(--lotto-darker) !important; }
+
 /* LOTTO Soft Background Variants */
 .bg-soft-lotto-primary { 
-    background-color: rgba(201, 72, 91, 0.1) !important; 
+    background-color: var(--lotto-primary-light) !important; 
 }
 
 .bg-soft-lotto-secondary { 
-    background-color: rgba(232, 157, 162, 0.1) !important; 
+    background-color: var(--lotto-primary-lighter) !important; 
+}
+
+.bg-lotto-light { 
+    background-color: var(--lotto-light) !important; 
+}
+
+.bg-lotto-lighter { 
+    background-color: var(--lotto-lighter) !important; 
 }
 
 /* LOTTO Gradient Backgrounds */
 .bg-gradient-lotto {
-    background: linear-gradient(135deg, #C9485B 0%, #E89DA2 100%) !important;
+    background: var(--lotto-gradient-primary) !important;
 }
 
 .bg-gradient-lotto-reverse {
-    background: linear-gradient(135deg, #E89DA2 0%, #C9485B 100%) !important;
+    background: var(--lotto-gradient-reverse) !important;
 }
+
+.bg-gradient-lotto-soft {
+    background: var(--lotto-gradient-soft) !important;
+}
+
+/* LOTTO Border Utilities */
+.border-lotto-light { border-color: var(--lotto-light) !important; }
+.border-lotto-dark { border-color: var(--lotto-dark) !important; }
 
 /* LOTTO Badge Variants */
 .badge-lotto {
-    background-color: #C9485B;
+    background-color: var(--lotto-primary);
     color: #fff;
+    font-weight: 500;
+    letter-spacing: 0.3px;
 }
 
 .badge-soft-lotto {
-    background-color: rgba(201, 72, 91, 0.1);
-    color: #C9485B;
-    border: 1px solid rgba(201, 72, 91, 0.2);
+    background-color: var(--lotto-primary-light);
+    color: var(--lotto-primary);
+    border: 1px solid var(--lotto-primary-light);
+}
+
+.badge-outline-lotto {
+    background-color: transparent;
+    color: var(--lotto-primary);
+    border: 1px solid var(--lotto-primary);
 }
 
 .badge-sas {
@@ -1373,11 +1435,53 @@ html {
 
 /* LOTTO Progress Bars */
 .progress-bar-lotto {
-    background: linear-gradient(90deg, #C9485B, #E89DA2);
+    background: var(--lotto-gradient-primary);
 }
 
 .progress-lotto {
-    background-color: rgba(201, 72, 91, 0.1);
+    background-color: var(--lotto-primary-light);
+}
+
+/* LOTTO Form Controls */
+.form-control-lotto:focus {
+    border-color: var(--lotto-primary);
+    box-shadow: var(--lotto-shadow-focus);
+}
+
+.form-select-lotto:focus {
+    border-color: var(--lotto-primary);
+    box-shadow: var(--lotto-shadow-focus);
+}
+
+/* LOTTO Spinner/Loading */
+.spinner-border-lotto {
+    color: var(--lotto-primary) !important;
+}
+
+.spinner-grow-lotto {
+    color: var(--lotto-primary) !important;
+}
+
+/* LOTTO Alert Variants */
+.alert-lotto {
+    background-color: var(--lotto-primary-light);
+    border: 1px solid var(--lotto-primary-light);
+    color: var(--lotto-primary);
+}
+
+.alert-lotto .alert-heading {
+    color: var(--lotto-primary);
+}
+
+/* LOTTO Icons & Avatars */
+.avatar-title-lotto {
+    background-color: var(--lotto-primary);
+    color: #fff;
+}
+
+.avatar-title-soft-lotto {
+    background-color: var(--lotto-primary-light);
+    color: var(--lotto-primary);
 }
 
 /* LOTTO Card Variants */
@@ -1453,66 +1557,88 @@ html {
     color: #C9485B;
 }
 
-/* LOTTO Club Specific Overrides */
+/* LOTTO Page Specific Overrides - applies to all LOTTO pages */
 .lotto-page .text-info,
-.lotto-page .text-primary {
-    color: #C9485B !important;
+.lotto-page .text-primary,
+.lotto-product-page .text-info,
+.lotto-product-page .text-primary {
+    color: var(--lotto-primary) !important;
 }
 
 .lotto-page .bg-info,
-.lotto-page .bg-primary {
-    background-color: #C9485B !important;
+.lotto-page .bg-primary,
+.lotto-product-page .bg-info,
+.lotto-product-page .bg-primary {
+    background-color: var(--lotto-primary) !important;
 }
 
 .lotto-page .border-info,
-.lotto-page .border-primary {
-    border-color: #C9485B !important;
+.lotto-page .border-primary,
+.lotto-product-page .border-info,
+.lotto-product-page .border-primary {
+    border-color: var(--lotto-primary) !important;
 }
 
 .lotto-page .btn-info,
-.lotto-page .btn-primary {
-    background-color: #C9485B;
-    border-color: #C9485B;
+.lotto-page .btn-primary,
+.lotto-product-page .btn-info,
+.lotto-product-page .btn-primary {
+    background-color: var(--lotto-primary);
+    border-color: var(--lotto-primary);
     color: #fff;
 }
 
 .lotto-page .btn-info:hover,
-.lotto-page .btn-primary:hover {
-    background-color: #E89DA2;
-    border-color: #E89DA2;
+.lotto-page .btn-primary:hover,
+.lotto-product-page .btn-info:hover,
+.lotto-product-page .btn-primary:hover {
+    background-color: var(--lotto-primary-hover);
+    border-color: var(--lotto-primary-hover);
     color: #fff;
 }
 
 .lotto-page .btn-soft-info,
-.lotto-page .btn-soft-primary {
-    background-color: rgba(201, 72, 91, 0.1);
-    border-color: rgba(201, 72, 91, 0.1);
-    color: #C9485B;
+.lotto-page .btn-soft-primary,
+.lotto-product-page .btn-soft-info,
+.lotto-product-page .btn-soft-primary {
+    background-color: var(--lotto-primary-light);
+    border-color: var(--lotto-primary-light);
+    color: var(--lotto-primary);
 }
 
 .lotto-page .btn-soft-info:hover,
-.lotto-page .btn-soft-primary:hover {
-    background-color: #C9485B;
-    border-color: #C9485B;
+.lotto-page .btn-soft-primary:hover,
+.lotto-product-page .btn-soft-info:hover,
+.lotto-product-page .btn-soft-primary:hover {
+    background-color: var(--lotto-primary);
+    border-color: var(--lotto-primary);
     color: #fff;
 }
 
 .lotto-page .badge-info,
-.lotto-page .badge-primary {
-    background-color: #C9485B;
+.lotto-page .badge-primary,
+.lotto-product-page .badge-info,
+.lotto-product-page .badge-primary {
+    background-color: var(--lotto-primary);
     color: #fff;
 }
 
 .lotto-page .bg-soft-info,
-.lotto-page .bg-soft-primary {
-    background-color: rgba(201, 72, 91, 0.1) !important;
+.lotto-page .bg-soft-primary,
+.lotto-product-page .bg-soft-info,
+.lotto-product-page .bg-soft-primary {
+    background-color: var(--lotto-primary-light) !important;
 }
 
 .lotto-page .progress-bar-info,
 .lotto-page .progress-bar-primary,
 .lotto-page .bg-info .progress-bar,
-.lotto-page .bg-primary .progress-bar {
-    background: linear-gradient(90deg, #C9485B, #E89DA2);
+.lotto-page .bg-primary .progress-bar,
+.lotto-product-page .progress-bar-info,
+.lotto-product-page .progress-bar-primary,
+.lotto-product-page .bg-info .progress-bar,
+.lotto-product-page .bg-primary .progress-bar {
+    background: var(--lotto-gradient-primary);
 }
 
 /* LOTTO Stat Tiles Enhancement */
@@ -1577,58 +1703,73 @@ html {
 }
 
 /* LOTTO Pagination */
-.lotto-page .pagination .page-item.active .page-link {
-    background-color: #C9485B;
-    border-color: #C9485B;
+.lotto-page .pagination .page-item.active .page-link,
+.lotto-product-page .pagination .page-item.active .page-link {
+    background-color: var(--lotto-primary);
+    border-color: var(--lotto-primary);
 }
 
-.lotto-page .pagination .page-link:hover {
-    background-color: rgba(201, 72, 91, 0.1);
-    border-color: #C9485B;
-    color: #C9485B;
+.lotto-page .pagination .page-link:hover,
+.lotto-product-page .pagination .page-link:hover {
+    background-color: var(--lotto-primary-light);
+    border-color: var(--lotto-primary);
+    color: var(--lotto-primary);
 }
 
 /* LOTTO Search Box */
-.lotto-page .search-box .form-control:focus {
-    border-color: #C9485B;
-    box-shadow: 0 0 0 0.2rem rgba(201, 72, 91, 0.25);
+.lotto-page .search-box .form-control:focus,
+.lotto-product-page .search-box .form-control:focus {
+    border-color: var(--lotto-primary);
+    box-shadow: var(--lotto-shadow-focus);
 }
 
-.lotto-page .search-icon {
-    color: #C9485B !important;
+.lotto-page .search-icon,
+.lotto-product-page .search-icon {
+    color: var(--lotto-primary) !important;
 }
 
 /* LOTTO Dropdown Menus */
-.lotto-page .dropdown-menu {
-    border: 1px solid rgba(201, 72, 91, 0.2);
+.lotto-page .dropdown-menu,
+.lotto-product-page .dropdown-menu {
+    border: 1px solid var(--lotto-primary-light);
 }
 
 .lotto-page .dropdown-item:hover,
-.lotto-page .dropdown-item:focus {
-    background-color: rgba(201, 72, 91, 0.1);
-    color: #C9485B;
+.lotto-page .dropdown-item:focus,
+.lotto-product-page .dropdown-item:hover,
+.lotto-product-page .dropdown-item:focus {
+    background-color: var(--lotto-primary-light);
+    color: var(--lotto-primary);
 }
 
-.lotto-page .dropdown-item.active {
-    background-color: #C9485B;
+.lotto-page .dropdown-item.active,
+.lotto-product-page .dropdown-item.active {
+    background-color: var(--lotto-primary);
     color: #fff;
 }
 
 /* LOTTO Accessibility Enhancements */
-.lotto-page .btn:focus {
-    outline: 2px solid #C9485B;
+.lotto-page .btn:focus,
+.lotto-product-page .btn:focus {
+    outline: 2px solid var(--lotto-primary);
     outline-offset: 2px;
 }
 
 .lotto-page .form-control:focus,
-.lotto-page .form-select:focus {
-    outline: 2px solid #C9485B;
+.lotto-page .form-select:focus,
+.lotto-product-page .form-control:focus,
+.lotto-product-page .form-select:focus {
+    outline: 2px solid var(--lotto-primary);
     outline-offset: 2px;
+    border-color: var(--lotto-primary);
+    box-shadow: var(--lotto-shadow-focus);
 }
 
-.lotto-page .card:focus-within {
-    outline: 2px solid #C9485B;
+.lotto-page .card:focus-within,
+.lotto-product-page .card:focus-within {
+    outline: 2px solid var(--lotto-primary);
     outline-offset: 2px;
+    box-shadow: var(--lotto-shadow-focus);
 }
 
 /* LOTTO Responsive Adjustments */

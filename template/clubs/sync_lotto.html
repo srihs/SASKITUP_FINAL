@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block content %}
+<div class="lotto-page">
 <!-- CSRF Token for JavaScript -->
 <meta name="csrf-token" content="{{ csrf_token }}">
 <div class="row">
@@ -722,5 +723,5 @@ document.addEventListener('DOMContentLoaded', function() {
     {% endif %}
 });
 </script>
-
+</div> <!-- End lotto-page wrapper -->
 {% endblock %}

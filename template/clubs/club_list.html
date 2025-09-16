@@ -154,7 +154,7 @@
                         <h5 class="mb-1 card-title">
                             <a href="{% url 'clubs:club-detail' club.slug %}" class="text-dark text-decoration-none stretched-link" aria-label="View details for {{ club.name }}">{{ club.name }}</a>
                         </h5>
-                        <span class="badge {% if club.club_type == 'LOTTO' %}bg-info{% else %}bg-warning{% endif %} font-size-11 mb-1">
+                        <span class="badge {% if club.club_type == 'LOTTO' %}badge-lotto{% else %}bg-warning{% endif %} font-size-11 mb-1">
                             {{ club.club_type }}
                         </span>
                     </div>
