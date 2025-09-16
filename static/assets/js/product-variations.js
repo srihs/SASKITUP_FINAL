@@ -3035,9 +3035,14 @@ class ProductVariationManager {
             let stockText = '';
             let badgeClass = 'bg-success text-white';
             
+            // Use LOTTO red for available stock on LOTTO pages, green for others
+            const isLottoPage = document.body.classList.contains('lotto-page') || 
+                               document.body.classList.contains('lotto-product-page');
+            const availableClass = isLottoPage ? 'bg-success text-white lotto-stock-available' : 'bg-success text-white';
+            
             if (isAvailable && stockQuantity > 0) {
                 stockText = `${stockQuantity} available`;
-                badgeClass = 'bg-success text-white';
+                badgeClass = availableClass;
             } else if (stockStatus === 'onbackorder') {
                 stockText = 'On backorder';
                 badgeClass = 'bg-warning text-dark';
@@ -3070,9 +3075,14 @@ class ProductVariationManager {
                 let stockText = '';
                 let badgeClass = 'bg-success text-white';
                 
+                // Use LOTTO red for available stock on LOTTO pages, green for others
+                const isLottoPageRow2 = document.body.classList.contains('lotto-page') || 
+                                       document.body.classList.contains('lotto-product-page');
+                const availableClassRow2 = isLottoPageRow2 ? 'bg-success text-white lotto-stock-available' : 'bg-success text-white';
+                
                 if (isAvailable && stockQuantity > 0) {
                     stockText = `${stockQuantity} available`;
-                    badgeClass = 'bg-success text-white';
+                    badgeClass = availableClassRow2;
                 } else if (stockStatus === 'onbackorder') {
                     stockText = 'On backorder';
                     badgeClass = 'bg-warning text-dark';

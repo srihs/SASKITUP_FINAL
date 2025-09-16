@@ -2194,6 +2194,112 @@ html {
     border-width: 0.125em;
 }
 
+/* ============================================
+   LOTTO Size Tile Stock Badge Overrides
+   ============================================ */
+
+/* Force LOTTO red colors for stock badges in size tiles on LOTTO pages */
+.lotto-page .stock-badge.bg-success,
+.lotto-product-page .stock-badge.bg-success {
+    background-color: var(--lotto-primary) !important;
+    color: #ffffff !important;
+    border: none !important;
+}
+
+.lotto-page .size-tile .stock-badge.bg-success,
+.lotto-product-page .size-tile .stock-badge.bg-success {
+    background-color: var(--lotto-primary) !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 8px rgba(201, 72, 91, 0.25) !important;
+}
+
+/* LOTTO Size Tiles Container Styling */
+.lotto-page .size-tiles-container,
+.lotto-product-page .size-tiles-container {
+    background: linear-gradient(135deg, var(--lotto-lighter) 0%, #ffffff 100%);
+    border: 2px solid var(--lotto-primary-light);
+    border-radius: 12px;
+    padding: 1.25rem;
+    box-shadow: 0 4px 15px var(--lotto-shadow-soft);
+}
+
+.lotto-page .size-tiles-container:hover,
+.lotto-product-page .size-tiles-container:hover {
+    border-color: var(--lotto-primary);
+    box-shadow: 0 6px 20px var(--lotto-shadow-primary);
+}
+
+/* LOTTO Size Tile Individual Styling */
+.lotto-page .size-tile,
+.lotto-product-page .size-tile {
+    background: #ffffff;
+    border: 2px solid var(--lotto-primary-light) !important;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.lotto-page .size-tile:hover,
+.lotto-product-page .size-tile:hover {
+    border-color: var(--lotto-primary) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--lotto-shadow-primary) !important;
+}
+
+/* LOTTO Size Name Styling */
+.lotto-page .size-name,
+.lotto-product-page .size-name {
+    color: var(--lotto-primary) !important;
+    font-weight: 700 !important;
+}
+
+/* Override any green Bootstrap classes for warning and danger states */
+.lotto-page .stock-badge.bg-warning,
+.lotto-product-page .stock-badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #212529 !important;
+}
+
+.lotto-page .stock-badge.bg-secondary,
+.lotto-product-page .stock-badge.bg-secondary {
+    background-color: #6c757d !important;
+    color: #ffffff !important;
+}
+
+/* Additional targeting for JavaScript-generated elements */
+.lotto-page [class*="bg-success"],
+.lotto-product-page [class*="bg-success"] {
+    background-color: var(--lotto-primary) !important;
+}
+
+.lotto-page .badge.bg-success,
+.lotto-product-page .badge.bg-success,
+.lotto-page .btn.bg-success,
+.lotto-product-page .btn.bg-success {
+    background-color: var(--lotto-primary) !important;
+    border-color: var(--lotto-primary) !important;
+    color: #ffffff !important;
+}
+
+/* Specific styling for LOTTO stock available badges */
+.lotto-page .lotto-stock-available,
+.lotto-product-page .lotto-stock-available {
+    background-color: var(--lotto-primary) !important;
+    border-color: var(--lotto-primary) !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 8px rgba(201, 72, 91, 0.25) !important;
+    border-radius: 16px !important;
+    padding: 6px 12px !important;
+}
+
+.lotto-page .stock-badge.lotto-stock-available:hover,
+.lotto-product-page .stock-badge.lotto-stock-available:hover {
+    background-color: var(--lotto-primary-hover) !important;
+    box-shadow: 0 4px 12px rgba(201, 72, 91, 0.35) !important;
+    transform: translateY(-1px);
+}
+
 /* Responsive Adjustments */
 @media (max-width: 576px) {
     .color-size-stock-display {
