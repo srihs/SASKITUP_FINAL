@@ -1464,28 +1464,38 @@ def sas_product_search_ajax(request):
 
 class LottoProductDetailView(DetailView):
     """Detail view for LOTTO products with Stanley-inspired layout"""
-    model = Product
+    model = LottoProduct
     template_name = 'clubs/lotto_product_detail.html'
     context_object_name = 'product'
     slug_field = 'slug'
     slug_url_kwarg = 'slug'
     
     def get_queryset(self):
-        # Only show products from LOTTO clubs
-        return Product.objects.filter(
-            categories__club__club_type='LOTTO'
-        ).select_related().prefetch_related('variations', 'categories__club').distinct()
+        # Only show LOTTO products that are published
+        return LottoProduct.objects.filter(
+            status='publish'
+        ).select_related('category__club').prefetch_related('variations')
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         product = self.get_object()
         
-        # Get the first LOTTO category for this product (for breadcrumbs and navigation)
-        lotto_category = product.categories.filter(club__club_type='LOTTO').first()
+        # Get the LOTTO category for this product (for breadcrumbs and navigation)
+        lotto_category = product.category
         context['primary_category'] = lotto_category
         
-        # Add product variations
-        context['variations'] = product.variations.all()
+        # Add product variations with stock information
+        context['variations'] = product.variations.filter(is_active=True)
+        
+        # Add stock quantity information for single-variant products
+        if product.type == 'simple':
+            # For simple products, use the main product's stock_quantity
+            context['stock_quantity'] = product.stock_quantity or 0
+            context['manage_stock'] = product.manage_stock
+        else:
+            # For variable products, stock will be handled by variations
+            context['stock_quantity'] = 0
+            context['manage_stock'] = False
         
         # Add available sizes and colors
         context['available_sizes'] = list(set(
@@ -1499,25 +1509,20 @@ class LottoProductDetailView(DetailView):
             if var.variation_type in ['color', 'Color']
         ))
         
-        # Add related products from LOTTO clubs (since this product might belong to multiple categories)
-        context['related_products'] = Product.objects.filter(
-            categories__club__club_type='LOTTO'
-        ).exclude(id=product.id).prefetch_related('categories__club')[:4]
+        # Add related products from same LOTTO club
+        context['related_products'] = LottoProduct.objects.filter(
+            category__club=lotto_category.club,
+            status='publish'
+        ).exclude(id=product.id).select_related('category')[:4]
         
-        # Add breadcrumbs (use first LOTTO category for breadcrumb navigation)
-        lotto_category = product.categories.filter(club__club_type='LOTTO').first()
+        # Add breadcrumbs
         context['breadcrumbs'] = [
             {'name': 'Home', 'url': '/'},
             {'name': 'LOTTO Clubs', 'url': '/clubs/lotto/'},
+            {'name': lotto_category.club.name, 'url': f'/clubs/club/{lotto_category.club.slug}/'},
+            {'name': lotto_category.name, 'url': f'/clubs/category/{lotto_category.slug}/'},
+            {'name': product.name}
         ]
-        if lotto_category:
-            context['breadcrumbs'].extend([
-                {'name': lotto_category.club.name, 'url': f'/clubs/club/{lotto_category.club.slug}/'},
-                {'name': lotto_category.name, 'url': f'/clubs/category/{lotto_category.slug}/'},
-                {'name': product.name}
-            ])
-        else:
-            context['breadcrumbs'].append({'name': product.name})
         
         return context
 
