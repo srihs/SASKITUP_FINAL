@@ -1977,24 +1977,33 @@ def product_variations_api(request, product_id, store_type=None):
         product = None
         
         if store_type and store_type.upper() == 'SAS':
-            # Look for SAS product
+            # Look for SAS product - try Django ID first, then WooCommerce ID
             try:
                 from .models_sas import SASProduct
-                product = SASProduct.objects.get(woo_product_id=product_id)
+                try:
+                    product = SASProduct.objects.get(id=product_id)
+                except SASProduct.DoesNotExist:
+                    product = SASProduct.objects.get(woo_product_id=product_id)
             except SASProduct.DoesNotExist:
                 pass
         
         if not product and (not store_type or store_type.upper() == 'LOTTO'):
-            # Look for LOTTO product
+            # Look for LOTTO product - try Django ID first, then WooCommerce ID
             try:
-                product = LottoProduct.objects.get(woo_product_id=product_id)
+                try:
+                    product = LottoProduct.objects.get(id=product_id)
+                except LottoProduct.DoesNotExist:
+                    product = LottoProduct.objects.get(woo_product_id=product_id)
             except LottoProduct.DoesNotExist:
                 pass
         
         if not product:
-            # Fallback to generic Product
+            # Fallback to generic Product - try Django ID first, then WooCommerce ID
             try:
-                product = Product.objects.get(woo_product_id=product_id)
+                try:
+                    product = Product.objects.get(id=product_id)
+                except Product.DoesNotExist:
+                    product = Product.objects.get(woo_product_id=product_id)
             except Product.DoesNotExist:
                 return JsonResponse({
                     'success': False,
@@ -2117,24 +2126,33 @@ def check_variation_availability(request, product_id, store_type=None):
         product = None
         
         if store_type and store_type.upper() == 'SAS':
-            # Look for SAS product
+            # Look for SAS product - try Django ID first, then WooCommerce ID
             try:
                 from .models_sas import SASProduct
-                product = SASProduct.objects.get(woo_product_id=product_id)
+                try:
+                    product = SASProduct.objects.get(id=product_id)
+                except SASProduct.DoesNotExist:
+                    product = SASProduct.objects.get(woo_product_id=product_id)
             except SASProduct.DoesNotExist:
                 pass
         
         if not product and (not store_type or store_type.upper() == 'LOTTO'):
-            # Look for LOTTO product
+            # Look for LOTTO product - try Django ID first, then WooCommerce ID
             try:
-                product = LottoProduct.objects.get(woo_product_id=product_id)
+                try:
+                    product = LottoProduct.objects.get(id=product_id)
+                except LottoProduct.DoesNotExist:
+                    product = LottoProduct.objects.get(woo_product_id=product_id)
             except LottoProduct.DoesNotExist:
                 pass
         
         if not product:
-            # Fallback to generic Product
+            # Fallback to generic Product - try Django ID first, then WooCommerce ID
             try:
-                product = Product.objects.get(woo_product_id=product_id)
+                try:
+                    product = Product.objects.get(id=product_id)
+                except Product.DoesNotExist:
+                    product = Product.objects.get(woo_product_id=product_id)
             except Product.DoesNotExist:
                 return JsonResponse({
                     'success': False,
