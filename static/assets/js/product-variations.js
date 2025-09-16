@@ -225,7 +225,12 @@ class ProductVariationManager {
         }
         
         this.renderOtherVariations();
-        
+
+        // For SAS products, ensure category swatches are never disabled after rendering
+        if (this.productType === 'sas') {
+            this.ensureCategorySwatchesEnabled();
+        }
+
         // Initialize color image gallery after rendering variations
         setTimeout(() => {
             this.initializeColorImageGallery();
@@ -437,9 +442,12 @@ class ProductVariationManager {
             swatchContainer.innerHTML = '';
 
             ageGroups.forEach(variation => {
+                console.log(`[CATEGORY DEBUG] Creating category swatch for: ${variation.value}, available: ${variation.is_available}`);
                 const swatch = this.createCategorySwatch(variation);
                 swatchContainer.appendChild(swatch);
             });
+
+            console.log(`[CATEGORY DEBUG] Rendered ${ageGroups.length} category swatches for SAS`);
         } else {
             // Original LOTTO behavior - use buttons
             const title = 'Age Group';
@@ -475,7 +483,41 @@ class ProductVariationManager {
         // Category swatches should behave like color swatches - always clickable
         // Stock availability will be shown in the size grid when category is selected
 
+        // Explicitly ensure category swatches are never disabled for SAS products
+        // (Similar to color swatch protection but for categories)
+        if (!variation.is_available && this.productType === 'sas') {
+            console.log(`[CATEGORY DEBUG] Category swatch ${variation.value} would be disabled but forcing enabled for SAS`);
+        }
+        // Never add disabled class for SAS category swatches - they should always be clickable
+
+        // Force remove any disabled styling that might be applied elsewhere
+        swatch.classList.remove('disabled');
+        swatch.style.opacity = '';  // Clear any inline opacity styles
+        swatch.style.cursor = 'pointer';  // Ensure cursor is always pointer
+        swatch.removeAttribute('disabled');  // Remove disabled attribute if present
+
         return swatch;
+    }
+
+    /**
+     * Ensure category swatches are always enabled for SAS products
+     */
+    ensureCategorySwatchesEnabled() {
+        const categorySwatches = document.querySelectorAll('.category-swatch');
+        categorySwatches.forEach(swatch => {
+            // Remove any disabled styling that might have been applied
+            swatch.classList.remove('disabled');
+            swatch.style.opacity = '';
+            swatch.style.cursor = 'pointer';
+            swatch.removeAttribute('disabled');
+
+            // Ensure the swatch is clickable
+            if (!swatch.dataset.variationType) {
+                swatch.dataset.variationType = 'age_group';  // Default for SAS category swatches
+            }
+        });
+
+        console.log(`[CATEGORY DEBUG] Ensured ${categorySwatches.length} category swatches are enabled for SAS`);
     }
 
     /**
