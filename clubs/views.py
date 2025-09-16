@@ -1464,7 +1464,7 @@ def sas_product_search_ajax(request):
 
 class LottoProductDetailView(DetailView):
     """Detail view for LOTTO products with Stanley-inspired layout"""
-    model = LottoProduct
+    model = Product
     template_name = 'clubs/lotto_product_detail.html'
     context_object_name = 'product'
     slug_field = 'slug'
@@ -1472,40 +1472,36 @@ class LottoProductDetailView(DetailView):
     
     def get_queryset(self):
         # Only show LOTTO products that are published
-        return LottoProduct.objects.filter(
-            status='publish'
-        ).select_related('category__club').prefetch_related('variations')
+        return Product.objects.filter(
+            stock_status__in=['instock', 'outofstock', 'onbackorder']
+        ).prefetch_related('categories__club', 'variations')
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         product = self.get_object()
         
-        # Get the LOTTO category for this product (for breadcrumbs and navigation)
-        lotto_category = product.category
-        context['primary_category'] = lotto_category
+        # Get the primary category for this product (for breadcrumbs and navigation)
+        primary_category = product.categories.first() if product.categories.exists() else None
+        context['primary_category'] = primary_category
         
         # Add product variations with stock information
-        context['variations'] = product.variations.filter(is_active=True)
+        context['variations'] = product.variations.all()
         
         # Add stock quantity information for single-variant products
-        if product.type == 'simple':
-            # For simple products, use the main product's stock_quantity
-            context['stock_quantity'] = product.stock_quantity or 0
-            context['manage_stock'] = product.manage_stock
-        else:
-            # For variable products, stock will be handled by variations
-            context['stock_quantity'] = 0
-            context['manage_stock'] = False
+        # For now, set basic stock info - we'll improve this later
+        context['stock_quantity'] = 0  # Default to 0, will be handled by frontend
+        context['manage_stock'] = True
         
-        # Add available sizes and colors
+        # Add available sizes and colors from variations
+        variations = product.variations.all()
         context['available_sizes'] = list(set(
             var.variation_value.split(' - ')[0] if ' - ' in var.variation_value 
-            else var.variation_value for var in product.variations.all()
+            else var.variation_value for var in variations
             if var.variation_type in ['size', 'Size']
         ))
         context['available_colors'] = list(set(
             var.variation_value.split(' - ')[-1] if ' - ' in var.variation_value 
-            else var.variation_value for var in product.variations.all()
+            else var.variation_value for var in variations
             if var.variation_type in ['color', 'Color']
         ))
         
