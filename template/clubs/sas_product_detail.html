@@ -613,6 +613,311 @@
 .variation-changing {
     transition: all 0.3s ease;
 }
+
+/* ========== STOCK CONTAINER STYLES ========== */
+
+/* Stock Grid Container */
+.stock-grid-container {
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+/* Stock Status Container */
+.stock-status-container {
+    opacity: 1;
+    transition: opacity 0.3s ease;
+    padding: 1rem;
+    background: rgba(248, 249, 250, 0.5);
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.stock-status-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.stock-status-visible {
+    opacity: 1;
+    pointer-events: all;
+}
+
+/* SAS Brand Stock Tiles */
+.sas-stock-tile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 8px;
+    animation: stockTileSlideIn 0.4s ease-out;
+}
+
+/* SAS Brand Animation Effect */
+.sas-stock-tile::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+    transition: left 0.5s ease;
+}
+
+.sas-stock-tile:hover::before {
+    left: 100%;
+}
+
+/* SAS Brand Stock Status Colors */
+.sas-stock-tile.in-stock {
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.1), rgba(40, 167, 69, 0.05));
+    color: #28a745;
+    border-color: rgba(40, 167, 69, 0.3);
+}
+
+.sas-stock-tile.in-stock:hover {
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.15), rgba(40, 167, 69, 0.1));
+    border-color: #28a745;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(40, 167, 69, 0.2);
+}
+
+.sas-stock-tile.low-stock {
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 193, 7, 0.05));
+    color: #ffc107;
+    border-color: rgba(255, 193, 7, 0.3);
+}
+
+.sas-stock-tile.low-stock:hover {
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.15), rgba(255, 193, 7, 0.1));
+    border-color: #ffc107;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(255, 193, 7, 0.2);
+}
+
+.sas-stock-tile.out-of-stock {
+    background: linear-gradient(135deg, rgba(220, 53, 69, 0.1), rgba(220, 53, 69, 0.05));
+    color: #dc3545;
+    border-color: rgba(220, 53, 69, 0.3);
+}
+
+.sas-stock-tile.out-of-stock:hover {
+    background: linear-gradient(135deg, rgba(220, 53, 69, 0.15), rgba(220, 53, 69, 0.1));
+    border-color: #dc3545;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(220, 53, 69, 0.2);
+}
+
+.sas-stock-tile.contact {
+    background: linear-gradient(135deg, rgba(32, 82, 149, 0.1), rgba(32, 82, 149, 0.05));
+    color: #205295;
+    border-color: rgba(32, 82, 149, 0.3);
+}
+
+.sas-stock-tile.contact:hover {
+    background: linear-gradient(135deg, rgba(32, 82, 149, 0.15), rgba(32, 82, 149, 0.1));
+    border-color: #205295;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(32, 82, 149, 0.2);
+}
+
+/* Stock Quantity Text Styling */
+.stock-quantity {
+    font-weight: 700;
+    font-size: 1.2rem;
+    display: block;
+    line-height: 1.2;
+}
+
+.stock-label {
+    font-weight: 500;
+    font-size: 0.9rem;
+    opacity: 0.8;
+    display: block;
+    margin-top: 2px;
+}
+
+.sas-stock-tile .stock-icon {
+    font-size: 1.4rem;
+    margin-right: 8px;
+    opacity: 0.8;
+}
+
+/* Stock Grid 4x2 Layout for Size-Only Products */
+.stock-grid-4x2 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.size-tile {
+    background: #fff;
+    border: 2px solid #e0e6ed;
+    border-radius: 8px;
+    padding: 16px 12px;
+    text-align: center;
+    transition: all 0.3s ease;
+    min-height: 90px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.size-tile.available {
+    background: linear-gradient(135deg, rgba(32, 82, 149, 0.08), rgba(32, 82, 149, 0.03));
+    border-color: rgba(32, 82, 149, 0.4);
+    color: #205295;
+}
+
+.size-tile.available:hover {
+    background: linear-gradient(135deg, rgba(32, 82, 149, 0.12), rgba(32, 82, 149, 0.06));
+    border-color: #205295;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(32, 82, 149, 0.15);
+}
+
+.size-tile.out-of-stock {
+    background: linear-gradient(135deg, rgba(220, 53, 69, 0.08), rgba(220, 53, 69, 0.03));
+    border-color: rgba(220, 53, 69, 0.4);
+    color: #dc3545;
+    opacity: 0.7;
+}
+
+.size-name {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.size-stock {
+    font-size: 0.85rem;
+    font-weight: 500;
+    opacity: 0.8;
+}
+
+.stock-grid-header {
+    padding: 12px 0;
+    border-bottom: 1px solid #e9ecef;
+    margin-bottom: 16px;
+}
+
+.stock-grid-header h6 {
+    color: #495057;
+    font-weight: 600;
+}
+
+/* Animation for stock tiles appearing */
+@keyframes stockTileSlideIn {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive adjustments for stock grid */
+@media (max-width: 992px) {
+    .sas-stock-tile {
+        padding: 16px;
+        font-size: 1rem;
+        min-height: 70px;
+    }
+    
+    .stock-quantity {
+        font-size: 1.1rem;
+    }
+    
+    .sas-stock-tile .stock-icon {
+        font-size: 1.2rem;
+        margin-right: 6px;
+    }
+    
+    .stock-grid-4x2 {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .size-tile {
+        min-height: 80px;
+        padding: 12px 8px;
+    }
+}
+
+@media (max-width: 576px) {
+    .sas-stock-tile {
+        padding: 12px;
+        font-size: 0.95rem;
+        min-height: 60px;
+    }
+    
+    .stock-quantity {
+        font-size: 1rem;
+    }
+    
+    .sas-stock-tile .stock-icon {
+        font-size: 1.1rem;
+        margin-right: 4px;
+    }
+    
+    .stock-grid-4x2 {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    
+    .size-tile {
+        min-height: 70px;
+        padding: 10px 6px;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .sas-stock-tile {
+        border-width: 3px;
+    }
+    
+    .sas-stock-tile.in-stock {
+        border-color: #28a745;
+        background: rgba(40, 167, 69, 0.2);
+    }
+    
+    .sas-stock-tile.low-stock {
+        border-color: #ffc107;
+        background: rgba(255, 193, 7, 0.2);
+    }
+    
+    .sas-stock-tile.out-of-stock {
+        border-color: #dc3545;
+        background: rgba(220, 53, 69, 0.2);
+    }
+    
+    .sas-stock-tile.contact {
+        border-color: #205295;
+        background: rgba(32, 82, 149, 0.2);
+    }
+}
+
+/* Focus states for accessibility */
+.sas-stock-tile:focus {
+    outline: 3px solid #205295;
+    outline-offset: 2px;
+}
 </style>
 {% endblock %}
 
@@ -665,6 +970,16 @@
                                     </div>
                                 </div>
                             {% endif %}
+                        </div>
+
+                        <!-- Stock Availability Grid (positioned under main image as per design) -->
+                        <div class="stock-grid-container mt-3">
+                            <!-- Stock availability will be displayed here for products with variations -->
+                        </div>
+                        
+                        <!-- Stock Status Container for Single-Variant Products -->
+                        <div id="stockStatusContainer" class="stock-status-container mt-3" style="display: none;">
+                            <!-- Stock tile for single-variant products will be populated by JavaScript -->
                         </div>
                     </div>
                 </div>

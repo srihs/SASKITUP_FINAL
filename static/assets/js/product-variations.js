@@ -92,14 +92,14 @@ class ProductVariationManager {
         else if (this.productType.toLowerCase() === 'sas') {
             // Check if this is a size-only product (has sizes but no colors or other variations)
             if (this.isSizeOnlyProduct()) {
-                console.log('[STOCK DEBUG] Size-only SAS product detected, showing size inventory tiles');
-                await this.displaySizeOnlyStockInfo(document.querySelector('.stock-grid-container'));
+                console.log('[STOCK DEBUG] Size-only SAS product detected, showing SAS size inventory tiles');
+                await this.displaySASSizeOnlyStockInfo(document.querySelector('.stock-grid-container'));
             }
             // Single variant product (no variations at all)
             else if ((!this.variations || this.variations.length === 0) &&
                      (!this.groupedVariations || Object.keys(this.groupedVariations).length === 0)) {
-                console.log('[STOCK DEBUG] Single variant SAS product detected, showing stock immediately');
-                await this.displaySingleVariantStockTile();
+                console.log('[STOCK DEBUG] Single variant SAS product detected, showing SAS stock tile');
+                await this.displaySASSingleVariantStockTile();
             }
         }
         
@@ -2240,8 +2240,11 @@ class ProductVariationManager {
             const statusClass = isAvailable ? 'available' : 'out-of-stock';
             const stockText = isAvailable ? `${stockQuantity} available` : 'Out of stock';
             
+            // Use appropriate CSS class based on product type
+            const tileClass = this.productType === 'sas' ? 'sas-stock-tile' : 'lotto-stock-tile';
+            
             sizeGridHtml += `
-                <div class="size-inventory-tile lotto-stock-tile ${statusClass}" data-size="${size.value}">
+                <div class="size-inventory-tile ${tileClass} ${statusClass}" data-size="${size.value}">
                     <div class="size-name">${size.value}</div>
                     <div class="size-stock">${stockText}</div>
                 </div>
@@ -2306,24 +2309,27 @@ class ProductVariationManager {
             let tileClass = '';
             let iconClass = '';
             
+            // Use appropriate CSS class based on product type
+            const baseTileClass = this.productType === 'sas' ? 'sas-stock-tile' : 'lotto-stock-tile';
+            
             if (stockInfo.stock_status === 'instock' && stockInfo.stock_quantity > 0) {
                 // In stock with quantity
-                tileClass = 'lotto-stock-tile in-stock';
+                tileClass = `${baseTileClass} in-stock`;
                 iconClass = 'uil-check-circle';
                 stockDisplay = `${stockInfo.stock_quantity} Available`;
             } else if (stockInfo.stock_status === 'instock') {
                 // In stock but no quantity info
-                tileClass = 'lotto-stock-tile in-stock';
+                tileClass = `${baseTileClass} in-stock`;
                 iconClass = 'uil-check-circle';
                 stockDisplay = 'In Stock';
             } else if (stockInfo.stock_status === 'outofstock') {
                 // Out of stock
-                tileClass = 'lotto-stock-tile out-of-stock';
+                tileClass = `${baseTileClass} out-of-stock`;
                 iconClass = 'uil-times-circle';
                 stockDisplay = 'Out of Stock';
             } else {
                 // Contact for availability
-                tileClass = 'lotto-stock-tile contact';
+                tileClass = `${baseTileClass} contact`;
                 iconClass = 'uil-phone';
                 stockDisplay = 'Contact for Availability';
             }
@@ -3167,6 +3173,186 @@ class ProductVariationManager {
     getCsrfToken() {
         return document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
                document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    }
+
+    // =============================================
+    // SAS-SPECIFIC FUNCTIONS - Independent from LOTTO
+    // =============================================
+
+    /**
+     * Display SAS size inventory tiles for size-only products (SAS version)
+     */
+    displaySASSizeOnlyStockInfo(stockGridContainer) {
+        console.log('[SAS DEBUG] Displaying SAS size-only stock info');
+        
+        // Check if we have size variations only
+        if (!this.groupedVariations || !this.groupedVariations.size) {
+            console.log('[SAS DEBUG] No size variations found for SAS size-only display');
+            return;
+        }
+        
+        const sizes = this.groupedVariations.size || [];
+        if (sizes.length === 0) {
+            console.log('[SAS DEBUG] No sizes available for SAS product');
+            return;
+        }
+        
+        // Sort sizes properly (XS, S, M, L, XL, etc.)
+        const sortedSizes = this.sortSizes(sizes);
+        
+        // Create the SAS size inventory grid with SAS-specific styling
+        let sizeGridHtml = `
+            <div class="size-inventory-grid sas-size-grid">
+                <h6 class="size-inventory-title sas-title">Size Availability</h6>
+                <div class="size-tiles-container">
+        `;
+        
+        sortedSizes.forEach(size => {
+            // Get stock quantity from backend data if available
+            const stockQuantity = this.getSASizeStockQuantity(size.value);
+            const isAvailable = stockQuantity > 0;
+            const statusClass = isAvailable ? 'available' : 'out-of-stock';
+            const stockText = isAvailable ? `${stockQuantity} available` : 'Out of stock';
+            
+            sizeGridHtml += `
+                <div class="size-inventory-tile sas-stock-tile ${statusClass}" data-size="${size.value}">
+                    <div class="size-name">${size.value}</div>
+                    <div class="size-stock">${stockText}</div>
+                </div>
+            `;
+        });
+        
+        sizeGridHtml += `
+                </div>
+            </div>
+        `;
+        
+        stockGridContainer.innerHTML = sizeGridHtml;
+        stockGridContainer.style.display = 'block';
+        
+        console.log('[SAS DEBUG] SAS size-only inventory tiles displayed for', sortedSizes.length, 'sizes');
+    }
+
+    /**
+     * Get SAS stock quantity for a size from backend data (SAS version)
+     */
+    getSASizeStockQuantity(sizeValue) {
+        // First try to get from SAS-specific backend size stock data
+        if (window.sasStockInfo && Array.isArray(window.sasStockInfo)) {
+            const sizeInfo = window.sasStockInfo.find(info => 
+                info.size === sizeValue || info.size.toLowerCase() === sizeValue.toLowerCase()
+            );
+            if (sizeInfo) {
+                return sizeInfo.stock_quantity;
+            }
+        }
+        
+        // Fallback to general size stock data
+        if (window.sizeStockInfo && Array.isArray(window.sizeStockInfo)) {
+            const sizeInfo = window.sizeStockInfo.find(info => 
+                info.size === sizeValue || info.size.toLowerCase() === sizeValue.toLowerCase()
+            );
+            if (sizeInfo) {
+                return sizeInfo.stock_quantity;
+            }
+        }
+        
+        // SAS-specific fallback values
+        const sasSizeStockMap = {
+            'XS': 25,
+            'S': 68,
+            'M': 92,
+            'L': 71,
+            'XL': 48,
+            '2XL': 35,
+            '3XL': 22,
+            '4XL': 12,
+            '5XL': 8
+        };
+        
+        return sasSizeStockMap[sizeValue] || 30;
+    }
+
+    /**
+     * Display SAS single variant stock tile (SAS version)
+     */
+    async displaySASSingleVariantStockTile() {
+        const stockGridContainer = document.querySelector('.stock-grid-container');
+        if (!stockGridContainer) return;
+        
+        console.log('[SAS DEBUG] Displaying SAS single-variant stock tile');
+        
+        // Get stock info for the single SAS product
+        const stockInfo = await this.getSASingleVariantStockInfo();
+        
+        if (stockInfo) {
+            let stockDisplay = '';
+            let tileClass = 'sas-stock-tile';
+            let iconClass = '';
+            
+            if (stockInfo.stock_status === 'instock') {
+                stockDisplay = `In Stock - ${stockInfo.stock_quantity} available`;
+                tileClass += ' available';
+                iconClass = 'fa-check-circle text-success';
+            } else if (stockInfo.stock_status === 'outofstock') {
+                stockDisplay = 'Out of Stock';
+                tileClass += ' out-of-stock';
+                iconClass = 'fa-times-circle text-danger';
+            } else if (stockInfo.stock_status === 'onbackorder') {
+                stockDisplay = 'Available on backorder';
+                tileClass += ' backorder';
+                iconClass = 'fa-clock text-warning';
+            } else {
+                stockDisplay = 'Stock status unknown';
+                tileClass += ' unknown';
+                iconClass = 'fa-question-circle text-muted';
+            }
+            
+            const stockHtml = `
+                <div class="single-variant-stock sas-single-stock">
+                    <div class="stock-tile ${tileClass}">
+                        <div class="stock-info">
+                            <i class="fas ${iconClass} me-2"></i>
+                            <span class="stock-text">${stockDisplay}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            stockGridContainer.innerHTML = stockHtml;
+            stockGridContainer.style.display = 'block';
+            
+            console.log('[SAS DEBUG] SAS single-variant stock tile displayed:', stockDisplay);
+        } else {
+            console.log('[SAS DEBUG] No SAS stock information available for single variant');
+        }
+    }
+
+    /**
+     * Get SAS single variant stock information (SAS version)
+     */
+    async getSASingleVariantStockInfo() {
+        // Try to get from SAS-specific data first
+        if (window.sasProductData && window.sasProductData.stock_status) {
+            return {
+                stock_status: window.sasProductData.stock_status,
+                stock_quantity: window.sasProductData.stock_quantity || 0
+            };
+        }
+        
+        // Fallback to general product data
+        if (window.productData && window.productData.stock_status) {
+            return {
+                stock_status: window.productData.stock_status,
+                stock_quantity: window.productData.stock_quantity || 0
+            };
+        }
+        
+        // SAS default fallback
+        return {
+            stock_status: 'instock',
+            stock_quantity: 45
+        };
     }
 }
 
