@@ -1625,17 +1625,21 @@ class SASProductDetailView(DetailView):
         manage_stock = False
         
         # For SAS products, provide stock management similar to LOTTO
-        if not product.has_variations and product.stock_status == 'instock':
+        # Use calculated_stock_status for variable products to ensure consistency
+        effective_stock_status = product.calculated_stock_status if product.has_variations else product.stock_status
+
+        if not product.has_variations and effective_stock_status == 'instock':
             # For single-variant products without specific stock data, provide a default quantity
             stock_quantity = 25  # Default stock for simple products
             manage_stock = True
         elif hasattr(product, 'stock_quantity') and product.stock_quantity is not None:
             stock_quantity = product.stock_quantity
             manage_stock = True
-        
+
         context['stock_quantity'] = stock_quantity
         context['manage_stock'] = manage_stock
-        
+        context['effective_stock_status'] = effective_stock_status  # Pass calculated status to template
+
         # Add available sizes and colors from variations
         variations = product.variations.all()
         context['available_sizes'] = list(set(
@@ -2561,12 +2565,24 @@ def sas_product_variations_api(request, product_id):
                     grouped_variations[var_type] = []
                 
                 # Enhanced variation data with proper structure for frontend
+                stock_quantity = variation.get('stock', 0) or 0  # Ensure we have a number, not None
+                is_in_stock = variation.get('is_in_stock', stock_quantity > 0)
+
+                # Calculate stock_status like LOTTO does
+                if not variation.get('is_active', True):
+                    stock_status = 'discontinued'
+                elif stock_quantity and stock_quantity > 0:  # Handle None values
+                    stock_status = 'instock'
+                else:
+                    stock_status = 'outofstock'
+
                 enhanced_variation = {
                     'id': variation['id'],
                     'type': var_type,
                     'value': variation['value'],
-                    'is_available': variation.get('is_in_stock', True),
-                    'stock_quantity': variation.get('stock', 0),
+                    'is_available': is_in_stock,
+                    'stock_quantity': stock_quantity,
+                    'stock_status': stock_status,  # Add stock_status field like LOTTO
                     'price_modifier': variation.get('price_modifier', 0.0),
                     'final_price': variation.get('final_price', float(product.effective_price)),
                     'sku_suffix': variation.get('sku_suffix', ''),

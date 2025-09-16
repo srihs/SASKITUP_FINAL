@@ -1162,7 +1162,7 @@ function initializeProductVariations() {
     // Pass stock data from backend to JavaScript for single-variant products
     if (variationManager) {
         variationManager.productData = {
-            stock_status: '{{ product.stock_status }}',
+            stock_status: '{{ effective_stock_status|default:product.stock_status }}',
             stock_quantity: {{ stock_quantity|default:0 }},
             manage_stock: {{ manage_stock|yesno:"true,false" }}
         };
@@ -1170,7 +1170,7 @@ function initializeProductVariations() {
 
         // Set global stock variables for test compatibility
         window.stockQuantity = {{ stock_quantity|default:0 }};
-        window.stockStatus = '{{ product.stock_status }}';
+        window.stockStatus = '{{ effective_stock_status|default:product.stock_status }}';
         window.manageStock = {{ manage_stock|yesno:"true,false" }};
 
         // Set size-only product information

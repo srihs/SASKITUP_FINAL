@@ -554,7 +554,47 @@ class SASProduct(models.Model):
     def is_available(self):
         """Check if product is available for purchase."""
         return self.stock_status in ['instock', 'onbackorder'] and self.is_active
-    
+
+    @property
+    def is_in_stock(self):
+        """Check if product is in stock"""
+        if self.is_variable_product:
+            # For variable products, check if any variation is in stock
+            return self.variations.filter(is_active=True, stock_quantity__gt=0).exists()
+        elif self.manage_stock:
+            return self.stock_quantity and self.stock_quantity > 0
+        return self.stock_status == 'instock'
+
+    @property
+    def calculated_stock_status(self):
+        """Calculate stock status dynamically, especially for variable products"""
+        if self.is_variable_product:
+            # For variable products, base status on variations
+            has_stock = self.variations.filter(is_active=True, stock_quantity__gt=0).exists()
+            if has_stock:
+                return 'instock'
+            else:
+                # Check if any variations allow backorders
+                has_backorder = self.variations.filter(is_active=True).exists()
+                return 'onbackorder' if has_backorder else 'outofstock'
+        else:
+            # For simple products, use the stored stock_status
+            return self.stock_status
+
+    def update_stock_status_from_variations(self):
+        """Update the product's stock_status field based on variations availability"""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        if self.is_variable_product:
+            calculated_status = self.calculated_stock_status
+            if self.stock_status != calculated_status:
+                self.stock_status = calculated_status
+                self.save(update_fields=['stock_status', 'updated_at'])
+                logger.info(f"Updated stock status for SAS product {self.id} to {calculated_status}")
+                return True
+        return False
+
     @property
     def sport(self):
         """Get the sport through the club relationship."""
@@ -930,15 +970,25 @@ class SASProduct(models.Model):
             )
             
             for variation in self.variations.filter(is_active=True):
+                is_in_stock = getattr(variation, 'is_in_stock', variation.stock_quantity > 0)
+                # Calculate stock_status like LOTTO does
+                if not variation.is_active:
+                    stock_status = 'discontinued'
+                elif variation.stock_quantity > 0:
+                    stock_status = 'instock'
+                else:
+                    stock_status = 'outofstock'
+
                 var_data = {
                     'id': variation.id,
                     'type': variation.variation_type,
                     'value': variation.variation_value,
                     'stock': variation.stock_quantity,
+                    'stock_status': stock_status,  # Add stock_status field like LOTTO
                     'price_modifier': 0.0,  # SAS typically doesn't have price modifiers
                     'final_price': float(self.effective_price),
                     'sku_suffix': getattr(variation, 'sku_suffix', ''),
-                    'is_in_stock': getattr(variation, 'is_in_stock', variation.stock_quantity > 0),
+                    'is_in_stock': is_in_stock,
                     'image': getattr(variation, 'image_url', self.image_url),
                     'attributes': getattr(variation, 'attributes', {}) or {}
                 }
@@ -952,18 +1002,36 @@ class SASProduct(models.Model):
                 for value in values:
                     # For SAS products, use stock_quantity if available, otherwise None for status-only
                     stock_value = None
+                    stock_value = 0  # Initialize stock_value with default
                     if self.manage_stock and self.stock_quantity is not None:
                         stock_value = self.stock_quantity
-                    
+
+                    # Fixed logic: is_in_stock should be based on actual stock, not just status
+                    is_in_stock = (stock_value > 0) or (self.stock_status == 'onbackorder')
+
+                    # Calculate stock_status like LOTTO does for attribute-based variations
+                    if not self.is_active:
+                        stock_status = 'discontinued'
+                    elif stock_value and stock_value > 0:
+                        stock_status = 'instock'
+                        is_in_stock = True
+                    elif self.stock_status == 'onbackorder':
+                        stock_status = 'onbackorder'
+                        is_in_stock = True  # Can order on backorder
+                    else:
+                        stock_status = 'outofstock'
+                        is_in_stock = False  # Not in stock
+
                     var_data = {
                         'id': f"{self.id}_{attr_type}_{value}",
                         'type': attr_type,
                         'value': value,
                         'stock': stock_value,
+                        'stock_status': stock_status,  # Add stock_status field like LOTTO
                         'price_modifier': 0.0,
                         'final_price': float(self.effective_price),
                         'sku_suffix': f"{attr_type}-{value}",
-                        'is_in_stock': self.stock_status in ['instock', 'onbackorder'],
+                        'is_in_stock': is_in_stock,
                         'image': self.image_url,
                         'attributes': {attr_type: value}
                     }
