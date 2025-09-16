@@ -1,0 +1,90 @@
+{
+  "sas_test": {
+    "test_name": "SAS Color Variation Fixes",
+    "product_tested": " View Details",
+    "timestamp": "2025-09-16 23:04:44",
+    "tests_performed": [
+      {
+        "test": "Navigation to product detail page",
+        "status": "PASS",
+        "url": "http://localhost:8000/clubs/sas/product/athletics-auckland-staff-and-team-managers-cap/",
+        "product_name": " View Details"
+      },
+      {
+        "test": "Color swatches present",
+        "status": "PASS",
+        "count": 3,
+        "details": "Found 3 color variations"
+      },
+      {
+        "test": "Color swatch clickable - None",
+        "status": "PASS",
+        "disabled_state": false,
+        "became_active": false,
+        "notes": "Successfully clicked"
+      },
+      {
+        "test": "Color swatch clickable - Grey",
+        "status": "PASS",
+        "disabled_state": false,
+        "became_active": false,
+        "notes": "Successfully clicked"
+      },
+      {
+        "test": "Color swatch clickable - Navy",
+        "status": "PASS",
+        "disabled_state": false,
+        "became_active": false,
+        "notes": "Successfully clicked"
+      },
+      {
+        "test": "SAS colors never disabled",
+        "status": "PASS",
+        "details": "All color swatches are enabled as expected for SAS"
+      },
+      {
+        "test": "API variations endpoint",
+        "status": "FAIL",
+        "error": "SyntaxError: Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON"
+      }
+    ],
+    "issues_found": [
+      "API error: SyntaxError: Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON"
+    ],
+    "api_responses": {
+      "variations": {
+        "error": "SyntaxError: Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON"
+      }
+    },
+    "screenshots": [
+      "/Users/sas/Repos/SASKITUP/test_screenshots/sas_athletics_club_1758044111.png",
+      "/Users/sas/Repos/SASKITUP/test_screenshots/sas_color_test_final_1758044123.png"
+    ],
+    "color_details": [
+      {
+        "color": null,
+        "disabled": false,
+        "available": true,
+        "classes": "variation-group variation-group-color"
+      },
+      {
+        "color": "Grey",
+        "disabled": false,
+        "available": true,
+        "classes": "color-swatch"
+      },
+      {
+        "color": "Navy",
+        "disabled": false,
+        "available": true,
+        "classes": "color-swatch"
+      }
+    ]
+  },
+  "lotto_comparison": null,
+  "summary": {
+    "sas_colors_working": true,
+    "issues_found": 1,
+    "total_tests": 7
+  }
+}
