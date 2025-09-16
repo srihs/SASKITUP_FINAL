@@ -2792,3 +2792,118 @@ html {
     color: #721c24;
     border: 1px solid #f5c6cb;
 }
+
+/* ============================================
+   SAS Product Detail Page Specific Styles
+   ============================================ */
+
+/* SAS Product Detail Page Branding */
+.sas-page .product-main {
+    border-top: 4px solid #205295;
+}
+
+.sas-page .product-title {
+    color: #144272;
+}
+
+.sas-page .btn-add-to-cart {
+    background: #205295;
+    border-color: #205295;
+    transition: all 0.3s ease;
+}
+
+.sas-page .btn-add-to-cart:hover {
+    background: #2C74B3;
+    border-color: #205295;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(32, 82, 149, 0.3);
+}
+
+.sas-page .btn-buy-now:hover {
+    background: rgba(32, 82, 149, 0.08);
+    border-color: #205295;
+}
+
+/* SAS Stock Status Colors */
+.sas-page .stock-indicator .stock-dot {
+    background: #205295;
+}
+
+/* SAS Brand Gradients */
+.sas-page .product-gallery {
+    background: linear-gradient(135deg, rgba(32, 82, 149, 0.03) 0%, rgba(44, 116, 179, 0.01) 100%);
+}
+
+/* SAS Focus States */
+.sas-page input:focus,
+.sas-page select:focus {
+    border-color: #205295;
+    box-shadow: 0 0 0 0.2rem rgba(32, 82, 149, 0.25);
+}
+
+/* SAS Link Colors */
+.sas-page a:not(.btn):not(.action-link) {
+    color: #205295;
+}
+
+.sas-page a:not(.btn):not(.action-link):hover {
+    color: #2C74B3;
+}
+
+/* SAS Product Variation Elements */
+.sas-page .thumbnail-image[data-color-value]:hover {
+    border-color: #205295;
+}
+
+.sas-page .thumbnail-image[data-color-value].active {
+    border-color: #205295;
+    box-shadow: 0 4px 12px rgba(32, 82, 149, 0.3);
+}
+
+/* SAS Inventory Display Elements */
+.sas-page .size-inventory-grid {
+    border-color: rgba(32, 82, 149, 0.1);
+}
+
+.sas-page .stock-size-item.in-stock {
+    border-color: #205295;
+    background: rgba(32, 82, 149, 0.05);
+}
+
+.sas-page .stock-size-item.in-stock:hover {
+    background: rgba(32, 82, 149, 0.1);
+    border-color: #2C74B3;
+}
+
+/* SAS Stock Tiles - Override LOTTO colors with SAS blue branding */
+.sas-page .stock-info.single-variant .stock-item.in-stock {
+    background: rgba(32, 82, 149, 0.1);
+    border: 1px solid rgba(32, 82, 149, 0.3);
+    color: #205295;
+}
+
+.sas-page .stock-info.single-variant .stock-item.in-stock .stock-status {
+    color: #205295;
+}
+
+.sas-page .stock-info.total-stock .stock-item.in-stock {
+    background-color: rgba(32, 82, 149, 0.1);
+    color: #205295;
+    border-color: rgba(32, 82, 149, 0.3);
+}
+
+/* SAS Size Inventory Tiles - Override border colors */
+.sas-page .stock-item.border-success {
+    border-left: 4px solid #205295 !important;
+}
+
+.sas-page .size-inventory-item.in-stock {
+    background: rgba(32, 82, 149, 0.1);
+    border: 1px solid rgba(32, 82, 149, 0.3);
+    color: #205295;
+}
+
+.sas-page .size-inventory-item.in-stock:hover {
+    background: rgba(32, 82, 149, 0.15);
+    border-color: #2C74B3;
+}

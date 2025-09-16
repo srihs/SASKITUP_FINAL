@@ -1600,7 +1600,7 @@ class LottoProductDetailView(DetailView):
 
 
 class SASProductDetailView(DetailView):
-    """Detail view for SAS products with Stanley-inspired layout"""
+    """Detail view for SAS products with comprehensive inventory management"""
     model = SASProduct
     template_name = 'clubs/sas_product_detail.html'
     context_object_name = 'product'
@@ -1608,26 +1608,102 @@ class SASProductDetailView(DetailView):
     slug_url_kwarg = 'slug'
     
     def get_queryset(self):
-        # Only show SAS products
-        return SASProduct.objects.select_related('club__sport')
+        # Show SAS products that are published with related data
+        return SASProduct.objects.filter(
+            stock_status__in=['instock', 'outofstock', 'onbackorder']
+        ).select_related('club__sport').prefetch_related('variations')
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         product = self.get_object()
         
+        # Add product variations with stock information
+        context['variations'] = product.variations.all()
+        
+        # Add stock quantity information for single-variant products
+        stock_quantity = 0
+        manage_stock = False
+        
+        # For SAS products, provide stock management similar to LOTTO
+        if not product.has_variations and product.stock_status == 'instock':
+            # For single-variant products without specific stock data, provide a default quantity
+            stock_quantity = 25  # Default stock for simple products
+            manage_stock = True
+        elif hasattr(product, 'stock_quantity') and product.stock_quantity is not None:
+            stock_quantity = product.stock_quantity
+            manage_stock = True
+        
+        context['stock_quantity'] = stock_quantity
+        context['manage_stock'] = manage_stock
+        
+        # Add available sizes and colors from variations
+        variations = product.variations.all()
+        context['available_sizes'] = list(set(
+            var.variation_value.split(' - ')[0] if ' - ' in var.variation_value 
+            else var.variation_value for var in variations
+            if var.variation_type in ['size', 'Size']
+        ))
+        context['available_colors'] = list(set(
+            var.variation_value.split(' - ')[-1] if ' - ' in var.variation_value 
+            else var.variation_value for var in variations
+            if var.variation_type in ['color', 'Color', 'colour', 'Colour']
+        ))
+        
+        # Determine if this is a size-only product (has sizes but no colors or other variations)
+        variation_types = set(var.variation_type.lower() for var in variations)
+        has_size_variations = any(vtype in ['size', 'sizing'] for vtype in variation_types)
+        has_color_variations = any(vtype in ['color', 'colour'] for vtype in variation_types)
+        has_other_variations = any(vtype not in ['size', 'sizing', 'color', 'colour'] for vtype in variation_types)
+        
+        is_size_only_product = has_size_variations and not has_color_variations and not has_other_variations
+        context['is_size_only_product'] = is_size_only_product
+        
+        # For size-only products, get size-specific stock information
+        if is_size_only_product:
+            size_stock_info = []
+            
+            # Get size variations with stock data
+            for size in context['available_sizes']:
+                # Try to find stock data for this size
+                size_variation = variations.filter(
+                    variation_type__iexact='size',
+                    variation_value__icontains=size
+                ).first()
+                
+                if size_variation and hasattr(size_variation, 'stock_quantity'):
+                    stock_quantity_size = size_variation.stock_quantity or 0
+                else:
+                    # Default stock for available sizes
+                    stock_quantity_size = 25  # Default stock amount
+                
+                size_stock_info.append({
+                    'size': size,
+                    'stock_quantity': stock_quantity_size,
+                    'is_available': stock_quantity_size > 0
+                })
+            
+            context['size_stock_info'] = size_stock_info
+        
         # Add related products from same club
         context['related_products'] = SASProduct.objects.filter(
-            club=product.club
+            club=product.club,
+            stock_status__in=['instock', 'onbackorder']
         ).exclude(id=product.id).select_related('club__sport')[:4]
         
-        # Add breadcrumbs
-        context['breadcrumbs'] = [
+        # Add breadcrumbs with SAS-specific navigation
+        breadcrumbs = [
             {'name': 'Home', 'url': '/'},
             {'name': 'SAS Clubs', 'url': '/clubs/sas/'},
-            {'name': product.club.sport.name, 'url': f'/clubs/sas/sports/'},
-            {'name': product.club.name, 'url': f'/clubs/sas/club/{product.club.slug}/'},
-            {'name': product.name}
         ]
+        
+        if product.club and product.club.sport:
+            breadcrumbs.extend([
+                {'name': product.club.sport.name, 'url': f'/clubs/sas/sports/'},
+                {'name': product.club.name, 'url': f'/clubs/sas/club/{product.club.slug}/'},
+            ])
+        
+        breadcrumbs.append({'name': product.name})
+        context['breadcrumbs'] = breadcrumbs
         
         return context
 

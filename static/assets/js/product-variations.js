@@ -74,7 +74,7 @@ class ProductVariationManager {
         await this.loadVariations();
         this.setupInitialState();
         
-        // For LOTTO products, check what kind of display is needed
+        // Check what kind of display is needed based on product type
         if (this.productType.toLowerCase() === 'lotto') {
             // Check if this is a size-only product (has sizes but no colors or other variations)
             if (this.isSizeOnlyProduct()) {
@@ -85,6 +85,20 @@ class ProductVariationManager {
             else if ((!this.variations || this.variations.length === 0) &&
                      (!this.groupedVariations || Object.keys(this.groupedVariations).length === 0)) {
                 console.log('[STOCK DEBUG] Single variant LOTTO product detected, showing stock immediately');
+                await this.displaySingleVariantStockTile();
+            }
+        } 
+        // For SAS products, check what kind of display is needed
+        else if (this.productType.toLowerCase() === 'sas') {
+            // Check if this is a size-only product (has sizes but no colors or other variations)
+            if (this.isSizeOnlyProduct()) {
+                console.log('[STOCK DEBUG] Size-only SAS product detected, showing size inventory tiles');
+                await this.displaySizeOnlyStockInfo(document.querySelector('.stock-grid-container'));
+            }
+            // Single variant product (no variations at all)
+            else if ((!this.variations || this.variations.length === 0) &&
+                     (!this.groupedVariations || Object.keys(this.groupedVariations).length === 0)) {
+                console.log('[STOCK DEBUG] Single variant SAS product detected, showing stock immediately');
                 await this.displaySingleVariantStockTile();
             }
         }
