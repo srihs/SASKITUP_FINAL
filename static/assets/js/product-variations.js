@@ -326,7 +326,8 @@ class ProductVariationManager {
         }
         
         // Add availability indicator
-        if (!variation.is_available) {
+        // For SAS products, never disable color swatches - stock info is shown in size tiles
+        if (!variation.is_available && this.productType !== 'sas') {
             swatch.classList.add('disabled');
             const overlay = document.createElement('div');
             overlay.className = 'unavailable-overlay';
@@ -524,7 +525,14 @@ class ProductVariationManager {
      */
     handleVariationClick(event) {
         const target = event.target.closest('[data-variation-type]');
-        if (!target || target.dataset.available === 'false') return;
+
+        // For SAS products, allow clicking on color swatches even when marked unavailable
+        // Stock info will be shown in the size tiles instead
+        const isUnavailable = target.dataset.available === 'false';
+        const isColorSwatch = target.dataset.variationType === 'color';
+        const isSasProduct = this.productType === 'sas';
+
+        if (!target || (isUnavailable && !(isColorSwatch && isSasProduct))) return;
         
         const variationType = target.dataset.variationType;
         
@@ -552,7 +560,14 @@ class ProductVariationManager {
     handleKeyboardNavigation(event) {
         if (event.key === 'Enter' || event.key === ' ') {
             const target = event.target.closest('[data-variation-type]');
-            if (target && target.dataset.available !== 'false' && target.dataset.variationType !== 'size') {
+
+            // Apply same logic as click handler for SAS color swatches
+            const isUnavailable = target.dataset.available === 'false';
+            const isColorSwatch = target.dataset.variationType === 'color';
+            const isSasProduct = this.productType === 'sas';
+            const isSize = target.dataset.variationType === 'size';
+
+            if (target && !isSize && (target.dataset.available !== 'false' || (isColorSwatch && isSasProduct))) {
                 event.preventDefault();
                 this.handleVariationClick(event);
             }
@@ -3055,10 +3070,21 @@ class ProductVariationManager {
             let stockText = '';
             let badgeClass = 'bg-success text-white';
             
-            // Use LOTTO red for available stock on LOTTO pages, green for others
-            const isLottoPage = document.body.classList.contains('lotto-page') || 
+            // Use brand-specific colors for available stock
+            const isLottoPage = document.body.classList.contains('lotto-page') ||
                                document.body.classList.contains('lotto-product-page');
-            const availableClass = isLottoPage ? 'bg-success text-white lotto-stock-available' : 'bg-success text-white';
+            const isSasPage = document.body.classList.contains('sas-page') ||
+                             document.body.classList.contains('sas-product-page') ||
+                             this.productType === 'sas';
+
+            let availableClass;
+            if (isLottoPage) {
+                availableClass = 'bg-success text-white lotto-stock-available';
+            } else if (isSasPage) {
+                availableClass = 'text-white sas-stock-available';
+            } else {
+                availableClass = 'bg-success text-white';
+            }
             
             if (isAvailable && stockQuantity > 0) {
                 stockText = `${stockQuantity} available`;
@@ -3095,10 +3121,21 @@ class ProductVariationManager {
                 let stockText = '';
                 let badgeClass = 'bg-success text-white';
                 
-                // Use LOTTO red for available stock on LOTTO pages, green for others
-                const isLottoPageRow2 = document.body.classList.contains('lotto-page') || 
+                // Use brand-specific colors for available stock (second row)
+                const isLottoPageRow2 = document.body.classList.contains('lotto-page') ||
                                        document.body.classList.contains('lotto-product-page');
-                const availableClassRow2 = isLottoPageRow2 ? 'bg-success text-white lotto-stock-available' : 'bg-success text-white';
+                const isSasPageRow2 = document.body.classList.contains('sas-page') ||
+                                     document.body.classList.contains('sas-product-page') ||
+                                     this.productType === 'sas';
+
+                let availableClassRow2;
+                if (isLottoPageRow2) {
+                    availableClassRow2 = 'bg-success text-white lotto-stock-available';
+                } else if (isSasPageRow2) {
+                    availableClassRow2 = 'text-white sas-stock-available';
+                } else {
+                    availableClassRow2 = 'bg-success text-white';
+                }
                 
                 if (isAvailable && stockQuantity > 0) {
                     stockText = `${stockQuantity} available`;

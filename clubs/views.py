@@ -2096,10 +2096,16 @@ def product_variations_api(request, product_id, store_type=None):
                         response_data['grouped_variations'][var_type] = []
                     
                     # Format variation for frontend
+                    # For SAS products, colors should always be selectable regardless of stock
+                    # Stock information is shown in the size tiles instead
+                    is_available = variation.get('is_in_stock', True)
+                    if var_type in ['color', 'colour'] and store_type == 'sas':
+                        is_available = True  # Always allow color selection for SAS
+
                     response_data['grouped_variations'][var_type].append({
                         'id': variation.get('id'),
                         'value': variation.get('value'),
-                        'is_available': variation.get('is_in_stock', True),
+                        'is_available': is_available,
                         'type': var_type
                     })
         
@@ -2576,11 +2582,17 @@ def sas_product_variations_api(request, product_id):
                 else:
                     stock_status = 'outofstock'
 
+                # For SAS products, colors should always be selectable regardless of stock
+                # Stock information is shown in the size tiles instead
+                is_available = is_in_stock
+                if var_type in ['color', 'colour']:
+                    is_available = True  # Always allow color selection for SAS
+
                 enhanced_variation = {
                     'id': variation['id'],
                     'type': var_type,
                     'value': variation['value'],
-                    'is_available': is_in_stock,
+                    'is_available': is_available,
                     'stock_quantity': stock_quantity,
                     'stock_status': stock_status,  # Add stock_status field like LOTTO
                     'price_modifier': variation.get('price_modifier', 0.0),
