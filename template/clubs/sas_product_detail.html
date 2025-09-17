@@ -605,6 +605,38 @@
     min-height: 80px;
 }
 
+/* When sas-stock-tile is combined with size-inventory-tile, ensure white text */
+.size-inventory-tile.sas-stock-tile {
+    color: white !important;
+}
+
+.size-inventory-tile.sas-stock-tile .size-name,
+.size-inventory-tile.sas-stock-tile .size-stock {
+    color: white !important;
+}
+
+/* SAS stock tiles with available status - use SAS blue with white text */
+.sas-stock-tile.available,
+.size-inventory-tile.sas-stock-tile.available {
+    background: linear-gradient(135deg, #205295 0%, #1B4A89 100%);
+    color: white !important;
+    border-color: rgba(32, 82, 149, 0.3);
+}
+
+.sas-stock-tile.available:hover,
+.size-inventory-tile.sas-stock-tile.available:hover {
+    background: linear-gradient(135deg, #1B4A89 0%, #205295 100%);
+    border-color: #205295;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(32, 82, 149, 0.3);
+}
+
+/* Ensure all text elements within available tiles are white */
+.sas-stock-tile.available *,
+.size-inventory-tile.sas-stock-tile.available * {
+    color: white !important;
+}
+
 .sas-stock-tile::before {
     content: '';
     position: absolute;
@@ -766,6 +798,33 @@
         border-color: #205295;
         background: rgba(32, 82, 149, 0.2);
     }
+
+    /* Enhanced contrast for size inventory tiles */
+    .size-inventory-tile {
+        border-width: 3px;
+        background: #205295 !important;
+        color: white !important;
+    }
+
+    .size-inventory-tile .size-name,
+    .size-inventory-tile .size-stock {
+        color: white !important;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    }
+}
+
+/* Force high contrast for accessibility */
+@media (forced-colors: active) {
+    .size-inventory-tile {
+        border: 2px solid ButtonText;
+        background: ButtonFace;
+        color: ButtonText;
+    }
+
+    .size-inventory-tile .size-name,
+    .size-inventory-tile .size-stock {
+        color: ButtonText !important;
+    }
 }
 
 /* Focus states for accessibility */
@@ -844,6 +903,16 @@
     border-radius: 12px;
     padding: 20px;
     margin-top: 20px;
+    display: none;  /* Hide by default, show only when content is added */
+}
+
+/* Hide empty stock grid containers */
+.stock-grid-container:empty {
+    display: none !important;
+}
+
+.color-size-stock-display:empty {
+    display: none !important;
 }
 
 /* Responsive adjustments for stock grid */
@@ -924,7 +993,7 @@
     border-radius: 12px;
     border: 2px solid transparent;
     background: linear-gradient(135deg, #205295 0%, #1B4A89 100%);
-    color: white;
+    color: white !important;  /* Force white text with !important */
     text-align: center;
     transition: all 0.3s ease;
     cursor: pointer;
@@ -957,9 +1026,14 @@
 
 .size-inventory-tile.out-of-stock {
     background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
-    color: #f8f9fa;
+    color: #f8f9fa !important;  /* Force light text on gray background */
     box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
     cursor: not-allowed;
+}
+
+/* Ensure all text in size inventory tiles is visible */
+.size-inventory-tile * {
+    color: inherit !important;
 }
 
 .size-inventory-tile.out-of-stock:hover {
@@ -973,13 +1047,15 @@
     margin-bottom: 4px;
     text-transform: uppercase;
     letter-spacing: 1px;
+    color: white !important;  /* Ensure size label text is white */
 }
 
 .size-stock {
     font-size: 0.85rem;
     font-weight: 500;
-    opacity: 0.9;
+    opacity: 0.95;  /* Increased opacity for better visibility */
     text-transform: lowercase;
+    color: white !important;  /* Ensure stock text is white */
 }
 
 /* Responsive Design for Size Inventory */

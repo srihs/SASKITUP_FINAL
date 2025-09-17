@@ -73,6 +73,9 @@ class ProductVariationManager {
         this.bindEvents();
         await this.loadVariations();
         this.setupInitialState();
+
+        // Clean up any empty containers on init
+        this.cleanupEmptyContainers();
         
         // Check what kind of display is needed based on product type
         if (this.productType.toLowerCase() === 'lotto') {
@@ -102,8 +105,13 @@ class ProductVariationManager {
                 await this.displaySASSingleVariantStockTile();
             }
         }
-        
+
         this.applyBrandStyling();
+
+        // Final cleanup after all initialization
+        setTimeout(() => {
+            this.cleanupEmptyContainers();
+        }, 500);
     }
     
     /**
@@ -1332,6 +1340,38 @@ class ProductVariationManager {
     }
     
     /**
+     * Clean up empty containers to prevent blank cards showing
+     */
+    cleanupEmptyContainers() {
+        // Hide empty stock grid container
+        const stockGridContainer = document.querySelector('.stock-grid-container');
+        if (stockGridContainer) {
+            const hasContent = stockGridContainer.innerHTML.trim().length > 0;
+            if (!hasContent) {
+                stockGridContainer.style.display = 'none';
+                console.log('[CLEANUP] Hidden empty stock-grid-container');
+            }
+        }
+
+        // Hide empty color-size-stock-display container
+        const colorSizeContainer = document.querySelector('.color-size-stock-display');
+        if (colorSizeContainer) {
+            const hasContent = colorSizeContainer.innerHTML.trim().length > 0;
+            if (!hasContent) {
+                colorSizeContainer.style.display = 'none';
+                console.log('[CLEANUP] Hidden empty color-size-stock-display');
+            }
+        }
+
+        // Hide any other empty containers with stock-related classes
+        const emptyContainers = document.querySelectorAll('.stock-status-container:empty, .stock-info:empty');
+        emptyContainers.forEach(container => {
+            container.style.display = 'none';
+            console.log('[CLEANUP] Hidden empty container:', container.className);
+        });
+    }
+
+    /**
      * Apply brand-specific styling
      */
     applyBrandStyling() {
@@ -2357,7 +2397,7 @@ class ProductVariationManager {
             const stockQuantity = this.getSizeStockQuantity(size.value);
             const isAvailable = stockQuantity > 0;
             const statusClass = isAvailable ? 'available' : 'out-of-stock';
-            const stockText = isAvailable ? `SIZE ${size.value} - ${stockQuantity} available` : `SIZE ${size.value} - Out of stock`;
+            const stockText = isAvailable ? `${stockQuantity} available` : `Out of stock`;
 
             // Use appropriate CSS class based on product type
             const tileClass = this.productType === 'sas' ? 'sas-stock-tile' : 'lotto-stock-tile';
@@ -3554,7 +3594,7 @@ class ProductVariationManager {
             const stockQuantity = this.getSASizeStockQuantity(size.value);
             const isAvailable = stockQuantity > 0;
             const statusClass = isAvailable ? 'available' : 'out-of-stock';
-            const stockText = isAvailable ? `SIZE ${size.value} - ${stockQuantity} available` : `SIZE ${size.value} - Out of stock`;
+            const stockText = isAvailable ? `${stockQuantity} available` : `Out of stock`;
 
             sizeGridHtml += `
                 <div class="size-inventory-tile sas-stock-tile ${statusClass}" data-size="${size.value}">
