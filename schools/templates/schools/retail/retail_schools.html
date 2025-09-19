@@ -1,0 +1,951 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}TUS Retail Schools{% endblock %}
+
+{% block content %}
+<div class="tus-retail-page">
+<!-- Sync Button Section -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="d-flex align-items-center justify-content-between">
+            <h4 class="mb-0">TUS Retail Schools</h4>
+            <button type="button" id="syncButton" class="btn btn-tus-primary" onclick="startTUSSync()">
+                <i id="syncIcon" class="uil-sync me-2" aria-hidden="true"></i>
+                <span id="syncText">Sync TUS Schools</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Sync Status Alert -->
+<div id="syncAlert" class="alert alert-info alert-dismissible fade" role="alert" style="display: none;">
+    <div class="d-flex align-items-center">
+        <div class="spinner-border spinner-border-sm text-tus-primary me-3" id="syncSpinner" role="status" style="display: none;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <div class="flex-grow-1">
+            <h6 class="alert-heading mb-1" id="syncAlertTitle">Sync Status</h6>
+            <div id="syncAlertMessage">Starting sync process...</div>
+            <div id="syncProgress" class="progress mt-2" style="height: 4px; display: none;">
+                <div class="progress-bar bg-tus-primary" role="progressbar" style="width: 0%" id="syncProgressBar"></div>
+            </div>
+        </div>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+
+<!-- TUS Statistics Tiles -->
+<div class="row">
+    <div class="col-xl-3 col-lg-6 col-md-6 col-12">
+        <div class="card tus-stat-tile">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-md me-3 flex-shrink-0">
+                        <div class="avatar-title bg-tus-primary text-white rounded">
+                            <i class="uil-map-marker font-size-24"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted font-weight-medium mb-1">Total Locations</p>
+                        <h4 class="mb-0 text-tus-primary">{{ total_locations }}</h4>
+                    </div>
+                </div>
+                <div class="progress mt-3" style="height: 4px;">
+                    <div class="progress-bar bg-tus-primary" role="progressbar" style="width: 100%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-lg-6 col-md-6 col-12">
+        <div class="card tus-stat-tile">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-md me-3 flex-shrink-0">
+                        <div class="avatar-title bg-gradient-tus-primary text-white rounded">
+                            <i class="uil-graduation-cap font-size-24"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted font-weight-medium mb-1">Active Schools</p>
+                        <h4 class="mb-0 text-tus-primary">{{ total_schools }}</h4>
+                    </div>
+                </div>
+                <div class="progress mt-3" style="height: 4px;">
+                    <div class="progress-bar bg-gradient-tus-primary" role="progressbar" style="width: {% widthratio total_schools total_locations 100 %}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-lg-6 col-md-6 col-12">
+        <div class="card tus-stat-tile">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-md me-3 flex-shrink-0">
+                        <div class="avatar-title bg-soft-tus-primary text-tus-primary rounded">
+                            <i class="uil-shopping-bag font-size-24"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted font-weight-medium mb-1">Available Products</p>
+                        <h4 class="mb-0 text-tus-primary">{{ total_products|floatformat:0 }}</h4>
+                    </div>
+                </div>
+                <div class="progress mt-3" style="height: 4px;">
+                    <div class="progress-bar" role="progressbar" style="width: {% if total_products > 1000 %}100{% else %}{% widthratio total_products 1000 100 %}{% endif %}%; background: linear-gradient(45deg, #387ADF, #333A73);"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-lg-6 col-md-6 col-12">
+        <div class="card tus-stat-tile">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-md me-3 flex-shrink-0">
+                        <div class="avatar-title bg-tus-primary-light text-tus-primary rounded">
+                            <i class="uil-tag font-size-24"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted font-weight-medium mb-1">Featured Categories</p>
+                        <h4 class="mb-0 text-tus-primary">{{ featured_categories.count }}</h4>
+                        <small class="text-success">
+                            <i class="uil-arrow-up font-size-12"></i>
+                            {% widthratio featured_categories.count 20 100 %}% of catalog
+                        </small>
+                    </div>
+                </div>
+                <div class="progress mt-3" style="height: 4px;">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: {% widthratio featured_categories.count 20 100 %}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters and Search -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row g-3 filter-row">
+                    <div class="col-xl-6 col-lg-12 col-md-8">
+                        <label class="form-label d-md-none" for="searchInput">Search TUS Schools</label>
+                        <div class="search-box">
+                            <div class="position-relative">
+                                <input type="text" class="form-control" id="searchInput" name="search"
+                                       placeholder="Search locations, schools, or products..."
+                                       value="{{ request.GET.search|default:'' }}"
+                                       aria-label="Search TUS schools" autocomplete="off">
+                                <i class="uil-search search-icon" aria-hidden="true"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-lg-6 col-md-4">
+                        <label class="form-label d-md-none" for="locationFilter">Location</label>
+                        <select class="form-select" id="locationFilter" aria-label="Filter by location">
+                            <option value="">All Locations</option>
+                            {% for location in all_locations %}
+                            <option value="{{ location.slug }}" {% if current_location == location.slug %}selected{% endif %}>{{ location.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-xl-3 col-lg-6 col-md-12">
+                        <label class="form-label d-md-none">&nbsp;</label>
+                        <button type="button" class="btn btn-tus-primary w-100 d-flex align-items-center justify-content-center" onclick="applyFilters()">
+                            <i class="uil-filter me-1" aria-hidden="true"></i>
+                            <span>Filter</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- Clear Filters Button (Mobile Only) -->
+                <div class="row mt-2 d-xl-none">
+                    <div class="col-12">
+                        <button type="button" class="btn btn-outline-tus-primary w-100" onclick="clearFilters()">
+                            <i class="uil-refresh me-1" aria-hidden="true"></i> Clear All Filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+            <!-- Featured General Categories -->
+            {% if featured_categories %}
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4 class="card-title mb-0">Featured Categories</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for category in featured_categories %}
+                                <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+                                    <div class="text-center">
+                                        <a href="{% url 'schools:retail_general_category_detail' category_slug=category.slug %}" class="text-decoration-none">
+                                            <div class="avatar-lg mx-auto mb-3">
+                                                {% if category.image_url %}
+                                                <img src="{{ category.image_url }}" alt="{{ category.name }}" class="img-fluid rounded">
+                                                {% else %}
+                                                <div class="avatar-lg bg-soft-primary rounded d-flex align-items-center justify-content-center">
+                                                    <i class="uil-tag font-size-24 text-primary"></i>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            <h6 class="font-size-14 text-truncate">{{ category.name }}</h6>
+                                            <p class="text-muted mb-0 font-size-12">{{ category.product_count }} products</p>
+                                        </a>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+<!-- School Locations Grid -->
+{% if locations %}
+<div class="row" id="locationGrid">
+    {% for location in locations %}
+    <div class="col-xxl-3 col-xl-4 col-lg-6 col-md-6 col-sm-12 mb-4">
+        <div class="card tus-location-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="avatar-md me-3">
+                        {% if location.image_url %}
+                        <img src="{{ location.image_url }}" alt="{{ location.name }}" class="avatar-md rounded">
+                        {% else %}
+                        <span class="avatar-title rounded bg-tus-primary text-white font-size-18">
+                            {{ location.name|first }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="flex-grow-1">
+                        <h5 class="mb-1">
+                            <a href="{% url 'schools:retail_location_detail' location_slug=location.slug %}" class="text-dark">{{ location.name }}</a>
+                        </h5>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge badge-tus font-size-11">TUS</span>
+                            <span class="badge bg-soft-primary text-primary font-size-11">
+                                <i class="uil-map-marker me-1"></i>{{ location.state|default:"Location" }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Location Stats with TUS Styling -->
+                <div class="tus-stats mb-3">
+                    <div class="row g-0">
+                        <div class="col-4">
+                            <div class="p-3 border-end border-tus-primary bg-soft-tus-primary text-center">
+                                <h5 class="mb-1 text-tus-primary">{{ location.active_schools_count }}</h5>
+                                <p class="text-tus-primary font-size-13 mb-0">Schools</p>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-3 border-end border-tus-primary bg-soft-tus-primary text-center">
+                                <h5 class="mb-1 text-tus-primary">{{ location.total_products|default:0 }}</h5>
+                                <p class="text-tus-primary font-size-13 mb-0">Products</p>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-3 bg-soft-tus-primary text-center">
+                                <h5 class="mb-1 text-tus-primary">
+                                    <i class="uil-star font-size-14"></i>
+                                </h5>
+                                <p class="text-tus-primary font-size-13 mb-0">Featured</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Location Details -->
+                <div class="location-details">
+                    {% if location.contact_person %}
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="uil-user text-tus-primary me-2"></i>
+                        <span class="text-muted font-size-13">{{ location.contact_person|truncatechars:20 }}</span>
+                    </div>
+                    {% endif %}
+
+                    {% if location.phone %}
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="uil-phone text-tus-primary me-2"></i>
+                        <span class="text-muted font-size-13">{{ location.phone|truncatechars:15 }}</span>
+                    </div>
+                    {% endif %}
+
+                    {% if location.website %}
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="uil-globe text-tus-primary me-2"></i>
+                        <a href="{{ location.website }}" target="_blank" class="text-tus-primary font-size-13">Visit Website</a>
+                    </div>
+                    {% endif %}
+
+                    {% if location.address %}
+                    <div class="d-flex align-items-start mb-2">
+                        <i class="uil-map-marker text-tus-primary me-2 mt-1"></i>
+                        <span class="text-muted font-size-13">{{ location.address|truncatechars:40 }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-top">
+                <div class="d-flex gap-2">
+                    <a href="{% url 'schools:retail_location_detail' location_slug=location.slug %}" class="btn btn-tus-primary btn-sm flex-grow-1">
+                        <i class="uil-eye me-1"></i> Explore Schools
+                    </a>
+                    <button type="button" class="btn btn-soft-tus-primary btn-sm" data-bs-toggle="tooltip" title="Add to Favorites">
+                        <i class="uil-heart"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<div class="row">
+    <div class="col-lg-12">
+        <ul class="pagination pagination-rounded justify-content-center mt-3 mb-4 pb-1">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" class="page-link">
+                    <i class="mdi mdi-chevron-double-left"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" class="page-link">
+                    <i class="mdi mdi-chevron-left"></i>
+                </a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <li class="page-item active">
+                <span class="page-link">{{ num }}</span>
+            </li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <li class="page-item">
+                <a href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" class="page-link">{{ num }}</a>
+            </li>
+            {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" class="page-link">
+                    <i class="mdi mdi-chevron-right"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" class="page-link">
+                    <i class="mdi mdi-chevron-double-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <div class="avatar-xl mx-auto mb-4">
+                    <div class="avatar-title bg-soft-tus-primary text-tus-primary rounded-circle font-size-48">
+                        <i class="uil-map-marker"></i>
+                    </div>
+                </div>
+                <h5>No School Locations Found</h5>
+                {% if request.GET.search %}
+                <p class="text-muted">No locations match your search criteria.</p>
+                <div class="d-flex gap-2 justify-content-center">
+                    <button type="button" class="btn btn-soft-tus-primary" onclick="clearFilters()">
+                        <i class="uil-refresh me-1"></i> Clear Filters
+                    </button>
+                    <a href="{% url 'schools:school_list' %}" class="btn btn-tus-primary">
+                        <i class="uil-graduation-cap me-1"></i> View All Schools
+                    </a>
+                </div>
+                {% else %}
+                <p class="text-muted">No school locations are currently available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+            <!-- Recent Products -->
+            {% if recent_products %}
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4 class="card-title mb-0">Recent Products</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for product in recent_products %}
+                                <div class="col-xl-3 col-lg-4 col-md-6">
+                                    <div class="card border">
+                                        <div class="card-body p-3">
+                                            <div class="product-img position-relative">
+                                                {% if product.image_url %}
+                                                <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-fluid mx-auto d-block" style="height: 120px; object-fit: cover;">
+                                                {% else %}
+                                                <div class="bg-soft-light text-center py-4" style="height: 120px;">
+                                                    <i class="uil-image-slash font-size-24 text-muted"></i>
+                                                </div>
+                                                {% endif %}
+                                                {% if product.on_sale %}
+                                                <div class="avatar-xs label-primary">
+                                                    <span class="avatar-title rounded-circle bg-primary">
+                                                        Sale
+                                                    </span>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="mt-3">
+                                                <h6 class="mb-1">
+                                                    <a href="{% url 'schools:retail_product_detail' product_id=product.id %}" class="text-decoration-none">
+                                                        {{ product.name|truncatewords:6 }}
+                                                    </a>
+                                                </h6>
+                                                <p class="text-muted font-size-13 mb-2">
+                                                    {% if product.primary_category %}
+                                                    {{ product.primary_category.name }}
+                                                    {% endif %}
+                                                </p>
+                                                <div class="d-flex align-items-center justify-content-between">
+                                                    <h5 class="mb-0 text-primary">${{ product.price }}</h5>
+                                                    {% if product.stock_status == 'instock' %}
+                                                    <span class="badge bg-soft-success text-success">In Stock</span>
+                                                    {% elif product.stock_status == 'onbackorder' %}
+                                                    <span class="badge bg-soft-warning text-warning">Backorder</span>
+                                                    {% else %}
+                                                    <span class="badge bg-soft-danger text-danger">Out of Stock</span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+<style>
+/* TUS Retail Page Styles */
+.tus-retail-page {
+    /* Let the page use the default background from base template */
+}
+
+/* TUS Stat Tiles */
+.tus-stat-tile {
+    transition: all 0.3s ease;
+    border: 1px solid rgba(201, 72, 91, 0.1);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.tus-stat-tile::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #387ADF, #333A73);
+    transform: translateX(-100%);
+    transition: transform 0.5s ease;
+}
+
+.tus-stat-tile:hover::before {
+    transform: translateX(0);
+}
+
+.tus-stat-tile:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(201, 72, 91, 0.15);
+    border-color: rgba(201, 72, 91, 0.3);
+}
+
+.tus-stat-tile .avatar-title {
+    transition: all 0.3s ease;
+}
+
+.tus-stat-tile:hover .avatar-title {
+    transform: scale(1.1);
+}
+
+/* Location Cards */
+.tus-location-card {
+    transition: all 0.3s ease;
+    border: 2px solid #f1f1f1;
+}
+
+.tus-location-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 35px rgba(201, 72, 91, 0.2);
+    border-color: #387ADF;
+}
+
+.search-box .search-icon {
+    position: absolute;
+    right: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 16px;
+    color: #74788d;
+    pointer-events: none;
+}
+
+.search-box input[type="text"] {
+    padding-right: 40px;
+}
+
+.search-box input[type="text"]:focus {
+    border-color: #387ADF;
+    box-shadow: 0 0 0 0.2rem rgba(201, 72, 91, 0.25);
+}
+
+.avatar-md {
+    width: 64px;
+    height: 64px;
+}
+
+.avatar-md img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.tus-stats {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* TUS Brand Colors */
+.bg-soft-tus-primary {
+    background-color: rgba(56, 122, 223, 0.1) !important;
+}
+
+.bg-tus-primary-light {
+    background-color: rgba(51, 58, 115, 0.15) !important;
+}
+
+.bg-gradient-tus-primary {
+    background: linear-gradient(135deg, #387ADF 0%, #333A73 100%) !important;
+}
+
+.bg-tus-primary {
+    background-color: #387ADF !important;
+}
+
+.border-tus-primary {
+    border-color: #387ADF !important;
+}
+
+.text-tus-primary {
+    color: #387ADF !important;
+}
+
+/* Accessibility-compliant text for small text */
+.text-tus-primary-dark {
+    color: #7A6565 !important; /* Darker variant for better contrast ratio */
+}
+
+.btn-tus-primary {
+    background-color: #387ADF;
+    border-color: #387ADF;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.btn-tus-primary:hover {
+    background-color: #333A73;
+    border-color: #333A73;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(159, 131, 131, 0.3);
+}
+
+.btn-soft-tus-primary {
+    background-color: rgba(56, 122, 223, 0.1);
+    border-color: rgba(56, 122, 223, 0.1);
+    color: #387ADF;
+}
+
+.btn-soft-tus-primary:hover {
+    background-color: #387ADF;
+    border-color: #387ADF;
+    color: white;
+}
+
+.btn-outline-tus-primary {
+    border-color: #387ADF;
+    color: #387ADF;
+}
+
+.btn-outline-tus-primary:hover {
+    background-color: #387ADF;
+    border-color: #387ADF;
+    color: white;
+}
+
+.badge-tus {
+    background-color: #387ADF;
+    color: white;
+}
+
+/* Progress Bars */
+.progress {
+    border-radius: 4px;
+    background-color: rgba(201, 72, 91, 0.1);
+}
+
+.progress-bar {
+    transition: width 0.6s ease;
+    border-radius: 4px;
+}
+
+.progress-bar.bg-tus-primary {
+    background: linear-gradient(90deg, #387ADF, #333A73);
+}
+
+.progress-bar.bg-gradient-tus-primary {
+    background: linear-gradient(90deg, #387ADF, #333A73);
+}
+
+/* Typography Enhancements */
+.font-weight-medium {
+    font-weight: 500;
+}
+
+.font-weight-semibold {
+    font-weight: 600;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .tus-stat-tile {
+        margin-bottom: 1rem;
+    }
+
+    .tus-stat-tile:hover {
+        transform: none;
+    }
+}
+
+/* Animation for stat tiles on load */
+.tus-stat-tile {
+    animation: fadeInUp 0.6s ease forwards;
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+.tus-stat-tile:nth-child(1) { animation-delay: 0.1s; }
+.tus-stat-tile:nth-child(2) { animation-delay: 0.2s; }
+.tus-stat-tile:nth-child(3) { animation-delay: 0.3s; }
+.tus-stat-tile:nth-child(4) { animation-delay: 0.4s; }
+
+@keyframes fadeInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+</style>
+
+<script>
+// Enhanced stat tile interactions
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize stat tile animations
+    initializeStatTiles();
+
+    // Enhance progress bar animations
+    animateProgressBars();
+
+    // Initialize tooltips for stat tiles
+    initializeStatTooltips();
+});
+
+function initializeStatTiles() {
+    const statTiles = document.querySelectorAll('.tus-stat-tile');
+
+    // Add click interaction to stat tiles
+    statTiles.forEach((tile, index) => {
+        tile.style.cursor = 'pointer';
+
+        tile.addEventListener('click', function() {
+            // Add a subtle flash effect
+            this.style.transform = 'scale(0.98)';
+            setTimeout(() => {
+                this.style.transform = '';
+            }, 150);
+        });
+
+        // Add loading simulation on first load
+        setTimeout(() => {
+            tile.classList.add('loaded');
+        }, (index + 1) * 200);
+    });
+}
+
+function animateProgressBars() {
+    const progressBars = document.querySelectorAll('.tus-stat-tile .progress-bar');
+
+    // Animate progress bars on scroll into view
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const progressBar = entry.target;
+                const width = progressBar.style.width;
+                progressBar.style.width = '0%';
+
+                setTimeout(() => {
+                    progressBar.style.width = width;
+                }, 100);
+
+                observer.unobserve(progressBar);
+            }
+        });
+    }, { threshold: 0.5 });
+
+    progressBars.forEach(bar => observer.observe(bar));
+}
+
+function initializeStatTooltips() {
+    // Add informative tooltips to stat tiles
+    const tooltipData = {
+        'Total Locations': 'Total number of TUS retail school locations in the system',
+        'Active Schools': 'Schools with active retail programs and product inventory',
+        'Available Products': 'Total products currently available across all school stores',
+        'Featured Categories': 'Highlighted product categories across the platform'
+    };
+
+    const statTitles = document.querySelectorAll('.tus-stat-tile .font-weight-medium');
+    statTitles.forEach(title => {
+        const text = title.textContent.trim();
+        if (tooltipData[text]) {
+            title.setAttribute('data-bs-toggle', 'tooltip');
+            title.setAttribute('data-bs-placement', 'top');
+            title.setAttribute('title', tooltipData[text]);
+        }
+    });
+}
+
+function applyFilters() {
+    const search = document.getElementById('searchInput').value;
+    const location = document.getElementById('locationFilter').value;
+
+    let url = new URL(window.location.origin + '{% url "schools:retail_schools" %}');
+
+    if (search) url.searchParams.set('search', search);
+    if (location) url.searchParams.set('location', location);
+
+    window.location.href = url.toString();
+}
+
+function clearFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('locationFilter').value = '';
+    window.location.href = '{% url "schools:retail_schools" %}';
+}
+
+// TUS Sync functionality
+function startTUSSync() {
+    const syncButton = document.getElementById('syncButton');
+    const syncIcon = document.getElementById('syncIcon');
+    const syncText = document.getElementById('syncText');
+    const syncAlert = document.getElementById('syncAlert');
+    const syncSpinner = document.getElementById('syncSpinner');
+    const syncAlertTitle = document.getElementById('syncAlertTitle');
+    const syncAlertMessage = document.getElementById('syncAlertMessage');
+    const syncProgress = document.getElementById('syncProgress');
+    const syncProgressBar = document.getElementById('syncProgressBar');
+
+    // Disable button and show loading state
+    syncButton.disabled = true;
+    syncIcon.className = 'uil-refresh-spin me-2';
+    syncText.textContent = 'Syncing...';
+
+    // Show sync alert with loading state
+    syncAlert.style.display = 'block';
+    syncAlert.className = 'alert alert-info alert-dismissible fade show';
+    syncSpinner.style.display = 'block';
+    syncAlertTitle.textContent = 'Sync in Progress';
+    syncAlertMessage.textContent = 'Synchronizing TUS schools data from WooCommerce...';
+    syncProgress.style.display = 'block';
+    syncProgressBar.style.width = '25%';
+
+    // Make AJAX request to sync endpoint
+    fetch('{% url "schools:sync-tus-schools" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            syncProgressBar.style.width = '50%';
+            syncAlertMessage.textContent = 'TUS sync started successfully! Job ID: ' + data.job_id;
+
+            // Monitor sync progress
+            monitorTUSSync(data.job_id);
+        } else {
+            syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+            syncAlertTitle.textContent = 'Sync Failed';
+            syncAlertMessage.textContent = 'Error: ' + (data.error || 'Unknown error occurred');
+            syncSpinner.style.display = 'none';
+            resetSyncButton();
+        }
+    })
+    .catch(error => {
+        console.error('Sync request failed:', error);
+        syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+        syncAlertTitle.textContent = 'Sync Failed';
+        syncAlertMessage.textContent = 'Network error: ' + error.message;
+        syncSpinner.style.display = 'none';
+        resetSyncButton();
+    });
+}
+
+function monitorTUSSync(jobId) {
+    const syncAlert = document.getElementById('syncAlert');
+    const syncAlertTitle = document.getElementById('syncAlertTitle');
+    const syncAlertMessage = document.getElementById('syncAlertMessage');
+    const syncProgressBar = document.getElementById('syncProgressBar');
+    const syncSpinner = document.getElementById('syncSpinner');
+
+    const checkStatus = () => {
+        fetch(`/clubs/sync/status/${jobId}/`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                syncProgressBar.style.width = data.progress_percentage + '%';
+                syncAlertMessage.textContent = data.current_step || 'Syncing in progress...';
+
+                if (data.is_finished) {
+                    syncSpinner.style.display = 'none';
+                    if (data.status === 'completed') {
+                        syncAlert.className = 'alert alert-success alert-dismissible fade show';
+                        syncAlertTitle.textContent = 'Sync Completed';
+                        syncAlertMessage.textContent = 'TUS schools sync completed successfully!';
+                        syncProgressBar.style.width = '100%';
+
+                        // Show stats if available
+                        if (data.stats) {
+                            syncAlertMessage.innerHTML = `
+                                TUS sync completed successfully!<br>
+                                <small>
+                                    Locations: ${data.stats.total_created + data.stats.total_updated} processed
+                                </small>
+                            `;
+                        }
+
+                        // Reload page after 3 seconds to show updated data
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 3000);
+                    } else {
+                        syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+                        syncAlertTitle.textContent = 'Sync Failed';
+                        syncAlertMessage.textContent = data.error_message || 'Sync failed';
+                    }
+                    resetSyncButton();
+                } else {
+                    // Continue monitoring
+                    setTimeout(checkStatus, 2000);
+                }
+            } else {
+                console.error('Status check failed:', data.error);
+                resetSyncButton();
+            }
+        })
+        .catch(error => {
+            console.error('Status check error:', error);
+            resetSyncButton();
+        });
+    };
+
+    // Start monitoring after 2 seconds
+    setTimeout(checkStatus, 2000);
+}
+
+function resetSyncButton() {
+    const syncButton = document.getElementById('syncButton');
+    const syncIcon = document.getElementById('syncIcon');
+    const syncText = document.getElementById('syncText');
+    const syncProgress = document.getElementById('syncProgress');
+
+    syncButton.disabled = false;
+    syncIcon.className = 'uil-sync me-2';
+    syncText.textContent = 'Sync TUS Schools';
+    syncProgress.style.display = 'none';
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Enable Enter key search
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            applyFilters();
+        }
+    });
+
+    // Initialize tooltips
+    var tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltips.map(function(tooltip) {
+        return new bootstrap.Tooltip(tooltip);
+    });
+});
+</script>
+
+</div> <!-- End tus-retail-page wrapper -->
+{% endblock %}

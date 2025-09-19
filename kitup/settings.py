@@ -46,7 +46,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',
     'clubs',
+    'schools',
 ]
 
 MIDDLEWARE = [
@@ -196,3 +198,14 @@ LOTTO_WOO_SECRET = config('LOTTO_WOOCOMMERCE_API_SECRET')
 SAS_WOO_URL = config('SAS_WOOCOMMERCE_API_URL')
 SAS_WOO_KEY = config('SAS_WOOCOMMERCE_API_CONSUMER_KEY')
 SAS_WOO_SECRET = config('SAS_WOOCOMMERCE_API_SECRET')
+
+# CIN7 API Configuration for Wholesale Schools
+CIN7_API_URL = config('CIN7_API_URL', default='https://api.cin7.com/api/v1/')
+CIN7_API_KEY = config('CIN7_API_KEY', default='')
+CIN7_API_SECRET = config('CIN7_API_SECRET', default='')
+CIN7_ACCOUNT_ID = config('CIN7_ACCOUNT_ID', default='')
+
+# CIN7 API Settings
+CIN7_TIMEOUT = config('CIN7_TIMEOUT', default=30, cast=int)
+CIN7_MAX_RETRIES = config('CIN7_MAX_RETRIES', default=3, cast=int)
+CIN7_BATCH_SIZE = config('CIN7_BATCH_SIZE', default=100, cast=int)

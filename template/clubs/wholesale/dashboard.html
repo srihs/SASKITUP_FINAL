@@ -1,0 +1,600 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<!-- DataTables CSS -->
+<link href="{% static 'assets/libs/datatables.net-bs4/css/dataTables.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+<link href="{% static 'assets/libs/datatables.net-buttons-bs4/css/buttons.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+<link href="{% static 'assets/libs/datatables.net-responsive-bs4/css/responsive.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+{% endblock %}
+
+{% block content %}
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box">
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Home</a></li>
+                    <li class="breadcrumb-item active">Wholesale Dashboard</li>
+                </ol>
+            </div>
+            <h4 class="mb-0">Wholesale Schools Dashboard</h4>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<!-- Sync Status Alert -->
+{% if sync_job %}
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-{% if sync_job.status == 'completed' %}success{% elif sync_job.status == 'failed' %}danger{% else %}info{% endif %} alert-dismissible fade show" role="alert">
+            <i class="uil uil-{% if sync_job.status == 'completed' %}check-circle{% elif sync_job.status == 'failed' %}times-circle{% else %}sync{% endif %} me-2"></i>
+            <strong>Sync Status:</strong> {{ sync_job.get_status_display }}
+            {% if sync_job.status == 'running' %}
+                - {{ sync_job.progress_percentage }}% complete ({{ sync_job.current_step }})
+            {% elif sync_job.status == 'completed' %}
+                - Completed {{ sync_job.duration|default:"Unknown" }} ago
+            {% endif %}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Statistics Cards -->
+<div class="row">
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex">
+                    <div class="flex-grow-1">
+                        <p class="text-truncate font-size-14 mb-2">Total Schools</p>
+                        <h4 class="mb-2">{{ total_schools }}</h4>
+                        <p class="text-muted mb-0">
+                            <span class="text-success fw-bold font-size-12 me-2">
+                                <i class="ri-arrow-right-up-line me-1 align-middle"></i>Active
+                            </span>
+                        </p>
+                    </div>
+                    <div class="avatar-sm">
+                        <span class="avatar-title bg-light text-primary rounded-3">
+                            <i class="uil-graduation-cap font-size-24"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex">
+                    <div class="flex-grow-1">
+                        <p class="text-truncate font-size-14 mb-2">Categories</p>
+                        <h4 class="mb-2">{{ total_categories }}</h4>
+                        <p class="text-muted mb-0">
+                            <span class="text-info fw-bold font-size-12 me-2">
+                                <i class="mdi mdi-arrow-up-bold me-1 align-middle"></i>{{ total_categories|floatformat:0 }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="avatar-sm">
+                        <span class="avatar-title bg-light text-info rounded-3">
+                            <i class="uil-folder-open font-size-24"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex">
+                    <div class="flex-grow-1">
+                        <p class="text-truncate font-size-14 mb-2">Total Products</p>
+                        <h4 class="mb-2">{{ total_products }}</h4>
+                        <p class="text-muted mb-0">
+                            <span class="text-warning fw-bold font-size-12 me-2">
+                                <i class="mdi mdi-arrow-up-bold me-1 align-middle"></i>{{ in_stock_products }} in stock
+                            </span>
+                        </p>
+                    </div>
+                    <div class="avatar-sm">
+                        <span class="avatar-title bg-light text-warning rounded-3">
+                            <i class="uil-shopping-bag font-size-24"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex">
+                    <div class="flex-grow-1">
+                        <p class="text-truncate font-size-14 mb-2">Last Sync</p>
+                        <h4 class="mb-2">
+                            {% if last_sync %}
+                                {{ last_sync|timesince }} ago
+                            {% else %}
+                                Never
+                            {% endif %}
+                        </h4>
+                        <p class="text-muted mb-0">
+                            <span class="text-{% if last_sync %}success{% else %}danger{% endif %} fw-bold font-size-12 me-2">
+                                <i class="uil-clock-nine me-1 align-middle"></i>CIN7 Sync
+                            </span>
+                        </p>
+                    </div>
+                    <div class="avatar-sm">
+                        <span class="avatar-title bg-light text-success rounded-3">
+                            <i class="uil-sync font-size-24"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end row -->
+
+<!-- Sync Management -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">CIN7 Data Synchronization</h4>
+                <div class="flex-shrink-0">
+                    <button type="button" class="btn btn-primary" id="startSyncBtn">
+                        <i class="uil uil-sync me-1"></i>Start Sync
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="syncProgress" class="d-none">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="flex-grow-1">
+                            <div class="progress" style="height: 10px;">
+                                <div class="progress-bar" role="progressbar" style="width: 0%" id="progressBar"></div>
+                            </div>
+                        </div>
+                        <div class="flex-shrink-0 ms-3">
+                            <span id="progressText">0%</span>
+                        </div>
+                    </div>
+                    <div class="text-muted" id="currentStep">Initializing...</div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Sync Statistics</h6>
+                        <ul class="list-unstyled">
+                            <li><span class="badge bg-success me-2">{{ recent_sync_stats.schools_created|default:0 }}</span>Schools Created</li>
+                            <li><span class="badge bg-info me-2">{{ recent_sync_stats.schools_updated|default:0 }}</span>Schools Updated</li>
+                            <li><span class="badge bg-warning me-2">{{ recent_sync_stats.products_created|default:0 }}</span>Products Created</li>
+                            <li><span class="badge bg-primary me-2">{{ recent_sync_stats.products_updated|default:0 }}</span>Products Updated</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Recent Activity</h6>
+                        <div class="text-muted">
+                            {% if last_sync %}
+                                Last successful sync: {{ last_sync|date:"M d, Y H:i" }}
+                            {% else %}
+                                No successful sync yet
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end row -->
+
+<!-- Top Schools -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">Top Wholesale Schools</h4>
+                <div class="flex-shrink-0">
+                    <a href="{% url 'clubs:wholesale-school-list' %}" class="btn btn-sm btn-soft-primary">
+                        <i class="uil uil-eye me-1"></i>View All
+                    </a>
+                </div>
+            </div>
+
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="topSchoolsTable" class="table table-nowrap align-middle table-hover w-100">
+                        <thead class="table-light">
+                            <tr>
+                                <th>School</th>
+                                <th>Contact</th>
+                                <th>Location</th>
+                                <th>Categories</th>
+                                <th>Products</th>
+                                <th class="no-sort">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for school in top_schools %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-xs me-3 flex-shrink-0">
+                                            <span class="avatar-title rounded-circle bg-soft-primary text-primary">
+                                                {{ school.name|first }}
+                                            </span>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <h5 class="font-size-14 mb-1">
+                                                <a href="{% url 'clubs:wholesale-school-detail' school.slug %}" class="text-dark">
+                                                    {{ school.name }}
+                                                </a>
+                                            </h5>
+                                            {% if school.school_code %}
+                                            <p class="text-muted font-size-12 mb-0">Code: {{ school.school_code }}</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if school.contact_person %}
+                                        <div class="font-size-13">{{ school.contact_person }}</div>
+                                        {% if school.email %}
+                                        <div class="text-muted font-size-12">{{ school.email }}</div>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if school.city %}
+                                        <span class="badge bg-soft-secondary text-secondary">{{ school.city }}{% if school.region %}, {{ school.region }}{% endif %}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="fw-medium">{{ school.active_categories }}</span>
+                                </td>
+                                <td>
+                                    <span class="fw-medium text-success">{{ school.total_products }}</span>
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'clubs:wholesale-school-detail' school.slug %}"
+                                           class="btn btn-sm btn-soft-primary"
+                                           data-bs-toggle="tooltip"
+                                           title="View school details">
+                                            <i class="uil uil-eye"></i>
+                                        </a>
+                                        <button type="button"
+                                                class="btn btn-sm btn-soft-secondary"
+                                                data-bs-toggle="tooltip"
+                                                title="Edit school (Coming soon)">
+                                            <i class="uil uil-edit-alt"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">
+                                    <i class="uil-folder-open font-size-48 text-muted mb-3"></i><br>
+                                    No schools found. Start a sync to import data from CIN7.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end row -->
+
+<!-- Quick Actions -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">Quick Actions</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <a href="{% url 'clubs:wholesale-school-list' %}" class="card border shadow-none">
+                            <div class="card-body text-center">
+                                <div class="avatar-sm mx-auto mb-3">
+                                    <span class="avatar-title rounded-circle bg-soft-info text-info font-size-18">
+                                        <i class="uil-graduation-cap"></i>
+                                    </span>
+                                </div>
+                                <h5 class="font-size-15 mb-1">Browse Schools</h5>
+                                <p class="text-muted mb-0">View all wholesale schools</p>
+                            </div>
+                        </a>
+                    </div>
+
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <a href="{% url 'clubs:wholesale-category-list' %}" class="card border shadow-none">
+                            <div class="card-body text-center">
+                                <div class="avatar-sm mx-auto mb-3">
+                                    <span class="avatar-title rounded-circle bg-soft-warning text-warning font-size-18">
+                                        <i class="uil-folder-open"></i>
+                                    </span>
+                                </div>
+                                <h5 class="font-size-15 mb-1">Categories</h5>
+                                <p class="text-muted mb-0">Browse product categories</p>
+                            </div>
+                        </a>
+                    </div>
+
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <a href="#" class="card border shadow-none" onclick="startSync(); return false;">
+                            <div class="card-body text-center">
+                                <div class="avatar-sm mx-auto mb-3">
+                                    <span class="avatar-title rounded-circle bg-soft-success text-success font-size-18">
+                                        <i class="uil-sync"></i>
+                                    </span>
+                                </div>
+                                <h5 class="font-size-15 mb-1">Sync Data</h5>
+                                <p class="text-muted mb-0">Import from CIN7</p>
+                            </div>
+                        </a>
+                    </div>
+
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <a href="{% url 'admin:index' %}" class="card border shadow-none">
+                            <div class="card-body text-center">
+                                <div class="avatar-sm mx-auto mb-3">
+                                    <span class="avatar-title rounded-circle bg-soft-secondary text-secondary font-size-18">
+                                        <i class="uil-cog"></i>
+                                    </span>
+                                </div>
+                                <h5 class="font-size-15 mb-1">Admin Panel</h5>
+                                <p class="text-muted mb-0">Advanced settings</p>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end row -->
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- DataTables JS -->
+<script src="{% static 'assets/libs/datatables.net/js/jquery.dataTables.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-bs4/js/dataTables.bootstrap4.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-buttons/js/dataTables.buttons.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-buttons-bs4/js/buttons.bootstrap4.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-responsive/js/dataTables.responsive.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-responsive-bs4/js/responsive.bootstrap4.min.js' %}"></script>
+
+<script>
+$(document).ready(function() {
+    // Initialize Top Schools DataTable
+    $('#topSchoolsTable').DataTable({
+        responsive: true,
+        pageLength: 10,
+        lengthMenu: [[5, 10, 25, -1], [5, 10, 25, "All"]],
+        order: [[4, 'desc']], // Sort by Products column in descending order
+        columnDefs: [
+            {
+                targets: 'no-sort',
+                orderable: false,
+                searchable: false
+            },
+            {
+                targets: [3, 4], // Categories and Products columns
+                type: 'num'
+            }
+        ],
+        language: {
+            search: "_INPUT_",
+            searchPlaceholder: "Search schools...",
+            lengthMenu: "Show _MENU_ schools",
+            info: "Showing _START_ to _END_ of _TOTAL_ schools",
+            infoEmpty: "No schools available",
+            infoFiltered: "(filtered from _MAX_ total schools)",
+            paginate: {
+                first: "First",
+                last: "Last",
+                next: "Next",
+                previous: "Previous"
+            }
+        },
+        drawCallback: function() {
+            // Initialize tooltips after table redraw
+            $('[data-bs-toggle="tooltip"]').tooltip();
+        }
+    });
+
+    // Initialize tooltips
+    $('[data-bs-toggle="tooltip"]').tooltip();
+
+    // Start sync button handler
+    $('#startSyncBtn').click(function() {
+        startSync();
+    });
+
+    // Check for running sync on page load
+    checkSyncStatus();
+
+    // Set up periodic status check if sync is running
+    if ($('#syncProgress').is(':visible')) {
+        setInterval(checkSyncStatus, 2000);
+    }
+});
+
+function startSync() {
+    if (confirm('Are you sure you want to start a CIN7 sync? This may take several minutes.')) {
+        $.ajax({
+            url: '{% url "clubs:wholesale-sync-execute" %}',
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    $('#syncProgress').removeClass('d-none');
+                    $('#startSyncBtn').prop('disabled', true);
+                    // Start periodic status check
+                    var statusCheck = setInterval(function() {
+                        checkSyncStatus();
+                        if (!$('#syncProgress').is(':visible')) {
+                            clearInterval(statusCheck);
+                        }
+                    }, 2000);
+                } else {
+                    alert('Failed to start sync: ' + response.error);
+                }
+            },
+            error: function() {
+                alert('Error starting sync. Please try again.');
+            }
+        });
+    }
+}
+
+function checkSyncStatus() {
+    $.ajax({
+        url: '{% url "clubs:wholesale-sync-status" %}',
+        method: 'GET',
+        success: function(response) {
+            if (response.status === 'running') {
+                $('#syncProgress').removeClass('d-none');
+                $('#progressBar').css('width', response.progress + '%');
+                $('#progressText').text(response.progress + '%');
+                $('#currentStep').text(response.current_step || 'Processing...');
+                $('#startSyncBtn').prop('disabled', true);
+            } else {
+                $('#syncProgress').addClass('d-none');
+                $('#startSyncBtn').prop('disabled', false);
+
+                if (response.status === 'completed') {
+                    // Reload page to show updated stats
+                    location.reload();
+                }
+            }
+        }
+    });
+}
+</script>
+
+<style>
+.card-drop:after {
+    display: none;
+}
+
+.avatar-xs img {
+    width: 32px;
+    height: 32px;
+    object-fit: cover;
+}
+
+/* Badge styles */
+.badge-soft-success { background-color: rgba(52, 195, 143, 0.1); color: #34c38f; }
+.badge-soft-warning { background-color: rgba(247, 184, 75, 0.1); color: #f7b84b; }
+.badge-soft-danger { background-color: rgba(243, 76, 124, 0.1); color: #f34c7c; }
+.badge-soft-secondary { background-color: rgba(108, 117, 125, 0.1); color: #6c757d; }
+
+/* Stock status indicators */
+.stock-in { color: #34c38f; }
+.stock-out { color: #f34c7c; }
+.stock-discontinued { color: #6c757d; }
+
+/* DataTables Custom Styling */
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter {
+    margin-bottom: 1rem;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    margin-left: 0.5rem;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.dataTables_wrapper .dataTables_filter input:focus {
+    border-color: #ced4da;
+    box-shadow: none;
+    outline: none;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(85, 110, 230, 0.04);
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+    .dataTables_wrapper .dataTables_length,
+    .dataTables_wrapper .dataTables_filter {
+        text-align: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .btn-group .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+
+    .avatar-xs {
+        width: 24px;
+        height: 24px;
+    }
+}
+
+/* Action buttons styling */
+.btn-soft-primary {
+    color: #556ee6;
+    background-color: rgba(85, 110, 230, 0.1);
+    border-color: transparent;
+}
+
+.btn-soft-primary:hover {
+    color: #fff;
+    background-color: #556ee6;
+    border-color: #556ee6;
+}
+
+.btn-soft-secondary {
+    color: #6c757d;
+    background-color: rgba(108, 117, 125, 0.1);
+    border-color: transparent;
+}
+
+.btn-soft-secondary:hover {
+    color: #fff;
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+/* Progress bar styling */
+.progress {
+    background-color: #f6f6f6;
+}
+
+.progress-bar {
+    background-color: #556ee6;
+}
+</style>
+{% endblock %}

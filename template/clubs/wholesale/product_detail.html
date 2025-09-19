@@ -1,0 +1,526 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<!-- Lightbox CSS for image gallery -->
+<link href="{% static 'assets/libs/lightbox2/css/lightbox.min.css' %}" rel="stylesheet" type="text/css" />
+{% endblock %}
+
+{% block content %}
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box">
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'clubs:wholesale-dashboard' %}">Wholesale</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'clubs:wholesale-school-detail' product.school.slug %}">{{ product.school.name }}</a></li>
+                    <li class="breadcrumb-item active">{{ product.name }}</li>
+                </ol>
+            </div>
+            <h4 class="mb-0">Product Details</h4>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<!-- Product Details -->
+<div class="row">
+    <div class="col-lg-6">
+        <!-- Product Images -->
+        <div class="card">
+            <div class="card-body">
+                <div class="product-images">
+                    {% if product.image_url %}
+                    <div class="text-center mb-3">
+                        <a href="{{ product.image_url }}" data-lightbox="product-gallery" data-title="{{ product.name }}">
+                            <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-fluid rounded" style="max-height: 400px;">
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    {% if product.additional_images %}
+                    <div class="row">
+                        {% for image_url in product.additional_images %}
+                        <div class="col-3 mb-2">
+                            <a href="{{ image_url }}" data-lightbox="product-gallery" data-title="{{ product.name }}">
+                                <img src="{{ image_url }}" alt="{{ product.name }}" class="img-fluid rounded thumbnail-image">
+                            </a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% if not product.image_url and not product.additional_images %}
+                    <div class="text-center py-5">
+                        <i class="uil uil-image-slash font-size-72 text-muted mb-3"></i>
+                        <p class="text-muted">No images available</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <!-- Product Information -->
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h4 class="card-title mb-2">{{ product.name }}</h4>
+                        {% if product.cin7_sku %}
+                        <p class="text-muted mb-0">SKU: <code>{{ product.cin7_sku }}</code></p>
+                        {% endif %}
+                    </div>
+                    <span class="badge bg-{% if product.stock_status == 'in_stock' %}success{% elif product.stock_status == 'out_of_stock' %}danger{% elif product.stock_status == 'discontinued' %}secondary{% else %}warning{% endif %} font-size-14">
+                        {{ product.get_stock_status_display }}
+                    </span>
+                </div>
+
+                {% if product.short_description %}
+                <div class="mb-3">
+                    <p class="text-muted">{{ product.short_description|striptags|linebreaksbr }}</p>
+                </div>
+                {% endif %}
+
+                <!-- Pricing -->
+                <div class="row mb-4">
+                    {% if product.wholesale_price %}
+                    <div class="col-md-4">
+                        <div class="text-center p-3 border rounded">
+                            <h6 class="text-muted mb-1">Wholesale Price</h6>
+                            <h4 class="text-primary mb-0">${{ product.wholesale_price }}</h4>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if product.retail_price %}
+                    <div class="col-md-4">
+                        <div class="text-center p-3 border rounded">
+                            <h6 class="text-muted mb-1">Retail Price</h6>
+                            <h4 class="text-success mb-0">${{ product.retail_price }}</h4>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if product.cost_price %}
+                    <div class="col-md-4">
+                        <div class="text-center p-3 border rounded">
+                            <h6 class="text-muted mb-1">Cost Price</h6>
+                            <h4 class="text-warning mb-0">${{ product.cost_price }}</h4>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Stock Information -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <h5 class="mb-1">{{ product.quantity_available }}</h5>
+                            <p class="text-muted mb-0">Available</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <h5 class="mb-1">{{ product.quantity_on_hand }}</h5>
+                            <p class="text-muted mb-0">On Hand</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <h5 class="mb-1">{{ product.quantity_committed }}</h5>
+                            <p class="text-muted mb-0">Committed</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product Details -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Product Information</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>School:</strong>
+                                <a href="{% url 'clubs:wholesale-school-detail' product.school.slug %}">{{ product.school.name }}</a>
+                            </li>
+                            {% if product.primary_category %}
+                            <li><strong>Category:</strong>
+                                <a href="{% url 'clubs:wholesale-category-detail' product.primary_category.slug %}">{{ product.primary_category.name }}</a>
+                            </li>
+                            {% endif %}
+                            {% if product.cin7_brand %}
+                            <li><strong>Brand:</strong> {{ product.cin7_brand }}</li>
+                            {% endif %}
+                            {% if product.cin7_supplier %}
+                            <li><strong>Supplier:</strong> {{ product.cin7_supplier }}</li>
+                            {% endif %}
+                            {% if product.cin7_unit_of_measure %}
+                            <li><strong>Unit:</strong> {{ product.cin7_unit_of_measure }}</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Physical Properties</h6>
+                        <ul class="list-unstyled">
+                            {% if product.weight %}
+                            <li><strong>Weight:</strong> {{ product.weight }} kg</li>
+                            {% endif %}
+                            {% if product.dimensions %}
+                                {% for key, value in product.dimensions.items %}
+                                <li><strong>{{ key|title }}:</strong> {{ value }}</li>
+                                {% endfor %}
+                            {% endif %}
+                            {% if not product.weight and not product.dimensions %}
+                            <li class="text-muted">No physical properties available</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Profit Margin -->
+                {% if product.profit_margin %}
+                <div class="alert alert-info">
+                    <h6 class="mb-1">Profit Margin</h6>
+                    <p class="mb-0">{{ product.profit_margin|floatformat:1 }}%</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end product details -->
+
+<!-- Product Description -->
+{% if product.description %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Description</h5>
+            </div>
+            <div class="card-body">
+                <div class="product-description">
+                    {{ product.description|striptags|linebreaksbr }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Product Variations -->
+{% if variations %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Product Variations</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-nowrap align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Type</th>
+                                <th>Value</th>
+                                <th>SKU</th>
+                                <th>Wholesale Price</th>
+                                <th>Stock</th>
+                                <th>Weight</th>
+                                <th>Image</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for variation in variations %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-soft-primary text-primary">{{ variation.get_variation_type_display }}</span>
+                                </td>
+                                <td>
+                                    <strong>{{ variation.variation_value }}</strong>
+                                    {% if variation.variation_description %}
+                                    <br><small class="text-muted">{{ variation.variation_description|truncatechars:50 }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if variation.cin7_sku %}
+                                    <code>{{ variation.cin7_sku }}</code>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if variation.wholesale_price %}
+                                    <span class="fw-medium">${{ variation.wholesale_price }}</span>
+                                    {% elif product.wholesale_price %}
+                                    <span class="text-muted">${{ product.wholesale_price }}</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="{% if variation.is_in_stock %}text-success{% else %}text-danger{% endif %}">
+                                        {{ variation.quantity_available }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if variation.weight %}
+                                    {{ variation.weight }} kg
+                                    {% elif product.weight %}
+                                    <span class="text-muted">{{ product.weight }} kg</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if variation.image_url %}
+                                    <a href="{{ variation.image_url }}" data-lightbox="variation-gallery" data-title="{{ variation.variation_value }}">
+                                        <img src="{{ variation.image_url }}" alt="{{ variation.variation_value }}" class="rounded" width="40" height="40">
+                                    </a>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Additional Attributes -->
+{% if product.attributes %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Additional Attributes</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for key, value in product.attributes.items %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="d-flex justify-content-between">
+                            <strong>{{ key|title }}:</strong>
+                            <span>{{ value }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- CIN7 Information -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">CIN7 Integration Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul class="list-unstyled">
+                            <li><strong>CIN7 ID:</strong> {{ product.cin7_id }}</li>
+                            {% if product.cin7_sku %}
+                            <li><strong>CIN7 SKU:</strong> {{ product.cin7_sku }}</li>
+                            {% endif %}
+                            {% if product.cin7_barcode %}
+                            <li><strong>Barcode:</strong> {{ product.cin7_barcode }}</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <ul class="list-unstyled">
+                            <li><strong>Last Synced:</strong>
+                                {% if product.last_synced_at %}
+                                    {{ product.last_synced_at|timesince }} ago
+                                {% else %}
+                                    Never
+                                {% endif %}
+                            </li>
+                            <li><strong>Created:</strong> {{ product.created_at|date:"M d, Y H:i" }}</li>
+                            <li><strong>Updated:</strong> {{ product.updated_at|date:"M d, Y H:i" }}</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Action Buttons -->
+<div class="row">
+    <div class="col-12">
+        <div class="text-center">
+            <a href="{% url 'clubs:wholesale-school-detail' product.school.slug %}" class="btn btn-outline-primary me-2">
+                <i class="uil uil-arrow-left me-1"></i>Back to School
+            </a>
+            {% if product.primary_category %}
+            <a href="{% url 'clubs:wholesale-category-detail' product.primary_category.slug %}" class="btn btn-outline-secondary me-2">
+                <i class="uil uil-folder-open me-1"></i>View Category
+            </a>
+            {% endif %}
+            <button type="button" class="btn btn-primary" onclick="alert('Export functionality coming soon')">
+                <i class="uil uil-export me-1"></i>Export Product
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Lightbox JS for image gallery -->
+<script src="{% static 'assets/libs/lightbox2/js/lightbox.min.js' %}"></script>
+
+<script>
+$(document).ready(function() {
+    // Initialize lightbox
+    lightbox.option({
+        'resizeDuration': 200,
+        'wrapAround': true,
+        'albumLabel': "Image %1 of %2"
+    });
+
+    // Initialize tooltips
+    $('[data-bs-toggle="tooltip"]').tooltip();
+});
+</script>
+
+<style>
+/* Product image styling */
+.thumbnail-image {
+    height: 80px;
+    object-fit: cover;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.thumbnail-image:hover {
+    transform: scale(1.05);
+}
+
+/* Pricing cards */
+.border {
+    border: 1px solid #dee2e6 !important;
+}
+
+.border:hover {
+    border-color: #556ee6 !important;
+}
+
+/* Badge styles */
+.badge-soft-primary { background-color: rgba(85, 110, 230, 0.1); color: #556ee6; }
+.badge-soft-success { background-color: rgba(52, 195, 143, 0.1); color: #34c38f; }
+.badge-soft-warning { background-color: rgba(247, 184, 75, 0.1); color: #f7b84b; }
+.badge-soft-danger { background-color: rgba(243, 76, 124, 0.1); color: #f34c7c; }
+.badge-soft-secondary { background-color: rgba(108, 117, 125, 0.1); color: #6c757d; }
+
+/* Font sizes */
+.font-size-14 {
+    font-size: 0.875rem;
+}
+
+.font-size-72 {
+    font-size: 4.5rem;
+}
+
+/* Product description styling */
+.product-description {
+    line-height: 1.6;
+}
+
+.product-description p {
+    margin-bottom: 1rem;
+}
+
+/* Table styling */
+.table thead th {
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+}
+
+.table tbody td {
+    vertical-align: middle;
+}
+
+/* Stock status colors */
+.text-success {
+    color: #34c38f !important;
+}
+
+.text-danger {
+    color: #f34c7c !important;
+}
+
+/* Alert styling */
+.alert-info {
+    background-color: rgba(23, 162, 184, 0.1);
+    border-color: rgba(23, 162, 184, 0.2);
+    color: #0c5460;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .col-md-4 {
+        margin-bottom: 1rem;
+    }
+
+    .text-center.p-3 {
+        padding: 1rem !important;
+    }
+
+    .btn-group .btn {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    .thumbnail-image {
+        height: 60px;
+    }
+}
+
+@media (max-width: 576px) {
+    .d-flex.justify-content-between {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .badge {
+        align-self: flex-start;
+    }
+}
+
+/* Action buttons */
+.btn-outline-primary:hover {
+    background-color: #556ee6;
+    border-color: #556ee6;
+}
+
+.btn-outline-secondary:hover {
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+/* Image gallery spacing */
+.product-images .row > div {
+    padding: 0.25rem;
+}
+
+/* Code styling */
+code {
+    background-color: #f8f9fa;
+    color: #e83e8c;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+}
+</style>
+{% endblock %}

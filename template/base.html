@@ -58,6 +58,26 @@
             box-shadow: none !important;
             border-color: #ced4da !important;
         }
+
+        /* TUS Retail Page Spacing Fix */
+        .tus-category-page {
+            margin-top: -20px !important;
+        }
+
+        .tus-category-page .main-content {
+            padding-top: 0 !important;
+        }
+
+        .tus-category-page .page-content {
+            padding-top: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+
+        .tus-category-page .container-fluid {
+            padding-left: 15px !important;
+            padding-right: 15px !important;
+        }
         </style>
 
     </head>
@@ -387,6 +407,18 @@
                                         </ul>
                                     </li>
                                     {% endif %}
+                                </ul>
+                            </li>
+
+                            <li>
+                                <a href="javascript: void(0);" class="has-arrow waves-effect">
+                                    <i class="uil-graduation-cap"></i>
+                                    <span>Schools</span>
+                                </a>
+                                <ul class="sub-menu" aria-expanded="false">
+                                    <li><a href="{% url 'schools:school_list' %}">School Database</a></li>
+                                    <li><a href="{% url 'schools:retail_schools' %}">Retail Schools</a></li>
+                                    <li><a href="{% url 'schools:wholesale_schools' %}">Wholesale Schools</a></li>
                                 </ul>
                             </li>
 

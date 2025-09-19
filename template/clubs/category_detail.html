@@ -208,7 +208,7 @@
                                 </h5>
                                 
                                 {% if product.short_description %}
-                                <p class="text-muted font-size-13 mb-2">{{ product.short_description|truncatechars:60 }}</p>
+                                <p class="text-muted font-size-13 mb-2">{{ product.short_description|striptags|truncatechars:60 }}</p>
                                 {% endif %}
                                 
                                 <div class="d-flex align-items-center justify-content-between">

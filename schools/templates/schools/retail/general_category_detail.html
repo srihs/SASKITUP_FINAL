@@ -1,0 +1,564 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ category.name }} - TUS Retail Schools{% endblock %}
+
+{% block content %}
+<div class="tus-category-page">
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0">{{ category.name }}</h4>
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'schools:school_list' %}">Schools</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'schools:tus_retail_schools' %}">Retail Schools</a></li>
+                    <li class="breadcrumb-item active">{{ category.name }}</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<!-- Category Header -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-lg me-4">
+                        {% if category.image_url %}
+                        <img src="{{ category.image_url }}" alt="{{ category.name }}" class="avatar-lg rounded">
+                        {% else %}
+                        <span class="avatar-title rounded bg-soft-tus-primary text-tus-primary font-size-24">
+                            <i class="uil-tag"></i>
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="flex-grow-1">
+                        <h4 class="mb-1">{{ category.name }}</h4>
+                        <div class="mb-2">
+                            <span class="badge badge-tus font-size-12 me-2">TUS</span>
+                            <span class="badge bg-soft-primary text-primary font-size-12">
+                                <i class="uil-tag me-1"></i>General Category
+                            </span>
+                        </div>
+                        {% if category.description %}
+                        <p class="text-muted mb-0">{{ category.description }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="text-end">
+                            <h5 class="mb-0 text-tus-primary">{{ category.product_count }}</h5>
+                            <p class="text-muted mb-0 font-size-13">Products</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters and Search -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="get" class="row g-3 filter-row">
+                    <div class="col-xl-4 col-lg-6 col-md-4">
+                        <label class="form-label d-md-none" for="searchInput">Search Products</label>
+                        <div class="search-box">
+                            <div class="position-relative">
+                                <input type="text" class="form-control" id="searchInput" name="search"
+                                       placeholder="Search products in {{ category.name }}..."
+                                       value="{{ request.GET.search|default:'' }}"
+                                       aria-label="Search products" autocomplete="off">
+                                <i class="uil-search search-icon" aria-hidden="true"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-2 col-lg-3 col-md-3">
+                        <label class="form-label d-md-none" for="priceFilter">Price Range</label>
+                        <select class="form-select" id="priceFilter" name="price_range" aria-label="Filter by price range">
+                            <option value="">All Prices</option>
+                            <option value="under_50" {% if request.GET.price_range == 'under_50' %}selected{% endif %}>Under $50</option>
+                            <option value="50_100" {% if request.GET.price_range == '50_100' %}selected{% endif %}>$50 - $100</option>
+                            <option value="100_200" {% if request.GET.price_range == '100_200' %}selected{% endif %}>$100 - $200</option>
+                            <option value="over_200" {% if request.GET.price_range == 'over_200' %}selected{% endif %}>Over $200</option>
+                        </select>
+                    </div>
+                    <div class="col-xl-2 col-lg-3 col-md-3">
+                        <label class="form-label d-md-none" for="sortFilter">Sort By</label>
+                        <select class="form-select" id="sortFilter" name="sort" aria-label="Sort products">
+                            <option value="name" {% if request.GET.sort == 'name' %}selected{% endif %}>Name A-Z</option>
+                            <option value="price_low" {% if request.GET.sort == 'price_low' %}selected{% endif %}>Price Low-High</option>
+                            <option value="price_high" {% if request.GET.sort == 'price_high' %}selected{% endif %}>Price High-Low</option>
+                            <option value="newest" {% if request.GET.sort == 'newest' %}selected{% endif %}>Newest First</option>
+                        </select>
+                    </div>
+                    <div class="col-xl-4 col-lg-12">
+                        <label class="form-label d-md-none">&nbsp;</label>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-tus-primary flex-grow-1">
+                                <i class="uil-filter me-1" aria-hidden="true"></i>
+                                <span>Filter</span>
+                            </button>
+                            <a href="{% url 'schools:retail_general_category_detail' category_slug=category.slug %}" class="btn btn-outline-tus-primary">
+                                <i class="uil-refresh"></i>
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Products Grid -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">Products in {{ category.name }}</h4>
+                <div class="flex-shrink-0">
+                    <small class="text-muted">{{ products.paginator.count }} products found</small>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if products %}
+                <div class="row g-4">
+                    {% for product in products %}
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <div class="card border h-100 product-card">
+                            <div class="card-body p-4">
+                                <div class="product-img position-relative">
+                                    {% if product.image_url %}
+                                    <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-fluid mx-auto d-block" style="height: 180px; object-fit: cover;">
+                                    {% else %}
+                                    <div class="bg-soft-light text-center py-5" style="height: 180px;">
+                                        <i class="uil-image-slash font-size-24 text-muted"></i>
+                                    </div>
+                                    {% endif %}
+                                    {% if product.on_sale %}
+                                    <div class="avatar-xs label-primary">
+                                        <span class="avatar-title rounded-circle bg-primary font-size-10">
+                                            Sale
+                                        </span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="mt-3">
+                                    <h6 class="mb-1">
+                                        <a href="{% url 'schools:retail_product_detail' product_id=product.id %}" class="text-dark product-title">
+                                            {{ product.name }}
+                                        </a>
+                                    </h6>
+                                    {% if product.sku %}
+                                    <p class="text-muted font-size-12 mb-1">SKU: {{ product.sku }}</p>
+                                    {% endif %}
+                                    {% if product.short_description %}
+                                    <p class="text-muted font-size-13 mb-2">{{ product.short_description|striptags|truncatewords:10 }}</p>
+                                    {% endif %}
+                                </div>
+
+                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                    <div>
+                                        {% if product.is_on_sale %}
+                                        <h5 class="mb-0 text-tus-primary">
+                                            ${{ product.sale_price }}
+                                            <small class="text-muted text-decoration-line-through">${{ product.regular_price }}</small>
+                                        </h5>
+                                        {% else %}
+                                        <h5 class="mb-0 text-tus-primary">${{ product.price }}</h5>
+                                        {% endif %}
+                                    </div>
+                                    {% if product.stock_status == 'instock' %}
+                                    <span class="badge bg-soft-success text-success">In Stock</span>
+                                    {% elif product.stock_status == 'onbackorder' %}
+                                    <span class="badge bg-soft-warning text-warning">Backorder</span>
+                                    {% else %}
+                                    <span class="badge bg-soft-danger text-danger">Out of Stock</span>
+                                    {% endif %}
+                                </div>
+
+                                <div class="d-flex gap-2">
+                                    <a href="{% url 'schools:retail_product_detail' product_id=product.id %}" class="btn btn-tus-primary btn-sm flex-grow-1">
+                                        <i class="uil-eye me-1"></i> View Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Pagination -->
+                {% if products.has_other_pages %}
+                <div class="row">
+                    <div class="col-lg-12">
+                        <ul class="pagination pagination-rounded justify-content-center mt-3 mb-4 pb-1">
+                            {% if products.has_previous %}
+                            <li class="page-item">
+                                <a href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.price_range %}&price_range={{ request.GET.price_range }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" class="page-link">
+                                    <i class="mdi mdi-chevron-double-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a href="?page={{ products.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.price_range %}&price_range={{ request.GET.price_range }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" class="page-link">
+                                    <i class="mdi mdi-chevron-left"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in products.paginator.page_range %}
+                            {% if products.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                            {% elif num > products.number|add:'-3' and num < products.number|add:'3' %}
+                            <li class="page-item">
+                                <a href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.price_range %}&price_range={{ request.GET.price_range }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" class="page-link">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                            {% endfor %}
+
+                            {% if products.has_next %}
+                            <li class="page-item">
+                                <a href="?page={{ products.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.price_range %}&price_range={{ request.GET.price_range }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" class="page-link">
+                                    <i class="mdi mdi-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a href="?page={{ products.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.price_range %}&price_range={{ request.GET.price_range }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" class="page-link">
+                                    <i class="mdi mdi-chevron-double-right"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="uil-shopping-cart display-3 text-muted"></i>
+                    <h5 class="mt-4">No products found</h5>
+                    {% if request.GET.search or request.GET.price_range %}
+                    <p class="text-muted">No products match your filter criteria.</p>
+                    <a href="{% url 'schools:retail_general_category_detail' category_slug=category.slug %}" class="btn btn-soft-tus-primary">
+                        <i class="uil-refresh me-1"></i> Show All Products
+                    </a>
+                    {% else %}
+                    <p class="text-muted">No products are available in this category.</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Related Categories -->
+{% if related_categories %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">Other General Categories</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for related_category in related_categories %}
+                    <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+                        <div class="text-center">
+                            <div class="avatar-md mx-auto mb-2">
+                                {% if related_category.image_url %}
+                                <img src="{{ related_category.image_url }}" alt="{{ related_category.name }}" class="img-fluid rounded">
+                                {% else %}
+                                <div class="avatar-md bg-soft-tus-primary rounded d-flex align-items-center justify-content-center">
+                                    <i class="uil-tag font-size-18 text-tus-primary"></i>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <h6 class="font-size-14 mb-1">
+                                <a href="{% url 'schools:retail_general_category_detail' category_slug=related_category.slug %}" class="text-decoration-none">
+                                    {{ related_category.name }}
+                                </a>
+                            </h6>
+                            <p class="text-muted mb-0 font-size-12">{{ related_category.product_count }} products</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+</div> <!-- End tus-category-page wrapper -->
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* TUS Category Page Styles */
+.tus-category-page {
+    background-color: #fafbfc;
+}
+
+/* Avatar sizes */
+.avatar-lg {
+    width: 80px;
+    height: 80px;
+}
+
+.avatar-lg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-md {
+    width: 64px;
+    height: 64px;
+}
+
+.avatar-md img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-sm {
+    width: 40px;
+    height: 40px;
+}
+
+.avatar-sm img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Product Card Enhancements */
+.product-card {
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef !important;
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(201, 72, 91, 0.15) !important;
+    border-color: #387ADF !important;
+}
+
+.product-title {
+    text-decoration: none;
+    transition: color 0.3s ease;
+    font-weight: 600;
+}
+
+.product-title:hover {
+    color: #387ADF !important;
+}
+
+.search-box .search-icon {
+    position: absolute;
+    right: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 16px;
+    color: #74788d;
+    pointer-events: none;
+}
+
+.search-box input[type="text"] {
+    padding-right: 40px;
+}
+
+.search-box input[type="text"]:focus {
+    border-color: #387ADF;
+    box-shadow: 0 0 0 0.2rem rgba(201, 72, 91, 0.25);
+}
+
+/* TUS Brand Colors */
+.bg-soft-tus-primary {
+    background-color: rgba(159, 131, 131, 0.1) !important;
+}
+
+.bg-tus-primary-light {
+    background-color: rgba(200, 170, 170, 0.15) !important;
+}
+
+.bg-gradient-tus-primary {
+    background: linear-gradient(135deg, #387ADF 0%, #333A73 100%) !important;
+}
+
+.bg-tus-primary {
+    background-color: #387ADF !important;
+}
+
+.border-tus-primary {
+    border-color: #387ADF !important;
+}
+
+.text-tus-primary {
+    color: #387ADF !important;
+}
+
+/* Accessibility-compliant text for small text */
+.text-tus-primary-dark {
+    color: #7A6565 !important; /* Darker variant for better contrast ratio */
+}
+
+.btn-tus-primary {
+    background-color: #387ADF;
+    border-color: #387ADF;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.btn-tus-primary:hover {
+    background-color: #333A73;
+    border-color: #333A73;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(159, 131, 131, 0.3);
+}
+
+.btn-soft-tus-primary {
+    background-color: rgba(159, 131, 131, 0.1);
+    border-color: rgba(159, 131, 131, 0.1);
+    color: #387ADF;
+}
+
+.btn-soft-tus-primary:hover {
+    background-color: #387ADF;
+    border-color: #387ADF;
+    color: white;
+}
+
+.btn-outline-tus-primary {
+    border-color: #387ADF;
+    color: #387ADF;
+}
+
+.btn-outline-tus-primary:hover {
+    background-color: #387ADF;
+    border-color: #387ADF;
+    color: white;
+}
+
+.badge-tus {
+    background-color: #387ADF;
+    color: white;
+}
+
+.badge-soft-success { background-color: rgba(52, 195, 143, 0.1); color: #34c38f; }
+.badge-soft-warning { background-color: rgba(247, 184, 75, 0.1); color: #f7b84b; }
+.badge-soft-danger { background-color: rgba(243, 76, 124, 0.1); color: #f34c7c; }
+.badge-soft-info { background-color: rgba(58, 186, 244, 0.1); color: #3abaf4; }
+.badge-soft-primary { background-color: rgba(85, 110, 230, 0.1); color: #556ee6; }
+.badge-soft-secondary { background-color: rgba(116, 120, 141, 0.1); color: #74788d; }
+
+.bg-soft-primary { background-color: rgba(85, 110, 230, 0.1); }
+.bg-soft-success { background-color: rgba(52, 195, 143, 0.1); }
+.bg-soft-info { background-color: rgba(58, 186, 244, 0.1); }
+.bg-soft-warning { background-color: rgba(247, 184, 75, 0.1); }
+.bg-soft-secondary { background-color: rgba(116, 120, 141, 0.1); }
+
+/* Typography Enhancements */
+.font-weight-medium {
+    font-weight: 500;
+}
+
+.font-weight-semibold {
+    font-weight: 600;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .product-card:hover {
+        transform: none;
+    }
+}
+</style>
+
+<script>
+function applyFilters() {
+    const search = document.getElementById('searchInput').value;
+    const priceRange = document.getElementById('priceFilter').value;
+    const sort = document.getElementById('sortFilter').value;
+
+    let url = new URL(window.location);
+
+    if (search) {
+        url.searchParams.set('search', search);
+    } else {
+        url.searchParams.delete('search');
+    }
+
+    if (priceRange) {
+        url.searchParams.set('price_range', priceRange);
+    } else {
+        url.searchParams.delete('price_range');
+    }
+
+    if (sort) {
+        url.searchParams.set('sort', sort);
+    } else {
+        url.searchParams.delete('sort');
+    }
+
+    window.location.href = url.toString();
+}
+
+function clearFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('priceFilter').value = '';
+    document.getElementById('sortFilter').value = '';
+
+    let url = new URL(window.location);
+    url.searchParams.delete('search');
+    url.searchParams.delete('price_range');
+    url.searchParams.delete('sort');
+    url.searchParams.delete('page');
+
+    window.location.href = url.toString();
+}
+
+// Enable Enter key search
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const form = searchInput.closest('form');
+
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            applyFilters();
+        }
+    });
+
+    // Auto-submit form when filters change
+    const priceFilter = document.getElementById('priceFilter');
+    const sortFilter = document.getElementById('sortFilter');
+
+    priceFilter.addEventListener('change', function() {
+        applyFilters();
+    });
+
+    sortFilter.addEventListener('change', function() {
+        applyFilters();
+    });
+
+    // Initialize tooltips
+    var tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltips.map(function(tooltip) {
+        return new bootstrap.Tooltip(tooltip);
+    });
+});
+</script>
+
+{% endblock %}

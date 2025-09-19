@@ -274,3 +274,25 @@ yarn.lock
 *.orig
 
 screenshots/
+test_screenshots/
+
+# Test files and reports in root
+test_*.py
+run_*.py
+*_test_*.json
+*_test_*.md
+*_test_report.*
+*_report.md
+*_analysis.json
+*_results.json
+debug_*.py
+*_comparison.json
+*_validation_results.json
+
+# Images in root
+/*.png
+/*.jpg
+/*.jpeg
+/*.gif
+/*.webp
+/*.svg

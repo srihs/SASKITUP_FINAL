@@ -1,0 +1,656 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ location.name }} - TUS Retail Schools{% endblock %}
+
+{% block content %}
+<div class="tus-location-page">
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0">{{ location.name }}</h4>
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'schools:school_list' %}">Schools</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'schools:retail_schools' %}">Retail Schools</a></li>
+                    <li class="breadcrumb-item active">{{ location.name }}</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<!-- Location Header -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-lg me-4">
+                        {% if location.image_url %}
+                        <img src="{{ location.image_url }}" alt="{{ location.name }}" class="avatar-lg rounded">
+                        {% else %}
+                        <span class="avatar-title rounded bg-soft-tus-primary text-tus-primary font-size-24">
+                            {{ location.name|first }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="flex-grow-1">
+                        <h4 class="mb-1">{{ location.name }}</h4>
+                        <div class="mb-2">
+                            <span class="badge badge-tus font-size-12 me-2">TUS</span>
+                            <span class="badge bg-soft-primary text-primary font-size-12">
+                                <i class="uil-map-marker me-1"></i>{{ location.state|default:"Location" }}
+                            </span>
+                        </div>
+                        {% if location.description %}
+                        <p class="text-muted mb-0">{{ location.description }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="dropdown">
+                            <button type="button" class="btn btn-soft-tus-primary dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="uil-ellipsis-h me-1"></i> Actions
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end">
+                                <a class="dropdown-item" href="#">
+                                    <i class="uil-edit-alt me-1"></i> Edit Location
+                                </a>
+                                <a class="dropdown-item" href="#">
+                                    <i class="uil-sync me-1"></i> Sync Schools
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item" href="{% url 'schools:retail_schools' %}">
+                                    <i class="uil-arrow-left me-1"></i> Back to Locations
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Location Stats -->
+<div class="row">
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-tus-primary text-tus-primary rounded-3">
+                            <i class="uil-graduation-cap font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Schools</p>
+                        <h4 class="mb-0">{{ schools.paginator.count|default:0 }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-success text-success rounded-3">
+                            <i class="uil-layers-alt font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Categories</p>
+                        <h4 class="mb-0">{{ total_categories|default:0 }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-info text-info rounded-3">
+                            <i class="uil-shopping-bag font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Products</p>
+                        <h4 class="mb-0">{{ total_products|default:0 }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-warning text-warning rounded-3">
+                            <i class="uil-phone font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Contact</p>
+                        <h6 class="mb-0">{{ location.contact_person|default:"Available" }}</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters and Search -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row g-3 filter-row">
+                    <div class="col-xl-6 col-lg-8 col-md-6">
+                        <label class="form-label d-md-none" for="searchInput">Search Schools</label>
+                        <div class="search-box">
+                            <div class="position-relative">
+                                <input type="text" class="form-control" id="searchInput" name="search"
+                                       placeholder="Search schools in {{ location.name }}..."
+                                       value="{{ request.GET.search|default:'' }}"
+                                       aria-label="Search schools" autocomplete="off">
+                                <i class="uil-search search-icon" aria-hidden="true"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <label class="form-label d-md-none" for="schoolTypeFilter">School Type</label>
+                        <select class="form-select" id="schoolTypeFilter" aria-label="Filter by school type">
+                            <option value="">All School Types</option>
+                            {% for value, label in school_types %}
+                            <option value="{{ value }}" {% if request.GET.school_type == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-xl-3 col-lg-12">
+                        <label class="form-label d-md-none">&nbsp;</label>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-tus-primary flex-grow-1" onclick="applyFilters()">
+                                <i class="uil-filter me-1" aria-hidden="true"></i>
+                                <span>Filter</span>
+                            </button>
+                            <button type="button" class="btn btn-outline-tus-primary" onclick="clearFilters()">
+                                <i class="uil-refresh"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Schools Grid -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">Schools in {{ location.name }}</h4>
+                <div class="flex-shrink-0">
+                    <button type="button" class="btn btn-sm btn-soft-tus-primary">
+                        <i class="uil-plus me-1"></i> Add School
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if schools %}
+                <div class="row g-4">
+                    {% for school in schools %}
+                    <div class="col-xl-4 col-lg-6 col-md-6">
+                        <div class="card border h-100 school-card">
+                            <div class="card-body p-4">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="avatar-md me-3">
+                                        {% if school.logo_url %}
+                                        <img src="{{ school.logo_url }}" alt="{{ school.name }}" class="avatar-md rounded">
+                                        {% else %}
+                                        <span class="avatar-title rounded bg-soft-tus-primary text-tus-primary font-size-18">
+                                            {{ school.name|first }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h5 class="mb-1">
+                                            <a href="{% url 'schools:retail_school_detail' school_slug=school.slug %}" class="text-dark school-title">{{ school.name }}</a>
+                                        </h5>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge badge-tus font-size-11">TUS</span>
+                                            <span class="badge bg-soft-success text-success font-size-11">
+                                                <i class="uil-graduation-cap me-1"></i>{{ school.school_type|default:"School" }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- School Stats with TUS Styling -->
+                                <div class="tus-stats mb-3">
+                                    <div class="row g-0">
+                                        <div class="col-6">
+                                            <div class="p-3 border-end border-tus-primary bg-soft-tus-primary text-center">
+                                                <h5 class="mb-1 text-tus-primary">{{ school.total_categories|default:0 }}</h5>
+                                                <p class="text-tus-primary font-size-13 mb-0">Categories</p>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="p-3 bg-soft-tus-primary text-center">
+                                                <h5 class="mb-1 text-tus-primary">{{ school.total_products|default:0 }}</h5>
+                                                <p class="text-tus-primary font-size-13 mb-0">Products</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- School Details -->
+                                <div class="school-details">
+                                    {% if school.address %}
+                                    <div class="d-flex align-items-start mb-2">
+                                        <i class="uil-map-marker text-tus-primary me-2 mt-1"></i>
+                                        <span class="text-muted font-size-13">{{ school.address|truncatechars:40 }}</span>
+                                    </div>
+                                    {% endif %}
+
+                                    {% if school.phone %}
+                                    <div class="d-flex align-items-center mb-2">
+                                        <i class="uil-phone text-tus-primary me-2"></i>
+                                        <span class="text-muted font-size-13">{{ school.phone|truncatechars:15 }}</span>
+                                    </div>
+                                    {% endif %}
+
+                                    {% if school.website %}
+                                    <div class="d-flex align-items-center mb-2">
+                                        <i class="uil-globe text-tus-primary me-2"></i>
+                                        <a href="{{ school.website }}" target="_blank" class="text-tus-primary font-size-13">Visit Website</a>
+                                    </div>
+                                    {% endif %}
+
+                                    {% if school.mascot %}
+                                    <div class="d-flex align-items-center mb-2">
+                                        <i class="uil-university text-tus-primary me-2"></i>
+                                        <span class="text-muted font-size-13">{{ school.mascot }}</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="card-footer bg-transparent border-top">
+                                <div class="d-flex gap-2">
+                                    <a href="{% url 'schools:retail_school_detail' school_slug=school.slug %}" class="btn btn-tus-primary btn-sm flex-grow-1">
+                                        <i class="uil-eye me-1"></i> Explore School
+                                    </a>
+                                    <button type="button" class="btn btn-soft-tus-primary btn-sm" data-bs-toggle="tooltip" title="Add to Favorites">
+                                        <i class="uil-heart"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                            <!-- Pagination -->
+                            {% if schools.has_other_pages %}
+                            <div class="row">
+                                <div class="col-lg-12">
+                                    <ul class="pagination pagination-rounded justify-content-center mt-3 mb-4 pb-1">
+                                        {% if schools.has_previous %}
+                                        <li class="page-item">
+                                            <a href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.school_type %}&school_type={{ request.GET.school_type }}{% endif %}" class="page-link">
+                                                <i class="mdi mdi-chevron-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a href="?page={{ schools.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.school_type %}&school_type={{ request.GET.school_type }}{% endif %}" class="page-link">
+                                                <i class="mdi mdi-chevron-left"></i>
+                                            </a>
+                                        </li>
+                                        {% endif %}
+
+                                        {% for num in schools.paginator.page_range %}
+                                        {% if schools.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                        {% elif num > schools.number|add:'-3' and num < schools.number|add:'3' %}
+                                        <li class="page-item">
+                                            <a href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.school_type %}&school_type={{ request.GET.school_type }}{% endif %}" class="page-link">{{ num }}</a>
+                                        </li>
+                                        {% endif %}
+                                        {% endfor %}
+
+                                        {% if schools.has_next %}
+                                        <li class="page-item">
+                                            <a href="?page={{ schools.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.school_type %}&school_type={{ request.GET.school_type }}{% endif %}" class="page-link">
+                                                <i class="mdi mdi-chevron-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a href="?page={{ schools.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.school_type %}&school_type={{ request.GET.school_type }}{% endif %}" class="page-link">
+                                                <i class="mdi mdi-chevron-double-right"></i>
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {% else %}
+                            <div class="text-center py-4">
+                                <i class="uil-graduation-cap display-3 text-muted"></i>
+                                <h5 class="mt-4">No schools found</h5>
+                                {% if request.GET.search or request.GET.school_type %}
+                                <p class="text-muted">No schools match your filter criteria.</p>
+                                <a href="{% url 'schools:retail_location_detail' location_slug=location.slug %}" class="btn btn-soft-primary">
+                                    <i class="uil-refresh me-1"></i> Show All Schools
+                                </a>
+                                {% else %}
+                                <p class="text-muted">No schools are available in this location.</p>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Products -->
+            {% if recent_products %}
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4 class="card-title mb-0">Recent Products from {{ location.name }}</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for product in recent_products %}
+                                <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+                                    <div class="card border">
+                                        <div class="card-body p-2">
+                                            <div class="product-img position-relative">
+                                                {% if product.image_url %}
+                                                <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-fluid mx-auto d-block" style="height: 80px; object-fit: cover;">
+                                                {% else %}
+                                                <div class="bg-soft-light text-center py-3" style="height: 80px;">
+                                                    <i class="uil-image-slash font-size-16 text-muted"></i>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="mt-2">
+                                                <h6 class="mb-1 font-size-13">
+                                                    <a href="{% url 'schools:retail_product_detail' product_id=product.id %}" class="text-decoration-none">
+                                                        {{ product.name|truncatewords:4 }}
+                                                    </a>
+                                                </h6>
+                                                <p class="text-primary mb-0 font-size-14">${{ product.price }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+
+<style>
+/* TUS Location Page Styles */
+.tus-location-page {
+    background-color: #fafbfc;
+}
+
+/* Avatar sizes */
+.avatar-lg {
+    width: 80px;
+    height: 80px;
+}
+
+.avatar-lg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-md {
+    width: 64px;
+    height: 64px;
+}
+
+.avatar-md img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-sm {
+    width: 40px;
+    height: 40px;
+}
+
+.avatar-sm img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* School Card Enhancements */
+.school-card {
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef !important;
+}
+
+.school-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(201, 72, 91, 0.15) !important;
+    border-color: #387ADF !important;
+}
+
+.school-title {
+    text-decoration: none;
+    transition: color 0.3s ease;
+    font-weight: 600;
+}
+
+.school-title:hover {
+    color: #387ADF !important;
+}
+
+.tus-stats {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.search-box .search-icon {
+    position: absolute;
+    right: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 16px;
+    color: #74788d;
+    pointer-events: none;
+}
+
+.search-box input[type="text"] {
+    padding-right: 40px;
+}
+
+.search-box input[type="text"]:focus {
+    border-color: #387ADF;
+    box-shadow: 0 0 0 0.2rem rgba(201, 72, 91, 0.25);
+}
+
+/* TUS Brand Colors */
+.bg-soft-tus-primary {
+    background-color: rgba(159, 131, 131, 0.1) !important;
+}
+
+.bg-tus-primary-light {
+    background-color: rgba(200, 170, 170, 0.15) !important;
+}
+
+.bg-gradient-tus-primary {
+    background: linear-gradient(135deg, #387ADF 0%, #333A73 100%) !important;
+}
+
+.bg-tus-primary {
+    background-color: #387ADF !important;
+}
+
+.border-tus-primary {
+    border-color: #387ADF !important;
+}
+
+.text-tus-primary {
+    color: #387ADF !important;
+}
+
+/* Accessibility-compliant text for small text */
+.text-tus-primary-dark {
+    color: #7A6565 !important; /* Darker variant for better contrast ratio */
+}
+
+.btn-tus-primary {
+    background-color: #387ADF;
+    border-color: #387ADF;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.btn-tus-primary:hover {
+    background-color: #333A73;
+    border-color: #333A73;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(159, 131, 131, 0.3);
+}
+
+.btn-soft-tus-primary {
+    background-color: rgba(159, 131, 131, 0.1);
+    border-color: rgba(159, 131, 131, 0.1);
+    color: #387ADF;
+}
+
+.btn-soft-tus-primary:hover {
+    background-color: #387ADF;
+    border-color: #387ADF;
+    color: white;
+}
+
+.btn-outline-tus-primary {
+    border-color: #387ADF;
+    color: #387ADF;
+}
+
+.btn-outline-tus-primary:hover {
+    background-color: #387ADF;
+    border-color: #387ADF;
+    color: white;
+}
+
+.badge-tus {
+    background-color: #387ADF;
+    color: white;
+}
+
+.badge-soft-success { background-color: rgba(52, 195, 143, 0.1); color: #34c38f; }
+.badge-soft-warning { background-color: rgba(247, 184, 75, 0.1); color: #f7b84b; }
+.badge-soft-danger { background-color: rgba(243, 76, 124, 0.1); color: #f34c7c; }
+.badge-soft-info { background-color: rgba(58, 186, 244, 0.1); color: #3abaf4; }
+.badge-soft-primary { background-color: rgba(85, 110, 230, 0.1); color: #556ee6; }
+.badge-soft-secondary { background-color: rgba(116, 120, 141, 0.1); color: #74788d; }
+
+.bg-soft-primary { background-color: rgba(85, 110, 230, 0.1); }
+.bg-soft-success { background-color: rgba(52, 195, 143, 0.1); }
+.bg-soft-info { background-color: rgba(58, 186, 244, 0.1); }
+.bg-soft-warning { background-color: rgba(247, 184, 75, 0.1); }
+.bg-soft-secondary { background-color: rgba(116, 120, 141, 0.1); }
+
+/* Typography Enhancements */
+.font-weight-medium {
+    font-weight: 500;
+}
+
+.font-weight-semibold {
+    font-weight: 600;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .school-card:hover {
+        transform: none;
+    }
+}
+</style>
+
+<script>
+function applyFilters() {
+    const search = document.getElementById('searchInput').value;
+    const schoolType = document.getElementById('schoolTypeFilter').value;
+
+    let url = new URL(window.location);
+
+    if (search) {
+        url.searchParams.set('search', search);
+    } else {
+        url.searchParams.delete('search');
+    }
+
+    if (schoolType) {
+        url.searchParams.set('school_type', schoolType);
+    } else {
+        url.searchParams.delete('school_type');
+    }
+
+    window.location.href = url.toString();
+}
+
+function clearFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('schoolTypeFilter').value = '';
+
+    let url = new URL(window.location);
+    url.searchParams.delete('search');
+    url.searchParams.delete('school_type');
+    url.searchParams.delete('page');
+
+    window.location.href = url.toString();
+}
+
+// Enable Enter key search
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            applyFilters();
+        }
+    });
+
+    // Initialize tooltips
+    var tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltips.map(function(tooltip) {
+        return new bootstrap.Tooltip(tooltip);
+    });
+});
+</script>
+
+</div> <!-- End tus-location-page wrapper -->
+{% endblock %}

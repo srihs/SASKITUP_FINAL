@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Retail Schools{% endblock %}
+
+{% block content %}
+<div class="main-content">
+    <div class="page-content">
+        <div class="container-fluid">
+            <!-- Page Title -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+                        <h4 class="mb-sm-0 font-size-18">Retail Schools</h4>
+                        <div class="page-title-right">
+                            <ol class="breadcrumb m-0">
+                                <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
+                                <li class="breadcrumb-item active">Retail Schools</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coming Soon Content -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body text-center py-5">
+                            <i class="uil-store display-1 text-muted mb-4"></i>
+                            <h3 class="mb-3">Retail Schools</h3>
+                            <p class="text-muted mb-4">
+                                This section will contain information about schools that offer retail sales of uniforms and equipment.
+                            </p>
+                            <div class="alert alert-info d-inline-block">
+                                <i class="uil-info-circle me-2"></i>
+                                Coming Soon - This feature is currently under development
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

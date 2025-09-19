@@ -1,0 +1,482 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Wholesale Schools{% endblock %}
+
+{% block content %}
+<div class="tus-wholesale-page">
+    <!-- Page Title and Sync Button -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <h4 class="mb-sm-0 font-size-18">Wholesale Schools</h4>
+                    <ol class="breadcrumb m-0">
+                        <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
+                        <li class="breadcrumb-item active">Wholesale Schools</li>
+                    </ol>
+                </div>
+                {% if wholesale_available %}
+                <button type="button" id="syncButton" class="btn btn-primary" onclick="startWholesaleSync()">
+                    <i id="syncIcon" class="uil-sync me-2" aria-hidden="true"></i>
+                    <span id="syncText">Sync Wholesale Data</span>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sync Status Alert -->
+    {% if wholesale_available %}
+    <div id="syncAlert" class="alert alert-info alert-dismissible fade" role="alert" style="display: none;">
+        <div class="d-flex align-items-center">
+            <div class="spinner-border spinner-border-sm text-primary me-3" id="syncSpinner" role="status" style="display: none;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div class="flex-grow-1">
+                <h6 class="alert-heading mb-1" id="syncAlertTitle">Sync Status</h6>
+                <div id="syncAlertMessage">Starting sync process...</div>
+                <div id="syncProgress" class="progress mt-2" style="height: 4px; display: none;">
+                    <div class="progress-bar bg-primary" role="progressbar" style="width: 0%" id="syncProgressBar"></div>
+                </div>
+            </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    {% if wholesale_available %}
+        <!-- Cin7 Wholesale Schools Content -->
+
+        <!-- Statistics Cards -->
+        <div class="row">
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card mini-stats-wid">
+                            <div class="card-body">
+                                <div class="d-flex">
+                                    <div class="flex-grow-1">
+                                        <p class="text-muted fw-medium">Total Schools</p>
+                                        <h4 class="mb-0">{{ total_schools|default:0 }}</h4>
+                                    </div>
+                                    <div class="flex-shrink-0 align-self-center">
+                                        <div class="mini-stat-icon avatar-sm rounded-circle bg-primary">
+                                            <span class="avatar-title">
+                                                <i class="uil-graduation-cap font-size-24"></i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card mini-stats-wid">
+                            <div class="card-body">
+                                <div class="d-flex">
+                                    <div class="flex-grow-1">
+                                        <p class="text-muted fw-medium">Total Schools</p>
+                                        <h4 class="mb-0">{{ total_schools|default:0 }}</h4>
+                                    </div>
+                                    <div class="flex-shrink-0 align-self-center">
+                                        <div class="mini-stat-icon avatar-sm rounded-circle bg-primary">
+                                            <span class="avatar-title">
+                                                <i class="uil-graduation-cap font-size-24"></i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card mini-stats-wid">
+                            <div class="card-body">
+                                <div class="d-flex">
+                                    <div class="flex-grow-1">
+                                        <p class="text-muted fw-medium">Total Products</p>
+                                        <h4 class="mb-0">{{ total_products|default:0 }}</h4>
+                                    </div>
+                                    <div class="flex-shrink-0 align-self-center">
+                                        <div class="mini-stat-icon avatar-sm rounded-circle bg-primary">
+                                            <span class="avatar-title">
+                                                <i class="uil-package font-size-24"></i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card mini-stats-wid">
+                            <div class="card-body">
+                                <div class="d-flex">
+                                    <div class="flex-grow-1">
+                                        <p class="text-muted fw-medium">Regions</p>
+                                        <h4 class="mb-0">{{ schools_by_region|length|default:0 }}</h4>
+                                    </div>
+                                    <div class="flex-shrink-0 align-self-center">
+                                        <div class="mini-stat-icon avatar-sm rounded-circle bg-primary">
+                                            <span class="avatar-title">
+                                                <i class="uil-map-marker font-size-24"></i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+        <!-- Search Bar -->
+        <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <form method="GET" class="d-flex">
+                                    <input type="search" name="search" class="form-control me-2"
+                                           placeholder="Search wholesale schools..."
+                                           value="{{ request.GET.search }}">
+                                    <button class="btn btn-primary" type="submit">
+                                        <i class="uil-search me-1"></i>Search
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+        <!-- Schools Grid -->
+        <div class="row">
+                    {% for school in schools %}
+                        <div class="col-xl-4 col-sm-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="d-flex">
+                                        <div class="flex-grow-1 overflow-hidden">
+                                            <h5 class="text-truncate font-size-15">
+                                                <a href="{% url 'clubs:wholesale-school-detail' slug=school.slug %}" class="text-dark">
+                                                    {{ school.name }}
+                                                </a>
+                                            </h5>
+                                            <p class="text-muted mb-3">{{ school.description|truncatechars:100 }}</p>
+                                            <div class="avatar-group">
+                                                <div class="avatar-group-item">
+                                                    <span class="badge badge-soft-primary">
+                                                        {{ school.total_products }} product{{ school.total_products|pluralize }}
+                                                    </span>
+                                                </div>
+                                                {% if school.city %}
+                                                <div class="avatar-group-item">
+                                                    <span class="badge badge-soft-info">
+                                                        {{ school.city }}
+                                                    </span>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="flex-shrink-0">
+                                            <div class="avatar-md">
+                                                <span class="avatar-title rounded bg-primary">
+                                                    {{ school.name|first|upper }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-footer">
+                                    <a href="{% url 'clubs:wholesale-school-detail' slug=school.slug %}" class="btn btn-primary btn-sm">
+                                        <i class="uil-eye me-1"></i>View Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-body text-center py-5">
+                                    <i class="uil-search display-4 text-muted mb-3"></i>
+                                    <h5 class="mb-3">No schools found</h5>
+                                    <p class="text-muted">
+                                        {% if request.GET.search %}
+                                            No wholesale schools match your search criteria.
+                                        {% else %}
+                                            No wholesale schools are currently available.
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+        <!-- Pagination -->
+                {% if is_paginated %}
+            <div class="row">
+                        <div class="col-lg-12">
+                            <ul class="pagination pagination-rounded justify-content-center mt-3">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}"
+                                           class="page-link">
+                                            <i class="mdi mdi-chevron-left"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if page_obj.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                        <li class="page-item">
+                                            <a href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}"
+                                               class="page-link">{{ num }}</a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}"
+                                           class="page-link">
+                                            <i class="mdi mdi-chevron-right"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+                {% endif %}
+
+    {% else %}
+        <!-- Wholesale Not Available -->
+        <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body text-center py-5">
+                                <i class="uil-exclamation-triangle display-1 text-warning mb-4"></i>
+                                <h3 class="mb-3">Wholesale Schools</h3>
+                                <p class="text-muted mb-4">{{ error_message }}</p>
+                                <div class="alert alert-warning d-inline-block">
+                                    <i class="uil-info-circle me-2"></i>
+                                    Wholesale Integration Required
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+    {% endif %}
+</div> <!-- End tus-wholesale-page wrapper -->
+
+<style>
+/* TUS Wholesale Page Styles */
+.tus-wholesale-page {
+    padding: 20px;
+}
+
+/* Remove extra spacing at top */
+.tus-wholesale-page .row:first-child {
+    margin-top: 0;
+}
+
+/* Sync button styles */
+.btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Animation for refresh icon */
+.uil-refresh-spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Alert styles */
+.alert {
+    margin-bottom: 1.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .tus-wholesale-page .d-flex {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+
+    .tus-wholesale-page #syncButton {
+        margin-top: 1rem;
+        width: 100%;
+    }
+}
+</style>
+
+<script>
+// Wholesale Sync functionality
+function startWholesaleSync() {
+    const syncButton = document.getElementById('syncButton');
+    const syncIcon = document.getElementById('syncIcon');
+    const syncText = document.getElementById('syncText');
+    const syncAlert = document.getElementById('syncAlert');
+    const syncSpinner = document.getElementById('syncSpinner');
+    const syncAlertTitle = document.getElementById('syncAlertTitle');
+    const syncAlertMessage = document.getElementById('syncAlertMessage');
+    const syncProgress = document.getElementById('syncProgress');
+    const syncProgressBar = document.getElementById('syncProgressBar');
+
+    // Disable button and show loading state
+    syncButton.disabled = true;
+    syncIcon.className = 'uil-sync me-2 uil-refresh-spin';
+    syncText.textContent = 'Syncing...';
+
+    // Show sync alert with loading state
+    syncAlert.style.display = 'block';
+    syncAlert.className = 'alert alert-info alert-dismissible fade show';
+    syncSpinner.style.display = 'block';
+    syncAlertTitle.textContent = 'Sync in Progress';
+    syncAlertMessage.textContent = 'Synchronizing wholesale data from Cin7...';
+    syncProgress.style.display = 'block';
+    syncProgressBar.style.width = '25%';
+
+    // Make AJAX request to wholesale sync endpoint
+    fetch('/schools/wholesale/sync/execute/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            syncProgressBar.style.width = '50%';
+            syncAlertMessage.textContent = 'Wholesale sync started successfully! Job ID: ' + data.job_id;
+
+            // Monitor sync progress
+            monitorWholesaleSync(data.job_id);
+        } else {
+            syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+            syncAlertTitle.textContent = 'Sync Failed';
+            syncAlertMessage.textContent = 'Error: ' + (data.error || 'Unknown error occurred');
+            syncSpinner.style.display = 'none';
+            resetSyncButton();
+        }
+    })
+    .catch(error => {
+        console.error('Sync request failed:', error);
+        syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+        syncAlertTitle.textContent = 'Sync Failed';
+        syncAlertMessage.textContent = 'Network error: ' + error.message;
+        syncSpinner.style.display = 'none';
+        resetSyncButton();
+    });
+}
+
+function monitorWholesaleSync(jobId) {
+    const syncAlert = document.getElementById('syncAlert');
+    const syncAlertTitle = document.getElementById('syncAlertTitle');
+    const syncAlertMessage = document.getElementById('syncAlertMessage');
+    const syncProgressBar = document.getElementById('syncProgressBar');
+    const syncSpinner = document.getElementById('syncSpinner');
+
+    const checkStatus = () => {
+        fetch('/schools/wholesale/sync/status/', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status && data.status !== 'error') {
+                syncProgressBar.style.width = data.progress + '%';
+                syncAlertMessage.textContent = data.current_step || 'Syncing in progress...';
+
+                if (data.status === 'completed' || data.status === 'failed') {
+                    syncSpinner.style.display = 'none';
+                    if (data.status === 'completed') {
+                        syncAlert.className = 'alert alert-success alert-dismissible fade show';
+                        syncAlertTitle.textContent = 'Sync Completed';
+                        syncAlertMessage.textContent = 'Wholesale sync completed successfully!';
+                        syncProgressBar.style.width = '100%';
+
+                        // Reload page after 3 seconds to show updated data
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 3000);
+                    } else {
+                        syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+                        syncAlertTitle.textContent = 'Sync Failed';
+                        syncAlertMessage.textContent = data.current_step || 'Sync failed';
+                    }
+                    resetSyncButton();
+                } else {
+                    // Continue monitoring for running, pending status
+                    setTimeout(checkStatus, 2000);
+                }
+            } else {
+                console.error('Status check failed:', data.current_step || 'Unknown error');
+                syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+                syncAlertTitle.textContent = 'Sync Error';
+                syncAlertMessage.textContent = data.current_step || 'Failed to get sync status';
+                syncSpinner.style.display = 'none';
+                resetSyncButton();
+            }
+        })
+        .catch(error => {
+            console.error('Status check error:', error);
+            resetSyncButton();
+        });
+    };
+
+    // Start monitoring after 2 seconds
+    setTimeout(checkStatus, 2000);
+}
+
+function resetSyncButton() {
+    const syncButton = document.getElementById('syncButton');
+    const syncIcon = document.getElementById('syncIcon');
+    const syncText = document.getElementById('syncText');
+    const syncProgress = document.getElementById('syncProgress');
+
+    syncButton.disabled = false;
+    syncIcon.className = 'uil-sync me-2';
+    syncText.textContent = 'Sync Wholesale Data';
+    syncProgress.style.display = 'none';
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips if Bootstrap is available
+    if (typeof bootstrap !== 'undefined') {
+        var tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltips.map(function(tooltip) {
+            return new bootstrap.Tooltip(tooltip);
+        });
+    }
+});
+</script>
+
+{% endblock %}

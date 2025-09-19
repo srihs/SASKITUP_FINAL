@@ -17,6 +17,15 @@ urlpatterns = [
     path('sas/sports/', views.SASSportListView.as_view(), name='sas-sports'),
     path('sas/products/', views.SASProductListView.as_view(), name='sas-products'),
     path('sas/club/<slug:slug>/', views.SASClubDetailView.as_view(), name='sas-club-detail'),
+
+    # Wholesale Schools Section
+    path('wholesale/', views.WholesaleSchoolListView.as_view(), name='wholesale-school-list'),
+    path('wholesale/dashboard/', views.wholesale_dashboard, name='wholesale-dashboard'),
+    path('wholesale/schools/', views.WholesaleSchoolListView.as_view(), name='wholesale-school-list'),
+    path('wholesale/school/<slug:slug>/', views.WholesaleSchoolDetailView.as_view(), name='wholesale-school-detail'),
+    path('wholesale/categories/', views.WholesaleCategoryListView.as_view(), name='wholesale-category-list'),
+    path('wholesale/category/<slug:slug>/', views.WholesaleCategoryDetailView.as_view(), name='wholesale-category-detail'),
+    path('wholesale/product/<slug:slug>/', views.WholesaleProductDetailView.as_view(), name='wholesale-product-detail'),
     
     # Detail views
     path('club/<slug:slug>/', views.ClubDetailView.as_view(), name='club-detail'),
@@ -30,6 +39,10 @@ urlpatterns = [
     path('ajax/search/', views.club_search_ajax, name='club-search-ajax'),
     path('ajax/sas-club-search/', views.sas_club_search_ajax, name='sas-club-search-ajax'),
     path('ajax/sas-product-search/', views.sas_product_search_ajax, name='sas-product-search-ajax'),
+
+    # Wholesale AJAX endpoints
+    path('ajax/wholesale-school-search/', views.wholesale_school_search_ajax, name='wholesale-school-search-ajax'),
+    path('ajax/wholesale-product-search/', views.wholesale_product_search_ajax, name='wholesale-product-search-ajax'),
     
     # Product Variation API endpoints - Generic
     path('api/products/<int:product_id>/variations/', views.product_variations_api, name='product-variations-api'),
@@ -56,6 +69,8 @@ urlpatterns = [
     path('sync/lotto/', views.sync_lotto_clubs_page, name='sync-lotto-clubs-page'),
     path('sync/lotto/execute/', views.sync_lotto_clubs, name='sync-lotto-clubs'),
     path('sync/sas/execute/', views.sync_sas_clubs, name='sync-sas-clubs'),
+    path('sync/wholesale/execute/', views.wholesale_sync_execute, name='wholesale-sync-execute'),
+    path('sync/wholesale/status/', views.wholesale_sync_status, name='wholesale-sync-status'),
     path('sync/status/<uuid:job_id>/', views.sync_status, name='sync-status'),
     path('sync/jobs/', views.sync_jobs_list, name='sync-jobs-list'),
     path('sync/clear-locks/', views.clear_sync_locks, name='clear-sync-locks'),

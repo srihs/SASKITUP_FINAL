@@ -1,0 +1,741 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<!-- DataTables CSS -->
+<link href="{% static 'assets/libs/datatables.net-bs4/css/dataTables.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+<link href="{% static 'assets/libs/datatables.net-responsive-bs4/css/responsive.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+{% endblock %}
+
+{% block content %}
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box">
+            <div class="page-title-right">
+                <div class="d-flex align-items-center gap-2">
+                    {% if user.is_authenticated and user.is_staff %}
+                    <button type="button" id="syncButton" class="btn btn-primary btn-sm" onclick="startWholesaleSync()">
+                        <i id="syncIcon" class="uil-sync me-2" aria-hidden="true"></i>
+                        <span id="syncText">Sync Data</span>
+                    </button>
+                    {% endif %}
+                    <ol class="breadcrumb m-0">
+                        <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Home</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'clubs:wholesale-dashboard' %}">Wholesale</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'clubs:wholesale-school-list' %}">Schools</a></li>
+                        <li class="breadcrumb-item active">{{ school.name }}</li>
+                    </ol>
+                </div>
+            </div>
+            <h4 class="mb-0">{{ school.name }}</h4>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<!-- Sync Status Alert -->
+{% if user.is_authenticated and user.is_staff %}
+<div id="syncAlert" class="alert alert-info alert-dismissible fade" role="alert" style="display: none;">
+    <div class="d-flex align-items-center">
+        <div class="spinner-border spinner-border-sm text-primary me-3" id="syncSpinner" role="status" style="display: none;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <div class="flex-grow-1">
+            <h6 class="alert-heading mb-1" id="syncAlertTitle">Sync Status</h6>
+            <div id="syncAlertMessage">Starting sync process...</div>
+            <div id="syncProgress" class="progress mt-2" style="height: 4px; display: none;">
+                <div class="progress-bar bg-primary" role="progressbar" style="width: 0%" id="syncProgressBar"></div>
+            </div>
+        </div>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
+<!-- School Information -->
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-md me-3">
+                        <span class="avatar-title rounded-circle bg-soft-primary text-primary font-size-24">
+                            {{ school.name|first }}
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h4 class="card-title mb-1">{{ school.name }}</h4>
+                        {% if school.school_code %}
+                        <p class="text-muted mb-0">School Code: {{ school.school_code }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="flex-shrink-0">
+                        <span class="badge bg-{% if school.is_active %}success{% else %}secondary{% endif %} font-size-12">
+                            {% if school.is_active %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if school.description %}
+                <div class="mb-4">
+                    <h6>Description</h6>
+                    <p class="text-muted">{{ school.description }}</p>
+                </div>
+                {% endif %}
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Contact Information</h6>
+                        <ul class="list-unstyled">
+                            {% if school.contact_person %}
+                            <li class="mb-2">
+                                <i class="uil uil-user-circle text-muted me-2"></i>
+                                <strong>Contact:</strong> {{ school.contact_person }}
+                            </li>
+                            {% endif %}
+                            {% if school.email %}
+                            <li class="mb-2">
+                                <i class="uil uil-envelope text-muted me-2"></i>
+                                <strong>Email:</strong> <a href="mailto:{{ school.email }}">{{ school.email }}</a>
+                            </li>
+                            {% endif %}
+                            {% if school.phone %}
+                            <li class="mb-2">
+                                <i class="uil uil-phone text-muted me-2"></i>
+                                <strong>Phone:</strong> <a href="tel:{{ school.phone }}">{{ school.phone }}</a>
+                            </li>
+                            {% endif %}
+                            {% if school.website %}
+                            <li class="mb-2">
+                                <i class="uil uil-globe text-muted me-2"></i>
+                                <strong>Website:</strong> <a href="{{ school.website }}" target="_blank">{{ school.website }}</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Address</h6>
+                        {% if school.full_address %}
+                        <address class="text-muted">
+                            {% if school.address_line1 %}{{ school.address_line1 }}<br>{% endif %}
+                            {% if school.address_line2 %}{{ school.address_line2 }}<br>{% endif %}
+                            {% if school.city %}{{ school.city }}{% endif %}
+                            {% if school.region and school.city %}, {% endif %}
+                            {% if school.region %}{{ school.region }}{% endif %}
+                            {% if school.postal_code %}<br>{{ school.postal_code }}{% endif %}
+                            {% if school.country %}<br>{{ school.country }}{% endif %}
+                        </address>
+                        {% else %}
+                        <p class="text-muted">No address information available</p>
+                        {% endif %}
+
+                        <h6 class="mt-3">CIN7 Information</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>CIN7 ID:</strong> {{ school.cin7_id }}</li>
+                            {% if school.cin7_sku %}
+                            <li><strong>SKU:</strong> {{ school.cin7_sku }}</li>
+                            {% endif %}
+                            {% if school.cin7_brand %}
+                            <li><strong>Brand:</strong> {{ school.cin7_brand }}</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Statistics Card -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Statistics</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <div class="text-center">
+                            <h4 class="mb-1 text-primary">{{ school.active_categories }}</h4>
+                            <p class="text-muted mb-0">Categories</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center">
+                            <h4 class="mb-1 text-success">{{ school.total_products }}</h4>
+                            <p class="text-muted mb-0">Products</p>
+                        </div>
+                    </div>
+                </div>
+                <hr>
+                <div class="text-center">
+                    {% if school.last_synced_at %}
+                    <p class="text-muted mb-1">Last Sync</p>
+                    <p class="mb-0">{{ school.last_synced_at|timesince }} ago</p>
+                    {% else %}
+                    <p class="text-muted mb-0">Never synced</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    {% if user.is_authenticated and user.is_staff %}
+                    <button class="btn btn-primary" onclick="startWholesaleSync()">
+                        <i class="uil uil-sync me-1"></i>Sync from CIN7
+                    </button>
+                    {% endif %}
+                    <button class="btn btn-outline-secondary" onclick="alert('Export functionality coming soon')">
+                        <i class="uil uil-export me-1"></i>Export Data
+                    </button>
+                    <a href="{% url 'clubs:wholesale-school-list' %}" class="btn btn-outline-primary">
+                        <i class="uil uil-arrow-left me-1"></i>Back to Schools
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end school information -->
+
+<!-- Categories and Products -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Categories & Products</h5>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-primary" id="toggleView" data-view="categories">
+                            <i class="uil uil-list-ul me-1"></i>Show Products
+                        </button>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                                    data-bs-toggle="dropdown">
+                                <i class="uil uil-filter me-1"></i>Filter
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#" data-filter="all">All Items</a></li>
+                                <li><a class="dropdown-item" href="#" data-filter="in_stock">In Stock</a></li>
+                                <li><a class="dropdown-item" href="#" data-filter="out_of_stock">Out of Stock</a></li>
+                                <li><a class="dropdown-item" href="#" data-filter="discontinued">Discontinued</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Categories View -->
+                <div id="categoriesView">
+                    {% if categories %}
+                    <div class="row">
+                        {% for category in categories %}
+                        <div class="col-lg-4 col-md-6">
+                            <div class="card border">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-sm me-3">
+                                            <span class="avatar-title rounded bg-soft-primary text-primary">
+                                                <i class="uil uil-folder-open"></i>
+                                            </span>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">
+                                                <a href="{% url 'clubs:wholesale-category-detail' category.slug %}" class="text-dark">
+                                                    {{ category.name }}
+                                                </a>
+                                            </h6>
+                                            <p class="text-muted mb-0">{{ category.product_count }} products</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="uil uil-folder-open font-size-48 text-muted mb-3"></i>
+                        <h5>No Categories Found</h5>
+                        <p class="text-muted">This school doesn't have any categories yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Products View -->
+                <div id="productsView" style="display: none;">
+                    {% if products %}
+                    <div class="table-responsive">
+                        <table id="productsTable" class="table table-nowrap align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Category</th>
+                                    <th>SKU</th>
+                                    <th>Wholesale Price</th>
+                                    <th>Stock Status</th>
+                                    <th>Stock Qty</th>
+                                    <th class="no-sort">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for product in products %}
+                                <tr data-status="{{ product.stock_status }}">
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-xs me-3">
+                                                {% if product.image_url %}
+                                                <img src="{{ product.image_url }}" alt="{{ product.name }}" class="avatar-xs rounded">
+                                                {% else %}
+                                                <span class="avatar-title rounded bg-soft-secondary text-secondary">
+                                                    {{ product.name|first }}
+                                                </span>
+                                                {% endif %}
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-0">
+                                                    <a href="{% url 'clubs:wholesale-product-detail' product.slug %}" class="text-dark">
+                                                        {{ product.name }}
+                                                    </a>
+                                                </h6>
+                                                {% if product.short_description %}
+                                                <p class="text-muted font-size-12 mb-0">{{ product.short_description|striptags|truncatechars:50 }}</p>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if product.primary_category %}
+                                        <span class="badge bg-soft-info text-info">{{ product.primary_category.name }}</span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if product.cin7_sku %}
+                                        <code>{{ product.cin7_sku }}</code>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if product.wholesale_price %}
+                                        <span class="fw-medium">${{ product.wholesale_price }}</span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if product.stock_status == 'in_stock' %}success{% elif product.stock_status == 'out_of_stock' %}danger{% elif product.stock_status == 'discontinued' %}secondary{% else %}warning{% endif %}">
+                                            {{ product.get_stock_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-medium">{{ product.quantity_available }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="{% url 'clubs:wholesale-product-detail' product.slug %}"
+                                               class="btn btn-sm btn-soft-primary"
+                                               data-bs-toggle="tooltip"
+                                               title="View product">
+                                                <i class="uil uil-eye"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="uil uil-shopping-bag font-size-48 text-muted mb-3"></i>
+                        <h5>No Products Found</h5>
+                        <p class="text-muted">This school doesn't have any products yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end categories and products -->
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- DataTables JS -->
+<script src="{% static 'assets/libs/datatables.net/js/jquery.dataTables.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-bs4/js/dataTables.bootstrap4.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-responsive/js/dataTables.responsive.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-responsive-bs4/js/responsive.bootstrap4.min.js' %}"></script>
+
+<script>
+$(document).ready(function() {
+    // Initialize tooltips
+    $('[data-bs-toggle="tooltip"]').tooltip();
+
+    // Initialize DataTable for products
+    var productsTable = $('#productsTable').DataTable({
+        responsive: true,
+        pageLength: 25,
+        order: [[0, 'asc']], // Sort by product name
+        columnDefs: [
+            {
+                targets: 'no-sort',
+                orderable: false,
+                searchable: false
+            }
+        ],
+        language: {
+            search: "_INPUT_",
+            searchPlaceholder: "Search products...",
+            lengthMenu: "Show _MENU_ products",
+            info: "Showing _START_ to _END_ of _TOTAL_ products",
+            infoEmpty: "No products available",
+            infoFiltered: "(filtered from _MAX_ total products)"
+        },
+        drawCallback: function() {
+            // Initialize tooltips after table redraw
+            $('[data-bs-toggle="tooltip"]').tooltip();
+        }
+    });
+
+    // Toggle between categories and products view
+    $('#toggleView').click(function() {
+        var currentView = $(this).data('view');
+
+        if (currentView === 'categories') {
+            $('#categoriesView').hide();
+            $('#productsView').show();
+            $(this).html('<i class="uil uil-folder-open me-1"></i>Show Categories').data('view', 'products');
+        } else {
+            $('#productsView').hide();
+            $('#categoriesView').show();
+            $(this).html('<i class="uil uil-list-ul me-1"></i>Show Products').data('view', 'categories');
+        }
+    });
+
+    // Stock status filter
+    $('[data-filter]').click(function(e) {
+        e.preventDefault();
+        var filter = $(this).data('filter');
+
+        if (filter === 'all') {
+            productsTable.search('').draw();
+        } else {
+            // Filter by stock status
+            productsTable.column(4).search(filter).draw();
+        }
+
+        // Update filter button text
+        $('.dropdown-toggle').html('<i class="uil uil-filter me-1"></i>' + $(this).text());
+    });
+});
+</script>
+
+<style>
+/* Card hover effects */
+.card.border {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.card.border:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Badge styles */
+.badge-soft-success { background-color: rgba(52, 195, 143, 0.1); color: #34c38f; }
+.badge-soft-warning { background-color: rgba(247, 184, 75, 0.1); color: #f7b84b; }
+.badge-soft-danger { background-color: rgba(243, 76, 124, 0.1); color: #f34c7c; }
+.badge-soft-secondary { background-color: rgba(108, 117, 125, 0.1); color: #6c757d; }
+.badge-soft-primary { background-color: rgba(85, 110, 230, 0.1); color: #556ee6; }
+.badge-soft-info { background-color: rgba(23, 162, 184, 0.1); color: #17a2b8; }
+
+/* Avatar styling */
+.avatar-xs img {
+    width: 32px;
+    height: 32px;
+    object-fit: cover;
+}
+
+.avatar-md {
+    width: 48px;
+    height: 48px;
+}
+
+.avatar-md .avatar-title {
+    width: 48px;
+    height: 48px;
+    font-size: 1.5rem;
+}
+
+/* Action buttons styling */
+.btn-soft-primary {
+    color: #556ee6;
+    background-color: rgba(85, 110, 230, 0.1);
+    border-color: transparent;
+}
+
+.btn-soft-primary:hover {
+    color: #fff;
+    background-color: #556ee6;
+    border-color: #556ee6;
+}
+
+.btn-soft-secondary {
+    color: #6c757d;
+    background-color: rgba(108, 117, 125, 0.1);
+    border-color: transparent;
+}
+
+.btn-soft-secondary:hover {
+    color: #fff;
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+/* Table styling */
+.table-hover tbody tr:hover {
+    background-color: rgba(85, 110, 230, 0.04);
+}
+
+/* DataTables styling */
+.dataTables_wrapper .dataTables_filter input {
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    margin-left: 0.5rem;
+}
+
+.dataTables_wrapper .dataTables_filter input:focus {
+    border-color: #556ee6;
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(85, 110, 230, 0.25);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .avatar-md {
+        width: 40px;
+        height: 40px;
+    }
+
+    .avatar-md .avatar-title {
+        width: 40px;
+        height: 40px;
+        font-size: 1.25rem;
+    }
+
+    .btn-group .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+}
+
+/* Empty state styling */
+.font-size-48 {
+    font-size: 3rem;
+}
+
+/* Sync button styles */
+.btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Animation for refresh icon */
+.uil-refresh-spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Sync alert styles */
+#syncAlert {
+    margin-bottom: 1.5rem;
+}
+
+/* Page title sync button responsive */
+@media (max-width: 768px) {
+    .page-title-right .d-flex {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+
+    .page-title-right #syncButton {
+        margin-bottom: 0.5rem;
+        width: 100%;
+    }
+}
+</style>
+
+<script>
+// Wholesale Sync functionality for individual school page
+function startWholesaleSync() {
+    const syncButton = document.getElementById('syncButton');
+    const syncIcon = document.getElementById('syncIcon');
+    const syncText = document.getElementById('syncText');
+    const syncAlert = document.getElementById('syncAlert');
+    const syncSpinner = document.getElementById('syncSpinner');
+    const syncAlertTitle = document.getElementById('syncAlertTitle');
+    const syncAlertMessage = document.getElementById('syncAlertMessage');
+    const syncProgress = document.getElementById('syncProgress');
+    const syncProgressBar = document.getElementById('syncProgressBar');
+
+    // Disable button and show loading state
+    syncButton.disabled = true;
+    syncIcon.className = 'uil-sync me-2 uil-refresh-spin';
+    if (syncText) {
+        syncText.textContent = 'Syncing...';
+    }
+
+    // Show sync alert with loading state
+    syncAlert.style.display = 'block';
+    syncAlert.className = 'alert alert-info alert-dismissible fade show';
+    syncSpinner.style.display = 'block';
+    syncAlertTitle.textContent = 'Sync in Progress';
+    syncAlertMessage.textContent = 'Synchronizing wholesale data from Cin7...';
+    syncProgress.style.display = 'block';
+    syncProgressBar.style.width = '25%';
+
+    // Make AJAX request to wholesale sync endpoint
+    fetch('/schools/wholesale/sync/execute/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            syncProgressBar.style.width = '50%';
+            syncAlertMessage.textContent = 'Wholesale sync started successfully! Job ID: ' + data.job_id;
+
+            // Monitor sync progress
+            monitorWholesaleSync(data.job_id);
+        } else {
+            syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+            syncAlertTitle.textContent = 'Sync Failed';
+            syncAlertMessage.textContent = 'Error: ' + (data.error || 'Unknown error occurred');
+            syncSpinner.style.display = 'none';
+            resetSyncButton();
+        }
+    })
+    .catch(error => {
+        console.error('Sync request failed:', error);
+        syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+        syncAlertTitle.textContent = 'Sync Failed';
+        syncAlertMessage.textContent = 'Network error: ' + error.message;
+        syncSpinner.style.display = 'none';
+        resetSyncButton();
+    });
+}
+
+function monitorWholesaleSync(jobId) {
+    const syncAlert = document.getElementById('syncAlert');
+    const syncAlertTitle = document.getElementById('syncAlertTitle');
+    const syncAlertMessage = document.getElementById('syncAlertMessage');
+    const syncProgressBar = document.getElementById('syncProgressBar');
+    const syncSpinner = document.getElementById('syncSpinner');
+
+    const checkStatus = () => {
+        fetch('/schools/wholesale/sync/status/', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status && data.status !== 'error') {
+                syncProgressBar.style.width = data.progress + '%';
+                syncAlertMessage.textContent = data.current_step || 'Syncing in progress...';
+
+                if (data.status === 'completed' || data.status === 'failed') {
+                    syncSpinner.style.display = 'none';
+                    if (data.status === 'completed') {
+                        syncAlert.className = 'alert alert-success alert-dismissible fade show';
+                        syncAlertTitle.textContent = 'Sync Completed';
+                        syncAlertMessage.textContent = 'Wholesale sync completed successfully! Refreshing page to show updated data...';
+                        syncProgressBar.style.width = '100%';
+
+                        // Reload page after 3 seconds to show updated data
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 3000);
+                    } else {
+                        syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+                        syncAlertTitle.textContent = 'Sync Failed';
+                        syncAlertMessage.textContent = data.current_step || 'Sync failed';
+                    }
+                    resetSyncButton();
+                } else {
+                    // Continue monitoring for running, pending status
+                    setTimeout(checkStatus, 2000);
+                }
+            } else {
+                console.error('Status check failed:', data.current_step || 'Unknown error');
+                syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+                syncAlertTitle.textContent = 'Sync Error';
+                syncAlertMessage.textContent = data.current_step || 'Failed to get sync status';
+                syncSpinner.style.display = 'none';
+                resetSyncButton();
+            }
+        })
+        .catch(error => {
+            console.error('Status check error:', error);
+            resetSyncButton();
+        });
+    };
+
+    // Start monitoring after 2 seconds
+    setTimeout(checkStatus, 2000);
+}
+
+function resetSyncButton() {
+    const syncButton = document.getElementById('syncButton');
+    const syncIcon = document.getElementById('syncIcon');
+    const syncText = document.getElementById('syncText');
+    const syncProgress = document.getElementById('syncProgress');
+
+    syncButton.disabled = false;
+    syncIcon.className = 'uil-sync me-2';
+    if (syncText) {
+        syncText.textContent = 'Sync Data';
+    }
+    syncProgress.style.display = 'none';
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
+{% endblock %}

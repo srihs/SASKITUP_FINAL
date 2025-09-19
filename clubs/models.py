@@ -12,6 +12,18 @@ from .models_lotto import LottoClub, LottoClubCategory, LottoProduct, LottoProdu
 # Import SAS-specific models
 from .models_sas import SASSport, SASClub, SASProduct, SASProductVariation
 
+# Import TUS-specific models
+from .models_tus import (
+    TUSLocation, TUSSchool, TUSGeneralCategory, TUSSchoolCategory,
+    TUSProduct, TUSProductVariation, TUSProductCategoryAssignment
+)
+
+# Import Wholesale-specific models
+from .models_wholesale import (
+    WholesaleSchool, WholesaleCategory, WholesaleProduct,
+    WholesaleProductVariation, WholesaleProductCategoryAssignment, WholesaleSyncJob
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,6 +42,8 @@ class SyncJob(models.Model):
     SYNC_TYPE_CHOICES = [
         ('lotto', 'LOTTO Clubs'),
         ('sas', 'SAS Clubs'),
+        ('tus', 'TUS Schools'),
+        ('wholesale', 'Wholesale Schools'),
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

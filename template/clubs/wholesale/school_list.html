@@ -1,0 +1,441 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<!-- DataTables CSS -->
+<link href="{% static 'assets/libs/datatables.net-bs4/css/dataTables.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+<link href="{% static 'assets/libs/datatables.net-buttons-bs4/css/buttons.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+<link href="{% static 'assets/libs/datatables.net-responsive-bs4/css/responsive.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+{% endblock %}
+
+{% block content %}
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box">
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'clubs:wholesale-dashboard' %}">Wholesale</a></li>
+                    <li class="breadcrumb-item active">Schools</li>
+                </ol>
+            </div>
+            <h4 class="mb-0">Wholesale Schools</h4>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<!-- Filters -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="get" id="filterForm">
+                    <div class="row align-items-end">
+                        <div class="col-md-4">
+                            <label for="search" class="form-label">Search Schools</label>
+                            <input type="text" class="form-control" id="search" name="search"
+                                   value="{{ request.GET.search }}" placeholder="Search by name, code, contact...">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="city" class="form-label">City</label>
+                            <select class="form-select" id="city" name="city">
+                                <option value="">All Cities</option>
+                                {% for city_option in cities %}
+                                <option value="{{ city_option }}" {% if request.GET.city == city_option %}selected{% endif %}>
+                                    {{ city_option }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="region" class="form-label">Region</label>
+                            <select class="form-select" id="region" name="region">
+                                <option value="">All Regions</option>
+                                {% for region_option in regions %}
+                                <option value="{{ region_option }}" {% if request.GET.region == region_option %}selected{% endif %}>
+                                    {{ region_option }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="uil uil-search me-1"></i>Filter
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end filters -->
+
+<!-- Results Summary -->
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h5 class="mb-0">
+                    {% if schools %}
+                        Showing {{ schools|length }} of {{ total_schools }} schools
+                        {% if request.GET.search %}
+                            for "{{ request.GET.search }}"
+                        {% endif %}
+                    {% else %}
+                        No schools found
+                    {% endif %}
+                </h5>
+            </div>
+            <div>
+                <a href="{% url 'clubs:wholesale-dashboard' %}" class="btn btn-soft-secondary">
+                    <i class="uil uil-arrow-left me-1"></i>Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Schools Grid -->
+<div class="row" id="schoolsGrid">
+    {% for school in schools %}
+    <div class="col-xl-4 col-lg-6 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-start">
+                    <div class="avatar-sm me-3 flex-shrink-0">
+                        <span class="avatar-title rounded-circle bg-soft-primary text-primary font-size-18">
+                            {{ school.name|first }}
+                        </span>
+                    </div>
+                    <div class="flex-grow-1 overflow-hidden">
+                        <h5 class="mb-1">
+                            <a href="{% url 'clubs:wholesale-school-detail' school.slug %}" class="text-dark text-decoration-none">
+                                {{ school.name }}
+                            </a>
+                        </h5>
+                        {% if school.school_code %}
+                        <p class="text-muted font-size-13 mb-1">Code: {{ school.school_code }}</p>
+                        {% endif %}
+                        {% if school.city or school.region %}
+                        <p class="text-muted font-size-13 mb-2">
+                            <i class="uil uil-location-point me-1"></i>
+                            {% if school.city %}{{ school.city }}{% endif %}
+                            {% if school.city and school.region %}, {% endif %}
+                            {% if school.region %}{{ school.region }}{% endif %}
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-6">
+                        <div class="text-center">
+                            <p class="text-muted mb-1 font-size-13">Categories</p>
+                            <h5 class="mb-0">{{ school.active_categories }}</h5>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center">
+                            <p class="text-muted mb-1 font-size-13">Products</p>
+                            <h5 class="mb-0 text-success">{{ school.total_products }}</h5>
+                        </div>
+                    </div>
+                </div>
+
+                {% if school.contact_person or school.email or school.website %}
+                <hr class="my-3">
+                <div class="school-contact">
+                    {% if school.contact_person %}
+                    <div class="d-flex align-items-center mb-1">
+                        <i class="uil uil-user-circle text-muted me-2"></i>
+                        <span class="font-size-13">{{ school.contact_person }}</span>
+                    </div>
+                    {% endif %}
+                    {% if school.email %}
+                    <div class="d-flex align-items-center mb-1">
+                        <i class="uil uil-envelope text-muted me-2"></i>
+                        <a href="mailto:{{ school.email }}" class="font-size-13 text-decoration-none">{{ school.email }}</a>
+                    </div>
+                    {% endif %}
+                    {% if school.website %}
+                    <div class="d-flex align-items-center mb-1">
+                        <i class="uil uil-globe text-muted me-2"></i>
+                        <a href="{{ school.website }}" target="_blank" class="font-size-13 text-decoration-none">Website</a>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <div class="mt-3 pt-3 border-top">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="text-muted font-size-12">
+                            {% if school.last_synced_at %}
+                                Last sync: {{ school.last_synced_at|timesince }} ago
+                            {% else %}
+                                Never synced
+                            {% endif %}
+                        </div>
+                        <div class="btn-group" role="group">
+                            <a href="{% url 'clubs:wholesale-school-detail' school.slug %}"
+                               class="btn btn-sm btn-soft-primary"
+                               data-bs-toggle="tooltip"
+                               title="View details">
+                                <i class="uil uil-eye"></i>
+                            </a>
+                            <button type="button"
+                                    class="btn btn-sm btn-soft-secondary"
+                                    data-bs-toggle="tooltip"
+                                    title="Edit (Coming soon)">
+                                <i class="uil uil-edit-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <!-- Empty state -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <div class="mb-4">
+                    <i class="uil uil-graduation-cap font-size-72 text-muted"></i>
+                </div>
+                <h4 class="mb-3">No Schools Found</h4>
+                {% if request.GET.search or request.GET.city or request.GET.region %}
+                <p class="text-muted mb-4">
+                    No schools match your current filters. Try adjusting your search criteria.
+                </p>
+                <a href="{% url 'clubs:wholesale-school-list' %}" class="btn btn-primary">
+                    <i class="uil uil-refresh me-1"></i>Clear Filters
+                </a>
+                {% else %}
+                <p class="text-muted mb-4">
+                    No wholesale schools have been imported yet. Start a CIN7 sync to import school data.
+                </p>
+                <a href="{% url 'clubs:wholesale-dashboard' %}" class="btn btn-primary">
+                    <i class="uil uil-sync me-1"></i>Go to Dashboard
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+<!-- end schools grid -->
+
+<!-- Pagination -->
+{% if is_paginated %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="text-muted">
+                Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} schools
+            </div>
+            <nav aria-label="Schools pagination">
+                <ul class="pagination mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1">
+                            <i class="uil uil-angle-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">
+                            <i class="uil uil-angle-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ num }}">{{ num }}</a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}">
+                            <i class="uil uil-angle-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}">
+                            <i class="uil uil-angle-double-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Initialize tooltips
+    $('[data-bs-toggle="tooltip"]').tooltip();
+
+    // Auto-submit form on filter change
+    $('#city, #region').change(function() {
+        $('#filterForm').submit();
+    });
+
+    // Search input with delay
+    let searchTimeout;
+    $('#search').on('input', function() {
+        clearTimeout(searchTimeout);
+        const searchValue = $(this).val();
+
+        searchTimeout = setTimeout(function() {
+            if (searchValue.length >= 3 || searchValue.length === 0) {
+                $('#filterForm').submit();
+            }
+        }, 500);
+    });
+
+    // Handle empty search submission
+    $('#filterForm').submit(function(e) {
+        const searchVal = $('#search').val().trim();
+        if (searchVal.length > 0 && searchVal.length < 3) {
+            e.preventDefault();
+            alert('Search term must be at least 3 characters long.');
+            return false;
+        }
+    });
+});
+</script>
+
+<style>
+/* Card hover effects */
+.card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+/* School contact section */
+.school-contact .uil {
+    width: 16px;
+    font-size: 14px;
+}
+
+/* Badge styles */
+.badge-soft-primary { background-color: rgba(85, 110, 230, 0.1); color: #556ee6; }
+.badge-soft-success { background-color: rgba(52, 195, 143, 0.1); color: #34c38f; }
+.badge-soft-warning { background-color: rgba(247, 184, 75, 0.1); color: #f7b84b; }
+.badge-soft-secondary { background-color: rgba(108, 117, 125, 0.1); color: #6c757d; }
+
+/* Action buttons styling */
+.btn-soft-primary {
+    color: #556ee6;
+    background-color: rgba(85, 110, 230, 0.1);
+    border-color: transparent;
+}
+
+.btn-soft-primary:hover {
+    color: #fff;
+    background-color: #556ee6;
+    border-color: #556ee6;
+}
+
+.btn-soft-secondary {
+    color: #6c757d;
+    background-color: rgba(108, 117, 125, 0.1);
+    border-color: transparent;
+}
+
+.btn-soft-secondary:hover {
+    color: #fff;
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+/* Pagination styling */
+.pagination .page-link {
+    color: #556ee6;
+    border-color: #dee2e6;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #556ee6;
+    border-color: #556ee6;
+}
+
+.pagination .page-link:hover {
+    color: #556ee6;
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card-body {
+        padding: 1rem;
+    }
+
+    .btn-group .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+
+    .pagination {
+        justify-content: center;
+    }
+
+    .pagination .page-item .page-link {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.875rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .row.align-items-end > div {
+        margin-bottom: 1rem;
+    }
+
+    .d-flex.justify-content-between {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .d-flex.justify-content-between > div {
+        text-align: center;
+    }
+}
+
+/* Filter form styling */
+.form-label {
+    font-weight: 500;
+    color: #495057;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #556ee6;
+    box-shadow: 0 0 0 0.2rem rgba(85, 110, 230, 0.25);
+}
+
+/* Empty state styling */
+.font-size-72 {
+    font-size: 4.5rem;
+}
+</style>
+{% endblock %}

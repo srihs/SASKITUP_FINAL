@@ -1,0 +1,632 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<!-- DataTables CSS -->
+<link href="{% static 'assets/libs/datatables.net-bs4/css/dataTables.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+<link href="{% static 'assets/libs/datatables.net-responsive-bs4/css/responsive.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+{% endblock %}
+
+{% block content %}
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box">
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'clubs:wholesale-dashboard' %}">Wholesale</a></li>
+                    <li class="breadcrumb-item active">Categories</li>
+                </ol>
+            </div>
+            <h4 class="mb-0">Wholesale Categories</h4>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<!-- Filters -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="get" id="filterForm">
+                    <div class="row align-items-end">
+                        <div class="col-md-4">
+                            <label for="search" class="form-label">Search Categories</label>
+                            <input type="text" class="form-control" id="search" name="search"
+                                   value="{{ request.GET.search }}" placeholder="Search by name, description...">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="level" class="form-label">Category Level</label>
+                            <select class="form-select" id="level" name="level">
+                                <option value="">All Levels</option>
+                                <option value="0" {% if request.GET.level == "0" %}selected{% endif %}>Root Categories (0)</option>
+                                <option value="1" {% if request.GET.level == "1" %}selected{% endif %}>Sub Categories (1)</option>
+                                <option value="2" {% if request.GET.level == "2" %}selected{% endif %}>Sub-Sub Categories (2)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="min_products" class="form-label">Minimum Products</label>
+                            <select class="form-select" id="min_products" name="min_products">
+                                <option value="">Any Count</option>
+                                <option value="1" {% if request.GET.min_products == "1" %}selected{% endif %}>1+ Products</option>
+                                <option value="5" {% if request.GET.min_products == "5" %}selected{% endif %}>5+ Products</option>
+                                <option value="10" {% if request.GET.min_products == "10" %}selected{% endif %}>10+ Products</option>
+                                <option value="25" {% if request.GET.min_products == "25" %}selected{% endif %}>25+ Products</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="uil uil-search me-1"></i>Filter
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end filters -->
+
+<!-- Results Summary -->
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h5 class="mb-0">
+                    {% if categories %}
+                        Showing {{ categories|length }} of {{ total_categories }} categories
+                        {% if request.GET.search %}
+                            for "{{ request.GET.search }}"
+                        {% endif %}
+                    {% else %}
+                        No categories found
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="d-flex gap-2">
+                <div class="dropdown">
+                    <button class="btn btn-soft-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="uil uil-eye me-1"></i>View
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" data-view="grid" id="gridView">
+                            <i class="uil uil-apps me-2"></i>Grid View
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" data-view="table" id="tableView">
+                            <i class="uil uil-list-ul me-2"></i>Table View
+                        </a></li>
+                    </ul>
+                </div>
+                <a href="{% url 'clubs:wholesale-dashboard' %}" class="btn btn-soft-primary">
+                    <i class="uil uil-arrow-left me-1"></i>Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Categories Grid View -->
+<div id="categoriesGrid" class="row">
+    {% for category in categories %}
+    <div class="col-xl-4 col-lg-6 col-md-6">
+        <div class="card category-card">
+            <div class="card-body">
+                <div class="d-flex align-items-start">
+                    <div class="avatar-sm me-3 flex-shrink-0">
+                        <span class="avatar-title rounded-circle bg-soft-{% if category.level == 0 %}primary{% elif category.level == 1 %}info{% else %}warning{% endif %} text-{% if category.level == 0 %}primary{% elif category.level == 1 %}info{% else %}warning{% endif %} font-size-18">
+                            <i class="uil-folder{% if category.level == 0 %}{% elif category.level == 1 %}-open{% else %}-plus{% endif %}"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1 overflow-hidden">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-0">
+                                <a href="{% url 'clubs:wholesale-category-detail' category.slug %}" class="text-dark text-decoration-none">
+                                    {{ category.name }}
+                                </a>
+                            </h5>
+                            <span class="badge bg-soft-secondary text-secondary">L{{ category.level }}</span>
+                        </div>
+
+                        {% if category.description %}
+                        <p class="text-muted font-size-13 mb-2">{{ category.description|truncatechars:80 }}</p>
+                        {% endif %}
+
+                        {% if category.path and category.level > 0 %}
+                        <p class="text-muted font-size-12 mb-2">
+                            <i class="uil uil-sitemap me-1"></i>{{ category.path|truncatechars:50 }}
+                        </p>
+                        {% endif %}
+
+                        <div class="row mt-3">
+                            <div class="col-6">
+                                <div class="text-center">
+                                    <h6 class="mb-0 text-success">{{ category.product_count }}</h6>
+                                    <p class="text-muted mb-0 font-size-12">Products</p>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="text-center">
+                                    <h6 class="mb-0 text-info">{{ category.subcategories.count }}</h6>
+                                    <p class="text-muted mb-0 font-size-12">Subcategories</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-3 pt-3 border-top">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="text-muted font-size-12">
+                                    {% if category.last_synced_at %}
+                                        Last sync: {{ category.last_synced_at|timesince }} ago
+                                    {% else %}
+                                        Never synced
+                                    {% endif %}
+                                </div>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'clubs:wholesale-category-detail' category.slug %}"
+                                       class="btn btn-sm btn-soft-primary"
+                                       data-bs-toggle="tooltip"
+                                       title="View category">
+                                        <i class="uil uil-eye"></i>
+                                    </a>
+                                    {% if category.subcategories.exists %}
+                                    <button type="button"
+                                            class="btn btn-sm btn-soft-info"
+                                            data-bs-toggle="tooltip"
+                                            title="Has {{ category.subcategories.count }} subcategories">
+                                        <i class="uil uil-sitemap"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <!-- Empty state -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <div class="mb-4">
+                    <i class="uil uil-folder-open font-size-72 text-muted"></i>
+                </div>
+                <h4 class="mb-3">No Categories Found</h4>
+                {% if request.GET.search or request.GET.level or request.GET.min_products %}
+                <p class="text-muted mb-4">
+                    No categories match your current filters. Try adjusting your search criteria.
+                </p>
+                <a href="{% url 'clubs:wholesale-category-list' %}" class="btn btn-primary">
+                    <i class="uil uil-refresh me-1"></i>Clear Filters
+                </a>
+                {% else %}
+                <p class="text-muted mb-4">
+                    No wholesale categories have been imported yet. Start a CIN7 sync to import category data.
+                </p>
+                <a href="{% url 'clubs:wholesale-dashboard' %}" class="btn btn-primary">
+                    <i class="uil uil-sync me-1"></i>Go to Dashboard
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+<!-- end categories grid -->
+
+<!-- Categories Table View -->
+<div id="categoriesTable" class="row" style="display: none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="categoryDataTable" class="table table-nowrap align-middle table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Category</th>
+                                <th>Level</th>
+                                <th>Path</th>
+                                <th>Products</th>
+                                <th>Subcategories</th>
+                                <th>Last Sync</th>
+                                <th class="no-sort">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for category in categories %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-xs me-3">
+                                            <span class="avatar-title rounded-circle bg-soft-{% if category.level == 0 %}primary{% elif category.level == 1 %}info{% else %}warning{% endif %} text-{% if category.level == 0 %}primary{% elif category.level == 1 %}info{% else %}warning{% endif %}">
+                                                <i class="uil-folder{% if category.level == 0 %}{% elif category.level == 1 %}-open{% else %}-plus{% endif %}"></i>
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-0">
+                                                <a href="{% url 'clubs:wholesale-category-detail' category.slug %}" class="text-dark">
+                                                    {{ category.name }}
+                                                </a>
+                                            </h6>
+                                            {% if category.description %}
+                                            <p class="text-muted font-size-12 mb-0">{{ category.description|truncatechars:60 }}</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-soft-secondary text-secondary">Level {{ category.level }}</span>
+                                </td>
+                                <td>
+                                    {% if category.path %}
+                                    <span class="font-size-13">{{ category.path|truncatechars:40 }}</span>
+                                    {% else %}
+                                    <span class="text-muted">Root</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="fw-medium text-success">{{ category.product_count }}</span>
+                                </td>
+                                <td>
+                                    <span class="fw-medium text-info">{{ category.subcategories.count }}</span>
+                                </td>
+                                <td>
+                                    <span class="font-size-12 text-muted">
+                                        {% if category.last_synced_at %}
+                                            {{ category.last_synced_at|timesince }} ago
+                                        {% else %}
+                                            Never
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'clubs:wholesale-category-detail' category.slug %}"
+                                           class="btn btn-sm btn-soft-primary"
+                                           data-bs-toggle="tooltip"
+                                           title="View category">
+                                            <i class="uil uil-eye"></i>
+                                        </a>
+                                        {% if category.subcategories.exists %}
+                                        <button type="button"
+                                                class="btn btn-sm btn-soft-info"
+                                                data-bs-toggle="tooltip"
+                                                title="Has subcategories">
+                                            <i class="uil uil-sitemap"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end categories table -->
+
+<!-- Pagination -->
+{% if is_paginated %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="text-muted">
+                Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} categories
+            </div>
+            <nav aria-label="Categories pagination">
+                <ul class="pagination mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1">
+                            <i class="uil uil-angle-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">
+                            <i class="uil uil-angle-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ num }}">{{ num }}</a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}">
+                            <i class="uil uil-angle-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}">
+                            <i class="uil uil-angle-double-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- DataTables JS -->
+<script src="{% static 'assets/libs/datatables.net/js/jquery.dataTables.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-bs4/js/dataTables.bootstrap4.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-responsive/js/dataTables.responsive.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-responsive-bs4/js/responsive.bootstrap4.min.js' %}"></script>
+
+<script>
+$(document).ready(function() {
+    // Initialize tooltips
+    $('[data-bs-toggle="tooltip"]').tooltip();
+
+    // Initialize DataTable
+    var categoryTable = $('#categoryDataTable').DataTable({
+        responsive: true,
+        pageLength: 25,
+        order: [[0, 'asc']], // Sort by category name
+        columnDefs: [
+            {
+                targets: 'no-sort',
+                orderable: false,
+                searchable: false
+            },
+            {
+                targets: [3, 4], // Products and Subcategories columns
+                type: 'num'
+            }
+        ],
+        language: {
+            search: "_INPUT_",
+            searchPlaceholder: "Search categories...",
+            lengthMenu: "Show _MENU_ categories",
+            info: "Showing _START_ to _END_ of _TOTAL_ categories",
+            infoEmpty: "No categories available",
+            infoFiltered: "(filtered from _MAX_ total categories)"
+        },
+        drawCallback: function() {
+            // Initialize tooltips after table redraw
+            $('[data-bs-toggle="tooltip"]').tooltip();
+        }
+    });
+
+    // View toggle
+    $('#gridView').click(function(e) {
+        e.preventDefault();
+        $('#categoriesTable').hide();
+        $('#categoriesGrid').show();
+        $(this).parent().parent().prev().html('<i class="uil uil-apps me-1"></i>Grid View');
+    });
+
+    $('#tableView').click(function(e) {
+        e.preventDefault();
+        $('#categoriesGrid').hide();
+        $('#categoriesTable').show();
+        $(this).parent().parent().prev().html('<i class="uil uil-list-ul me-1"></i>Table View');
+    });
+
+    // Auto-submit form on filter change
+    $('#level, #min_products').change(function() {
+        $('#filterForm').submit();
+    });
+
+    // Search input with delay
+    let searchTimeout;
+    $('#search').on('input', function() {
+        clearTimeout(searchTimeout);
+        const searchValue = $(this).val();
+
+        searchTimeout = setTimeout(function() {
+            if (searchValue.length >= 3 || searchValue.length === 0) {
+                $('#filterForm').submit();
+            }
+        }, 500);
+    });
+
+    // Handle empty search submission
+    $('#filterForm').submit(function(e) {
+        const searchVal = $('#search').val().trim();
+        if (searchVal.length > 0 && searchVal.length < 3) {
+            e.preventDefault();
+            alert('Search term must be at least 3 characters long.');
+            return false;
+        }
+    });
+});
+</script>
+
+<style>
+/* Card hover effects */
+.category-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.category-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Badge styles */
+.badge-soft-primary { background-color: rgba(85, 110, 230, 0.1); color: #556ee6; }
+.badge-soft-info { background-color: rgba(23, 162, 184, 0.1); color: #17a2b8; }
+.badge-soft-warning { background-color: rgba(247, 184, 75, 0.1); color: #f7b84b; }
+.badge-soft-success { background-color: rgba(52, 195, 143, 0.1); color: #34c38f; }
+.badge-soft-secondary { background-color: rgba(108, 117, 125, 0.1); color: #6c757d; }
+
+/* Action buttons styling */
+.btn-soft-primary {
+    color: #556ee6;
+    background-color: rgba(85, 110, 230, 0.1);
+    border-color: transparent;
+}
+
+.btn-soft-primary:hover {
+    color: #fff;
+    background-color: #556ee6;
+    border-color: #556ee6;
+}
+
+.btn-soft-secondary {
+    color: #6c757d;
+    background-color: rgba(108, 117, 125, 0.1);
+    border-color: transparent;
+}
+
+.btn-soft-secondary:hover {
+    color: #fff;
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-soft-info {
+    color: #17a2b8;
+    background-color: rgba(23, 162, 184, 0.1);
+    border-color: transparent;
+}
+
+.btn-soft-info:hover {
+    color: #fff;
+    background-color: #17a2b8;
+    border-color: #17a2b8;
+}
+
+/* Pagination styling */
+.pagination .page-link {
+    color: #556ee6;
+    border-color: #dee2e6;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #556ee6;
+    border-color: #556ee6;
+}
+
+.pagination .page-link:hover {
+    color: #556ee6;
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+/* Table styling */
+.table-hover tbody tr:hover {
+    background-color: rgba(85, 110, 230, 0.04);
+}
+
+/* Avatar styling */
+.avatar-xs {
+    width: 32px;
+    height: 32px;
+}
+
+.avatar-xs .avatar-title {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+}
+
+.avatar-sm {
+    width: 40px;
+    height: 40px;
+}
+
+.avatar-sm .avatar-title {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+}
+
+/* DataTables styling */
+.dataTables_wrapper .dataTables_filter input {
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    margin-left: 0.5rem;
+}
+
+.dataTables_wrapper .dataTables_filter input:focus {
+    border-color: #556ee6;
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(85, 110, 230, 0.25);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card-body {
+        padding: 1rem;
+    }
+
+    .btn-group .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+
+    .d-flex.justify-content-between {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .d-flex.justify-content-between > div {
+        text-align: center;
+    }
+}
+
+@media (max-width: 576px) {
+    .row.align-items-end > div {
+        margin-bottom: 1rem;
+    }
+
+    .avatar-sm {
+        width: 32px;
+        height: 32px;
+    }
+
+    .avatar-sm .avatar-title {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
+    }
+}
+
+/* Filter form styling */
+.form-label {
+    font-weight: 500;
+    color: #495057;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #556ee6;
+    box-shadow: 0 0 0 0.2rem rgba(85, 110, 230, 0.25);
+}
+
+/* Empty state styling */
+.font-size-72 {
+    font-size: 4.5rem;
+}
+
+/* Level indicators */
+.text-primary { color: #556ee6 !important; }
+.text-info { color: #17a2b8 !important; }
+.text-warning { color: #f7b84b !important; }
+.text-success { color: #34c38f !important; }
+</style>
+{% endblock %}

@@ -7,6 +7,10 @@ from django.contrib import messages
 from .models import Club, ClubCategory, Product, ProductVariation, ProductCategoryAssignment
 from .models_lotto import LottoClub, LottoClubCategory, LottoProduct, LottoProductVariation
 from .models_sas import SASSport, SASClub, SASProduct
+from .models_wholesale import (
+    WholesaleSchool, WholesaleCategory, WholesaleProduct,
+    WholesaleProductVariation, WholesaleProductCategoryAssignment, WholesaleSyncJob
+)
 from .services.woocommerce_service import WooCommerceService
 
 
@@ -1285,6 +1289,562 @@ class SASProductAdmin(admin.ModelAdmin):
         updated = queryset.update(stock_status='onbackorder')
         self.message_user(request, f"Successfully marked {updated} SAS products as on backorder.", messages.SUCCESS)
     mark_on_backorder.short_description = "Mark as on backorder"
+
+
+# Wholesale-specific Admin Classes
+
+@admin.register(WholesaleSchool)
+class WholesaleSchoolAdmin(admin.ModelAdmin):
+    """
+    Admin interface for WholesaleSchool model
+    """
+    list_display = [
+        'name', 'school_code', 'contact_person', 'email', 'city', 'region',
+        'total_products', 'active_categories', 'is_active', 'last_synced_at', 'created_at'
+    ]
+    list_filter = [
+        'is_active', 'city', 'region', 'country', 'cin7_brand', 'cin7_supplier',
+        'created_at', 'last_synced_at'
+    ]
+    search_fields = [
+        'name', 'school_code', 'contact_person', 'email', 'phone', 'cin7_id',
+        'cin7_sku', 'cin7_barcode', 'address_line1', 'city'
+    ]
+    readonly_fields = [
+        'slug', 'cin7_id', 'total_products', 'active_categories',
+        'last_synced_at', 'created_at', 'updated_at'
+    ]
+    prepopulated_fields = {'slug': ('name',)}
+
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'slug', 'school_code', 'description', 'is_active')
+        }),
+        ('Contact Information', {
+            'fields': ('contact_person', 'email', 'phone', 'website')
+        }),
+        ('Address', {
+            'fields': ('address_line1', 'address_line2', 'city', 'region', 'postal_code', 'country')
+        }),
+        ('CIN7 Integration', {
+            'fields': ('cin7_id', 'cin7_sku', 'cin7_barcode', 'cin7_brand', 'cin7_supplier', 'cin7_category_path'),
+            'classes': ('collapse',)
+        }),
+        ('Statistics', {
+            'fields': ('total_products', 'active_categories')
+        }),
+        ('Metadata', {
+            'fields': ('last_synced_at', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    actions = ['sync_schools', 'activate_schools', 'deactivate_schools', 'update_statistics']
+
+    def sync_schools(self, request, queryset):
+        """Sync selected schools with CIN7"""
+        try:
+            # This would integrate with the CIN7 sync service
+            self.message_user(request, f"Sync initiated for {queryset.count()} schools.", messages.SUCCESS)
+        except Exception as e:
+            self.message_user(request, f"Error syncing schools: {str(e)}", messages.ERROR)
+    sync_schools.short_description = "Sync selected schools with CIN7"
+
+    def activate_schools(self, request, queryset):
+        """Activate selected schools"""
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f"Successfully activated {updated} schools.", messages.SUCCESS)
+    activate_schools.short_description = "Activate selected schools"
+
+    def deactivate_schools(self, request, queryset):
+        """Deactivate selected schools"""
+        updated = queryset.update(is_active=False)
+        self.message_user(request, f"Successfully deactivated {updated} schools.", messages.SUCCESS)
+    deactivate_schools.short_description = "Deactivate selected schools"
+
+    def update_statistics(self, request, queryset):
+        """Update statistics for selected schools"""
+        for school in queryset:
+            school.total_products = WholesaleProduct.objects.filter(school=school, is_active=True).count()
+            school.active_categories = WholesaleCategory.objects.filter(
+                products__school=school, is_active=True
+            ).distinct().count()
+            school.save(update_fields=['total_products', 'active_categories'])
+
+        self.message_user(
+            request,
+            f"Successfully updated statistics for {queryset.count()} schools.",
+            messages.SUCCESS
+        )
+    update_statistics.short_description = "Update statistics"
+
+
+@admin.register(WholesaleCategory)
+class WholesaleCategoryAdmin(admin.ModelAdmin):
+    """
+    Admin interface for WholesaleCategory model
+    """
+    list_display = [
+        'name', 'parent', 'level', 'product_count', 'is_active',
+        'cin7_id', 'last_synced_at', 'created_at'
+    ]
+    list_filter = [
+        'level', 'is_active', 'parent', 'created_at', 'last_synced_at'
+    ]
+    search_fields = [
+        'name', 'description', 'path', 'cin7_id'
+    ]
+    readonly_fields = [
+        'slug', 'cin7_id', 'level', 'path', 'product_count',
+        'last_synced_at', 'created_at', 'updated_at'
+    ]
+    prepopulated_fields = {'slug': ('name',)}
+
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'slug', 'description', 'is_active')
+        }),
+        ('Hierarchy', {
+            'fields': ('parent', 'level', 'path')
+        }),
+        ('CIN7 Integration', {
+            'fields': ('cin7_id',),
+            'classes': ('collapse',)
+        }),
+        ('Statistics', {
+            'fields': ('product_count',)
+        }),
+        ('Metadata', {
+            'fields': ('last_synced_at', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    actions = ['activate_categories', 'deactivate_categories', 'update_product_counts']
+
+    def activate_categories(self, request, queryset):
+        """Activate selected categories"""
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f"Successfully activated {updated} categories.", messages.SUCCESS)
+    activate_categories.short_description = "Activate selected categories"
+
+    def deactivate_categories(self, request, queryset):
+        """Deactivate selected categories"""
+        updated = queryset.update(is_active=False)
+        self.message_user(request, f"Successfully deactivated {updated} categories.", messages.SUCCESS)
+    deactivate_categories.short_description = "Deactivate selected categories"
+
+    def update_product_counts(self, request, queryset):
+        """Update product counts for selected categories"""
+        for category in queryset:
+            category.product_count = WholesaleProduct.objects.filter(
+                categories=category, is_active=True
+            ).count()
+            category.save(update_fields=['product_count'])
+
+        self.message_user(
+            request,
+            f"Successfully updated product counts for {queryset.count()} categories.",
+            messages.SUCCESS
+        )
+    update_product_counts.short_description = "Update product counts"
+
+
+@admin.register(WholesaleProductCategoryAssignment)
+class WholesaleProductCategoryAssignmentAdmin(admin.ModelAdmin):
+    """
+    Admin interface for WholesaleProductCategoryAssignment model
+    """
+    list_display = [
+        'product', 'category', 'school_name', 'is_primary', 'sort_order',
+        'cin7_category_id', 'assigned_at', 'last_synced_at'
+    ]
+    list_filter = [
+        'is_primary', 'category', 'product__school',
+        'assigned_at', 'last_synced_at'
+    ]
+    search_fields = [
+        'product__name', 'category__name', 'product__school__name',
+        'cin7_category_id'
+    ]
+    readonly_fields = [
+        'cin7_category_id', 'assigned_at', 'last_synced_at'
+    ]
+
+    fieldsets = (
+        ('Assignment Information', {
+            'fields': ('product', 'category', 'is_primary', 'sort_order')
+        }),
+        ('CIN7 Integration', {
+            'fields': ('cin7_category_id',),
+            'classes': ('collapse',)
+        }),
+        ('Metadata', {
+            'fields': ('assigned_at', 'last_synced_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_queryset(self, request):
+        """Optimize queryset with select_related"""
+        return super().get_queryset(request).select_related(
+            'product', 'category', 'product__school'
+        )
+
+    def school_name(self, obj):
+        """Display school name"""
+        return obj.product.school.name
+    school_name.short_description = 'School'
+    school_name.admin_order_field = 'product__school__name'
+
+    actions = ['mark_as_primary', 'unmark_as_primary']
+
+    def mark_as_primary(self, request, queryset):
+        """Mark selected assignments as primary"""
+        products_updated = set()
+        for assignment in queryset:
+            # Clear other primary assignments for this product
+            WholesaleProductCategoryAssignment.objects.filter(
+                product=assignment.product,
+                is_primary=True
+            ).exclude(id=assignment.id).update(is_primary=False)
+
+            # Mark this one as primary
+            assignment.is_primary = True
+            assignment.save()
+            products_updated.add(assignment.product.name)
+
+        self.message_user(
+            request,
+            f"Successfully marked assignments as primary for {len(products_updated)} products.",
+            messages.SUCCESS
+        )
+    mark_as_primary.short_description = "Mark as primary category"
+
+    def unmark_as_primary(self, request, queryset):
+        """Remove primary status from selected assignments"""
+        updated = queryset.update(is_primary=False)
+        self.message_user(
+            request,
+            f"Successfully removed primary status from {updated} assignments.",
+            messages.SUCCESS
+        )
+    unmark_as_primary.short_description = "Remove primary status"
+
+
+class WholesaleProductVariationInline(admin.TabularInline):
+    """
+    Inline admin interface for WholesaleProductVariation within WholesaleProduct admin
+    """
+    model = WholesaleProductVariation
+    extra = 0
+    readonly_fields = ['cin7_id', 'cin7_sku', 'is_in_stock', 'image_preview', 'created_at']
+    fields = [
+        'variation_type', 'variation_value', 'image_url', 'image_preview',
+        'wholesale_price', 'retail_price', 'cost_price', 'quantity_available',
+        'is_active', 'cin7_id', 'cin7_sku'
+    ]
+
+    def image_preview(self, obj):
+        """Display image preview for variation"""
+        if obj.pk and obj.image_url:
+            return format_html(
+                '<img src="{}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;" title="{}"/>',
+                obj.image_url,
+                f"{obj.variation_type}: {obj.variation_value}"
+            )
+        return format_html('<span style="color: gray;">No Image</span>')
+    image_preview.short_description = 'Preview'
+
+
+@admin.register(WholesaleProduct)
+class WholesaleProductAdmin(admin.ModelAdmin):
+    """
+    Admin interface for WholesaleProduct model
+    """
+    list_display = [
+        'name', 'school', 'primary_category', 'wholesale_price', 'retail_price',
+        'stock_status', 'quantity_available', 'is_in_stock', 'is_active',
+        'cin7_id', 'last_synced_at'
+    ]
+    list_filter = [
+        'stock_status', 'is_active', 'school', 'cin7_brand', 'cin7_supplier',
+        'created_at', 'last_synced_at'
+    ]
+    search_fields = [
+        'name', 'description', 'short_description', 'cin7_id', 'cin7_sku',
+        'cin7_barcode', 'school__name'
+    ]
+    readonly_fields = [
+        'slug', 'cin7_id', 'is_in_stock', 'profit_margin', 'primary_category',
+        'last_synced_at', 'created_at', 'updated_at'
+    ]
+    prepopulated_fields = {'slug': ('name',)}
+    # Note: categories uses through model, so can't use filter_horizontal
+
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('school', 'name', 'slug', 'description', 'short_description', 'is_active')
+        }),
+        ('Categories', {
+            'fields': ('primary_category',)
+        }),
+        ('Pricing', {
+            'fields': ('wholesale_price', 'retail_price', 'cost_price', 'profit_margin')
+        }),
+        ('Stock Management', {
+            'fields': ('stock_status', 'quantity_available', 'quantity_on_hand',
+                      'quantity_committed', 'is_in_stock')
+        }),
+        ('Product Details', {
+            'fields': ('weight', 'dimensions', 'attributes'),
+            'classes': ('collapse',)
+        }),
+        ('CIN7 Integration', {
+            'fields': ('cin7_id', 'cin7_sku', 'cin7_barcode', 'cin7_brand',
+                      'cin7_supplier', 'cin7_unit_of_measure'),
+            'classes': ('collapse',)
+        }),
+        ('Media', {
+            'fields': ('image_url', 'additional_images')
+        }),
+        ('Metadata', {
+            'fields': ('last_synced_at', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    inlines = [WholesaleProductVariationInline]
+
+    def get_queryset(self, request):
+        """Optimize queryset with select_related"""
+        return super().get_queryset(request).select_related('school').prefetch_related(
+            'categories', 'variations'
+        )
+
+    def primary_category(self, obj):
+        """Display primary category"""
+        return obj.primary_category
+    primary_category.short_description = 'Primary Category'
+
+    def is_in_stock(self, obj):
+        """Display stock status with color coding"""
+        if obj.is_in_stock:
+            return format_html('<span style="color: green; font-weight: bold;">✓ In Stock</span>')
+        else:
+            return format_html('<span style="color: red; font-weight: bold;">✗ Out of Stock</span>')
+    is_in_stock.short_description = 'Stock Status'
+
+    def profit_margin(self, obj):
+        """Display profit margin if available"""
+        margin = obj.profit_margin
+        if margin is not None:
+            color = 'green' if margin > 20 else 'orange' if margin > 10 else 'red'
+            return format_html(
+                '<span style="color: {}; font-weight: bold;">{:.1f}%</span>',
+                color, margin
+            )
+        return format_html('<span style="color: gray;">-</span>')
+    profit_margin.short_description = 'Profit Margin'
+
+    actions = [
+        'activate_products', 'deactivate_products', 'mark_in_stock',
+        'mark_out_of_stock', 'sync_products'
+    ]
+
+    def activate_products(self, request, queryset):
+        """Activate selected products"""
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f"Successfully activated {updated} products.", messages.SUCCESS)
+    activate_products.short_description = "Activate selected products"
+
+    def deactivate_products(self, request, queryset):
+        """Deactivate selected products"""
+        updated = queryset.update(is_active=False)
+        self.message_user(request, f"Successfully deactivated {updated} products.", messages.SUCCESS)
+    deactivate_products.short_description = "Deactivate selected products"
+
+    def mark_in_stock(self, request, queryset):
+        """Mark selected products as in stock"""
+        updated = queryset.update(stock_status='in_stock')
+        self.message_user(request, f"Successfully marked {updated} products as in stock.", messages.SUCCESS)
+    mark_in_stock.short_description = "Mark as in stock"
+
+    def mark_out_of_stock(self, request, queryset):
+        """Mark selected products as out of stock"""
+        updated = queryset.update(stock_status='out_of_stock')
+        self.message_user(request, f"Successfully marked {updated} products as out of stock.", messages.SUCCESS)
+    mark_out_of_stock.short_description = "Mark as out of stock"
+
+    def sync_products(self, request, queryset):
+        """Sync selected products with CIN7"""
+        try:
+            # This would integrate with the CIN7 sync service
+            self.message_user(request, f"Sync initiated for {queryset.count()} products.", messages.SUCCESS)
+        except Exception as e:
+            self.message_user(request, f"Error syncing products: {str(e)}", messages.ERROR)
+    sync_products.short_description = "Sync selected products with CIN7"
+
+
+@admin.register(WholesaleProductVariation)
+class WholesaleProductVariationAdmin(admin.ModelAdmin):
+    """
+    Admin interface for WholesaleProductVariation model
+    """
+    list_display = [
+        'variation_display', 'product', 'school_name', 'variation_type', 'variation_value',
+        'wholesale_price', 'retail_price', 'quantity_available', 'is_in_stock',
+        'is_active', 'cin7_id'
+    ]
+    list_filter = [
+        'variation_type', 'is_active', 'product__school',
+        'created_at', 'last_synced_at'
+    ]
+    search_fields = [
+        'variation_value', 'variation_description', 'cin7_id', 'cin7_sku',
+        'product__name', 'product__school__name'
+    ]
+    readonly_fields = [
+        'cin7_id', 'is_in_stock', 'created_at', 'updated_at', 'last_synced_at'
+    ]
+
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('product', 'variation_type', 'variation_value', 'variation_description', 'is_active')
+        }),
+        ('Pricing', {
+            'fields': ('wholesale_price', 'retail_price', 'cost_price')
+        }),
+        ('Stock', {
+            'fields': ('quantity_available', 'quantity_on_hand', 'quantity_committed', 'is_in_stock')
+        }),
+        ('Physical Properties', {
+            'fields': ('weight', 'dimensions'),
+            'classes': ('collapse',)
+        }),
+        ('CIN7 Integration', {
+            'fields': ('cin7_id', 'cin7_sku', 'cin7_barcode'),
+            'classes': ('collapse',)
+        }),
+        ('Media', {
+            'fields': ('image_url',)
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at', 'last_synced_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_queryset(self, request):
+        """Optimize queryset with select_related"""
+        return super().get_queryset(request).select_related(
+            'product', 'product__school'
+        )
+
+    def variation_display(self, obj):
+        """Display variation in a readable format"""
+        return f"{obj.product.name} - {obj.variation_type}: {obj.variation_value}"
+    variation_display.short_description = 'Variation'
+    variation_display.admin_order_field = 'product__name'
+
+    def school_name(self, obj):
+        """Display school name"""
+        return obj.product.school.name
+    school_name.short_description = 'School'
+    school_name.admin_order_field = 'product__school__name'
+
+    def is_in_stock(self, obj):
+        """Display stock status with color coding"""
+        if obj.is_in_stock:
+            return format_html('<span style="color: green; font-weight: bold;">✓ Available</span>')
+        else:
+            return format_html('<span style="color: red; font-weight: bold;">✗ Unavailable</span>')
+    is_in_stock.short_description = 'Stock'
+
+    actions = ['activate_variations', 'deactivate_variations']
+
+    def activate_variations(self, request, queryset):
+        """Activate selected variations"""
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f"Successfully activated {updated} variations.", messages.SUCCESS)
+    activate_variations.short_description = "Activate selected variations"
+
+    def deactivate_variations(self, request, queryset):
+        """Deactivate selected variations"""
+        updated = queryset.update(is_active=False)
+        self.message_user(request, f"Successfully deactivated {updated} variations.", messages.SUCCESS)
+    deactivate_variations.short_description = "Deactivate selected variations"
+
+
+@admin.register(WholesaleSyncJob)
+class WholesaleSyncJobAdmin(admin.ModelAdmin):
+    """
+    Admin interface for WholesaleSyncJob model
+    """
+    list_display = [
+        'id', 'status', 'progress_percentage', 'current_step', 'total_items_processed',
+        'errors_count', 'duration_display', 'started_at', 'completed_at'
+    ]
+    list_filter = ['status', 'created_at', 'started_at', 'completed_at']
+    readonly_fields = [
+        'id', 'status', 'progress_percentage', 'current_step', 'total_items_processed',
+        'duration', 'duration_display', 'schools_created', 'schools_updated',
+        'products_created', 'products_updated', 'categories_created', 'categories_updated',
+        'variations_created', 'variations_updated', 'errors_count', 'error_messages',
+        'started_at', 'completed_at', 'created_at'
+    ]
+
+    fieldsets = (
+        ('Job Information', {
+            'fields': ('id', 'status', 'progress_percentage', 'current_step')
+        }),
+        ('Statistics', {
+            'fields': (
+                'schools_created', 'schools_updated', 'products_created', 'products_updated',
+                'categories_created', 'categories_updated', 'variations_created', 'variations_updated',
+                'total_items_processed'
+            )
+        }),
+        ('Error Information', {
+            'fields': ('errors_count', 'error_messages'),
+            'classes': ('collapse',)
+        }),
+        ('Timing', {
+            'fields': ('started_at', 'completed_at', 'duration', 'duration_display', 'created_at')
+        }),
+    )
+
+    def duration_display(self, obj):
+        """Display job duration in human-readable format"""
+        duration = obj.duration
+        if duration:
+            total_seconds = int(duration.total_seconds())
+            hours, remainder = divmod(total_seconds, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            if hours:
+                return f"{hours}h {minutes}m {seconds}s"
+            elif minutes:
+                return f"{minutes}m {seconds}s"
+            else:
+                return f"{seconds}s"
+        return "-"
+    duration_display.short_description = 'Duration'
+
+    def total_items_processed(self, obj):
+        """Display total items processed with color coding"""
+        total = obj.total_items_processed
+        if total > 0:
+            return format_html('<span style="color: green; font-weight: bold;">{}</span>', total)
+        return format_html('<span style="color: gray;">0</span>')
+    total_items_processed.short_description = 'Items Processed'
+
+    def has_add_permission(self, request):
+        """Don't allow manual creation of sync jobs"""
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        """Don't allow editing of sync jobs"""
+        return False
 
 
 # Customize admin site

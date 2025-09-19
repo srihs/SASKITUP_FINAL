@@ -19,6 +19,10 @@ from django.conf import settings
 from .models import SyncJob, Club, ClubCategory, Product
 from .models_sas import SASSport, SASClub, SASProduct
 from .models_lotto import LottoProduct, LottoProductVariation
+from .models_wholesale import (
+    WholesaleSchool, WholesaleCategory, WholesaleProduct,
+    WholesaleProductVariation, WholesaleSyncJob
+)
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -3101,3 +3105,628 @@ def product_color_size_stock_api(request):
             'message': str(e),
             'error_code': 'SERVER_ERROR'
         }, status=500)
+
+
+# ============================================
+# WHOLESALE SCHOOLS VIEWS
+# ============================================
+
+def wholesale_dashboard(request):
+    """
+    Wholesale dashboard with statistics and sync management
+    """
+    # Basic statistics
+    total_schools = WholesaleSchool.objects.filter(is_active=True).count()
+    total_categories = WholesaleCategory.objects.filter(is_active=True).count()
+    total_products = WholesaleProduct.objects.filter(is_active=True).count()
+    in_stock_products = WholesaleProduct.objects.filter(
+        is_active=True,
+        stock_status='in_stock'
+    ).count()
+
+    # Top schools by product count
+    top_schools = WholesaleSchool.objects.filter(is_active=True).order_by('-total_products')[:10]
+
+    # Last sync information
+    last_sync_job = WholesaleSyncJob.objects.filter(status='completed').order_by('-completed_at').first()
+    last_sync = last_sync_job.completed_at if last_sync_job else None
+
+    # Current running sync
+    running_sync = WholesaleSyncJob.objects.filter(status='running').first()
+
+    # Recent sync stats
+    recent_sync_stats = {}
+    if last_sync_job:
+        recent_sync_stats = {
+            'schools_created': last_sync_job.schools_created,
+            'schools_updated': last_sync_job.schools_updated,
+            'products_created': last_sync_job.products_created,
+            'products_updated': last_sync_job.products_updated,
+            'categories_created': last_sync_job.categories_created,
+            'categories_updated': last_sync_job.categories_updated,
+        }
+
+    context = {
+        'total_schools': total_schools,
+        'total_categories': total_categories,
+        'total_products': total_products,
+        'in_stock_products': in_stock_products,
+        'top_schools': top_schools,
+        'last_sync': last_sync,
+        'sync_job': running_sync,
+        'recent_sync_stats': recent_sync_stats,
+    }
+
+    return render(request, 'clubs/wholesale/dashboard.html', context)
+
+
+class WholesaleSchoolListView(ListView):
+    """
+    List all wholesale schools with filtering and search
+    """
+    model = WholesaleSchool
+    template_name = 'clubs/wholesale/school_list.html'
+    context_object_name = 'schools'
+    paginate_by = 18
+
+    def get_queryset(self):
+        queryset = WholesaleSchool.objects.filter(is_active=True)
+
+        # Search functionality
+        search_query = self.request.GET.get('search')
+        if search_query:
+            queryset = queryset.filter(
+                Q(name__icontains=search_query) |
+                Q(school_code__icontains=search_query) |
+                Q(contact_person__icontains=search_query) |
+                Q(email__icontains=search_query)
+            )
+
+        # Filter by city
+        city = self.request.GET.get('city')
+        if city:
+            queryset = queryset.filter(city=city)
+
+        # Filter by region
+        region = self.request.GET.get('region')
+        if region:
+            queryset = queryset.filter(region=region)
+
+        return queryset.order_by('name')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Get distinct cities and regions for filters
+        context['cities'] = WholesaleSchool.objects.filter(
+            is_active=True,
+            city__isnull=False
+        ).exclude(city='').values_list('city', flat=True).distinct().order_by('city')
+
+        context['regions'] = WholesaleSchool.objects.filter(
+            is_active=True,
+            region__isnull=False
+        ).exclude(region='').values_list('region', flat=True).distinct().order_by('region')
+
+        context['total_schools'] = WholesaleSchool.objects.filter(is_active=True).count()
+
+        return context
+
+
+class WholesaleSchoolDetailView(DetailView):
+    """
+    Detailed view of a wholesale school with categories and products
+    """
+    model = WholesaleSchool
+    template_name = 'clubs/wholesale/school_detail.html'
+    context_object_name = 'school'
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
+
+    def get_queryset(self):
+        return WholesaleSchool.objects.filter(is_active=True)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        school = self.get_object()
+
+        # Get categories for this school through products
+        categories_with_products = WholesaleCategory.objects.filter(
+            products__school=school,
+            is_active=True
+        ).distinct().order_by('name')
+
+        context['categories'] = categories_with_products
+
+        # Get products for this school
+        products = WholesaleProduct.objects.filter(
+            school=school,
+            is_active=True
+        ).select_related('school').prefetch_related('categories').order_by('name')
+
+        context['products'] = products
+
+        return context
+
+
+class WholesaleCategoryListView(ListView):
+    """
+    List all wholesale categories with filtering
+    """
+    model = WholesaleCategory
+    template_name = 'clubs/wholesale/category_list.html'
+    context_object_name = 'categories'
+    paginate_by = 24
+
+    def get_queryset(self):
+        queryset = WholesaleCategory.objects.filter(is_active=True).prefetch_related('subcategories')
+
+        # Search functionality
+        search_query = self.request.GET.get('search')
+        if search_query:
+            queryset = queryset.filter(
+                Q(name__icontains=search_query) |
+                Q(description__icontains=search_query)
+            )
+
+        # Filter by level
+        level = self.request.GET.get('level')
+        if level is not None and level.isdigit():
+            queryset = queryset.filter(level=int(level))
+
+        # Filter by minimum products
+        min_products = self.request.GET.get('min_products')
+        if min_products and min_products.isdigit():
+            queryset = queryset.filter(product_count__gte=int(min_products))
+
+        return queryset.order_by('level', 'name')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['total_categories'] = WholesaleCategory.objects.filter(is_active=True).count()
+        return context
+
+
+class WholesaleCategoryDetailView(DetailView):
+    """
+    Detailed view of a wholesale category with products
+    """
+    model = WholesaleCategory
+    template_name = 'clubs/wholesale/category_detail.html'
+    context_object_name = 'category'
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
+
+    def get_queryset(self):
+        return WholesaleCategory.objects.filter(is_active=True)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        category = self.get_object()
+
+        # Get subcategories
+        context['subcategories'] = category.subcategories.filter(is_active=True).order_by('name')
+
+        # Get products in this category
+        products = WholesaleProduct.objects.filter(
+            categories=category,
+            is_active=True
+        ).select_related('school').prefetch_related('variations').order_by('name')
+
+        context['products'] = products
+
+        # Stock statistics
+        context['in_stock_products'] = products.filter(stock_status='in_stock').count()
+        context['out_of_stock_products'] = products.filter(stock_status='out_of_stock').count()
+
+        return context
+
+
+class WholesaleProductDetailView(DetailView):
+    """
+    Detailed view of a wholesale product with variations
+    """
+    model = WholesaleProduct
+    template_name = 'clubs/wholesale/product_detail.html'
+    context_object_name = 'product'
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
+
+    def get_queryset(self):
+        return WholesaleProduct.objects.filter(is_active=True).select_related('school')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        product = self.get_object()
+
+        # Get product variations
+        context['variations'] = product.variations.filter(is_active=True).order_by('variation_type', 'variation_value')
+
+        return context
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def wholesale_sync_execute(request):
+    """
+    Execute wholesale data sync from CIN7
+    """
+    try:
+        # Check if there's already a sync running
+        running_sync = WholesaleSyncJob.objects.filter(status='running').first()
+        if running_sync:
+            return JsonResponse({
+                'success': False,
+                'error': 'A sync is already running',
+                'job_id': str(running_sync.id)
+            })
+
+        # Create new sync job
+        sync_job = WholesaleSyncJob.objects.create(
+            status='pending',
+            current_step='Initializing sync...'
+        )
+
+        # Start sync in background thread
+        def run_sync():
+            try:
+                from .services.cin7_service import CIN7Service
+                from django.db import transaction
+                from django.utils.text import slugify
+
+                sync_job.status = 'running'
+                sync_job.started_at = timezone.now()
+                sync_job.save()
+
+                # Initialize CIN7 service
+                sync_job.current_step = 'Connecting to CIN7 API...'
+                sync_job.progress_percentage = 5
+                sync_job.save()
+
+                cin7_service = CIN7Service()
+
+                # Test connection
+                if not cin7_service.test_connection():
+                    raise Exception("Failed to connect to CIN7 API")
+
+                sync_job.current_step = 'Fetching wholesale products from CIN7...'
+                sync_job.progress_percentage = 15
+                sync_job.save()
+
+                # Get all wholesale products
+                all_products = cin7_service.get_all_wholesale_products()
+                if not all_products:
+                    raise Exception("No wholesale products found in CIN7")
+
+                sync_job.current_step = f'Processing {len(all_products)} products...'
+                sync_job.progress_percentage = 30
+                sync_job.save()
+
+                # Organize products by school
+                schools_data = cin7_service.organize_products_by_school(all_products)
+
+                sync_job.current_step = f'Creating/updating {len(schools_data)} schools...'
+                sync_job.progress_percentage = 50
+                sync_job.save()
+
+                # Process each school and its products
+                schools_created = 0
+                schools_updated = 0
+                products_created = 0
+                products_updated = 0
+                categories_created = 0
+                categories_updated = 0
+
+                for school_name, school_data in schools_data.items():
+                    with transaction.atomic():
+                        # Create or update school
+                        school_info = school_data['info']
+                        school, created = WholesaleSchool.objects.get_or_create(
+                            name=school_name,
+                            defaults={
+                                'slug': slugify(school_name),
+                                'school_code': school_info.get('code', ''),
+                                'description': school_info.get('description', ''),
+                                'cin7_brand': school_info.get('brand', ''),
+                                'cin7_category_path': school_info.get('category_path', ''),
+                                'is_active': True,
+                                'last_synced_at': timezone.now()
+                            }
+                        )
+
+                        if created:
+                            schools_created += 1
+                        else:
+                            schools_updated += 1
+                            school.last_synced_at = timezone.now()
+                            school.save()
+
+                        # Process products for this school
+                        for product_data in school_data['products']:
+                            product, created = WholesaleProduct.objects.get_or_create(
+                                cin7_id=product_data['cin7_id'],
+                                defaults={
+                                    'school': school,
+                                    'name': product_data['name'],
+                                    'slug': slugify(f"{product_data['name']}-{product_data['cin7_sku']}"),
+                                    'description': product_data['description'],
+                                    'short_description': product_data['short_description'],
+                                    'cin7_sku': product_data['cin7_sku'],
+                                    'cin7_barcode': product_data['cin7_barcode'],
+                                    'cin7_brand': product_data['cin7_brand'],
+                                    'cin7_supplier': product_data['cin7_supplier'],
+                                    'cin7_unit_of_measure': product_data['cin7_unit_of_measure'],
+                                    'wholesale_price': product_data['wholesale_price'],
+                                    'retail_price': product_data['retail_price'],
+                                    'cost_price': product_data['cost_price'],
+                                    'stock_status': product_data['stock_status'],
+                                    'quantity_available': product_data['quantity_available'],
+                                    'quantity_on_hand': product_data['quantity_on_hand'],
+                                    'quantity_committed': product_data['quantity_committed'],
+                                    'weight': product_data['weight'],
+                                    'dimensions': product_data['dimensions'],
+                                    'attributes': product_data['attributes'],
+                                    'image_url': product_data['image_url'],
+                                    'is_active': True,
+                                    'last_synced_at': timezone.now()
+                                }
+                            )
+
+                            if created:
+                                products_created += 1
+                            else:
+                                products_updated += 1
+                                # Update existing product
+                                for field, value in {
+                                    'name': product_data['name'],
+                                    'description': product_data['description'],
+                                    'short_description': product_data['short_description'],
+                                    'cin7_sku': product_data['cin7_sku'],
+                                    'cin7_barcode': product_data['cin7_barcode'],
+                                    'cin7_brand': product_data['cin7_brand'],
+                                    'cin7_supplier': product_data['cin7_supplier'],
+                                    'cin7_unit_of_measure': product_data['cin7_unit_of_measure'],
+                                    'wholesale_price': product_data['wholesale_price'],
+                                    'retail_price': product_data['retail_price'],
+                                    'cost_price': product_data['cost_price'],
+                                    'stock_status': product_data['stock_status'],
+                                    'quantity_available': product_data['quantity_available'],
+                                    'quantity_on_hand': product_data['quantity_on_hand'],
+                                    'quantity_committed': product_data['quantity_committed'],
+                                    'weight': product_data['weight'],
+                                    'dimensions': product_data['dimensions'],
+                                    'attributes': product_data['attributes'],
+                                    'image_url': product_data['image_url'],
+                                    'last_synced_at': timezone.now()
+                                }.items():
+                                    setattr(product, field, value)
+                                product.save()
+
+                sync_job.current_step = 'Creating product categories...'
+                sync_job.progress_percentage = 80
+                sync_job.save()
+
+                # Get categories from CIN7
+                categories_data = cin7_service.get_product_categories()
+                if categories_data:
+                    for category_data in categories_data:
+                        # Only process wholesale school categories
+                        if 'Wholesale Schools' in category_data.get('CategoryPath', ''):
+                            category, created = WholesaleCategory.objects.get_or_create(
+                                cin7_id=str(category_data.get('CategoryId', '')),
+                                defaults={
+                                    'name': category_data.get('CategoryName', ''),
+                                    'slug': slugify(category_data.get('CategoryName', '')),
+                                    'description': category_data.get('CategoryDescription', ''),
+                                    'path': category_data.get('CategoryPath', ''),
+                                    'is_active': True,
+                                    'last_synced_at': timezone.now()
+                                }
+                            )
+
+                            if created:
+                                categories_created += 1
+                            else:
+                                categories_updated += 1
+
+                sync_job.current_step = 'Finalizing sync...'
+                sync_job.progress_percentage = 95
+                sync_job.save()
+
+                # Update school statistics
+                for school in WholesaleSchool.objects.filter(is_active=True):
+                    school.total_products = WholesaleProduct.objects.filter(
+                        school=school, is_active=True
+                    ).count()
+                    school.active_categories = WholesaleCategory.objects.filter(
+                        products__school=school, is_active=True
+                    ).distinct().count()
+                    school.save(update_fields=['total_products', 'active_categories'])
+
+                # Complete sync
+                sync_job.status = 'completed'
+                sync_job.progress_percentage = 100
+                sync_job.current_step = 'Sync completed successfully'
+                sync_job.completed_at = timezone.now()
+
+                # Update statistics with real numbers
+                sync_job.schools_created = schools_created
+                sync_job.schools_updated = schools_updated
+                sync_job.products_created = products_created
+                sync_job.products_updated = products_updated
+                sync_job.categories_created = categories_created
+                sync_job.categories_updated = categories_updated
+
+                sync_job.save()
+
+            except Exception as e:
+                logger.error(f"Wholesale sync failed: {str(e)}")
+                sync_job.status = 'failed'
+                sync_job.current_step = f'Sync failed: {str(e)}'
+                sync_job.completed_at = timezone.now()
+                sync_job.errors_count = 1
+                sync_job.error_messages = [str(e)]
+                sync_job.save()
+
+        # Start sync thread
+        sync_thread = threading.Thread(target=run_sync)
+        sync_thread.daemon = True
+        sync_thread.start()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Sync started successfully',
+            'job_id': str(sync_job.id)
+        })
+
+    except Exception as e:
+        logger.error(f"Error starting wholesale sync: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Failed to start sync',
+            'message': str(e)
+        }, status=500)
+
+
+@require_http_methods(["GET"])
+def wholesale_sync_status(request):
+    """
+    Get current wholesale sync status
+    """
+    try:
+        # Get the most recent sync job
+        sync_job = WholesaleSyncJob.objects.filter(
+            status__in=['running', 'pending']
+        ).order_by('-created_at').first()
+
+        if not sync_job:
+            # No running sync, get the last completed one for status
+            last_sync = WholesaleSyncJob.objects.filter(
+                status__in=['completed', 'failed']
+            ).order_by('-created_at').first()
+
+            if last_sync:
+                return JsonResponse({
+                    'status': last_sync.status,
+                    'progress': 100 if last_sync.status == 'completed' else 0,
+                    'current_step': last_sync.current_step,
+                    'job_id': str(last_sync.id)
+                })
+            else:
+                return JsonResponse({
+                    'status': 'none',
+                    'progress': 0,
+                    'current_step': 'No sync jobs found'
+                })
+
+        return JsonResponse({
+            'status': sync_job.status,
+            'progress': sync_job.progress_percentage,
+            'current_step': sync_job.current_step,
+            'job_id': str(sync_job.id),
+            'started_at': sync_job.started_at.isoformat() if sync_job.started_at else None
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting wholesale sync status: {str(e)}")
+        return JsonResponse({
+            'status': 'error',
+            'progress': 0,
+            'current_step': f'Error: {str(e)}'
+        }, status=500)
+
+
+# ============================================
+# WHOLESALE AJAX ENDPOINTS
+# ============================================
+
+@require_http_methods(["GET"])
+def wholesale_school_search_ajax(request):
+    """
+    AJAX endpoint for wholesale school search
+    """
+    try:
+        query = request.GET.get('q', '').strip()
+        if len(query) < 2:
+            return JsonResponse({'schools': []})
+
+        schools = WholesaleSchool.objects.filter(
+            Q(name__icontains=query) |
+            Q(school_code__icontains=query) |
+            Q(contact_person__icontains=query) |
+            Q(email__icontains=query) |
+            Q(city__icontains=query),
+            is_active=True
+        ).order_by('name')[:20]
+
+        results = []
+        for school in schools:
+            results.append({
+                'id': school.id,
+                'name': school.name,
+                'school_code': school.school_code,
+                'contact_person': school.contact_person,
+                'email': school.email,
+                'city': school.city,
+                'total_products': school.total_products,
+                'url': school.get_absolute_url()
+            })
+
+        return JsonResponse({'schools': results})
+
+    except Exception as e:
+        logger.error(f"Error in wholesale school search: {str(e)}")
+        return JsonResponse({'error': 'Search failed'}, status=500)
+
+
+@require_http_methods(["GET"])
+def wholesale_product_search_ajax(request):
+    """
+    AJAX endpoint for wholesale product search
+    """
+    try:
+        query = request.GET.get('q', '').strip()
+        school_id = request.GET.get('school_id')
+
+        if len(query) < 2:
+            return JsonResponse({'products': []})
+
+        # Base queryset
+        products = WholesaleProduct.objects.filter(
+            Q(name__icontains=query) |
+            Q(description__icontains=query) |
+            Q(cin7_sku__icontains=query) |
+            Q(cin7_barcode__icontains=query),
+            is_active=True
+        ).select_related('school')
+
+        # Filter by school if provided
+        if school_id:
+            try:
+                products = products.filter(school_id=int(school_id))
+            except (ValueError, TypeError):
+                pass
+
+        products = products.order_by('name')[:20]
+
+        results = []
+        for product in products:
+            results.append({
+                'id': product.id,
+                'name': product.name,
+                'school_name': product.school.name,
+                'cin7_sku': product.cin7_sku,
+                'wholesale_price': str(product.wholesale_price) if product.wholesale_price else None,
+                'retail_price': str(product.retail_price) if product.retail_price else None,
+                'stock_status': product.stock_status,
+                'quantity_available': product.quantity_available,
+                'is_in_stock': product.is_in_stock,
+                'image_url': product.image_url,
+                'slug': product.slug
+            })
+
+        return JsonResponse({'products': results})
+
+    except Exception as e:
+        logger.error(f"Error in wholesale product search: {str(e)}")
+        return JsonResponse({'error': 'Search failed'}, status=500)
