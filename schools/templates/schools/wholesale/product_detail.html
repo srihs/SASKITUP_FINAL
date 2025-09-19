@@ -1,0 +1,397 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="wholesale-product-page">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+                <h4 class="mb-sm-0">{{ product.name }}</h4>
+                <div class="page-title-right">
+                    <ol class="breadcrumb m-0">
+                        <li class="breadcrumb-item"><a href="{% url 'schools:wholesale_schools' %}">Wholesale</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'schools:wholesale_school_detail' product.school.slug %}">{{ product.school.name }}</a></li>
+                        <li class="breadcrumb-item active">{{ product.name }}</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Detail Content -->
+    <div class="row g-4">
+        <!-- Left Column - Product Image and Stock Info -->
+        <div class="col-lg-6">
+            <!-- Product Image -->
+            <div class="product-image-container">
+                {% if product.image_url %}
+                    <img src="{{ product.image_url }}" alt="{{ product.name }}" class="product-image">
+                {% else %}
+                    <div class="product-image-placeholder">
+                        <i class="uil-image-broken"></i>
+                        <p>No image available</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Size Availability Section -->
+            {% if variations %}
+            <div class="size-availability-section mt-4">
+                <h6 class="mb-3">Size Availability</h6>
+                <div class="size-stock-tiles">
+                    {% regroup variations by variation_type as variation_groups %}
+                    {% for group in variation_groups %}
+                        {% if group.grouper == 'size' %}
+                            {% for variation in group.list %}
+                            <div class="stock-tile">
+                                <div class="size-label">{{ variation.variation_value }}</div>
+                                <div class="stock-quantity">{{ variation.quantity_available|default:0 }} available</div>
+                            </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Stock Status -->
+            <div class="stock-status mt-4">
+                <div class="d-flex align-items-center">
+                    {% if product.quantity_available > 0 %}
+                        <i class="uil-check-circle text-success me-2"></i>
+                        <span class="text-success fw-bold">AVAILABLE In Stock</span>
+                    {% else %}
+                        <i class="uil-times-circle text-danger me-2"></i>
+                        <span class="text-danger fw-bold">OUT OF STOCK</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Product Information -->
+        <div class="col-lg-6">
+            <!-- School/Brand Header -->
+            <div class="school-header mb-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center">
+                        {% if product.school.logo %}
+                            <img src="{{ product.school.logo }}" alt="{{ product.school.name }}" class="school-logo me-3">
+                        {% endif %}
+                        <div>
+                            <div class="school-name">{{ product.school.name }}</div>
+                            <div class="school-category text-muted">Wholesale Products</div>
+                        </div>
+                    </div>
+                    <span class="badge bg-primary">WHOLESALE</span>
+                </div>
+            </div>
+
+            <!-- Product Title -->
+            <h1 class="product-title">{{ product.name|upper }}</h1>
+
+            <!-- Price -->
+            <div class="product-price mb-4">
+                {% if product.wholesale_price %}
+                    <span class="price-amount">${{ product.wholesale_price|floatformat:2 }}</span>
+                {% else %}
+                    <span class="price-contact">Contact for Pricing</span>
+                {% endif %}
+            </div>
+
+            <!-- Available Colors -->
+            {% if variations %}
+            <div class="product-options mb-4">
+                {% regroup variations by variation_type as variation_groups %}
+                {% for group in variation_groups %}
+                    {% if group.grouper == 'color' %}
+                    <div class="option-group mb-3">
+                        <label class="option-label">Available Colors</label>
+                        <div class="color-options">
+                            {% for variation in group.list %}
+                            <div class="color-option">{{ variation.variation_value }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+
+                <!-- Select Size -->
+                {% for group in variation_groups %}
+                    {% if group.grouper == 'size' %}
+                    <div class="option-group mb-3">
+                        <label class="option-label">Select Size</label>
+                        <div class="size-selection">
+                            <label class="size-label-text">Size:</label>
+                            <div class="size-buttons">
+                                {% for variation in group.list %}
+                                <button type="button" class="size-btn" data-size="{{ variation.variation_value }}">
+                                    {{ variation.variation_value }}
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- SKU -->
+            {% if product.sku %}
+            <div class="product-sku">
+                <span class="text-muted">SKU: </span>
+                <span class="fw-bold">{{ product.sku }}</span>
+            </div>
+            {% endif %}
+
+            <!-- Product Description -->
+            {% if product.description %}
+            <div class="product-description mt-4">
+                <h6>Description</h6>
+                <p class="text-muted">{{ product.description|striptags }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+/* Product Detail Page Styles */
+.wholesale-product-page {
+    padding: 2rem 0;
+}
+
+/* Left Column - Image */
+.product-image-container {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    border: 1px solid #e9ecef;
+}
+
+.product-image {
+    max-width: 100%;
+    max-height: 400px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+.product-image-placeholder {
+    height: 400px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+}
+
+.product-image-placeholder i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+/* Size Availability */
+.size-availability-section h6 {
+    color: #495057;
+    font-weight: 600;
+}
+
+.size-stock-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 1rem;
+}
+
+.stock-tile {
+    background: #c85a7a;
+    color: white;
+    padding: 1rem;
+    border-radius: 8px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.stock-tile:hover {
+    background: #b64968;
+    transform: translateY(-2px);
+}
+
+.stock-tile .size-label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.stock-tile .stock-quantity {
+    font-size: 0.9rem;
+}
+
+/* Stock Status */
+.stock-status {
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #28a745;
+}
+
+/* Right Column - Product Info */
+.school-header {
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.school-logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.school-name {
+    font-weight: 600;
+    color: #c85a7a;
+}
+
+.school-category {
+    font-size: 0.9rem;
+}
+
+.product-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #495057;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+}
+
+.product-price {
+    margin-bottom: 2rem;
+}
+
+.price-amount {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #c85a7a;
+}
+
+.price-contact {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #6c757d;
+}
+
+/* Product Options */
+.option-label {
+    display: block;
+    font-weight: 600;
+    color: #c85a7a;
+    margin-bottom: 0.5rem;
+}
+
+.color-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.color-option {
+    padding: 0.5rem 1rem;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.size-selection .size-label-text {
+    font-weight: 600;
+    color: #c85a7a;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.size-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.size-btn {
+    padding: 0.75rem 1rem;
+    border: 2px solid #c85a7a;
+    background: white;
+    color: #c85a7a;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.size-btn:hover,
+.size-btn.active {
+    background: #c85a7a;
+    color: white;
+}
+
+.product-sku {
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+.product-description h6 {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+/* Responsive Design */
+@media (max-width: 992px) {
+    .product-title {
+        font-size: 1.5rem;
+    }
+
+    .price-amount {
+        font-size: 1.5rem;
+    }
+
+    .size-stock-tiles {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    }
+}
+
+@media (max-width: 576px) {
+    .wholesale-product-page {
+        padding: 1rem 0;
+    }
+
+    .product-image-container {
+        padding: 1rem;
+    }
+
+    .product-image {
+        max-height: 300px;
+    }
+
+    .size-buttons {
+        justify-content: center;
+    }
+}
+</style>
+
+<script>
+// Size selection functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const sizeButtons = document.querySelectorAll('.size-btn');
+
+    sizeButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Remove active class from all buttons
+            sizeButtons.forEach(btn => btn.classList.remove('active'));
+
+            // Add active class to clicked button
+            this.classList.add('active');
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -47,6 +47,11 @@ urlpatterns = [
     # Wholesale Schools URLs - Main entry point
     path('wholesale/', views.WholesaleSchoolsView.as_view(), name='wholesale_schools'),
 
+    # Wholesale school detail and related pages
+    path('wholesale/school/<slug:slug>/', views.WholesaleSchoolDetailView.as_view(), name='wholesale_school_detail'),
+    path('wholesale/category/<slug:slug>/', views.WholesaleCategoryDetailView.as_view(), name='wholesale_category_detail'),
+    path('wholesale/product/<slug:slug>/', views.WholesaleProductDetailView.as_view(), name='wholesale_product_detail'),
+
     # Wholesale sync endpoints
     path('wholesale/sync/execute/', views.wholesale_sync_execute, name='wholesale-sync-execute'),
     path('wholesale/sync/status/', views.wholesale_sync_status, name='wholesale-sync-status'),

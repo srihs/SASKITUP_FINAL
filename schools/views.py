@@ -419,13 +419,12 @@ class TUSSchoolDetailView(DetailView):
         paginator = Paginator(products_queryset, 12)
         page = self.request.GET.get('page')
         context['products'] = paginator.get_page(page)
-        context['categories'] = categories
+        # Filter out "General" categories from display
+        filtered_categories = [cat for cat in categories if cat.name.lower() != 'general']
+        context['categories'] = filtered_categories
 
-        # Get similar schools (same location)
-        context['similar_schools'] = TUSSchool.objects.filter(
-            location=school.location,
-            is_active=True
-        ).exclude(id=school.id).order_by('name')[:5]
+        # Remove similar schools section - not needed
+        # context['similar_schools'] = []
 
         return context
 
@@ -1058,3 +1057,126 @@ def wholesale_sync_status(request):
             'error': f'Failed to get wholesale sync status: {str(e)}',
             'error_code': 'WHOLESALE_SYNC_STATUS_FAILED'
         }, status=500)
+
+
+# Wholesale School Detail Views
+
+class WholesaleSchoolDetailView(DetailView):
+    """
+    Detailed view of a wholesale school with categories and products
+    """
+    model = None  # Will be set in get_queryset
+    template_name = 'schools/wholesale/school_detail.html'
+    context_object_name = 'school'
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
+
+    def get_queryset(self):
+        from clubs.models_wholesale import WholesaleSchool
+        self.model = WholesaleSchool
+        return WholesaleSchool.objects.filter(is_active=True)
+
+    def get_context_data(self, **kwargs):
+        from clubs.models_wholesale import WholesaleCategory, WholesaleProduct
+        context = super().get_context_data(**kwargs)
+        school = self.get_object()
+
+        # Get categories for this school through products
+        categories_with_products = WholesaleCategory.objects.filter(
+            products__school=school,
+            is_active=True
+        ).distinct().order_by('name')
+
+        context['categories'] = categories_with_products
+
+        # Get products for this school
+        products = WholesaleProduct.objects.filter(
+            school=school,
+            is_active=True
+        ).select_related('school').prefetch_related('categories').order_by('name')
+
+        context['products'] = products
+
+        return context
+
+
+class WholesaleCategoryDetailView(DetailView):
+    """
+    Detailed view of a wholesale category with products
+    """
+    model = None  # Will be set in get_queryset
+    template_name = 'schools/wholesale/category_detail.html'
+    context_object_name = 'category'
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
+
+    def get_queryset(self):
+        from clubs.models_wholesale import WholesaleCategory
+        self.model = WholesaleCategory
+        return WholesaleCategory.objects.filter(is_active=True)
+
+    def get_context_data(self, **kwargs):
+        from clubs.models_wholesale import WholesaleProduct
+        context = super().get_context_data(**kwargs)
+        category = self.get_object()
+
+        # Get subcategories
+        context['subcategories'] = category.subcategories.filter(is_active=True).order_by('name')
+
+        # Get products in this category
+        products = WholesaleProduct.objects.filter(
+            categories=category,
+            is_active=True
+        ).select_related('school').prefetch_related('variations').order_by('name')
+
+        context['products'] = products
+
+        # Get the school from the first product in this category
+        # Since products belong to schools, we can get the school this way
+        first_product = products.first()
+        if first_product:
+            context['school'] = first_product.school
+        else:
+            context['school'] = None
+
+        # Stock statistics
+        context['in_stock_products'] = products.filter(stock_status='in_stock').count()
+        context['out_of_stock_products'] = products.filter(stock_status='out_of_stock').count()
+
+        # Total quantity statistics
+        from django.db.models import Sum
+        total_stats = products.aggregate(
+            total_available=Sum('quantity_available'),
+            total_on_hand=Sum('quantity_on_hand'),
+            total_committed=Sum('quantity_committed')
+        )
+        context['total_available'] = total_stats['total_available'] or 0
+        context['total_on_hand'] = total_stats['total_on_hand'] or 0
+        context['total_committed'] = total_stats['total_committed'] or 0
+
+        return context
+
+
+class WholesaleProductDetailView(DetailView):
+    """
+    Detailed view of a wholesale product with variations
+    """
+    model = None  # Will be set in get_queryset
+    template_name = 'schools/wholesale/product_detail.html'
+    context_object_name = 'product'
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
+
+    def get_queryset(self):
+        from clubs.models_wholesale import WholesaleProduct
+        self.model = WholesaleProduct
+        return WholesaleProduct.objects.filter(is_active=True).select_related('school')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        product = self.get_object()
+
+        # Get product variations
+        context['variations'] = product.variations.filter(is_active=True).order_by('variation_type', 'variation_value')
+
+        return context

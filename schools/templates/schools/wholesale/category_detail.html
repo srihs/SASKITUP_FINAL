@@ -1,0 +1,455 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="wholesale-category-page">
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0">{{ category.name }}</h4>
+
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'schools:wholesale_schools' %}">Wholesale</a></li>
+                    {% if school %}
+                    <li class="breadcrumb-item"><a href="{% url 'schools:wholesale_school_detail' school.slug %}">{{ school.name }}</a></li>
+                    {% endif %}
+                    <li class="breadcrumb-item active">{{ category.name }}</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<!-- Category Header -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-md me-4">
+                        {% if category.image_url %}
+                        <img src="{{ category.image_url }}" alt="{{ category.name }}" class="avatar-md rounded">
+                        {% else %}
+                        <span class="avatar-title rounded bg-soft-primary text-primary font-size-20">
+                            <i class="uil-folder-open"></i>
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="flex-grow-1">
+                        <h4 class="mb-1">{{ category.name }}</h4>
+                        <p class="text-muted mb-2">
+                            {% if school %}
+                            <a href="{% url 'schools:wholesale_school_detail' school.slug %}" class="text-primary">{{ school.name }}</a>
+                            {% endif %}
+                            <span class="badge bg-primary font-size-11 ms-2">WHOLESALE</span>
+                        </p>
+                        {% if category.description %}
+                        <p class="text-muted mb-0">{{ category.description }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-soft-primary">
+                                <i class="uil-edit-alt me-1"></i> Edit Category
+                            </button>
+                            {% if school %}
+                            <a href="{% url 'schools:wholesale_school_detail' school.slug %}" class="btn btn-soft-secondary">
+                                <i class="uil-arrow-left me-1"></i> Back to School
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Category Stats -->
+<div class="row">
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-primary text-primary rounded-3">
+                            <i class="uil-shopping-bag font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Total Products</p>
+                        <h4 class="mb-0">{{ products.count }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-success text-success rounded-3">
+                            <i class="uil-check-circle font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Available Qty</p>
+                        <h4 class="mb-0">{{ total_available|default:0 }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-info text-info rounded-3">
+                            <i class="uil-dollar-sign font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Avg Price</p>
+                        <h4 class="mb-0">
+                            {% if products.exists %}
+                                ${{ products.0.wholesale_price|default:"TBD" }}
+                            {% else %}
+                                $0
+                            {% endif %}
+                        </h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-warning text-warning rounded-3">
+                            <i class="uil-cube font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">On Hand Qty</p>
+                        <h4 class="mb-0">{{ total_on_hand|default:0 }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Products Grid -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">Products in {{ category.name }}</h4>
+                <div class="flex-shrink-0">
+                    <div class="d-flex gap-2">
+                        <div class="dropdown">
+                            <button type="button" class="btn btn-sm btn-soft-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="uil-sort me-1"></i> Sort
+                            </button>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" href="#">Name (A-Z)</a>
+                                <a class="dropdown-item" href="#">Name (Z-A)</a>
+                                <a class="dropdown-item" href="#">Price (Low to High)</a>
+                                <a class="dropdown-item" href="#">Price (High to Low)</a>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-soft-primary">
+                            <i class="uil-plus me-1"></i> Add Product
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if products %}
+                <div class="row g-3">
+                    {% for product in products %}
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <div class="card product-card h-100">
+                            <div class="position-relative">
+                                {% if product.image_url %}
+                                <img src="{{ product.image_url }}" alt="{{ product.name }}" class="card-img-top product-image">
+                                {% else %}
+                                <div class="card-img-top bg-light d-flex align-items-center justify-content-center product-image">
+                                    <i class="uil-shopping-bag font-size-48 text-muted"></i>
+                                </div>
+                                {% endif %}
+
+                                <!-- Stock status badge with quantity -->
+                                <span class="badge position-absolute top-0 end-0 m-2
+                                    {% if product.stock_status == 'in_stock' and product.quantity_available > 0 %}bg-success
+                                    {% elif product.stock_status == 'in_stock' and product.quantity_available <= 10 %}bg-warning
+                                    {% elif product.stock_status == 'out_of_stock' or product.quantity_available == 0 %}bg-danger
+                                    {% else %}bg-secondary{% endif %}">
+                                    {% if product.quantity_available > 0 %}
+                                        {{ product.quantity_available }} Available
+                                    {% elif product.stock_status == 'on_order' %}
+                                        On Order
+                                    {% else %}
+                                        Out of Stock
+                                    {% endif %}
+                                </span>
+
+                                <!-- Variable product indicator -->
+                                {% if product.variations.exists %}
+                                <span class="badge bg-info position-absolute" style="bottom: 5px; left: 5px;">
+                                    <i class="uil-layers font-size-10 me-1"></i>Variable
+                                </span>
+                                {% endif %}
+                            </div>
+
+                            <div class="card-body">
+                                <h5 class="card-title font-size-15 mb-1">
+                                    <a href="{% url 'schools:wholesale_product_detail' product.slug %}" class="text-dark">{{ product.name|truncatechars:40 }}</a>
+                                </h5>
+
+                                {% if product.description %}
+                                <p class="text-muted font-size-13 mb-2">{{ product.description|striptags|truncatechars:60 }}</p>
+                                {% endif %}
+
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        {% if product.variations.exists %}
+                                        <!-- Variable product price range -->
+                                        <h5 class="mb-0 text-dark">Contact for Pricing</h5>
+                                        <small class="text-muted">Variable pricing</small>
+                                        {% elif product.wholesale_price %}
+                                        <!-- Wholesale price -->
+                                        <h5 class="mb-0 text-dark">${{ product.wholesale_price|floatformat:2 }}</h5>
+                                        <small class="text-muted">Wholesale price</small>
+                                        {% else %}
+                                        <!-- No price set -->
+                                        <h5 class="mb-0 text-muted">Price on Request</h5>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="text-end">
+                                        {% if product.sku %}
+                                        <small class="text-muted d-block">SKU: {{ product.sku|truncatechars:8 }}</small>
+                                        {% endif %}
+                                        <!-- Stock quantity info -->
+                                        <small class="text-muted d-block">
+                                            <i class="uil-cube font-size-12 me-1"></i>
+                                            {% if product.quantity_available > 0 %}
+                                                <span class="text-success">{{ product.quantity_available }} units</span>
+                                            {% else %}
+                                                <span class="text-danger">0 units</span>
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <!-- Variation information -->
+                                {% if product.variations.exists %}
+                                <div class="mt-2">
+                                    <!-- Available variation types -->
+                                    {% regroup product.variations.all by variation_type as variation_groups %}
+                                    {% for group in variation_groups %}
+                                    <div class="mb-1">
+                                        <small class="text-muted d-block">{{ group.grouper|title }}:</small>
+                                        {% for variation in group.list|slice:":3" %}
+                                        <span class="badge bg-soft-info text-info font-size-11 me-1">{{ variation.variation_value }}</span>
+                                        {% endfor %}
+                                        {% if group.list|length > 3 %}
+                                        <span class="badge bg-soft-secondary text-secondary font-size-11">+{{ group.list|length|add:"-3" }} more</span>
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
+
+                                    <!-- Total variations count -->
+                                    <div class="mt-1">
+                                        <small class="text-muted">
+                                            <i class="uil-layers font-size-12 me-1"></i>
+                                            {{ product.variations.count }} variation{{ product.variations.count|pluralize }}
+                                        </small>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Detailed Stock Information -->
+                                <div class="mt-2">
+                                    <div class="row g-2">
+                                        <div class="col-4">
+                                            <div class="text-center p-2 bg-light rounded">
+                                                <small class="text-muted d-block">Available</small>
+                                                <strong class="text-success">{{ product.quantity_available|default:0 }}</strong>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-center p-2 bg-light rounded">
+                                                <small class="text-muted d-block">On Hand</small>
+                                                <strong class="text-info">{{ product.quantity_on_hand|default:0 }}</strong>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-center p-2 bg-light rounded">
+                                                <small class="text-muted d-block">Committed</small>
+                                                <strong class="text-warning">{{ product.quantity_committed|default:0 }}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Product categories -->
+                                {% if product.categories.count > 1 %}
+                                <div class="mt-2">
+                                    {% for cat in product.categories.all|slice:":2" %}
+                                    {% if cat != category %}
+                                    <span class="badge bg-soft-primary text-primary font-size-11 me-1">{{ cat.name }}</span>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="card-footer bg-transparent border-top">
+                                <div class="d-flex gap-2">
+                                    <a href="{% url 'schools:wholesale_product_detail' product.slug %}" class="btn btn-soft-primary btn-sm flex-grow-1">
+                                        <i class="uil-eye me-1"></i> View Details
+                                    </a>
+                                    <button type="button" class="btn btn-soft-secondary btn-sm" data-bs-toggle="tooltip" title="Edit Product">
+                                        <i class="uil-edit-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <div class="avatar-xl mx-auto mb-4">
+                        <div class="avatar-title bg-soft-secondary text-secondary rounded-circle font-size-48">
+                            <i class="uil-shopping-bag"></i>
+                        </div>
+                    </div>
+                    <h5>No Products Found</h5>
+                    <p class="text-muted">This category doesn't have any products yet.</p>
+                    <button type="button" class="btn btn-soft-primary">
+                        <i class="uil-plus me-1"></i> Add First Product
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.avatar-md {
+    width: 64px;
+    height: 64px;
+}
+
+.avatar-md img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.product-card {
+    transition: all 0.3s ease;
+    border: 1px solid #f1f1f1;
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    border-color: #ddd;
+}
+
+.product-image {
+    height: auto;
+    width: auto;
+    max-width: 100%;
+    max-height: 250px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto;
+}
+
+.bg-soft-primary { background-color: rgba(85, 110, 230, 0.1); }
+.bg-soft-success { background-color: rgba(52, 195, 143, 0.1); }
+.bg-soft-info { background-color: rgba(58, 186, 244, 0.1); }
+.bg-soft-warning { background-color: rgba(247, 184, 75, 0.1); }
+.bg-soft-secondary { background-color: rgba(116, 120, 141, 0.1); }
+
+.text-decoration-line-through {
+    text-decoration: line-through;
+}
+
+/* Avatar and icon styles */
+.avatar-sm {
+    width: 40px;
+    height: 40px;
+}
+
+.avatar-xl {
+    width: 80px;
+    height: 80px;
+}
+
+.font-size-10 { font-size: 10px !important; }
+.font-size-11 { font-size: 11px !important; }
+.font-size-12 { font-size: 12px !important; }
+.font-size-13 { font-size: 13px !important; }
+.font-size-15 { font-size: 15px !important; }
+.font-size-18 { font-size: 18px !important; }
+.font-size-20 { font-size: 20px !important; }
+.font-size-48 { font-size: 48px !important; }
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card-title {
+        font-size: 14px !important;
+    }
+
+    .product-image {
+        max-height: 200px;
+    }
+
+    .avatar-md {
+        width: 48px;
+        height: 48px;
+    }
+}
+
+@media (max-width: 576px) {
+    .product-image {
+        max-height: 180px;
+    }
+
+    .d-flex.gap-2 {
+        flex-direction: column;
+        gap: 0.5rem !important;
+    }
+
+    .btn-sm {
+        font-size: 0.75rem;
+        padding: 0.375rem 0.75rem;
+    }
+}
+</style>
+
+<script>
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltips.map(function(tooltip) {
+        return new bootstrap.Tooltip(tooltip);
+    });
+});
+</script>
+</div> <!-- End wrapper -->
+{% endblock %}
