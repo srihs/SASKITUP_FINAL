@@ -1,17 +1,480 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% load static %}
 
-{% block extra_css %}
-<!-- DataTables CSS -->
-<link href="{% static 'assets/libs/datatables.net-bs4/css/dataTables.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
-<link href="{% static 'assets/libs/datatables.net-responsive-bs4/css/responsive.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
-{% endblock %}
+{% block title %}{{ school.name }} - Wholesale Schools{% endblock %}
 
 {% block content %}
+<div class="wholesale-school-page">
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0">{{ school.name }}</h4>
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'clubs:wholesale-school-list' %}">Wholesale Schools</a></li>
+                    <li class="breadcrumb-item active">{{ school.name }}</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<!-- School Header -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-lg me-4">
+                        {% if school.logo %}
+                        <img src="{{ school.logo.url }}" alt="{{ school.name }}" class="avatar-lg rounded">
+                        {% else %}
+                        <span class="avatar-title rounded bg-soft-primary text-primary font-size-24">
+                            {{ school.name|first }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="flex-grow-1">
+                        <h4 class="mb-1">{{ school.name }}</h4>
+                        <div class="mb-2">
+                            <span class="badge bg-primary font-size-12 me-2">Wholesale</span>
+                            <span class="badge bg-soft-success text-success font-size-12">
+                                <i class="uil-graduation-cap me-1"></i>{{ school.school_type|default:"School" }}
+                            </span>
+                        </div>
+                        <p class="text-muted mb-0">{{ school.region|default:"" }}{% if school.contact_person %} • Contact: {{ school.contact_person }}{% endif %}</p>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="dropdown">
+                            <button type="button" class="btn btn-soft-primary dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="uil-ellipsis-h me-1"></i> Actions
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end">
+                                <a class="dropdown-item" href="#">
+                                    <i class="uil-edit-alt me-1"></i> Edit School
+                                </a>
+                                <a class="dropdown-item" href="#" onclick="startWholesaleSync()">
+                                    <i class="uil-sync me-1"></i> Sync Products
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item" href="{% url 'clubs:wholesale-school-list' %}">
+                                    <i class="uil-arrow-left me-1"></i> Back to Schools
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if school.website or school.email or school.phone %}
+                <div class="mt-3 pt-3 border-top">
+                    <div class="row">
+                        {% if school.website %}
+                        <div class="col-md-4">
+                            <a href="{{ school.website }}" target="_blank" class="btn btn-soft-primary btn-sm">
+                                <i class="uil-external-link-alt me-1"></i> Visit Website
+                            </a>
+                        </div>
+                        {% endif %}
+                        {% if school.email %}
+                        <div class="col-md-4">
+                            <a href="mailto:{{ school.email }}" class="btn btn-soft-info btn-sm">
+                                <i class="uil-envelope me-1"></i> Email
+                            </a>
+                        </div>
+                        {% endif %}
+                        {% if school.phone %}
+                        <div class="col-md-4">
+                            <a href="tel:{{ school.phone }}" class="btn btn-soft-success btn-sm">
+                                <i class="uil-phone me-1"></i> Call
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- School Stats -->
+<div class="row">
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-primary text-primary rounded-3">
+                            <i class="uil-layers-alt font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Categories</p>
+                        <h4 class="mb-0">{{ school.active_categories|default:0 }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-success text-success rounded-3">
+                            <i class="uil-shopping-bag font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Products</p>
+                        <h4 class="mb-0">{{ school.total_products|default:0 }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-info text-info rounded-3">
+                            <i class="uil-map-marker font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Region</p>
+                        <h6 class="mb-0">{{ school.region|default:"N/A" }}</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-warning text-warning rounded-3">
+                            <i class="uil-star font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Type</p>
+                        <h6 class="mb-0">{{ school.school_type|default:"School" }}</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters and Search -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row g-3 filter-row">
+                    <div class="col-xl-5 col-lg-7 col-md-6">
+                        <label class="form-label d-md-none" for="searchInput">Search Products</label>
+                        <div class="search-box">
+                            <div class="position-relative">
+                                <input type="text" class="form-control" id="searchInput" name="search"
+                                       placeholder="Search products in {{ school.name }}..."
+                                       value="{{ request.GET.search|default:'' }}"
+                                       aria-label="Search products" autocomplete="off">
+                                <i class="uil-search search-icon" aria-hidden="true"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-4 col-lg-5 col-md-6">
+                        <label class="form-label d-md-none" for="categoryFilter">Category</label>
+                        <select class="form-select" id="categoryFilter" aria-label="Filter by category">
+                            <option value="">All Categories</option>
+                            {% for category in categories %}
+                            <option value="{{ category.slug }}" {% if request.GET.category == category.slug %}selected{% endif %}>
+                                {{ category.name }} ({{ category.product_count }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-xl-3 col-lg-12">
+                        <label class="form-label d-md-none">&nbsp;</label>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-primary flex-grow-1" onclick="applyFilters()">
+                                <i class="uil-filter me-1" aria-hidden="true"></i>
+                                <span>Filter</span>
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" onclick="clearFilters()">
+                                <i class="uil-refresh"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Categories or Products Overview -->
+{% if categories %}
+<!-- Show Categories when available -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">Product Categories</h4>
+                <div class="flex-shrink-0">
+                    <span class="badge bg-soft-primary text-primary">{{ categories|length }} Categories</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    {% for category in categories %}
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <div class="card border category-card h-100">
+                            <div class="card-body text-center p-4">
+                                <div class="avatar-lg mx-auto mb-3">
+                                    {% if category.products.first.image_url %}
+                                    <img src="{{ category.products.first.image_url }}" alt="{{ category.name }}" class="avatar-lg rounded" style="object-fit: cover;">
+                                    {% elif category.image_url %}
+                                    <img src="{{ category.image_url }}" alt="{{ category.name }}" class="avatar-lg rounded" style="object-fit: cover;">
+                                    {% else %}
+                                    <span class="avatar-title rounded bg-soft-primary text-primary font-size-24">
+                                        <i class="uil-tag"></i>
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <h6 class="mb-2">{{ category.name }}</h6>
+                                <p class="text-muted mb-3 font-size-13">{{ category.product_count }} products</p>
+                                <a href="{% url 'clubs:wholesale-category-detail' category.slug %}" class="btn btn-soft-primary btn-sm">
+                                    <i class="uil-eye me-1"></i> View Products
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% elif products %}
+<!-- Show Products directly when no categories -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">Featured Products</h4>
+                <div class="flex-shrink-0">
+                    <span class="badge bg-soft-success text-success">{{ products|length|default:products.count }} Products</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    {% for product in products|slice:":8" %}
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <div class="card border product-card h-100">
+                            <div class="card-body text-center p-4">
+                                <div class="avatar-lg mx-auto mb-3">
+                                    {% if product.image_url %}
+                                    <img src="{{ product.image_url }}" alt="{{ product.name }}" class="avatar-lg rounded" style="object-fit: cover;">
+                                    {% else %}
+                                    <span class="avatar-title rounded bg-soft-success text-success font-size-24">
+                                        <i class="uil-shopping-bag"></i>
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <h6 class="mb-2">{{ product.name|truncatewords:4 }}</h6>
+                                <p class="text-muted mb-2 font-size-13">
+                                    {% if product.wholesale_price %}
+                                        ${{ product.wholesale_price }}
+                                    {% else %}
+                                        Price not set
+                                    {% endif %}
+                                </p>
+                                <a href="{% url 'clubs:wholesale-product-detail' product.slug %}" class="btn btn-soft-success btn-sm">
+                                    <i class="uil-eye me-1"></i> View Details
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if products.count > 8 %}
+                <div class="text-center mt-3">
+                    <span class="text-muted">Showing 8 of {{ products.count }} products</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Products Grid -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">
+                    {% if request.GET.category %}
+                    {% with categories|first as selected_category %}
+                    Products in {{ selected_category.name }}
+                    {% endwith %}
+                    {% elif request.GET.search %}
+                    Search Results for "{{ request.GET.search }}"
+                    {% else %}
+                    Products
+                    {% endif %}
+                </h4>
+                <div class="flex-shrink-0">
+                    <div class="dropdown">
+                        <button type="button" class="btn btn-sm btn-soft-primary dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="uil-sort me-1"></i> Sort
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <a class="dropdown-item" href="#"><i class="uil-dollar-sign me-1"></i> Price: Low to High</a>
+                            <a class="dropdown-item" href="#"><i class="uil-dollar-sign me-1"></i> Price: High to Low</a>
+                            <a class="dropdown-item" href="#"><i class="uil-calendar-alt me-1"></i> Newest First</a>
+                            <a class="dropdown-item" href="#"><i class="uil-star me-1"></i> Most Popular</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if products %}
+                <div class="row g-3">
+                    {% for product in products %}
+                    <div class="col-xxl-3 col-xl-4 col-lg-6 col-md-6 col-sm-12">
+                        <div class="card border product-card h-100">
+                            <div class="card-body p-3">
+                                <div class="product-img position-relative mb-3">
+                                    {% if product.image_url %}
+                                    <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-fluid rounded" style="height: 150px; width: 100%; object-fit: cover;">
+                                    {% else %}
+                                    <div class="bg-soft-primary text-center py-5 rounded" style="height: 150px;">
+                                        <i class="uil-image-slash font-size-24 text-primary"></i>
+                                    </div>
+                                    {% endif %}
+                                    {% if product.on_sale %}
+                                    <div class="position-absolute top-0 start-0 m-2">
+                                        <span class="badge bg-danger">
+                                            Sale
+                                        </span>
+                                    </div>
+                                    {% endif %}
+                                    <div class="position-absolute top-0 end-0 m-2">
+                                        <button type="button" class="btn btn-sm btn-soft-primary rounded-circle" data-bs-toggle="tooltip" title="Add to Favorites">
+                                            <i class="uil-heart"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="product-details">
+                                    <h6 class="mb-2">
+                                        <a href="{% url 'clubs:wholesale-product-detail' product.slug %}" class="text-dark product-title">
+                                            {{ product.name|truncatewords:6 }}
+                                        </a>
+                                    </h6>
+                                    {% if product.primary_category %}
+                                    <p class="text-muted font-size-13 mb-2">{{ product.primary_category.name }}</p>
+                                    {% endif %}
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <h5 class="mb-0 text-primary">${{ product.wholesale_price|default:"N/A" }}</h5>
+                                        {% if product.stock_status == 'in_stock' %}
+                                        <span class="badge bg-soft-success text-success">In Stock</span>
+                                        {% elif product.stock_status == 'on_backorder' %}
+                                        <span class="badge bg-soft-warning text-warning">Backorder</span>
+                                        {% else %}
+                                        <span class="badge bg-soft-danger text-danger">Out of Stock</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-transparent border-top">
+                                <a href="{% url 'clubs:wholesale-product-detail' product.slug %}" class="btn btn-primary btn-sm w-100">
+                                    <i class="uil-eye me-1"></i> View Details
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                        <!-- Pagination -->
+                        {% if products.has_other_pages %}
+                        <div class="row">
+                            <div class="col-lg-12">
+                                <ul class="pagination pagination-rounded justify-content-center mt-3 mb-4 pb-1">
+                                    {% if products.has_previous %}
+                                    <li class="page-item">
+                                        <a href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}" class="page-link">
+                                            <i class="mdi mdi-chevron-double-left"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a href="?page={{ products.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}" class="page-link">
+                                            <i class="mdi mdi-chevron-left"></i>
+                                        </a>
+                                    </li>
+                                    {% endif %}
+
+                                    {% for num in products.paginator.page_range %}
+                                    {% if products.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                    {% elif num > products.number|add:'-3' and num < products.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}" class="page-link">{{ num }}</a>
+                                    </li>
+                                    {% endif %}
+                                    {% endfor %}
+
+                                    {% if products.has_next %}
+                                    <li class="page-item">
+                                        <a href="?page={{ products.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}" class="page-link">
+                                            <i class="mdi mdi-chevron-right"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a href="?page={{ products.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}" class="page-link">
+                                            <i class="mdi mdi-chevron-double-right"></i>
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% else %}
+                        <div class="text-center py-4">
+                            <i class="uil-shopping-cart display-3 text-muted"></i>
+                            <h5 class="mt-4">No products found</h5>
+                            {% if request.GET.search or request.GET.category %}
+                            <p class="text-muted">No products match your filter criteria.</p>
+                            <a href="{% url 'clubs:wholesale-school-detail' slug=school.slug %}" class="btn btn-soft-primary">
+                                <i class="uil-refresh me-1"></i> Show All Products
+                            </a>
+                            {% else %}
+                            <p class="text-muted">No products are available for this school.</p>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
 
 <!-- Sync Status Alert -->
-{% if user.is_authenticated and user.is_staff %}
-<div id="syncAlert" class="alert alert-info alert-dismissible fade" role="alert" style="display: none;">
+<div id="syncAlert" class="alert alert-info alert-dismissible fade position-fixed" role="alert" style="display: none; top: 20px; right: 20px; z-index: 1050; max-width: 400px;">
     <div class="d-flex align-items-center">
         <div class="spinner-border spinner-border-sm text-primary me-3" id="syncSpinner" role="status" style="display: none;">
             <span class="visually-hidden">Loading...</span>
@@ -26,627 +489,196 @@
     </div>
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 </div>
-{% endif %}
-
-<!-- School Information -->
-<div class="row">
-    <div class="col-lg-8">
-        <div class="card">
-            <div class="card-header">
-                <div class="d-flex align-items-center">
-                    <div class="avatar-md me-3">
-                        <span class="avatar-title rounded-circle bg-soft-primary text-primary font-size-24">
-                            {{ school.name|first }}
-                        </span>
-                    </div>
-                    <div class="flex-grow-1">
-                        <h4 class="card-title mb-1">{{ school.name }}</h4>
-                        {% if school.school_code %}
-                        <p class="text-muted mb-0">School Code: {{ school.school_code }}</p>
-                        {% endif %}
-                    </div>
-                    <div class="flex-shrink-0">
-                        <span class="badge bg-{% if school.is_active %}success{% else %}secondary{% endif %} font-size-12">
-                            {% if school.is_active %}Active{% else %}Inactive{% endif %}
-                        </span>
-                    </div>
-                </div>
-            </div>
-            <div class="card-body">
-                {% if school.description %}
-                <div class="mb-4">
-                    <h6>Description</h6>
-                    <p class="text-muted">{{ school.description }}</p>
-                </div>
-                {% endif %}
-
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6>Contact Information</h6>
-                        <ul class="list-unstyled">
-                            {% if school.contact_person %}
-                            <li class="mb-2">
-                                <i class="uil uil-user-circle text-muted me-2"></i>
-                                <strong>Contact:</strong> {{ school.contact_person }}
-                            </li>
-                            {% endif %}
-                            {% if school.email %}
-                            <li class="mb-2">
-                                <i class="uil uil-envelope text-muted me-2"></i>
-                                <strong>Email:</strong> <a href="mailto:{{ school.email }}">{{ school.email }}</a>
-                            </li>
-                            {% endif %}
-                            {% if school.phone %}
-                            <li class="mb-2">
-                                <i class="uil uil-phone text-muted me-2"></i>
-                                <strong>Phone:</strong> <a href="tel:{{ school.phone }}">{{ school.phone }}</a>
-                            </li>
-                            {% endif %}
-                            {% if school.website %}
-                            <li class="mb-2">
-                                <i class="uil uil-globe text-muted me-2"></i>
-                                <strong>Website:</strong> <a href="{{ school.website }}" target="_blank">{{ school.website }}</a>
-                            </li>
-                            {% endif %}
-                        </ul>
-                    </div>
-                    <div class="col-md-6">
-                        <h6>Address</h6>
-                        {% if school.full_address %}
-                        <address class="text-muted">
-                            {% if school.address_line1 %}{{ school.address_line1 }}<br>{% endif %}
-                            {% if school.address_line2 %}{{ school.address_line2 }}<br>{% endif %}
-                            {% if school.city %}{{ school.city }}{% endif %}
-                            {% if school.region and school.city %}, {% endif %}
-                            {% if school.region %}{{ school.region }}{% endif %}
-                            {% if school.postal_code %}<br>{{ school.postal_code }}{% endif %}
-                            {% if school.country %}<br>{{ school.country }}{% endif %}
-                        </address>
-                        {% else %}
-                        <p class="text-muted">No address information available</p>
-                        {% endif %}
-
-                        <h6 class="mt-3">CIN7 Information</h6>
-                        <ul class="list-unstyled">
-                            <li><strong>CIN7 ID:</strong> {{ school.cin7_id }}</li>
-                            {% if school.cin7_sku %}
-                            <li><strong>SKU:</strong> {{ school.cin7_sku }}</li>
-                            {% endif %}
-                            {% if school.cin7_brand %}
-                            <li><strong>Brand:</strong> {{ school.cin7_brand }}</li>
-                            {% endif %}
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-lg-4">
-        <!-- Statistics Card -->
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Statistics</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-6">
-                        <div class="text-center stat-clickable" data-filter="categories" style="cursor: pointer;">
-                            <h4 class="mb-1 text-primary">{{ school.active_categories }}</h4>
-                            <p class="text-muted mb-0">Categories</p>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-center stat-clickable" data-filter="products" style="cursor: pointer;">
-                            <h4 class="mb-1 text-success">{{ school.total_products }}</h4>
-                            <p class="text-muted mb-0">Products</p>
-                        </div>
-                    </div>
-                </div>
-                <hr>
-                <div class="text-center">
-                    {% if school.last_synced_at %}
-                    <p class="text-muted mb-1">Last Sync</p>
-                    <p class="mb-0">{{ school.last_synced_at|timesince }} ago</p>
-                    {% else %}
-                    <p class="text-muted mb-0">Never synced</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Quick Actions</h5>
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    {% if user.is_authenticated and user.is_staff %}
-                    <button class="btn btn-primary" onclick="startWholesaleSync()">
-                        <i class="uil uil-sync me-1"></i>Sync from CIN7
-                    </button>
-                    {% endif %}
-                    <button class="btn btn-outline-secondary" onclick="alert('Export functionality coming soon')">
-                        <i class="uil uil-export me-1"></i>Export Data
-                    </button>
-                    <a href="{% url 'clubs:wholesale-school-list' %}" class="btn btn-outline-primary">
-                        <i class="uil uil-arrow-left me-1"></i>Back to Schools
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-<!-- end school information -->
-
-<!-- Categories and Products -->
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">Categories & Products</h5>
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-sm btn-outline-primary" id="toggleView" data-view="categories">
-                            <i class="uil uil-list-ul me-1"></i>Show Products
-                        </button>
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
-                                    data-bs-toggle="dropdown">
-                                <i class="uil uil-filter me-1"></i>Filter
-                            </button>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="#" data-filter="all">All Items</a></li>
-                                <li><a class="dropdown-item" href="#" data-filter="in_stock">In Stock</a></li>
-                                <li><a class="dropdown-item" href="#" data-filter="out_of_stock">Out of Stock</a></li>
-                                <li><a class="dropdown-item" href="#" data-filter="discontinued">Discontinued</a></li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="card-body">
-                <!-- Categories View -->
-                <div id="categoriesView">
-                    {% if categories %}
-                    <div class="row">
-                        {% for category in categories %}
-                        <div class="col-lg-4 col-md-6">
-                            <div class="card border category-card" data-category="{{ category.slug }}" style="cursor: pointer;">
-                                <div class="card-body">
-                                    <div class="d-flex align-items-center">
-                                        <div class="avatar-sm me-3">
-                                            <span class="avatar-title rounded bg-soft-primary text-primary">
-                                                <i class="uil uil-folder-open"></i>
-                                            </span>
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <h6 class="mb-1">
-                                                <a href="{% url 'clubs:wholesale-category-detail' category.slug %}" class="text-dark category-link">
-                                                    {{ category.name }}
-                                                </a>
-                                            </h6>
-                                            <p class="text-muted mb-0">{{ category.product_count }} products</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <div class="text-center py-4">
-                        <i class="uil uil-folder-open font-size-48 text-muted mb-3"></i>
-                        <h5>No Categories Found</h5>
-                        <p class="text-muted">This school doesn't have any categories yet.</p>
-                    </div>
-                    {% endif %}
-                </div>
-
-                <!-- Products View -->
-                <div id="productsView" style="display: none;">
-                    {% if products %}
-                    <div class="table-responsive">
-                        <table id="productsTable" class="table table-nowrap align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Product</th>
-                                    <th>Category</th>
-                                    <th>SKU</th>
-                                    <th>Wholesale Price</th>
-                                    <th>Stock Status</th>
-                                    <th>Stock Qty</th>
-                                    <th class="no-sort">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for product in products %}
-                                <tr data-status="{{ product.stock_status }}">
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <div class="avatar-xs me-3">
-                                                {% if product.image_url %}
-                                                <img src="{{ product.image_url }}" alt="{{ product.name }}" class="avatar-xs rounded">
-                                                {% else %}
-                                                <span class="avatar-title rounded bg-soft-secondary text-secondary">
-                                                    {{ product.name|first }}
-                                                </span>
-                                                {% endif %}
-                                            </div>
-                                            <div>
-                                                <h6 class="mb-0">
-                                                    <a href="{% url 'clubs:wholesale-product-detail' product.slug %}" class="text-dark">
-                                                        {{ product.name }}
-                                                    </a>
-                                                </h6>
-                                                {% if product.short_description %}
-                                                <p class="text-muted font-size-12 mb-0">{{ product.short_description|striptags|truncatechars:50 }}</p>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        {% if product.primary_category %}
-                                        <span class="badge bg-soft-info text-info">{{ product.primary_category.name }}</span>
-                                        {% else %}
-                                        <span class="text-muted">-</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if product.cin7_sku %}
-                                        <code>{{ product.cin7_sku }}</code>
-                                        {% else %}
-                                        <span class="text-muted">-</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if product.wholesale_price %}
-                                        <span class="fw-medium">${{ product.wholesale_price }}</span>
-                                        {% else %}
-                                        <span class="text-muted">-</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-{% if product.stock_status == 'in_stock' %}success{% elif product.stock_status == 'out_of_stock' %}danger{% elif product.stock_status == 'discontinued' %}secondary{% else %}warning{% endif %}">
-                                            {{ product.get_stock_status_display }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span class="fw-medium">{{ product.quantity_available }}</span>
-                                    </td>
-                                    <td>
-                                        <div class="btn-group" role="group">
-                                            <a href="{% url 'clubs:wholesale-product-detail' product.slug %}"
-                                               class="btn btn-sm btn-soft-primary"
-                                               data-bs-toggle="tooltip"
-                                               title="View product">
-                                                <i class="uil uil-eye"></i>
-                                            </a>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="text-center py-4">
-                        <i class="uil uil-shopping-bag font-size-48 text-muted mb-3"></i>
-                        <h5>No Products Found</h5>
-                        <p class="text-muted">This school doesn't have any products yet.</p>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-<!-- end categories and products -->
-
-{% endblock %}
-
-{% block extra_js %}
-<!-- DataTables JS -->
-<script src="{% static 'assets/libs/datatables.net/js/jquery.dataTables.min.js' %}"></script>
-<script src="{% static 'assets/libs/datatables.net-bs4/js/dataTables.bootstrap4.min.js' %}"></script>
-<script src="{% static 'assets/libs/datatables.net-responsive/js/dataTables.responsive.min.js' %}"></script>
-<script src="{% static 'assets/libs/datatables.net-responsive-bs4/js/responsive.bootstrap4.min.js' %}"></script>
-
-<script>
-$(document).ready(function() {
-    // Initialize tooltips
-    $('[data-bs-toggle="tooltip"]').tooltip();
-
-    // Initialize DataTable for products
-    var productsTable = $('#productsTable').DataTable({
-        responsive: true,
-        pageLength: 25,
-        order: [[0, 'asc']], // Sort by product name
-        columnDefs: [
-            {
-                targets: 'no-sort',
-                orderable: false,
-                searchable: false
-            }
-        ],
-        language: {
-            search: "_INPUT_",
-            searchPlaceholder: "Search products...",
-            lengthMenu: "Show _MENU_ products",
-            info: "Showing _START_ to _END_ of _TOTAL_ products",
-            infoEmpty: "No products available",
-            infoFiltered: "(filtered from _MAX_ total products)"
-        },
-        drawCallback: function() {
-            // Initialize tooltips after table redraw
-            $('[data-bs-toggle="tooltip"]').tooltip();
-        }
-    });
-
-    // Toggle between categories and products view
-    $('#toggleView').click(function() {
-        var currentView = $(this).data('view');
-
-        if (currentView === 'categories') {
-            $('#categoriesView').hide();
-            $('#productsView').show();
-            $(this).html('<i class="uil uil-folder-open me-1"></i>Show Categories').data('view', 'products');
-        } else {
-            $('#productsView').hide();
-            $('#categoriesView').show();
-            $(this).html('<i class="uil uil-list-ul me-1"></i>Show Products').data('view', 'categories');
-        }
-    });
-
-    // Handle clickable statistics
-    $('.stat-clickable').click(function() {
-        var filter = $(this).data('filter');
-
-        if (filter === 'categories') {
-            // Show categories view
-            $('#productsView').hide();
-            $('#categoriesView').show();
-            $('#toggleView').html('<i class="uil uil-list-ul me-1"></i>Show Products').data('view', 'categories');
-        } else if (filter === 'products') {
-            // Show products view
-            $('#categoriesView').hide();
-            $('#productsView').show();
-            $('#toggleView').html('<i class="uil uil-folder-open me-1"></i>Show Categories').data('view', 'products');
-        }
-
-        // Scroll to the categories/products section
-        $('html, body').animate({
-            scrollTop: $('#categoriesView, #productsView').first().parent().offset().top - 100
-        }, 500);
-    });
-
-    // Handle category card clicks
-    $('.category-card').click(function(e) {
-        // Prevent default link behavior if clicking on the card (not the link)
-        if (!$(e.target).closest('.category-link').length) {
-            e.preventDefault();
-
-            var categorySlug = $(this).data('category');
-            var categoryName = $(this).find('.category-link').text();
-
-            // Switch to products view
-            $('#categoriesView').hide();
-            $('#productsView').show();
-            $('#toggleView').html('<i class="uil uil-folder-open me-1"></i>Show Categories').data('view', 'products');
-
-            // Filter products table by category
-            if (categorySlug && categorySlug !== 'all') {
-                productsTable.column(1).search(categoryName).draw();
-            } else {
-                productsTable.search('').draw();
-            }
-
-            // Update filter button text
-            $('.dropdown-toggle').html('<i class="uil uil-filter me-1"></i>Category: ' + categoryName);
-
-            // Scroll to products section
-            $('html, body').animate({
-                scrollTop: $('#productsView').offset().top - 100
-            }, 500);
-        }
-    });
-
-    // Stock status filter
-    $('[data-filter]').click(function(e) {
-        e.preventDefault();
-        var filter = $(this).data('filter');
-
-        if (filter === 'all') {
-            productsTable.search('').draw();
-        } else {
-            // Filter by stock status
-            productsTable.column(4).search(filter).draw();
-        }
-
-        // Update filter button text
-        $('.dropdown-toggle').html('<i class="uil uil-filter me-1"></i>' + $(this).text());
-    });
-});
-</script>
 
 <style>
-/* Card hover effects */
-.card.border {
-    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+/* Wholesale School Page Styles */
+.wholesale-school-page {
+    background-color: #fafbfc;
 }
 
-.card.border:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+/* Avatar sizes */
+.avatar-lg {
+    width: 80px;
+    height: 80px;
 }
 
-/* Clickable statistics styles */
-.stat-clickable {
-    transition: all 0.2s ease-in-out;
-    border-radius: 8px;
-    padding: 10px;
-}
-
-.stat-clickable:hover {
-    background-color: rgba(85, 110, 230, 0.1);
-    transform: scale(1.05);
-}
-
-.stat-clickable:active {
-    transform: scale(0.98);
-}
-
-/* Category card styles */
-.category-card {
-    transition: all 0.2s ease-in-out;
-}
-
-.category-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
-    border-color: #556ee6 !important;
-}
-
-.category-card:active {
-    transform: translateY(0px);
-}
-
-/* Badge styles */
-.badge-soft-success { background-color: rgba(52, 195, 143, 0.1); color: #34c38f; }
-.badge-soft-warning { background-color: rgba(247, 184, 75, 0.1); color: #f7b84b; }
-.badge-soft-danger { background-color: rgba(243, 76, 124, 0.1); color: #f34c7c; }
-.badge-soft-secondary { background-color: rgba(108, 117, 125, 0.1); color: #6c757d; }
-.badge-soft-primary { background-color: rgba(85, 110, 230, 0.1); color: #556ee6; }
-.badge-soft-info { background-color: rgba(23, 162, 184, 0.1); color: #17a2b8; }
-
-/* Avatar styling */
-.avatar-xs img {
-    width: 32px;
-    height: 32px;
+.avatar-lg img {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
 }
 
 .avatar-md {
-    width: 48px;
-    height: 48px;
+    width: 64px;
+    height: 64px;
 }
 
-.avatar-md .avatar-title {
-    width: 48px;
-    height: 48px;
-    font-size: 1.5rem;
+.avatar-md img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
-/* Action buttons styling */
-.btn-soft-primary {
-    color: #556ee6;
-    background-color: rgba(85, 110, 230, 0.1);
-    border-color: transparent;
+.avatar-sm {
+    width: 40px;
+    height: 40px;
 }
 
-.btn-soft-primary:hover {
-    color: #fff;
-    background-color: #556ee6;
+.avatar-sm img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Category Card Enhancements */
+.category-card {
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef !important;
+}
+
+.category-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(85, 110, 230, 0.15) !important;
+    border-color: #556ee6 !important;
+}
+
+.product-card {
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef !important;
+    margin-bottom: 1rem;
+    overflow: hidden;
+}
+
+.product-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(85, 110, 230, 0.1) !important;
+    border-color: #556ee6 !important;
+}
+
+/* Ensure proper spacing and prevent cutoffs */
+.row.g-3 {
+    margin-left: -0.75rem;
+    margin-right: -0.75rem;
+}
+
+.row.g-3 > * {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+
+.search-box .search-icon {
+    position: absolute;
+    right: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 16px;
+    color: #74788d;
+    pointer-events: none;
+}
+
+.search-box input[type="text"] {
+    padding-right: 40px;
+}
+
+.search-box input[type="text"]:focus {
     border-color: #556ee6;
-}
-
-.btn-soft-secondary {
-    color: #6c757d;
-    background-color: rgba(108, 117, 125, 0.1);
-    border-color: transparent;
-}
-
-.btn-soft-secondary:hover {
-    color: #fff;
-    background-color: #6c757d;
-    border-color: #6c757d;
-}
-
-/* Table styling */
-.table-hover tbody tr:hover {
-    background-color: rgba(85, 110, 230, 0.04);
-}
-
-/* DataTables styling */
-.dataTables_wrapper .dataTables_filter input {
-    border: 1px solid #ced4da;
-    border-radius: 0.375rem;
-    padding: 0.375rem 0.75rem;
-    margin-left: 0.5rem;
-}
-
-.dataTables_wrapper .dataTables_filter input:focus {
-    border-color: #556ee6;
-    outline: none;
     box-shadow: 0 0 0 0.2rem rgba(85, 110, 230, 0.25);
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .avatar-md {
-        width: 40px;
-        height: 40px;
-    }
-
-    .avatar-md .avatar-title {
-        width: 40px;
-        height: 40px;
-        font-size: 1.25rem;
-    }
-
-    .btn-group .btn {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.75rem;
+/* Responsive Design */
+@media (max-width: 1400px) {
+    .col-xxl-3 {
+        flex: 0 0 auto;
+        width: 33.333333%;
     }
 }
 
-/* Empty state styling */
-.font-size-48 {
-    font-size: 3rem;
-}
-
-/* Sync button styles */
-.btn-primary:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-/* Animation for refresh icon */
-.uil-refresh-spin {
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
-/* Sync alert styles */
-#syncAlert {
-    margin-bottom: 1.5rem;
-}
-
-/* Page title sync button responsive */
-@media (max-width: 768px) {
-    .page-title-right .d-flex {
-        flex-direction: column;
-        align-items: stretch !important;
+@media (max-width: 1200px) {
+    .col-xl-4 {
+        flex: 0 0 auto;
+        width: 50%;
     }
+}
 
-    .page-title-right #syncButton {
-        margin-bottom: 0.5rem;
+@media (max-width: 992px) {
+    .col-lg-6 {
+        flex: 0 0 auto;
         width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .category-card:hover,
+    .product-card:hover {
+        transform: none;
+    }
+
+    .row.g-3 {
+        margin-left: -0.5rem;
+        margin-right: -0.5rem;
+    }
+
+    .row.g-3 > * {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
     }
 }
 </style>
 
 <script>
-// Wholesale Sync functionality for individual school page
+function applyFilters() {
+    const search = document.getElementById('searchInput').value;
+    const category = document.getElementById('categoryFilter').value;
+
+    let url = new URL(window.location);
+
+    if (search) {
+        url.searchParams.set('search', search);
+    } else {
+        url.searchParams.delete('search');
+    }
+
+    if (category) {
+        url.searchParams.set('category', category);
+    } else {
+        url.searchParams.delete('category');
+    }
+
+    window.location.href = url.toString();
+}
+
+function clearFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('categoryFilter').value = '';
+
+    let url = new URL(window.location);
+    url.searchParams.delete('search');
+    url.searchParams.delete('category');
+    url.searchParams.delete('page');
+
+    window.location.href = url.toString();
+}
+
+// Enable Enter key search
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            applyFilters();
+        }
+    });
+
+    // Initialize tooltips
+    var tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltips.map(function(tooltip) {
+        return new bootstrap.Tooltip(tooltip);
+    });
+});
+
+// Wholesale Sync functionality
 function startWholesaleSync() {
-    const syncButton = document.getElementById('syncButton');
-    const syncIcon = document.getElementById('syncIcon');
-    const syncText = document.getElementById('syncText');
     const syncAlert = document.getElementById('syncAlert');
     const syncSpinner = document.getElementById('syncSpinner');
     const syncAlertTitle = document.getElementById('syncAlertTitle');
@@ -654,16 +686,9 @@ function startWholesaleSync() {
     const syncProgress = document.getElementById('syncProgress');
     const syncProgressBar = document.getElementById('syncProgressBar');
 
-    // Disable button and show loading state
-    syncButton.disabled = true;
-    syncIcon.className = 'uil-sync me-2 uil-refresh-spin';
-    if (syncText) {
-        syncText.textContent = 'Syncing...';
-    }
-
     // Show sync alert with loading state
     syncAlert.style.display = 'block';
-    syncAlert.className = 'alert alert-info alert-dismissible fade show';
+    syncAlert.className = 'alert alert-info alert-dismissible fade show position-fixed';
     syncSpinner.style.display = 'block';
     syncAlertTitle.textContent = 'Sync in Progress';
     syncAlertMessage.textContent = 'Synchronizing wholesale data from Cin7...';
@@ -688,20 +713,18 @@ function startWholesaleSync() {
             // Monitor sync progress
             monitorWholesaleSync(data.job_id);
         } else {
-            syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+            syncAlert.className = 'alert alert-danger alert-dismissible fade show position-fixed';
             syncAlertTitle.textContent = 'Sync Failed';
             syncAlertMessage.textContent = 'Error: ' + (data.error || 'Unknown error occurred');
             syncSpinner.style.display = 'none';
-            resetSyncButton();
         }
     })
     .catch(error => {
         console.error('Sync request failed:', error);
-        syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+        syncAlert.className = 'alert alert-danger alert-dismissible fade show position-fixed';
         syncAlertTitle.textContent = 'Sync Failed';
         syncAlertMessage.textContent = 'Network error: ' + error.message;
         syncSpinner.style.display = 'none';
-        resetSyncButton();
     });
 }
 
@@ -729,7 +752,7 @@ function monitorWholesaleSync(jobId) {
                 if (data.status === 'completed' || data.status === 'failed') {
                     syncSpinner.style.display = 'none';
                     if (data.status === 'completed') {
-                        syncAlert.className = 'alert alert-success alert-dismissible fade show';
+                        syncAlert.className = 'alert alert-success alert-dismissible fade show position-fixed';
                         syncAlertTitle.textContent = 'Sync Completed';
                         syncAlertMessage.textContent = 'Wholesale sync completed successfully! Refreshing page to show updated data...';
                         syncProgressBar.style.width = '100%';
@@ -739,46 +762,29 @@ function monitorWholesaleSync(jobId) {
                             window.location.reload();
                         }, 3000);
                     } else {
-                        syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+                        syncAlert.className = 'alert alert-danger alert-dismissible fade show position-fixed';
                         syncAlertTitle.textContent = 'Sync Failed';
                         syncAlertMessage.textContent = data.current_step || 'Sync failed';
                     }
-                    resetSyncButton();
                 } else {
                     // Continue monitoring for running, pending status
                     setTimeout(checkStatus, 2000);
                 }
             } else {
                 console.error('Status check failed:', data.current_step || 'Unknown error');
-                syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+                syncAlert.className = 'alert alert-danger alert-dismissible fade show position-fixed';
                 syncAlertTitle.textContent = 'Sync Error';
                 syncAlertMessage.textContent = data.current_step || 'Failed to get sync status';
                 syncSpinner.style.display = 'none';
-                resetSyncButton();
             }
         })
         .catch(error => {
             console.error('Status check error:', error);
-            resetSyncButton();
         });
     };
 
     // Start monitoring after 2 seconds
     setTimeout(checkStatus, 2000);
-}
-
-function resetSyncButton() {
-    const syncButton = document.getElementById('syncButton');
-    const syncIcon = document.getElementById('syncIcon');
-    const syncText = document.getElementById('syncText');
-    const syncProgress = document.getElementById('syncProgress');
-
-    syncButton.disabled = false;
-    syncIcon.className = 'uil-sync me-2';
-    if (syncText) {
-        syncText.textContent = 'Sync Data';
-    }
-    syncProgress.style.display = 'none';
 }
 
 function getCookie(name) {
@@ -797,4 +803,5 @@ function getCookie(name) {
 }
 </script>
 
+</div> <!-- End wholesale-school-page wrapper -->
 {% endblock %}

@@ -276,7 +276,7 @@
                     {% elif request.GET.search %}
                     Search Results for "{{ request.GET.search }}"
                     {% else %}
-                    Recent Products
+                    Products
                     {% endif %}
                 </h4>
                 <div class="flex-shrink-0">
@@ -295,16 +295,16 @@
             </div>
             <div class="card-body">
                 {% if products %}
-                <div class="row g-4">
+                <div class="row g-3">
                     {% for product in products %}
-                    <div class="col-xl-3 col-lg-4 col-md-6">
+                    <div class="col-xl-3 col-lg-4 col-md-6 col-sm-12">
                         <div class="card border product-card h-100">
                             <div class="card-body p-3">
                                 <div class="product-img position-relative mb-3">
                                     {% if product.image_url %}
-                                    <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-fluid rounded" style="height: 150px; width: 100%; object-fit: cover;">
+                                    <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-fluid rounded" style="height: 220px; width: 100%; object-fit: contain;">
                                     {% else %}
-                                    <div class="bg-soft-tus-primary text-center py-5 rounded" style="height: 150px;">
+                                    <div class="bg-soft-tus-primary text-center py-5 rounded" style="height: 220px;">
                                         <i class="uil-image-slash font-size-24 text-tus-primary"></i>
                                     </div>
                                     {% endif %}
@@ -418,43 +418,6 @@
                 </div>
             </div>
 
-            <!-- Similar Schools -->
-            {% if similar_schools %}
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h4 class="card-title mb-0">Other Schools in {{ school.location.name }}</h4>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                {% for similar_school in similar_schools %}
-                                <div class="col-xl-2-4 col-lg-3 col-md-4 col-sm-6">
-                                    <div class="text-center">
-                                        <div class="avatar-md mx-auto mb-2">
-                                            {% if similar_school.logo_url %}
-                                            <img src="{{ similar_school.logo_url }}" alt="{{ similar_school.name }}" class="img-fluid rounded">
-                                            {% else %}
-                                            <div class="avatar-md bg-soft-success rounded d-flex align-items-center justify-content-center">
-                                                <i class="uil-graduation-cap font-size-18 text-success"></i>
-                                            </div>
-                                            {% endif %}
-                                        </div>
-                                        <h6 class="font-size-14 mb-1">
-                                            <a href="{% url 'schools:retail_school_detail' school_slug=similar_school.slug %}" class="text-decoration-none">
-                                                {{ similar_school.name|truncatewords:3 }}
-                                            </a>
-                                        </h6>
-                                        <p class="text-muted mb-0 font-size-12">{{ similar_school.school_type }}</p>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
 
         </div>
     </div>
@@ -464,6 +427,34 @@
 /* TUS School Page Styles */
 .tus-school-page {
     background-color: #fafbfc;
+}
+
+/* Fix container width issues for proper grid display */
+.tus-school-page .container-fluid {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+}
+
+/* Ensure cards have proper width and don't overflow */
+.tus-school-page .product-card {
+    max-width: 100% !important;
+    margin-bottom: 1rem !important;
+    min-height: 400px !important;
+}
+
+/* Product image container improvements */
+.tus-school-page .product-img {
+    height: 220px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 0.375rem !important;
+}
+
+.tus-school-page .product-img img {
+    height: 220px !important;
+    width: 100% !important;
+    object-fit: contain !important;
 }
 
 /* Avatar sizes */
@@ -515,12 +506,31 @@
 .product-card {
     transition: all 0.3s ease;
     border: 1px solid #e9ecef !important;
+    margin-bottom: 1rem;
+    overflow: hidden;
 }
 
 .product-card:hover {
     transform: translateY(-3px);
     box-shadow: 0 8px 20px rgba(56, 122, 223, 0.1) !important;
     border-color: #387ADF !important;
+}
+
+/* Simplified grid spacing - prevent cutoffs */
+.tus-school-page .row.g-3 {
+    margin-left: -12px !important;
+    margin-right: -12px !important;
+}
+
+.tus-school-page .row.g-3 > [class*="col-"] {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+}
+
+/* Ensure proper card container width */
+.tus-school-page .card-body {
+    padding-left: 24px !important;
+    padding-right: 24px !important;
 }
 
 .search-box .search-icon {
@@ -637,11 +647,36 @@
     font-weight: 600;
 }
 
-/* Responsive Design */
+/* Responsive Design - Simplified */
+@media (max-width: 1200px) {
+    .tus-school-page .col-xl-3 {
+        flex: 0 0 33.333333%;
+        max-width: 33.333333%;
+    }
+}
+
+@media (max-width: 992px) {
+    .tus-school-page .col-lg-4 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+}
+
 @media (max-width: 768px) {
     .category-card:hover,
     .product-card:hover {
         transform: none;
+    }
+
+    /* Additional mobile spacing */
+    .row.g-3 {
+        margin-left: -0.5rem;
+        margin-right: -0.5rem;
+    }
+
+    .row.g-3 > * {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
     }
 }
 </style>
