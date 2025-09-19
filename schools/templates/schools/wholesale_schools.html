@@ -11,10 +11,6 @@
             <div class="d-flex align-items-center justify-content-between">
                 <div>
                     <h4 class="mb-sm-0 font-size-18">Wholesale Schools</h4>
-                    <ol class="breadcrumb m-0">
-                        <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
-                        <li class="breadcrumb-item active">Wholesale Schools</li>
-                    </ol>
                 </div>
                 {% if wholesale_available %}
                 <button type="button" id="syncButton" class="btn btn-primary" onclick="startWholesaleSync()">
@@ -49,84 +45,84 @@
         <!-- Cin7 Wholesale Schools Content -->
 
         <!-- Statistics Cards -->
-        <div class="row">
-                    <div class="col-xl-3 col-md-6">
-                        <div class="card mini-stats-wid">
-                            <div class="card-body">
-                                <div class="d-flex">
-                                    <div class="flex-grow-1">
-                                        <p class="text-muted fw-medium">Total Schools</p>
-                                        <h4 class="mb-0">{{ total_schools|default:0 }}</h4>
-                                    </div>
-                                    <div class="flex-shrink-0 align-self-center">
-                                        <div class="mini-stat-icon avatar-sm rounded-circle bg-primary">
-                                            <span class="avatar-title">
-                                                <i class="uil-graduation-cap font-size-24"></i>
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
+        <div class="row mb-4">
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card mini-stats-wid h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <p class="text-muted fw-medium mb-2">Total Schools</p>
+                                <h4 class="mb-0 text-primary">{{ total_schools|default:0 }}</h4>
                             </div>
-                        </div>
-                    </div>
-                    <div class="col-xl-3 col-md-6">
-                        <div class="card mini-stats-wid">
-                            <div class="card-body">
-                                <div class="d-flex">
-                                    <div class="flex-grow-1">
-                                        <p class="text-muted fw-medium">Total Schools</p>
-                                        <h4 class="mb-0">{{ total_schools|default:0 }}</h4>
-                                    </div>
-                                    <div class="flex-shrink-0 align-self-center">
-                                        <div class="mini-stat-icon avatar-sm rounded-circle bg-primary">
-                                            <span class="avatar-title">
-                                                <i class="uil-graduation-cap font-size-24"></i>
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-xl-3 col-md-6">
-                        <div class="card mini-stats-wid">
-                            <div class="card-body">
-                                <div class="d-flex">
-                                    <div class="flex-grow-1">
-                                        <p class="text-muted fw-medium">Total Products</p>
-                                        <h4 class="mb-0">{{ total_products|default:0 }}</h4>
-                                    </div>
-                                    <div class="flex-shrink-0 align-self-center">
-                                        <div class="mini-stat-icon avatar-sm rounded-circle bg-primary">
-                                            <span class="avatar-title">
-                                                <i class="uil-package font-size-24"></i>
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-xl-3 col-md-6">
-                        <div class="card mini-stats-wid">
-                            <div class="card-body">
-                                <div class="d-flex">
-                                    <div class="flex-grow-1">
-                                        <p class="text-muted fw-medium">Regions</p>
-                                        <h4 class="mb-0">{{ schools_by_region|length|default:0 }}</h4>
-                                    </div>
-                                    <div class="flex-shrink-0 align-self-center">
-                                        <div class="mini-stat-icon avatar-sm rounded-circle bg-primary">
-                                            <span class="avatar-title">
-                                                <i class="uil-map-marker font-size-24"></i>
-                                            </span>
-                                        </div>
-                                    </div>
+                            <div class="flex-shrink-0">
+                                <div class="avatar-sm rounded-circle bg-primary-subtle">
+                                    <span class="avatar-title rounded-circle bg-primary text-white">
+                                        <i class="uil-graduation-cap font-size-18"></i>
+                                    </span>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card mini-stats-wid h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <p class="text-muted fw-medium mb-2">Total Categories</p>
+                                <h4 class="mb-0 text-success">{{ total_categories|default:0 }}</h4>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <div class="avatar-sm rounded-circle bg-success-subtle">
+                                    <span class="avatar-title rounded-circle bg-success text-white">
+                                        <i class="uil-list-ul font-size-18"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card mini-stats-wid h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <p class="text-muted fw-medium mb-2">Total Products</p>
+                                <h4 class="mb-0 text-info">{{ total_products|default:0 }}</h4>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <div class="avatar-sm rounded-circle bg-info-subtle">
+                                    <span class="avatar-title rounded-circle bg-info text-white">
+                                        <i class="uil-package font-size-18"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card mini-stats-wid h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <p class="text-muted fw-medium mb-2">Regions</p>
+                                <h4 class="mb-0 text-warning">{{ schools_by_region|length|default:0 }}</h4>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <div class="avatar-sm rounded-circle bg-warning-subtle">
+                                    <span class="avatar-title rounded-circle bg-warning text-white">
+                                        <i class="uil-map-marker font-size-18"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Search Bar -->
         <div class="row">
@@ -148,67 +144,88 @@
 
         <!-- Schools Grid -->
         <div class="row">
-                    {% for school in schools %}
-                        <div class="col-xl-4 col-sm-6">
-                            <div class="card">
-                                <div class="card-body">
-                                    <div class="d-flex">
-                                        <div class="flex-grow-1 overflow-hidden">
-                                            <h5 class="text-truncate font-size-15">
-                                                <a href="{% url 'clubs:wholesale-school-detail' slug=school.slug %}" class="text-dark">
-                                                    {{ school.name }}
-                                                </a>
-                                            </h5>
-                                            <p class="text-muted mb-3">{{ school.description|truncatechars:100 }}</p>
-                                            <div class="avatar-group">
-                                                <div class="avatar-group-item">
-                                                    <span class="badge badge-soft-primary">
-                                                        {{ school.total_products }} product{{ school.total_products|pluralize }}
-                                                    </span>
-                                                </div>
-                                                {% if school.city %}
-                                                <div class="avatar-group-item">
-                                                    <span class="badge badge-soft-info">
-                                                        {{ school.city }}
-                                                    </span>
-                                                </div>
-                                                {% endif %}
-                                            </div>
+            {% for school in schools %}
+                <div class="col-xl-4 col-lg-6 col-md-6 mb-4">
+                    <div class="card school-card h-100">
+                        <div class="card-body p-4">
+                            <!-- School Header -->
+                            <div class="d-flex align-items-start mb-3">
+                                <div class="school-logo me-3">
+                                    {% if school.logo %}
+                                        <img src="{{ school.logo.url }}" alt="{{ school.name }}" class="school-logo-img">
+                                    {% else %}
+                                        <div class="school-logo-placeholder">
+                                            <span class="school-initial">{{ school.name|first|upper }}</span>
                                         </div>
-                                        <div class="flex-shrink-0">
-                                            <div class="avatar-md">
-                                                <span class="avatar-title rounded bg-primary">
-                                                    {{ school.name|first|upper }}
-                                                </span>
-                                            </div>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h5 class="school-name mb-1">
+                                        <a href="{% url 'clubs:wholesale-school-detail' slug=school.slug %}" class="text-dark text-decoration-none">
+                                            {{ school.name }}
+                                        </a>
+                                    </h5>
+                                    <div class="school-tags">
+                                        <span class="badge bg-primary">CIN7</span>
+                                        {% if school.school_type %}
+                                            <span class="badge bg-success-subtle text-success">
+                                                <i class="uil-graduation-cap me-1"></i>{{ school.school_type }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- School Stats -->
+                            <div class="school-stats">
+                                <div class="row text-center">
+                                    <div class="col-6">
+                                        <div class="stat-item">
+                                            <h4 class="stat-number text-primary mb-1">{{ school.total_categories|default:0 }}</h4>
+                                            <p class="stat-label text-muted mb-0">Categories</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="stat-item">
+                                            <h4 class="stat-number text-primary mb-1">{{ school.total_products|default:0 }}</h4>
+                                            <p class="stat-label text-muted mb-0">Products</p>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="card-footer">
-                                    <a href="{% url 'clubs:wholesale-school-detail' slug=school.slug %}" class="btn btn-primary btn-sm">
-                                        <i class="uil-eye me-1"></i>View Details
-                                    </a>
-                                </div>
                             </div>
                         </div>
-                    {% empty %}
-                        <div class="col-12">
-                            <div class="card">
-                                <div class="card-body text-center py-5">
-                                    <i class="uil-search display-4 text-muted mb-3"></i>
-                                    <h5 class="mb-3">No schools found</h5>
-                                    <p class="text-muted">
-                                        {% if request.GET.search %}
-                                            No wholesale schools match your search criteria.
-                                        {% else %}
-                                            No wholesale schools are currently available.
-                                        {% endif %}
-                                    </p>
-                                </div>
+
+                        <!-- Card Footer -->
+                        <div class="card-footer bg-transparent border-top-0 pt-0 pb-3 px-4">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <a href="{% url 'clubs:wholesale-school-detail' slug=school.slug %}" class="btn btn-primary flex-grow-1 me-2">
+                                    <i class="uil-eye me-1"></i>Explore School
+                                </a>
+                                <button class="btn btn-outline-secondary btn-icon" title="Add to favorites">
+                                    <i class="uil-heart"></i>
+                                </button>
                             </div>
                         </div>
-                    {% endfor %}
+                    </div>
                 </div>
+            {% empty %}
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body text-center py-5">
+                            <i class="uil-search display-4 text-muted mb-3"></i>
+                            <h5 class="mb-3">No schools found</h5>
+                            <p class="text-muted">
+                                {% if request.GET.search %}
+                                    No wholesale schools match your search criteria.
+                                {% else %}
+                                    No wholesale schools are currently available.
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
 
         <!-- Pagination -->
                 {% if is_paginated %}
@@ -302,6 +319,144 @@
     margin-bottom: 1.5rem;
 }
 
+/* School Card Styles */
+.school-card {
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+}
+
+.school-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    border-color: #6f42c1;
+}
+
+/* School Logo Styles */
+.school-logo {
+    width: 60px;
+    height: 60px;
+    flex-shrink: 0;
+}
+
+.school-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+}
+
+.school-logo-placeholder {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #e9ecef;
+}
+
+.school-initial {
+    color: white;
+    font-size: 24px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+/* School Name */
+.school-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1.3;
+    margin-bottom: 0.5rem;
+}
+
+.school-name a:hover {
+    color: #6f42c1 !important;
+}
+
+/* School Tags */
+.school-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.school-tags .badge {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+}
+
+/* School Stats */
+.school-stats {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-left: 4px solid #6f42c1;
+}
+
+.stat-item {
+    padding: 0.5rem 0;
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Button Styles */
+.btn-icon {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+}
+
+/* Statistics Cards Improvements */
+.mini-stats-wid {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+}
+
+.mini-stats-wid:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+
+.bg-primary-subtle {
+    background-color: rgba(106, 90, 205, 0.1);
+}
+
+.bg-success-subtle {
+    background-color: rgba(25, 135, 84, 0.1);
+}
+
+.bg-info-subtle {
+    background-color: rgba(13, 202, 240, 0.1);
+}
+
+.bg-warning-subtle {
+    background-color: rgba(255, 193, 7, 0.1);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .tus-wholesale-page .d-flex {
@@ -312,6 +467,38 @@
     .tus-wholesale-page #syncButton {
         margin-top: 1rem;
         width: 100%;
+    }
+
+    .school-logo {
+        width: 50px;
+        height: 50px;
+    }
+
+    .school-logo-placeholder {
+        width: 50px;
+        height: 50px;
+    }
+
+    .school-initial {
+        font-size: 20px;
+    }
+
+    .school-stats {
+        padding: 0.75rem;
+    }
+
+    .stat-number {
+        font-size: 1.3rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .school-tags {
+        margin-top: 0.5rem;
+    }
+
+    .btn-icon {
+        display: none;
     }
 }
 </style>

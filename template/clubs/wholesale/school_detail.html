@@ -8,31 +8,6 @@
 {% endblock %}
 
 {% block content %}
-<!-- start page title -->
-<div class="row">
-    <div class="col-12">
-        <div class="page-title-box">
-            <div class="page-title-right">
-                <div class="d-flex align-items-center gap-2">
-                    {% if user.is_authenticated and user.is_staff %}
-                    <button type="button" id="syncButton" class="btn btn-primary btn-sm" onclick="startWholesaleSync()">
-                        <i id="syncIcon" class="uil-sync me-2" aria-hidden="true"></i>
-                        <span id="syncText">Sync Data</span>
-                    </button>
-                    {% endif %}
-                    <ol class="breadcrumb m-0">
-                        <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Home</a></li>
-                        <li class="breadcrumb-item"><a href="{% url 'clubs:wholesale-dashboard' %}">Wholesale</a></li>
-                        <li class="breadcrumb-item"><a href="{% url 'clubs:wholesale-school-list' %}">Schools</a></li>
-                        <li class="breadcrumb-item active">{{ school.name }}</li>
-                    </ol>
-                </div>
-            </div>
-            <h4 class="mb-0">{{ school.name }}</h4>
-        </div>
-    </div>
-</div>
-<!-- end page title -->
 
 <!-- Sync Status Alert -->
 {% if user.is_authenticated and user.is_staff %}
@@ -156,13 +131,13 @@
             <div class="card-body">
                 <div class="row">
                     <div class="col-6">
-                        <div class="text-center">
+                        <div class="text-center stat-clickable" data-filter="categories" style="cursor: pointer;">
                             <h4 class="mb-1 text-primary">{{ school.active_categories }}</h4>
                             <p class="text-muted mb-0">Categories</p>
                         </div>
                     </div>
                     <div class="col-6">
-                        <div class="text-center">
+                        <div class="text-center stat-clickable" data-filter="products" style="cursor: pointer;">
                             <h4 class="mb-1 text-success">{{ school.total_products }}</h4>
                             <p class="text-muted mb-0">Products</p>
                         </div>
@@ -238,7 +213,7 @@
                     <div class="row">
                         {% for category in categories %}
                         <div class="col-lg-4 col-md-6">
-                            <div class="card border">
+                            <div class="card border category-card" data-category="{{ category.slug }}" style="cursor: pointer;">
                                 <div class="card-body">
                                     <div class="d-flex align-items-center">
                                         <div class="avatar-sm me-3">
@@ -248,7 +223,7 @@
                                         </div>
                                         <div class="flex-grow-1">
                                             <h6 class="mb-1">
-                                                <a href="{% url 'clubs:wholesale-category-detail' category.slug %}" class="text-dark">
+                                                <a href="{% url 'clubs:wholesale-category-detail' category.slug %}" class="text-dark category-link">
                                                     {{ category.name }}
                                                 </a>
                                             </h6>
@@ -424,6 +399,59 @@ $(document).ready(function() {
         }
     });
 
+    // Handle clickable statistics
+    $('.stat-clickable').click(function() {
+        var filter = $(this).data('filter');
+
+        if (filter === 'categories') {
+            // Show categories view
+            $('#productsView').hide();
+            $('#categoriesView').show();
+            $('#toggleView').html('<i class="uil uil-list-ul me-1"></i>Show Products').data('view', 'categories');
+        } else if (filter === 'products') {
+            // Show products view
+            $('#categoriesView').hide();
+            $('#productsView').show();
+            $('#toggleView').html('<i class="uil uil-folder-open me-1"></i>Show Categories').data('view', 'products');
+        }
+
+        // Scroll to the categories/products section
+        $('html, body').animate({
+            scrollTop: $('#categoriesView, #productsView').first().parent().offset().top - 100
+        }, 500);
+    });
+
+    // Handle category card clicks
+    $('.category-card').click(function(e) {
+        // Prevent default link behavior if clicking on the card (not the link)
+        if (!$(e.target).closest('.category-link').length) {
+            e.preventDefault();
+
+            var categorySlug = $(this).data('category');
+            var categoryName = $(this).find('.category-link').text();
+
+            // Switch to products view
+            $('#categoriesView').hide();
+            $('#productsView').show();
+            $('#toggleView').html('<i class="uil uil-folder-open me-1"></i>Show Categories').data('view', 'products');
+
+            // Filter products table by category
+            if (categorySlug && categorySlug !== 'all') {
+                productsTable.column(1).search(categoryName).draw();
+            } else {
+                productsTable.search('').draw();
+            }
+
+            // Update filter button text
+            $('.dropdown-toggle').html('<i class="uil uil-filter me-1"></i>Category: ' + categoryName);
+
+            // Scroll to products section
+            $('html, body').animate({
+                scrollTop: $('#productsView').offset().top - 100
+            }, 500);
+        }
+    });
+
     // Stock status filter
     $('[data-filter]').click(function(e) {
         e.preventDefault();
@@ -451,6 +479,37 @@ $(document).ready(function() {
 .card.border:hover {
     transform: translateY(-2px);
     box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Clickable statistics styles */
+.stat-clickable {
+    transition: all 0.2s ease-in-out;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.stat-clickable:hover {
+    background-color: rgba(85, 110, 230, 0.1);
+    transform: scale(1.05);
+}
+
+.stat-clickable:active {
+    transform: scale(0.98);
+}
+
+/* Category card styles */
+.category-card {
+    transition: all 0.2s ease-in-out;
+}
+
+.category-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+    border-color: #556ee6 !important;
+}
+
+.category-card:active {
+    transform: translateY(0px);
 }
 
 /* Badge styles */

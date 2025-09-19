@@ -283,8 +283,20 @@ class TUSRetailSchoolsView(ListView):
         # Search functionality
         search_query = self.request.GET.get('search')
         if search_query:
-            search_results = search_tus_entities(search_query, entity_type='locations')
-            return search_results.get('locations', queryset.none())
+            # Search locations and schools within those locations
+            queryset = queryset.filter(
+                Q(name__icontains=search_query) |
+                Q(description__icontains=search_query) |
+                Q(schools__name__icontains=search_query) |
+                Q(schools__contact_person__icontains=search_query) |
+                Q(schools__address__icontains=search_query)
+            ).distinct()
+
+        # Location filter
+        location_filter = self.request.GET.get('location')
+        if location_filter:
+            # Filter by specific location slug
+            queryset = queryset.filter(slug=location_filter)
 
         return queryset
 
@@ -297,6 +309,12 @@ class TUSRetailSchoolsView(ListView):
         # Featured locations and categories using utility functions
         context['featured_locations'] = get_tus_featured_locations(limit=6)
         context['featured_categories'] = get_tus_featured_categories(limit=6)
+
+        # Add all locations for the filter dropdown
+        context['all_locations'] = TUSLocation.objects.filter(is_active=True).order_by('name')
+
+        # Add current search and location filter values
+        context['current_location'] = self.request.GET.get('location', '')
 
         return context
 
