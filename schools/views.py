@@ -575,7 +575,8 @@ class TUSProductDetailView(DetailView):
     model = TUSProduct
     template_name = 'schools/retail/product_detail.html'
     context_object_name = 'product'
-    pk_url_kwarg = 'product_id'
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
 
     def get_queryset(self):
         return TUSProduct.objects.filter(
@@ -1245,15 +1246,111 @@ class WholesaleSchoolDetailView(DetailView):
         context['products'] = products
 
         # Get products specifically from the "General" category for this school
-        general_products = WholesaleProduct.objects.filter(
+        all_general_products = WholesaleProduct.objects.filter(
             school=school,
             is_active=True,
             categories__name__iexact='General'
         ).select_related('school').prefetch_related('categories').order_by('name')
 
-        context['general_products'] = general_products
+        # Group products by base SKU to avoid showing duplicates
+        grouped_products = self._group_products_by_base_sku(all_general_products)
+
+        context['general_products'] = grouped_products
 
         return context
+
+    def _group_products_by_base_sku(self, products):
+        """
+        Group products by their base SKU pattern.
+        For example: "US FLC 789 CGS - XL" and "US FLC 789 CGS - 2XL"
+        both belong to base SKU "US FLC 789 CGS"
+        """
+        from collections import defaultdict
+        import re
+
+        grouped = defaultdict(lambda: {
+            'main_product': None,
+            'variations': [],
+            'variation_summary': set()
+        })
+
+        for product in products:
+            # Extract base SKU by removing variation suffixes
+            base_sku = self._extract_base_sku(product.cin7_sku or '')
+
+            if not base_sku:
+                base_sku = product.name or 'unknown'
+
+            # Use the first product as the main product for this base SKU
+            if grouped[base_sku]['main_product'] is None:
+                grouped[base_sku]['main_product'] = product
+
+            # Extract variation info from the SKU suffix
+            variation_info = self._extract_variation_from_sku(product.cin7_sku or '')
+            if variation_info:
+                grouped[base_sku]['variations'].append(product)
+                grouped[base_sku]['variation_summary'].add(variation_info)
+
+        # Convert to list format and add variation summary to main products
+        result = []
+        for base_sku, group_data in grouped.items():
+            main_product = group_data['main_product']
+            if main_product:
+                # Add variation summary as a property
+                main_product.variation_count = len(group_data['variations']) + 1  # +1 for main product
+                main_product.variation_summary = ', '.join(sorted(group_data['variation_summary'])) if group_data['variation_summary'] else ''
+                main_product.base_sku = base_sku
+                result.append(main_product)
+
+        return sorted(result, key=lambda p: p.name or '')
+
+    def _extract_base_sku(self, sku):
+        """
+        Extract base SKU by removing common variation patterns.
+        Examples:
+        - "US FLC 789 CGS - XL" -> "US FLC 789 CGS"
+        - "US FLC 789 CGS - 123" -> "US FLC 789 CGS"
+        """
+        if not sku:
+            return ''
+
+        # Remove common variation patterns (after dash, after space followed by size/number)
+        import re
+
+        # Pattern 1: Remove " - anything" (dash with spaces)
+        base = re.sub(r'\s*-\s*.+$', '', sku)
+
+        # Pattern 2: Remove common size indicators at the end
+        base = re.sub(r'\s+(XS|S|M|L|XL|XXL|2XL|3XL|\d+)$', '', base, flags=re.IGNORECASE)
+
+        # Pattern 3: Remove trailing numbers that might be sizes
+        base = re.sub(r'\s+\d+$', '', base)
+
+        return base.strip()
+
+    def _extract_variation_from_sku(self, sku):
+        """
+        Extract variation information from SKU.
+        Examples:
+        - "US FLC 789 CGS - XL" -> "XL"
+        - "US FLC 789 CGS - 123" -> "123"
+        """
+        if not sku:
+            return ''
+
+        import re
+
+        # Look for variation after dash
+        match = re.search(r'-\s*(.+)$', sku)
+        if match:
+            return match.group(1).strip()
+
+        # Look for common size patterns at the end
+        size_match = re.search(r'\s+(XS|S|M|L|XL|XXL|2XL|3XL|\d+)$', sku, re.IGNORECASE)
+        if size_match:
+            return size_match.group(1)
+
+        return ''
 
 
 class WholesaleCategoryDetailView(DetailView):
@@ -1326,16 +1423,302 @@ class WholesaleProductDetailView(DetailView):
     def get_queryset(self):
         from clubs.models_wholesale import WholesaleProduct
         self.model = WholesaleProduct
-        return WholesaleProduct.objects.filter(is_active=True).select_related('school')
+        return WholesaleProduct.objects.filter(is_active=True).select_related('school').prefetch_related('categories', 'variations')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         product = self.get_object()
 
-        # Get product variations
-        context['variations'] = product.variations.filter(is_active=True).order_by('variation_type', 'variation_value')
+        # Get all products with same base SKU for grouped variations
+        base_sku = self._extract_base_sku(product.cin7_sku or '')
+        if base_sku:
+            related_products = self._get_products_by_base_sku(base_sku, product.school)
+        else:
+            related_products = [product]
+
+        # Process variations from related products
+        variations_data = self._process_product_variations(related_products)
+
+        # Calculate price ranges
+        price_data = self._calculate_price_ranges(related_products)
+
+        # Check if all variations have the same price (for display as labels vs buttons)
+        price_uniformity = self._check_price_uniformity(related_products)
+
+        context.update({
+            'base_sku': base_sku or product.cin7_sku,
+            'related_products': related_products,
+            'variations_data': variations_data,
+            'available_sizes': variations_data.get('sizes', []),
+            'available_colors': variations_data.get('colors', []),
+            'size_only_product': len(variations_data.get('colors', [])) == 0,
+            'has_variations': len(variations_data.get('sizes', [])) > 1 or len(variations_data.get('colors', [])) > 1,
+            'primary_category': product.categories.first(),
+            'price_data': price_data,
+            'same_price_variations': price_uniformity['all_same'],
+            'price_uniformity': price_uniformity,
+        })
 
         return context
+
+    def _extract_base_sku(self, sku):
+        """Extract base SKU by removing variation suffixes"""
+        if not sku:
+            return ''
+
+        import re
+        # Remove common variation patterns
+        base = re.sub(r'\s*-\s*.+$', '', sku)  # Remove " - anything"
+        base = re.sub(r'\s+(XS|S|M|L|XL|XXL|2XL|3XL|\d+)$', '', base, flags=re.IGNORECASE)
+        base = re.sub(r'\s+\d+$', '', base)  # Remove trailing numbers
+        return base.strip()
+
+    def _get_products_by_base_sku(self, base_sku, school):
+        """Get all products with the same base SKU"""
+        from clubs.models_wholesale import WholesaleProduct
+
+        # Find products where cin7_sku starts with base_sku
+        return WholesaleProduct.objects.filter(
+            school=school,
+            is_active=True,
+            cin7_sku__startswith=base_sku
+        ).select_related('school').prefetch_related('categories').order_by('cin7_sku')
+
+    def _process_product_variations(self, products):
+        """Process products to extract size and color variations from actual variation data"""
+        from clubs.models_wholesale import WholesaleProductVariation
+
+        sizes = set()
+        colors = set()
+        variations = []
+
+        # Get all variations for these products from the database
+        product_ids = [p.id for p in products]
+        all_variations = WholesaleProductVariation.objects.filter(
+            product_id__in=product_ids
+        ).select_related('product')
+
+        for variation in all_variations:
+            variation_value = variation.variation_value.strip()
+
+            if not variation_value:
+                continue
+
+            # Try to determine if it's a size or color/other
+            if self._looks_like_size(variation_value):
+                sizes.add(variation_value)
+                variation_type = 'size'
+            else:
+                # Check if it looks like a color or other attribute
+                colors.add(variation_value)
+                variation_type = 'color'
+
+            # Get price for this variation
+            price = None
+            if variation.wholesale_price:
+                price = variation.wholesale_price
+            elif variation.retail_price:
+                price = variation.retail_price
+            elif variation.cost_price:
+                price = variation.cost_price
+
+            variations.append({
+                'product': variation.product,
+                'variation': variation_value,
+                'type': variation_type,
+                'stock_status': variation.product.stock_status,
+                'quantity': variation.product.quantity_available,
+                'variation_object': variation,
+                'price': price,
+            })
+
+        # Also process any SKU-based variations if no DB variations exist
+        if not all_variations:
+            for product in products:
+                variation_info = self._extract_variation_from_sku(product.cin7_sku or '')
+
+                if variation_info:
+                    # Try to determine if it's a size or color/other
+                    if self._looks_like_size(variation_info):
+                        sizes.add(variation_info)
+                        variation_type = 'size'
+                    else:
+                        colors.add(variation_info)
+                        variation_type = 'color'
+
+                    variations.append({
+                        'product': product,
+                        'variation': variation_info,
+                        'type': variation_type,
+                        'stock_status': product.stock_status,
+                        'quantity': product.quantity_available,
+                    })
+
+        return {
+            'sizes': sorted(list(sizes), key=self._size_sort_key),
+            'colors': sorted(list(colors)),
+            'variations': variations,
+        }
+
+    def _extract_variation_from_sku(self, sku):
+        """Extract variation information from SKU"""
+        if not sku:
+            return ''
+
+        import re
+        # Look for variation after dash
+        match = re.search(r'-\s*(.+)$', sku)
+        if match:
+            return match.group(1).strip()
+
+        # Look for common size patterns at the end
+        size_match = re.search(r'\s+(XS|S|M|L|XL|XXL|2XL|3XL|\d+)$', sku, re.IGNORECASE)
+        if size_match:
+            return size_match.group(1)
+
+        return ''
+
+    def _looks_like_size(self, variation):
+        """Determine if a variation looks like a size"""
+        import re
+        size_patterns = [
+            r'^(XS|S|M|L|XL|XXL|2XL|3XL|4XL|5XL|6XL|7XL|8XL|9XL|10XL)$',  # Standard sizes including 6XL, 7XL etc
+            r'^\d+$',  # Numbers
+            r'^\d+[A-Z]?$',  # Numbers with optional letter
+            r'^Size\s+\d+$',  # "Size 12"
+            r'^\d+XL$',  # Pattern for 6XL, 7XL, etc.
+        ]
+
+        for pattern in size_patterns:
+            if re.match(pattern, variation, re.IGNORECASE):
+                return True
+        return False
+
+    def _size_sort_key(self, size):
+        """Custom sort key for sizes"""
+        size_order = {
+            'XS': 1, 'S': 2, 'M': 3, 'L': 4, 'XL': 5, 'XXL': 6, '2XL': 6,
+            '3XL': 7, '4XL': 8, '5XL': 9, '6XL': 10, '7XL': 11, '8XL': 12,
+            '9XL': 13, '10XL': 14
+        }
+
+        # Check if it's a standard size
+        if size.upper() in size_order:
+            return (0, size_order[size.upper()])
+
+        # Check if it's a numeric XL pattern (like 11XL, 12XL)
+        import re
+        xl_match = re.match(r'^(\d+)XL$', size.upper())
+        if xl_match:
+            return (0, 6 + int(xl_match.group(1)))  # Start after 2XL (6) and add the number
+
+        # Check if it's a number
+        if re.match(r'^\d+$', size):
+            return (1, int(size))
+
+        # Everything else alphabetically
+        return (2, size.lower())
+
+    def _calculate_price_ranges(self, products):
+        """Calculate price ranges for wholesale and retail prices"""
+        wholesale_prices = []
+        retail_prices = []
+        cost_prices = []
+
+        for product in products:
+            if product.wholesale_price:
+                wholesale_prices.append(float(product.wholesale_price))
+            if product.retail_price:
+                retail_prices.append(float(product.retail_price))
+            if product.cost_price:
+                cost_prices.append(float(product.cost_price))
+
+        # Calculate wholesale price range
+        wholesale_range = None
+        if wholesale_prices:
+            min_wholesale = min(wholesale_prices)
+            max_wholesale = max(wholesale_prices)
+            wholesale_range = {
+                'min': min_wholesale,
+                'max': max_wholesale,
+                'has_range': min_wholesale != max_wholesale,
+                'single_price': min_wholesale if min_wholesale == max_wholesale else None
+            }
+
+        # Calculate retail price range
+        retail_range = None
+        if retail_prices:
+            min_retail = min(retail_prices)
+            max_retail = max(retail_prices)
+            retail_range = {
+                'min': min_retail,
+                'max': max_retail,
+                'has_range': min_retail != max_retail,
+                'single_price': min_retail if min_retail == max_retail else None
+            }
+
+        # If no wholesale/retail prices, check if we have cost prices as fallback
+        cost_range = None
+        if cost_prices and not wholesale_prices and not retail_prices:
+            min_cost = min(cost_prices)
+            max_cost = max(cost_prices)
+            cost_range = {
+                'min': min_cost,
+                'max': max_cost,
+                'has_range': min_cost != max_cost,
+                'single_price': min_cost if min_cost == max_cost else None
+            }
+
+        return {
+            'wholesale': wholesale_range,
+            'retail': retail_range,
+            'cost': cost_range,
+            'has_any_pricing': bool(wholesale_prices or retail_prices or cost_prices),
+        }
+
+    def _check_price_uniformity(self, products):
+        """Check if all variations have the same price"""
+        from clubs.models_wholesale import WholesaleProductVariation
+
+        # Get all variations for these products
+        product_ids = [p.id for p in products]
+        variations = WholesaleProductVariation.objects.filter(product_id__in=product_ids)
+
+        wholesale_prices = set()
+        retail_prices = set()
+        cost_prices = set()
+
+        for variation in variations:
+            if variation.wholesale_price:
+                wholesale_prices.add(float(variation.wholesale_price))
+            if variation.retail_price:
+                retail_prices.add(float(variation.retail_price))
+            if variation.cost_price:
+                cost_prices.add(float(variation.cost_price))
+
+        # Check if all prices are the same for each type
+        same_wholesale = len(wholesale_prices) <= 1
+        same_retail = len(retail_prices) <= 1
+        same_cost = len(cost_prices) <= 1
+
+        # Consider prices uniform if the primary pricing method is uniform
+        # Priority: wholesale > retail > cost
+        if wholesale_prices:
+            primary_uniform = same_wholesale
+        elif retail_prices:
+            primary_uniform = same_retail
+        else:
+            primary_uniform = same_cost
+
+        return {
+            'all_same': primary_uniform,
+            'same_wholesale': same_wholesale,
+            'same_retail': same_retail,
+            'same_cost': same_cost,
+            'has_wholesale': bool(wholesale_prices),
+            'has_retail': bool(retail_prices),
+            'has_cost': bool(cost_prices),
+        }
 
 
 def tus_sync_status(request, job_id):

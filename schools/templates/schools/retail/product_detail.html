@@ -176,9 +176,9 @@
 
 .variation-title {
     font-weight: 600;
-    color: #2c3e50;
+    color: #387ADF;
     margin-bottom: 12px;
-    font-size: 1.1rem;
+    font-size: 1rem;
 }
 
 .variation-options {
@@ -214,29 +214,182 @@
     background-color: #f8f9fa;
 }
 
-/* Action Buttons */
-.action-buttons {
+/* Color Swatches */
+.color-swatches {
     display: flex;
-    gap: 12px;
-    margin-top: 2rem;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
 }
 
-.btn-contact-purchase {
-    background: linear-gradient(135deg, #387ADF 0%, #5A8FE8 100%);
-    border: none;
-    color: white;
-    padding: 12px 24px;
+.color-swatch {
+    display: inline-block;
+    width: 50px;
+    height: 50px;
+    border: 3px solid #e9ecef;
+    margin: 0;
+    cursor: pointer;
     border-radius: 8px;
-    font-weight: 600;
+    overflow: hidden;
+    position: relative;
     transition: all 0.3s ease;
-    flex: 1;
-    max-width: 250px;
+    background: #f8f9fa;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.btn-contact-purchase:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(56, 122, 223, 0.3);
+.color-swatch:hover {
+    border-color: #387ADF;
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(56, 122, 223, 0.3);
+}
+
+.color-swatch.selected {
+    border-color: #387ADF;
+    box-shadow: 0 0 0 3px #387ADF, 0 4px 15px rgba(56, 122, 223, 0.3);
+    transform: scale(1.05);
+}
+
+.color-swatch-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+/* Size Selection Buttons */
+.size-selection-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 25px;
+    align-items: center;
+}
+
+.size-selection-btn {
+    border: 1px solid #dee2e6;
+    background: white;
+    color: #495057;
+    padding: 12px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 80px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.size-selection-btn:hover:not(:disabled) {
+    border-color: #387ADF;
+    box-shadow: 0 2px 6px rgba(56, 122, 223, 0.2);
+}
+
+.size-selection-btn.selected {
+    border-color: #387ADF;
+    background: #387ADF;
     color: white;
+    box-shadow: 0 2px 6px rgba(56, 122, 223, 0.3);
+}
+
+.size-selection-btn:disabled {
+    background: #f8f9fa;
+    color: #9ca3af;
+    cursor: not-allowed;
+    border-color: #e5e7eb;
+    opacity: 0.6;
+}
+
+.size-selection-btn .size-label {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+.size-selection-btn .size-price {
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.size-selection-btn.selected .size-price {
+    opacity: 1;
+}
+
+/* Size Availability Section */
+.size-availability-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 15px;
+}
+
+/* Size Availability Grid - Match SAS Layout */
+.size-availability-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    max-width: 600px;
+}
+
+@media (max-width: 768px) {
+    .size-availability-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .size-availability-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.size-stock-button {
+    border: 2px solid #387ADF;
+    background: #387ADF;
+    color: white;
+    padding: 12px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    min-height: 70px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.size-stock-button:hover:not(.out-of-stock) {
+    background: #2968cc;
+    border-color: #2968cc;
+}
+
+.size-stock-button.selected {
+    background: #1c5aa8;
+    border-color: #1c5aa8;
+}
+
+.size-stock-button.out-of-stock {
+    background: #6c757d;
+    border-color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.size-name {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 3px;
+    line-height: 1.2;
+}
+
+.stock-count {
+    font-size: 12px;
+    opacity: 0.9;
+    line-height: 1.2;
 }
 
 /* Product Meta */
@@ -276,65 +429,11 @@
     border-color: #387ADF !important;
 }
 
-/* Size Availability Section */
-.size-availability-section {
-    margin-top: 20px;
-}
-
-.size-availability-title {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #6c757d;
-    margin-bottom: 15px;
-}
-
-.size-tiles-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: flex-start;
-}
-
-.size-inventory-tile {
-    background: linear-gradient(135deg, #387ADF 0%, #5A8FE8 100%);
-    color: white;
-    padding: 16px 12px;
-    border-radius: 8px;
-    text-align: center;
-    font-weight: 600;
-    box-shadow: 0 4px 12px rgba(56, 122, 223, 0.2);
-    transition: all 0.3s ease;
-    min-width: 80px;
-    flex: 0 0 auto;
-}
-
-.size-inventory-tile:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(56, 122, 223, 0.3);
-}
-
-.size-label {
-    font-size: 1.2rem;
-    font-weight: 900;
-    margin-bottom: 4px;
-    letter-spacing: 1px;
-    color: #FFFFFF;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    text-transform: uppercase;
-}
-
-.stock-quantity {
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: #FFFFFF;
-    opacity: 1;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-}
-
-/* Product Stock Status */
+/* Stock Status Display */
 .product-stock-status {
     display: flex;
     align-items: center;
+    margin-top: 20px;
 }
 
 .stock-indicator {
@@ -347,44 +446,7 @@
 .stock-indicator i {
     color: #28a745;
     font-size: 1.2rem;
-}
-
-/* Size Selection Buttons */
-.size-buttons {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.size-button {
-    padding: 8px 16px;
-    border: 2px solid #387ADF;
-    border-radius: 6px;
-    background: white;
-    color: #387ADF;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    min-width: 50px;
-}
-
-.size-button:hover,
-.size-button.selected {
-    background: #387ADF;
-    color: white;
-}
-
-/* Section Headers */
-.option-label h6 {
-    font-weight: 600;
-    margin-bottom: 10px;
-}
-
-.variation-title {
-    font-weight: 600;
-    color: #2c3e50;
-    margin-bottom: 12px;
-    font-size: 1rem;
+    margin-right: 8px;
 }
 
 /* Responsive Design */
@@ -428,12 +490,9 @@
         height: 350px;
     }
 
-    .action-buttons {
-        flex-direction: column;
-    }
-
-    .btn-contact-purchase {
-        max-width: none;
+    .color-swatch {
+        width: 45px;
+        height: 45px;
     }
 }
 
@@ -455,6 +514,11 @@
 
     .school-name {
         font-size: 1rem;
+    }
+
+    .color-swatch {
+        width: 40px;
+        height: 40px;
     }
 }
 </style>
@@ -483,35 +547,41 @@
                 </div>
             </div>
 
-            <!-- Size Availability (positioned under main image as per LOTTO design) -->
-            <div class="size-availability-section">
-                <h6 class="size-availability-title">Size Availability</h6>
-                <div class="size-inventory-grid">
-                    <div class="size-tiles-container">
-                        <div class="size-inventory-tile">
-                            <div class="size-label">Size 6</div>
-                            <div class="stock-quantity">25 available</div>
-                        </div>
-                        <div class="size-inventory-tile">
-                            <div class="size-label">Size 8</div>
-                            <div class="stock-quantity">25 available</div>
-                        </div>
-                        <div class="size-inventory-tile">
-                            <div class="size-label">Size 10</div>
-                            <div class="stock-quantity">25 available</div>
-                        </div>
-                        <div class="size-inventory-tile">
-                            <div class="size-label">Size 12</div>
-                            <div class="stock-quantity">25 available</div>
-                        </div>
+            <!-- Size Availability Section (Under Main Image) -->
+            {% regroup variations by variation_type as variation_groups %}
+            {% for group in variation_groups %}
+                {% if group.grouper == "size" %}
+                <div class="size-availability-section mt-4">
+                    <div class="size-availability-title mb-3">
+                        <strong>Size Availability</strong>
+                    </div>
+                    <div class="size-availability-grid">
+                        {% for size_variation in group.list|dictsort:"price" %}
+                        <button type="button"
+                                class="size-stock-button{% if size_variation.stock_quantity == 0 %} out-of-stock{% endif %}"
+                                data-size="{{ size_variation.variation_value }}"
+                                data-price="{{ size_variation.price }}"
+                                data-stock="{{ size_variation.stock_quantity }}"
+                                {% if size_variation.stock_quantity == 0 %}disabled{% endif %}>
+                            <div class="size-name">{{ size_variation.variation_value }}</div>
+                            <div class="stock-count">
+                                {% if size_variation.stock_quantity == 0 %}
+                                    Out of Stock
+                                {% else %}
+                                    {{ size_variation.stock_quantity }} available
+                                {% endif %}
+                            </div>
+                        </button>
+                        {% endfor %}
                     </div>
                 </div>
-            </div>
+                {% endif %}
+            {% endfor %}
 
-            <!-- Stock Status -->
+            <!-- Stock Status Display -->
             <div class="product-stock-status mt-3">
                 <div class="stock-indicator">
-                    <i class="uil-check-circle me-2"></i>
+                    <i class="uil-check-circle"></i>
                     <span class="stock-text"><strong>AVAILABLE</strong> In Stock</span>
                 </div>
             </div>
@@ -562,68 +632,48 @@
                     {% endif %}
                 </div>
 
-                <!-- Stock Status -->
-                <div class="stock-status-container">
-                    {% if product.stock_status == 'instock' %}
-                    <div class="stock-status in-stock">
-                        <i class="uil-check-circle"></i>
-                        <span>In Stock</span>
-                    </div>
-                    {% elif product.stock_status == 'onbackorder' %}
-                    <div class="stock-status on-backorder">
-                        <i class="uil-clock"></i>
-                        <span>On Backorder</span>
-                    </div>
-                    {% elif product.stock_status == 'lowstock' %}
-                    <div class="stock-status low-stock">
-                        <i class="uil-exclamation-triangle"></i>
-                        <span>Low Stock</span>
-                    </div>
-                    {% else %}
-                    <div class="stock-status out-of-stock">
-                        <i class="uil-times-circle"></i>
-                        <span>Out of Stock</span>
-                    </div>
-                    {% endif %}
-                </div>
-
                 <!-- Available Colors -->
-                {% if product.color_variations %}
-                <div class="color-options mb-4">
-                    <div class="option-label mb-3">
-                        <h6 class="mb-2 text-tus-primary">Available Colors</h6>
-                    </div>
-                    <div class="color-swatches">
-                        <!-- Color swatches would be dynamically loaded here -->
-                    </div>
-                </div>
-                {% endif %}
-
-                <!-- Select Size -->
-                {% if product.size_variations %}
-                <div class="size-options mb-4">
-                    <div class="option-label mb-3">
-                        <h6 class="mb-2 text-tus-primary">Select Size</h6>
-                    </div>
-                    <div class="size-selection">
-                        <div class="variation-title">Size:</div>
-                        <div class="size-buttons">
-                            {% for size in product.size_variations %}
-                            <button type="button" class="size-button">{{ size }}</button>
+                {% comment %} Only show colors if there are color variations {% endcomment %}
+                {% regroup variations by variation_type as variation_groups %}
+                {% for group in variation_groups %}
+                    {% if group.grouper == "color" %}
+                    <div class="color-options mb-4">
+                        <div class="variation-title">Available Colors</div>
+                        <div class="color-swatches">
+                            {% for color_variation in group.list|dictsort:"variation_value" %}
+                            <div class="color-swatch{% if forloop.first %} selected{% endif %}" data-color="{{ color_variation.variation_value }}">
+                                <div class="color-swatch-image" style="background-color: {{ color_variation.variation_value|lower }};"></div>
+                            </div>
                             {% endfor %}
                         </div>
                     </div>
-                </div>
-                {% endif %}
-
-                <!-- Action Buttons -->
-                <div class="action-buttons">
-                    {% if product.stock_status != 'outofstock' %}
-                    <button type="button" class="btn-contact-purchase">
-                        <i class="uil-shopping-cart me-2"></i>Contact for Purchase
-                    </button>
                     {% endif %}
-                </div>
+                {% endfor %}
+
+                <!-- Select Size -->
+                {% for group in variation_groups %}
+                    {% if group.grouper == "size" %}
+                    <div class="size-options mb-4">
+                        <div class="variation-title">Select Size</div>
+
+                        <!-- Size Selection Buttons with Prices -->
+                        <div class="size-selection-buttons mb-4">
+                            {% for size_variation in group.list|dictsort:"price" %}
+                            <button type="button"
+                                    class="size-selection-btn{% if size_variation.stock_quantity == 0 %} out-of-stock{% endif %}"
+                                    data-size="{{ size_variation.variation_value }}"
+                                    data-price="{{ size_variation.price }}"
+                                    data-stock="{{ size_variation.stock_quantity }}"
+                                    {% if size_variation.stock_quantity == 0 %}disabled{% endif %}>
+                                <div class="size-label">{{ size_variation.variation_value }}</div>
+                                <div class="size-price">${{ size_variation.price }}</div>
+                            </button>
+                            {% endfor %}
+                        </div>
+
+                    </div>
+                    {% endif %}
+                {% endfor %}
 
                 <!-- Product Meta Information -->
                 <div class="product-meta">
@@ -637,10 +687,6 @@
             </div>
         </div>
     </div>
-
-
-        </div>
-    </div>
 </div>
 
 {% endblock %}
@@ -650,7 +696,8 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize product detail functionality
     initializeImageGallery();
-    initializeVariations();
+    initializeColorSwatches();
+    initializeSizeButtons();
 
     // Initialize tooltips
     var tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
@@ -659,29 +706,63 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Initialize product variations
-function initializeVariations() {
-    const variationButtons = document.querySelectorAll('.variation-option');
-    const priceDisplay = document.querySelector('.current-price');
+// Initialize color swatches
+function initializeColorSwatches() {
+    const colorSwatches = document.querySelectorAll('.color-swatch');
 
-    variationButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            if (this.disabled) return;
+    colorSwatches.forEach(swatch => {
+        swatch.addEventListener('click', function() {
+            // Remove selected class from all color swatches
+            colorSwatches.forEach(s => s.classList.remove('selected'));
 
-            // Remove selected class from buttons of the same type
-            const variationType = this.dataset.variationType;
-            document.querySelectorAll(`[data-variation-type="${variationType}"]`).forEach(btn => {
-                btn.classList.remove('selected');
-            });
-
-            // Add selected class to clicked button
+            // Add selected class to clicked swatch
             this.classList.add('selected');
 
-            // Update price if available
-            const price = this.dataset.price;
-            if (price && priceDisplay) {
-                priceDisplay.textContent = price;
+            console.log('Color selected:', this);
+        });
+    });
+}
+
+// Initialize size buttons
+function initializeSizeButtons() {
+    const sizeLabels = document.querySelectorAll('.size-label');
+    const sizeAvailabilityButtons = document.querySelectorAll('.size-availability-button');
+
+    // Size label interactions
+    sizeLabels.forEach(label => {
+        label.addEventListener('click', function() {
+            if (this.classList.contains('out-of-stock')) return;
+
+            // Remove selected class from all size labels
+            sizeLabels.forEach(l => l.classList.remove('selected'));
+
+            // Add selected class to clicked label
+            this.classList.add('selected');
+
+            const selectedSize = this.dataset.size;
+            const selectedPrice = this.dataset.price;
+
+            console.log('Size selected:', selectedSize, 'Price:', selectedPrice);
+        });
+    });
+
+    // Size availability button interactions
+    sizeAvailabilityButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            if (this.classList.contains('out-of-stock')) return;
+
+            const selectedSize = this.dataset.size;
+            const selectedPrice = this.dataset.price;
+            const selectedStock = this.dataset.stock;
+
+            // Also select the corresponding size label
+            sizeLabels.forEach(l => l.classList.remove('selected'));
+            const matchingLabel = document.querySelector(`.size-label[data-size="${selectedSize}"]`);
+            if (matchingLabel) {
+                matchingLabel.classList.add('selected');
             }
+
+            console.log('Size selected from availability:', selectedSize, 'Price:', selectedPrice, 'Stock:', selectedStock);
         });
     });
 }
@@ -696,16 +777,5 @@ function initializeImageGallery() {
     }
 }
 
-// Add smooth animations to action buttons
-document.addEventListener('DOMContentLoaded', function() {
-    const contactBtn = document.querySelector('.btn-contact-purchase');
-
-    if (contactBtn) {
-        contactBtn.addEventListener('click', function() {
-            // Add contact functionality here
-            console.log('Contact for purchase clicked');
-        });
-    }
-});
 </script>
 {% endblock %}

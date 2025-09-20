@@ -1,381 +1,657 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block content %}
-<div class="wholesale-product-page">
-    <!-- Product Detail Content -->
-    <div class="row g-4">
-        <!-- Left Column - Product Image and Stock Info -->
-        <div class="col-lg-6">
-            <!-- Product Image -->
-            <div class="product-image-container">
-                {% if product.image_url %}
-                    <img src="{{ product.image_url }}" alt="{{ product.name }}" class="product-image">
-                {% else %}
-                    <div class="product-image-placeholder">
-                        <i class="uil-image-broken"></i>
-                        <p>No image available</p>
-                    </div>
-                {% endif %}
-            </div>
+{% block title %}{{ product.name }} - {{ product.school.name }} - Wholesale{% endblock %}
 
-            <!-- Size Availability Section -->
-            {% if variations %}
-            <div class="size-availability-section mt-4">
-                <h6 class="mb-3">Size Availability</h6>
-                <div class="size-stock-tiles">
-                    {% regroup variations by variation_type as variation_groups %}
-                    {% for group in variation_groups %}
-                        {% if group.grouper == 'size' %}
-                            {% for variation in group.list %}
-                            <div class="stock-tile">
-                                <div class="size-label">{{ variation.variation_value }}</div>
-                                <div class="stock-quantity">{{ variation.quantity_available|default:0 }} available</div>
-                            </div>
-                            {% endfor %}
-                        {% endif %}
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- Stock Status -->
-            <div class="stock-status mt-4">
-                <div class="d-flex align-items-center">
-                    {% if product.quantity_available > 0 %}
-                        <i class="uil-check-circle text-success me-2"></i>
-                        <span class="text-success fw-bold">AVAILABLE In Stock</span>
-                    {% else %}
-                        <i class="uil-times-circle text-danger me-2"></i>
-                        <span class="text-danger fw-bold">OUT OF STOCK</span>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <!-- Right Column - Product Information -->
-        <div class="col-lg-6">
-            <!-- School/Brand Header -->
-            <div class="school-header mb-3">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div class="d-flex align-items-center">
-                        {% if product.school.logo %}
-                            <img src="{{ product.school.logo }}" alt="{{ product.school.name }}" class="school-logo me-3">
-                        {% endif %}
-                        <div>
-                            <div class="school-name">{{ product.school.name }}</div>
-                            <div class="school-category text-muted">Wholesale Products</div>
-                        </div>
-                    </div>
-                    <span class="badge bg-primary">WHOLESALE</span>
-                </div>
-            </div>
-
-            <!-- Product Title -->
-            <h1 class="product-title">{{ product.name|upper }}</h1>
-
-            <!-- Price -->
-            <div class="product-price mb-4">
-                {% if product.wholesale_price %}
-                    <span class="price-amount">${{ product.wholesale_price|floatformat:2 }}</span>
-                {% else %}
-                    <span class="price-contact">Contact for Pricing</span>
-                {% endif %}
-            </div>
-
-            <!-- Available Colors -->
-            {% if variations %}
-            <div class="product-options mb-4">
-                {% regroup variations by variation_type as variation_groups %}
-                {% for group in variation_groups %}
-                    {% if group.grouper == 'color' %}
-                    <div class="option-group mb-3">
-                        <label class="option-label">Available Colors</label>
-                        <div class="color-options">
-                            {% for variation in group.list %}
-                            <div class="color-option">{{ variation.variation_value }}</div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
-                {% endfor %}
-
-                <!-- Select Size -->
-                {% for group in variation_groups %}
-                    {% if group.grouper == 'size' %}
-                    <div class="option-group mb-3">
-                        <label class="option-label">Select Size</label>
-                        <div class="size-selection">
-                            <label class="size-label-text">Size:</label>
-                            <div class="size-buttons">
-                                {% for variation in group.list %}
-                                <button type="button" class="size-btn" data-size="{{ variation.variation_value }}">
-                                    {{ variation.variation_value }}
-                                </button>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-                {% endfor %}
-            </div>
-            {% endif %}
-
-            <!-- SKU -->
-            {% if product.sku %}
-            <div class="product-sku">
-                <span class="text-muted">SKU: </span>
-                <span class="fw-bold">{{ product.sku }}</span>
-            </div>
-            {% endif %}
-
-            <!-- Product Description -->
-            {% if product.description %}
-            <div class="product-description mt-4">
-                <h6>Description</h6>
-                <p class="text-muted">{{ product.description|striptags }}</p>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-</div>
-
+{% block extra_css %}
 <style>
-/* Product Detail Page Styles */
+/* Wholesale Product Detail Page Styles - Based on SAS structure */
 .wholesale-product-page {
+    background-color: #fafbfc;
+    min-height: 100vh;
     padding: 2rem 0;
 }
 
-/* Left Column - Image */
-.product-image-container {
-    background: #f8f9fa;
+/* Product Image Gallery */
+.product-gallery {
+    position: relative;
+}
+
+.main-product-image {
+    position: relative;
     border-radius: 12px;
-    padding: 2rem;
-    text-align: center;
-    border: 1px solid #e9ecef;
-}
-
-.product-image {
-    max-width: 100%;
-    max-height: 400px;
-    width: auto;
-    height: auto;
-    object-fit: contain;
-}
-
-.product-image-placeholder {
-    height: 400px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    color: #6c757d;
-}
-
-.product-image-placeholder i {
-    font-size: 4rem;
-    margin-bottom: 1rem;
-}
-
-/* Size Availability */
-.size-availability-section h6 {
-    color: #495057;
-    font-weight: 600;
-}
-
-.size-stock-tiles {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 1rem;
-}
-
-.stock-tile {
-    background: #c85a7a;
-    color: white;
-    padding: 1rem;
-    border-radius: 8px;
-    text-align: center;
+    overflow: hidden;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border: 2px solid rgba(13, 110, 253, 0.1);
     transition: all 0.3s ease;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
 }
 
-.stock-tile:hover {
-    background: #b64968;
+.main-product-image:hover {
+    border-color: rgba(13, 110, 253, 0.3);
     transform: translateY(-2px);
+    box-shadow: 0 12px 35px rgba(13, 110, 253, 0.15);
 }
 
-.stock-tile .size-label {
-    font-weight: 600;
-    margin-bottom: 0.5rem;
+.main-product-image img {
+    width: 100%;
+    height: 500px;
+    object-fit: contain;
+    transition: transform 0.3s ease;
 }
 
-.stock-tile .stock-quantity {
-    font-size: 0.9rem;
+.main-product-image:hover img {
+    transform: scale(1.05);
 }
 
-/* Stock Status */
-.stock-status {
-    padding: 1rem;
-    background: #f8f9fa;
-    border-radius: 8px;
-    border-left: 4px solid #28a745;
-}
-
-/* Right Column - Product Info */
-.school-header {
-    padding-bottom: 1rem;
-    border-bottom: 1px solid #e9ecef;
-}
-
-.school-logo {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    object-fit: cover;
-}
-
-.school-name {
-    font-weight: 600;
-    color: #c85a7a;
-}
-
-.school-category {
-    font-size: 0.9rem;
+/* Product Info Section */
+.product-info {
+    padding: 2rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 .product-title {
     font-size: 2rem;
     font-weight: 700;
-    color: #495057;
+    color: #2c3e50;
     margin-bottom: 1rem;
-    line-height: 1.2;
+    line-height: 1.3;
 }
 
-.product-price {
+.school-info {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 1.5rem;
+    border-left: 4px solid #0d6efd;
+}
+
+.school-name {
+    font-weight: 600;
+    color: #0d6efd;
+    font-size: 1.1rem;
+}
+
+/* Pricing */
+.product-pricing {
     margin-bottom: 2rem;
 }
 
-.price-amount {
-    font-size: 2rem;
+.price-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.current-price {
+    font-size: 2.5rem;
     font-weight: 700;
-    color: #c85a7a;
+    color: #0d6efd;
 }
 
-.price-contact {
-    font-size: 1.5rem;
-    font-weight: 600;
+.original-price {
+    font-size: 1.8rem;
     color: #6c757d;
+    text-decoration: line-through;
 }
 
-/* Product Options */
-.option-label {
-    display: block;
-    font-weight: 600;
-    color: #c85a7a;
-    margin-bottom: 0.5rem;
-}
-
-.color-options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.color-option {
-    padding: 0.5rem 1rem;
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
+.price-note {
     font-size: 0.9rem;
+    color: #6c757d;
+    font-style: italic;
 }
 
-.size-selection .size-label-text {
+/* Product Variations */
+.variation-section {
+    margin-bottom: 2rem;
+}
+
+.variation-title {
     font-weight: 600;
-    color: #c85a7a;
-    display: block;
-    margin-bottom: 0.5rem;
+    color: #2c3e50;
+    margin-bottom: 12px;
+    font-size: 1.1rem;
 }
 
-.size-buttons {
+.variation-options {
     display: flex;
+    gap: 12px;
     flex-wrap: wrap;
-    gap: 0.5rem;
 }
 
-.size-btn {
-    padding: 0.75rem 1rem;
-    border: 2px solid #c85a7a;
-    background: white;
-    color: #c85a7a;
-    border-radius: 4px;
-    font-weight: 600;
+.variation-option {
+    padding: 12px 20px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    background: white;
 }
 
-.size-btn:hover,
-.size-btn.active {
-    background: #c85a7a;
+.variation-option:hover {
+    border-color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+.variation-option.selected {
+    border-color: #0d6efd;
+    background-color: #0d6efd;
     color: white;
 }
 
-.product-sku {
+.variation-option.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: #f8f9fa;
+}
+
+/* Size Labels for uniform pricing */
+.size-labels {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.size-label {
+    display: inline-block;
+    padding: 8px 16px;
+    background: #f8f9fa;
+    color: #495057;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.9rem;
+    letter-spacing: 0.5px;
+}
+
+/* SAS-style Layout */
+.price-large {
+    font-size: 2.5rem;
+    font-weight: 700;
+}
+
+.detail-label {
+    color: #007bff;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.size-options-horizontal {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.size-option-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: #f8f9fa;
+    padding: 12px 8px;
+    min-width: 70px;
+    min-height: 65px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.size-option-container:hover {
+    border-color: #007bff;
+    background: #e7f3ff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+}
+
+.size-option-label {
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.9rem;
+    margin-bottom: 2px;
+    line-height: 1;
+}
+
+.size-price {
     color: #6c757d;
+    font-weight: 500;
+    font-size: 0.8rem;
+    line-height: 1;
+}
+
+.size-title {
+    color: #2c3e50;
+    font-weight: 600;
     margin-bottom: 1rem;
 }
 
-.product-description h6 {
+/* Stock Status */
+.stock-section {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.stock-title {
+    font-size: 1.1rem;
     font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 15px;
+}
+
+.size-tiles-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    padding: 0;
+}
+
+.size-inventory-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 12px;
+    min-height: 90px;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
+    color: white;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.size-inventory-tile::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.size-inventory-tile:hover::before {
+    opacity: 1;
+}
+
+.size-inventory-tile:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(13, 110, 253, 0.3);
+}
+
+.size-inventory-tile.out-of-stock {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    color: #f8f9fa;
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
+    cursor: not-allowed;
+}
+
+.size-inventory-tile.out-of-stock:hover {
+    transform: none;
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
+}
+
+.size-name {
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: white;
+}
+
+.size-stock {
+    font-size: 0.85rem;
+    font-weight: 500;
+    opacity: 0.95;
+    text-transform: lowercase;
+    color: white;
+}
+
+/* Product Meta Information */
+.product-meta {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e9ecef;
+}
+
+.meta-item {
     margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+}
+
+.meta-label {
+    font-weight: 600;
+    color: #495057;
+    min-width: 100px;
+    display: inline-block;
+}
+
+.meta-value {
+    color: #6c757d;
 }
 
 /* Responsive Design */
-@media (max-width: 992px) {
+@media (max-width: 1024px) {
     .product-title {
-        font-size: 1.5rem;
+        font-size: 1.75rem;
     }
 
-    .price-amount {
-        font-size: 1.5rem;
+    .current-price {
+        font-size: 2rem;
     }
 
-    .size-stock-tiles {
-        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    .main-product-image img {
+        height: 450px;
     }
 }
 
-@media (max-width: 576px) {
+@media (max-width: 992px) {
+    .main-product-image img {
+        height: 400px;
+    }
+
+    .variation-options {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 768px) {
     .wholesale-product-page {
         padding: 1rem 0;
     }
 
-    .product-image-container {
-        padding: 1rem;
+    .product-info {
+        padding: 1.5rem;
+        margin-top: 2rem;
     }
 
-    .product-image {
-        max-height: 300px;
+    .product-title {
+        font-size: 1.5rem;
     }
 
-    .size-buttons {
-        justify-content: center;
+    .current-price {
+        font-size: 1.8rem;
+    }
+
+    .main-product-image img {
+        height: 350px;
+    }
+
+    .size-tiles-container {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 10px;
+    }
+
+    .size-inventory-tile {
+        padding: 12px 8px;
+        min-height: 75px;
+    }
+
+    .size-name {
+        font-size: 0.9rem;
+    }
+
+    .size-stock {
+        font-size: 0.75rem;
     }
 }
+
+@media (max-width: 576px) {
+    .price-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .size-tiles-container {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+
+    .size-inventory-tile {
+        padding: 10px 6px;
+        min-height: 65px;
+    }
+
+    .size-name {
+        font-size: 0.8rem;
+        margin-bottom: 2px;
+    }
+
+    .size-stock {
+        font-size: 0.7rem;
+    }
+}
+
+/* Focus states for accessibility */
+.variation-option:focus,
+.size-inventory-tile:focus {
+    outline: 2px solid #0d6efd;
+    outline-offset: 2px;
+}
 </style>
+{% endblock %}
 
+{% block content %}
+<div class="wholesale-product-page">
+    <div class="row">
+        <!-- Product Image Gallery -->
+        <div class="col-lg-6 col-md-12">
+            <div class="product-gallery">
+                <div class="main-product-image">
+                    {% if product.image_url %}
+                        <img src="{{ product.image_url }}"
+                             alt="{{ product.name }}"
+                             id="mainProductImage"
+                             class="img-fluid">
+                    {% else %}
+                        <div class="d-flex align-items-center justify-content-center h-100" style="min-height: 500px;">
+                            <div class="text-center text-muted">
+                                <i class="uil-image-broken font-size-48 mb-3"></i>
+                                <p>No image available</p>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Size Availability Section -->
+                {% if has_variations %}
+                <div class="stock-section mt-4">
+                    <h5 class="stock-title mb-3">Size Availability</h5>
+                    <div class="size-tiles-container">
+                        {% for size in available_sizes %}
+                            {% for variation in variations_data.variations %}
+                                {% if variation.variation == size and variation.type == 'size' %}
+                                <div class="size-inventory-tile {% if variation.stock_status == 'out_of_stock' %}out-of-stock{% endif %}">
+                                    <div class="size-name">{{ size }}</div>
+                                    <div class="size-stock">
+                                        {% if variation.stock_status == 'in_stock' %}
+                                            {{ variation.quantity }} available
+                                        {% else %}
+                                            Out of stock
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Product Information -->
+        <div class="col-lg-6 col-md-12">
+            <div class="product-info">
+                <!-- School Badge -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex align-items-center">
+                        <div class="school-logo me-2">
+                            <div class="d-flex align-items-center justify-content-center bg-primary text-white rounded" style="width: 30px; height: 30px;">
+                                <i class="uil-building font-size-14"></i>
+                            </div>
+                        </div>
+                        <small class="text-muted">{{ product.school.name }}</small>
+                    </div>
+                    <span class="badge bg-primary">SAS</span>
+                </div>
+
+                <!-- Product Title -->
+                <h1 class="product-title mb-4">{{ product.name }}</h1>
+
+                <!-- Pricing Information -->
+                <div class="product-pricing mb-4">
+                    <div class="price-display">
+                        {% if price_data.wholesale %}
+                            {% if price_data.wholesale.has_range %}
+                                <h2 class="price-large text-primary mb-0">${{ price_data.wholesale.min }} - ${{ price_data.wholesale.max }}</h2>
+                            {% else %}
+                                <h2 class="price-large text-primary mb-0">${{ price_data.wholesale.single_price }}</h2>
+                            {% endif %}
+                        {% elif price_data.cost %}
+                            {% if price_data.cost.has_range %}
+                                <h2 class="price-large text-primary mb-0">From ${{ price_data.cost.min }}</h2>
+                            {% else %}
+                                <h2 class="price-large text-primary mb-0">${{ price_data.cost.single_price }}</h2>
+                            {% endif %}
+                        {% elif product.wholesale_price %}
+                            <h2 class="price-large text-primary mb-0">${{ product.wholesale_price }}</h2>
+                        {% elif not price_data.has_any_pricing %}
+                            <h2 class="price-large text-muted mb-0">Contact for pricing</h2>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Product Details -->
+                <div class="product-details mb-4">
+                    {% if primary_category %}
+                    <div class="detail-row mb-2">
+                        <span class="detail-label">Category:</span>
+                    </div>
+                    {% endif %}
+
+                    {% if available_colors %}
+                    <div class="detail-row mb-3">
+                        <span class="detail-label">Color:</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Size Selection -->
+                {% if has_variations and available_sizes %}
+                <div class="size-selection mb-4">
+                    <h6 class="size-title mb-3">Select Size</h6>
+                    <div class="size-options-horizontal">
+                        {% for size in available_sizes %}
+                            {% for variation in variations_data.variations %}
+                                {% if variation.variation == size and variation.type == 'size' %}
+                                <div class="size-option-container">
+                                    <span class="size-option-label">{{ size }}</span>
+                                    {% if variation.price %}
+                                    <small class="size-price">${{ variation.price }}</small>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Product Description -->
+                {% if product.description %}
+                <div class="product-description mb-4">
+                    <h6>Description:</h6>
+                    <p class="text-muted">{{ product.description|striptags }}</p>
+                </div>
+                {% endif %}
+
+                <!-- Product Meta Information -->
+                <div class="product-meta">
+                    {% if base_sku %}
+                    <div class="meta-item">
+                        <span class="meta-label">SKU:</span>
+                        <span class="meta-value">{{ base_sku }}</span>
+                    </div>
+                    {% endif %}
+
+                    {% if product.cin7_brand %}
+                    <div class="meta-item">
+                        <span class="meta-label">Brand:</span>
+                        <span class="meta-value">{{ product.cin7_brand }}</span>
+                    </div>
+                    {% endif %}
+
+                    <div class="meta-item">
+                        <span class="meta-label">School:</span>
+                        <span class="meta-value">{{ product.school.name }}</span>
+                    </div>
+
+                    {% if has_variations %}
+                    <div class="meta-item">
+                        <span class="meta-label">Variations:</span>
+                        <span class="meta-value">{{ variations_data.variations|length }} variant{{ variations_data.variations|length|pluralize }}</span>
+                    </div>
+                    {% endif %}
+
+                    <div class="meta-item">
+                        <span class="meta-label">Stock Status:</span>
+                        <span class="meta-value">
+                            {% if product.stock_status == 'in_stock' %}
+                                <span class="badge bg-success">In Stock</span>
+                            {% else %}
+                                <span class="badge bg-danger">Out of Stock</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
 <script>
-// Size selection functionality
 document.addEventListener('DOMContentLoaded', function() {
-    const sizeButtons = document.querySelectorAll('.size-btn');
+    // Initialize variation selection
+    initializeVariationSelection();
+});
 
-    sizeButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            // Remove active class from all buttons
-            sizeButtons.forEach(btn => btn.classList.remove('active'));
+function initializeVariationSelection() {
+    const variationOptions = document.querySelectorAll('.variation-option');
 
-            // Add active class to clicked button
-            this.classList.add('active');
+    variationOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            // Remove selected class from siblings
+            const siblings = this.parentElement.querySelectorAll('.variation-option');
+            siblings.forEach(sibling => sibling.classList.remove('selected'));
+
+            // Add selected class to clicked option
+            this.classList.add('selected');
+
+            // You can add more functionality here to handle variation changes
+            console.log('Selected variation:', this.textContent.trim());
         });
     });
-});
+}
 </script>
 {% endblock %}

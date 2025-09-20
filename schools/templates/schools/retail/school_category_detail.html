@@ -4,288 +4,282 @@
 {% block title %}{{ category.name }} - {{ school.name }} - TUS Retail Schools{% endblock %}
 
 {% block content %}
-<div class="main-content">
-    <div class="page-content">
-        <div class="container-fluid">
-            <!-- Page Title -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                        <h4 class="mb-sm-0 font-size-18">{{ category.name }}</h4>
-                        <div class="page-title-right">
-                            <ol class="breadcrumb m-0">
-                                <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
-                                <li class="breadcrumb-item"><a href="{% url 'schools:school_list' %}">Schools</a></li>
-                                <li class="breadcrumb-item"><a href="{% url 'schools:tus_retail_schools' %}">Retail Schools</a></li>
-                                <li class="breadcrumb-item"><a href="{% url 'schools:retail_location_detail' location_slug=school.location.slug %}">{{ school.location.name }}</a></li>
-                                <li class="breadcrumb-item"><a href="{% url 'schools:retail_school_detail' school_slug=school.slug %}">{{ school.name }}</a></li>
-                                <li class="breadcrumb-item active">{{ category.name }}</li>
-                            </ol>
-                        </div>
-                    </div>
-                </div>
+<!-- Page Title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0">{{ category.name }}</h4>
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'schools:school_list' %}">Schools</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'schools:tus_retail_schools' %}">Retail Schools</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'schools:retail_location_detail' location_slug=school.location.slug %}">{{ school.location.name }}</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'schools:retail_school_detail' school_slug=school.slug %}">{{ school.name }}</a></li>
+                    <li class="breadcrumb-item active">{{ category.name }}</li>
+                </ol>
             </div>
-
-            <!-- Category Header -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center">
-                                <div class="avatar-lg me-3">
-                                    {% if category.image_url %}
-                                    <img src="{{ category.image_url }}" alt="{{ category.name }}" class="img-fluid rounded">
-                                    {% else %}
-                                    <div class="avatar-lg bg-soft-tus-primary rounded d-flex align-items-center justify-content-center">
-                                        <i class="uil-tag font-size-24 text-tus-primary"></i>
-                                    </div>
-                                    {% endif %}
-                                </div>
-                                <div class="flex-1">
-                                    <h4 class="mb-1">{{ category.name }}</h4>
-                                    <p class="text-muted mb-1">{{ school.name }} • {{ school.location.name }}</p>
-                                    {% if category.description %}
-                                    <p class="text-muted mb-0 font-size-13">{{ category.description }}</p>
-                                    {% endif %}
-                                </div>
-                                <div class="text-end">
-                                    <h5 class="mb-0 text-tus-primary">{{ category.product_count }}</h5>
-                                    <p class="text-muted mb-0 font-size-13">Products</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Product Filters -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <form method="get" class="row g-3">
-                                <div class="col-md-4">
-                                    <div class="search-box position-relative">
-                                        <input type="text" name="search" class="form-control rounded"
-                                               placeholder="Search products..."
-                                               value="{{ request.GET.search }}">
-                                        <i class="uil-search search-icon"></i>
-                                    </div>
-                                </div>
-                                <div class="col-md-2">
-                                    <select name="price_range" class="form-select">
-                                        <option value="">All Prices</option>
-                                        <option value="under_50" {% if request.GET.price_range == 'under_50' %}selected{% endif %}>Under $50</option>
-                                        <option value="50_100" {% if request.GET.price_range == '50_100' %}selected{% endif %}>$50 - $100</option>
-                                        <option value="100_200" {% if request.GET.price_range == '100_200' %}selected{% endif %}>$100 - $200</option>
-                                        <option value="over_200" {% if request.GET.price_range == 'over_200' %}selected{% endif %}>Over $200</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-2">
-                                    <select name="sort" class="form-select">
-                                        <option value="name" {% if request.GET.sort == 'name' %}selected{% endif %}>Name A-Z</option>
-                                        <option value="price_low" {% if request.GET.sort == 'price_low' %}selected{% endif %}>Price Low-High</option>
-                                        <option value="price_high" {% if request.GET.sort == 'price_high' %}selected{% endif %}>Price High-Low</option>
-                                        <option value="newest" {% if request.GET.sort == 'newest' %}selected{% endif %}>Newest First</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-2">
-                                    <button type="submit" class="btn btn-tus-primary w-100">
-                                        <i class="uil-search me-1"></i> Filter
-                                    </button>
-                                </div>
-                                <div class="col-md-2">
-                                    <a href="{% url 'schools:retail_school_category_detail' school_slug=school.slug category_slug=category.slug %}" class="btn btn-soft-secondary w-100">
-                                        <i class="uil-refresh me-1"></i> Clear
-                                    </a>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Products Grid -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h4 class="card-title mb-0">Products in {{ category.name }}</h4>
-                            <small class="text-muted">{{ products.paginator.count }} products found</small>
-                        </div>
-                        <div class="card-body">
-                            {% if products %}
-                            <div class="row">
-                                {% for product in products %}
-                                <div class="col-xl-3 col-lg-4 col-md-6">
-                                    <div class="card border">
-                                        <div class="card-body p-3">
-                                            <div class="product-img position-relative">
-                                                {% if product.image_url %}
-                                                <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-fluid mx-auto d-block" style="height: 180px; object-fit: cover;">
-                                                {% else %}
-                                                <div class="bg-soft-light text-center py-5" style="height: 180px;">
-                                                    <i class="uil-image-slash font-size-24 text-muted"></i>
-                                                </div>
-                                                {% endif %}
-                                                {% if product.on_sale %}
-                                                <div class="avatar-xs label-primary">
-                                                    <span class="avatar-title rounded-circle bg-primary font-size-10">
-                                                        Sale
-                                                    </span>
-                                                </div>
-                                                {% endif %}
-                                            </div>
-                                            <div class="mt-3">
-                                                <h6 class="mb-1">
-                                                    <a href="{% url 'schools:retail_product_detail' product_id=product.id %}" class="text-decoration-none">
-                                                        {{ product.name }}
-                                                    </a>
-                                                </h6>
-                                                {% if product.sku %}
-                                                <p class="text-muted font-size-12 mb-1">SKU: {{ product.sku }}</p>
-                                                {% endif %}
-                                                {% if product.short_description %}
-                                                <p class="text-muted font-size-13 mb-2">{{ product.short_description|striptags|truncatewords:10 }}</p>
-                                                {% endif %}
-                                                <div class="d-flex align-items-center justify-content-between">
-                                                    <div>
-                                                        {% if product.is_on_sale %}
-                                                        <h5 class="mb-0 text-tus-primary">
-                                                            ${{ product.sale_price }}
-                                                            <small class="text-muted text-decoration-line-through">${{ product.regular_price }}</small>
-                                                        </h5>
-                                                        {% else %}
-                                                        <h5 class="mb-0 text-tus-primary">${{ product.price }}</h5>
-                                                        {% endif %}
-                                                    </div>
-                                                    {% if product.stock_status == 'instock' %}
-                                                    <span class="badge bg-soft-success text-success">In Stock</span>
-                                                    {% elif product.stock_status == 'onbackorder' %}
-                                                    <span class="badge bg-soft-warning text-warning">Backorder</span>
-                                                    {% else %}
-                                                    <span class="badge bg-soft-danger text-danger">Out of Stock</span>
-                                                    {% endif %}
-                                                </div>
-                                                <div class="mt-2">
-                                                    <a href="{% url 'schools:retail_product_detail' product_id=product.id %}" class="btn btn-soft-tus-primary btn-sm w-100">
-                                                        <i class="uil-eye me-1"></i> View Details
-                                                    </a>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-
-                            <!-- Pagination -->
-                            {% if products.has_other_pages %}
-                            <div class="row">
-                                <div class="col-lg-12">
-                                    <ul class="pagination pagination-rounded justify-content-center mt-3 mb-4 pb-1">
-                                        {% if products.has_previous %}
-                                        <li class="page-item">
-                                            <a href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.price_range %}&price_range={{ request.GET.price_range }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" class="page-link">
-                                                <i class="mdi mdi-chevron-double-left"></i>
-                                            </a>
-                                        </li>
-                                        <li class="page-item">
-                                            <a href="?page={{ products.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.price_range %}&price_range={{ request.GET.price_range }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" class="page-link">
-                                                <i class="mdi mdi-chevron-left"></i>
-                                            </a>
-                                        </li>
-                                        {% endif %}
-
-                                        {% for num in products.paginator.page_range %}
-                                        {% if products.number == num %}
-                                        <li class="page-item active">
-                                            <span class="page-link">{{ num }}</span>
-                                        </li>
-                                        {% elif num > products.number|add:'-3' and num < products.number|add:'3' %}
-                                        <li class="page-item">
-                                            <a href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.price_range %}&price_range={{ request.GET.price_range }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" class="page-link">{{ num }}</a>
-                                        </li>
-                                        {% endif %}
-                                        {% endfor %}
-
-                                        {% if products.has_next %}
-                                        <li class="page-item">
-                                            <a href="?page={{ products.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.price_range %}&price_range={{ request.GET.price_range }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" class="page-link">
-                                                <i class="mdi mdi-chevron-right"></i>
-                                            </a>
-                                        </li>
-                                        <li class="page-item">
-                                            <a href="?page={{ products.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.price_range %}&price_range={{ request.GET.price_range }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" class="page-link">
-                                                <i class="mdi mdi-chevron-double-right"></i>
-                                            </a>
-                                        </li>
-                                        {% endif %}
-                                    </ul>
-                                </div>
-                            </div>
-                            {% endif %}
-
-                            {% else %}
-                            <div class="text-center py-4">
-                                <i class="uil-shopping-cart display-3 text-muted"></i>
-                                <h5 class="mt-4">No products found</h5>
-                                {% if request.GET.search or request.GET.price_range %}
-                                <p class="text-muted">No products match your filter criteria.</p>
-                                <a href="{% url 'schools:retail_school_category_detail' school_slug=school.slug category_slug=category.slug %}" class="btn btn-soft-primary">
-                                    <i class="uil-refresh me-1"></i> Show All Products
-                                </a>
-                                {% else %}
-                                <p class="text-muted">No products are available in this category.</p>
-                                {% endif %}
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Other Categories -->
-            {% if other_categories %}
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h4 class="card-title mb-0">Other Categories at {{ school.name }}</h4>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                {% for other_category in other_categories %}
-                                <div class="col-xl-2-4 col-lg-3 col-md-4 col-sm-6">
-                                    <div class="text-center">
-                                        <div class="avatar-md mx-auto mb-2">
-                                            {% if other_category.image_url %}
-                                            <img src="{{ other_category.image_url }}" alt="{{ other_category.name }}" class="img-fluid rounded">
-                                            {% else %}
-                                            <div class="avatar-md bg-soft-tus-primary rounded d-flex align-items-center justify-content-center">
-                                                <i class="uil-tag font-size-18 text-tus-primary"></i>
-                                            </div>
-                                            {% endif %}
-                                        </div>
-                                        <h6 class="font-size-14 mb-1">
-                                            <a href="{% url 'schools:retail_school_category_detail' school_slug=school.slug category_slug=other_category.slug %}" class="text-decoration-none">
-                                                {{ other_category.name }}
-                                            </a>
-                                        </h6>
-                                        <p class="text-muted mb-0 font-size-12">{{ other_category.product_count }} products</p>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
         </div>
     </div>
 </div>
+
+<!-- Category Header -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-lg me-3">
+                        {% if category.image_url %}
+                        <img src="{{ category.image_url }}" alt="{{ category.name }}" class="img-fluid rounded">
+                        {% else %}
+                        <div class="avatar-lg bg-soft-tus-primary rounded d-flex align-items-center justify-content-center">
+                            <i class="uil-tag font-size-24 text-tus-primary"></i>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="flex-1">
+                        <h4 class="mb-1">{{ category.name }}</h4>
+                        <p class="text-muted mb-1">{{ school.name }} • {{ school.location.name }}</p>
+                        {% if category.description %}
+                        <p class="text-muted mb-0 font-size-13">{{ category.description }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="text-end">
+                        <h5 class="mb-0 text-tus-primary">{{ category.product_count }}</h5>
+                        <p class="text-muted mb-0 font-size-13">Products</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Product Filters -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-4">
+                        <div class="search-box position-relative">
+                            <input type="text" name="search" class="form-control rounded"
+                                   placeholder="Search products..."
+                                   value="{{ request.GET.search }}">
+                            <i class="uil-search search-icon"></i>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <select name="price_range" class="form-select">
+                            <option value="">All Prices</option>
+                            <option value="under_50" {% if request.GET.price_range == 'under_50' %}selected{% endif %}>Under $50</option>
+                            <option value="50_100" {% if request.GET.price_range == '50_100' %}selected{% endif %}>$50 - $100</option>
+                            <option value="100_200" {% if request.GET.price_range == '100_200' %}selected{% endif %}>$100 - $200</option>
+                            <option value="over_200" {% if request.GET.price_range == 'over_200' %}selected{% endif %}>Over $200</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select name="sort" class="form-select">
+                            <option value="name" {% if request.GET.sort == 'name' %}selected{% endif %}>Name A-Z</option>
+                            <option value="price_low" {% if request.GET.sort == 'price_low' %}selected{% endif %}>Price Low-High</option>
+                            <option value="price_high" {% if request.GET.sort == 'price_high' %}selected{% endif %}>Price High-Low</option>
+                            <option value="newest" {% if request.GET.sort == 'newest' %}selected{% endif %}>Newest First</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-tus-primary w-100">
+                            <i class="uil-search me-1"></i> Filter
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <a href="{% url 'schools:retail_school_category_detail' school_slug=school.slug category_slug=category.slug %}" class="btn btn-soft-secondary w-100">
+                            <i class="uil-refresh me-1"></i> Clear
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Products Grid -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="card-title mb-0">Products in {{ category.name }}</h4>
+                <small class="text-muted">{{ products.paginator.count }} products found</small>
+            </div>
+            <div class="card-body">
+                {% if products %}
+                <div class="row">
+                    {% for product in products %}
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <div class="card border">
+                            <div class="card-body p-3">
+                                <div class="product-img position-relative">
+                                    {% if product.image_url %}
+                                    <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-fluid mx-auto d-block" style="height: 180px; object-fit: cover;">
+                                    {% else %}
+                                    <div class="bg-soft-light text-center py-5" style="height: 180px;">
+                                        <i class="uil-image-slash font-size-24 text-muted"></i>
+                                    </div>
+                                    {% endif %}
+                                    {% if product.on_sale %}
+                                    <div class="avatar-xs label-primary">
+                                        <span class="avatar-title rounded-circle bg-primary font-size-10">
+                                            Sale
+                                        </span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="mt-3">
+                                    <h6 class="mb-1">
+                                        <a href="{% url 'schools:retail_product_detail' slug=product.slug %}" class="text-decoration-none">
+                                            {{ product.name }}
+                                        </a>
+                                    </h6>
+                                    {% if product.sku %}
+                                    <p class="text-muted font-size-12 mb-1">SKU: {{ product.sku }}</p>
+                                    {% endif %}
+                                    {% if product.short_description %}
+                                    <p class="text-muted font-size-13 mb-2">{{ product.short_description|striptags|truncatewords:10 }}</p>
+                                    {% endif %}
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <div>
+                                            {% if product.is_on_sale %}
+                                            <h5 class="mb-0 text-tus-primary">
+                                                ${{ product.sale_price }}
+                                                <small class="text-muted text-decoration-line-through">${{ product.regular_price }}</small>
+                                            </h5>
+                                            {% else %}
+                                            <h5 class="mb-0 text-tus-primary">${{ product.price }}</h5>
+                                            {% endif %}
+                                        </div>
+                                        {% if product.stock_status == 'instock' %}
+                                        <span class="badge bg-soft-success text-success">In Stock</span>
+                                        {% elif product.stock_status == 'onbackorder' %}
+                                        <span class="badge bg-soft-warning text-warning">Backorder</span>
+                                        {% else %}
+                                        <span class="badge bg-soft-danger text-danger">Out of Stock</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="mt-2">
+                                        <a href="{% url 'schools:retail_product_detail' slug=product.slug %}" class="btn btn-soft-tus-primary btn-sm w-100">
+                                            <i class="uil-eye me-1"></i> View Details
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Pagination -->
+                {% if products.has_other_pages %}
+                <div class="row">
+                    <div class="col-lg-12">
+                        <ul class="pagination pagination-rounded justify-content-center mt-3 mb-4 pb-1">
+                            {% if products.has_previous %}
+                            <li class="page-item">
+                                <a href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.price_range %}&price_range={{ request.GET.price_range }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" class="page-link">
+                                    <i class="mdi mdi-chevron-double-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a href="?page={{ products.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.price_range %}&price_range={{ request.GET.price_range }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" class="page-link">
+                                    <i class="mdi mdi-chevron-left"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in products.paginator.page_range %}
+                            {% if products.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                            {% elif num > products.number|add:'-3' and num < products.number|add:'3' %}
+                            <li class="page-item">
+                                <a href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.price_range %}&price_range={{ request.GET.price_range }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" class="page-link">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                            {% endfor %}
+
+                            {% if products.has_next %}
+                            <li class="page-item">
+                                <a href="?page={{ products.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.price_range %}&price_range={{ request.GET.price_range }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" class="page-link">
+                                    <i class="mdi mdi-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a href="?page={{ products.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.price_range %}&price_range={{ request.GET.price_range }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" class="page-link">
+                                    <i class="mdi mdi-chevron-double-right"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="uil-shopping-cart display-3 text-muted"></i>
+                    <h5 class="mt-4">No products found</h5>
+                    {% if request.GET.search or request.GET.price_range %}
+                    <p class="text-muted">No products match your filter criteria.</p>
+                    <a href="{% url 'schools:retail_school_category_detail' school_slug=school.slug category_slug=category.slug %}" class="btn btn-soft-primary">
+                        <i class="uil-refresh me-1"></i> Show All Products
+                    </a>
+                    {% else %}
+                    <p class="text-muted">No products are available in this category.</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Other Categories -->
+{% if other_categories %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">Other Categories at {{ school.name }}</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for other_category in other_categories %}
+                    <div class="col-xl-2-4 col-lg-3 col-md-4 col-sm-6">
+                        <div class="text-center">
+                            <div class="avatar-md mx-auto mb-2">
+                                {% if other_category.image_url %}
+                                <img src="{{ other_category.image_url }}" alt="{{ other_category.name }}" class="img-fluid rounded">
+                                {% else %}
+                                <div class="avatar-md bg-soft-tus-primary rounded d-flex align-items-center justify-content-center">
+                                    <i class="uil-tag font-size-18 text-tus-primary"></i>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <h6 class="font-size-14 mb-1">
+                                <a href="{% url 'schools:retail_school_category_detail' school_slug=school.slug category_slug=other_category.slug %}" class="text-decoration-none">
+                                    {{ other_category.name }}
+                                </a>
+                            </h6>
+                            <p class="text-muted mb-0 font-size-12">{{ other_category.product_count }} products</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}
 
 {% block extra_css %}

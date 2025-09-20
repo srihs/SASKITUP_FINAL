@@ -232,11 +232,21 @@
                                 </div>
                                 <div class="text-center">
                                     <h6 class="font-size-14 mb-2">
-                                        <a href="#" class="text-dark product-title">{{ product.name }}</a>
+                                        <a href="{% url 'schools:wholesale_product_detail' product.slug %}" class="text-dark product-title">{{ product.name }}</a>
                                     </h6>
+                                    {% if product.base_sku %}
                                     <p class="text-muted font-size-12 mb-2">
-                                        <i class="uil-tag me-1"></i>{{ product.code }}
+                                        <i class="uil-tag me-1"></i>SKU: {{ product.base_sku }}
                                     </p>
+                                    {% endif %}
+                                    {% if product.variation_count and product.variation_count > 1 %}
+                                    <p class="text-muted font-size-12 mb-2">
+                                        <i class="uil-layers me-1"></i>{{ product.variation_count }} variation{{ product.variation_count|pluralize }}
+                                        {% if product.variation_summary %}
+                                        <br><small class="text-muted">{{ product.variation_summary }}</small>
+                                        {% endif %}
+                                    </p>
+                                    {% endif %}
                                     {% if product.wholesale_price %}
                                     <div class="price-info mb-2">
                                         <span class="text-primary font-weight-bold">${{ product.wholesale_price }}</span>
@@ -248,9 +258,9 @@
                                 </div>
                             </div>
                             <div class="card-footer bg-transparent border-top text-center">
-                                <button class="btn btn-soft-primary btn-sm px-4" onclick="viewProductDetails('{{ product.code }}')">
+                                <a href="{% url 'schools:wholesale_product_detail' product.slug %}" class="btn btn-soft-primary btn-sm px-4">
                                     <i class="uil-eye me-1"></i> View Details
-                                </button>
+                                </a>
                             </div>
                         </div>
                     </div>

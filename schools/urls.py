@@ -28,7 +28,7 @@ urlpatterns = [
     path('retail/general/<slug:category_slug>/', views.TUSGeneralCategoryDetailView.as_view(), name='retail_general_category_detail'),
 
     # TUS Product detail views
-    path('retail/product/<int:product_id>/', views.TUSProductDetailView.as_view(), name='retail_product_detail'),
+    path('retail/product/<slug:slug>/', views.TUSProductDetailView.as_view(), name='retail_product_detail'),
 
     # TUS AJAX endpoints
     path('retail/ajax/search/', views.tus_search_ajax, name='tus_search_ajax'),

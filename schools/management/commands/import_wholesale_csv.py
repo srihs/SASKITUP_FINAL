@@ -38,16 +38,28 @@ class Command(BaseCommand):
             type=int,
             help='Limit number of rows to process (for testing)'
         )
+        parser.add_argument(
+            '--skip-keywords',
+            type=str,
+            nargs='*',
+            default=['sample', 'samples', 'name', 'names', 'promotion', 'promotions',
+                     'test', 'demo', 'template', 'example', 'placeholder', 'dummy',
+                     'display', 'misc', 'miscellaneous', 'other', 'bulk', 'wholesale only',
+                     'ohs - embroidery', 'embroidery'],
+            help='Keywords to skip when found in product names (case-insensitive)'
+        )
 
     def handle(self, *args, **options):
         csv_file_path = options['csv_file']
         dry_run = options['dry_run']
         force_update = options['force_update']
         limit = options['limit']
+        skip_keywords = options['skip_keywords']
 
         self.stdout.write(
             self.style.SUCCESS(f'Starting CSV import from: {csv_file_path}')
         )
+        self.stdout.write(f'Skip keywords: {", ".join(skip_keywords)}')
 
         if dry_run:
             self.stdout.write(
@@ -91,9 +103,9 @@ class Command(BaseCommand):
                     try:
                         with transaction.atomic():
                             if not dry_run:
-                                self._process_row(row, stats, force_update)
+                                self._process_row(row, stats, force_update, skip_keywords)
                             else:
-                                self._preview_row(row, stats)
+                                self._preview_row(row, stats, skip_keywords)
 
                             stats['rows_processed'] += 1
 
@@ -117,7 +129,7 @@ class Command(BaseCommand):
         # Print summary
         self._print_summary(stats, dry_run)
 
-    def _process_row(self, row, stats, force_update):
+    def _process_row(self, row, stats, force_update, skip_keywords):
         """Process a single CSV row and create/update database records"""
 
         # Extract and clean data - using the correct column mapping
@@ -137,6 +149,16 @@ class Command(BaseCommand):
         # Skip if essential data is missing
         if not all([school_name, product_name, variant_code]):
             raise ValueError('Missing essential data: school name, product name, or variant code')
+
+        # Skip products with unwanted keywords in product name (case-insensitive)
+        # Only check product name for skip keywords
+        product_name_lower = product_name.lower()
+
+        for keyword in skip_keywords:
+            if keyword in product_name_lower:
+                stats['skipped'] = stats.get('skipped', 0) + 1
+                self.stdout.write(f'Skipped product with keyword "{keyword}" in name: {product_name}')
+                return  # Skip this row entirely
 
         # Clean school name - remove any prefixes if present
         if school_name.startswith('Wholesale Schools,'):
@@ -169,15 +191,26 @@ class Command(BaseCommand):
                 product, option3, variant_code, barcode, row, stats, force_update
             )
 
-    def _preview_row(self, row, stats):
+    def _preview_row(self, row, stats, skip_keywords):
         """Preview what would be created/updated without making changes"""
         school_name = row.get('Sub Category', '').strip()  # Updated to use correct column
+        category_name = row.get('Category', '').strip()
         product_name = row.get('Product Name', '').strip()
         variant_code = row.get('Code', '').strip()
 
         if not all([school_name, product_name, variant_code]):
             stats['errors'].append('Missing essential data')
             return
+
+        # Skip products with unwanted keywords in product name (case-insensitive)
+        # Only check product name for skip keywords
+        product_name_lower = product_name.lower()
+
+        for keyword in skip_keywords:
+            if keyword in product_name_lower:
+                stats['skipped'] = stats.get('skipped', 0) + 1
+                self.stdout.write(f'Would skip product with keyword "{keyword}" in name: {product_name}')
+                return  # Skip this row entirely
 
         self.stdout.write(f'Would process: {school_name} - {product_name} ({variant_code})')
 
@@ -378,6 +411,7 @@ class Command(BaseCommand):
         self.stdout.write(f'Products updated: {stats["products_updated"]}')
         self.stdout.write(f'Variations created: {stats["variations_created"]}')
         self.stdout.write(f'Variations updated: {stats["variations_updated"]}')
+        self.stdout.write(f'Products skipped: {stats.get("skipped", 0)}')
 
         if stats['errors']:
             self.stdout.write(

@@ -221,8 +221,9 @@
     </div>
 </div>
 
-<!-- Categories Overview -->
+<!-- Categories Overview - Hide if only "General" category -->
 {% if categories %}
+    {% if categories|length > 1 or categories.0.name != "General" %}
 <div class="row">
     <div class="col-12">
         <div class="card">
@@ -261,6 +262,7 @@
         </div>
     </div>
 </div>
+    {% endif %}
 {% endif %}
 
 <!-- Products Grid -->
@@ -323,7 +325,7 @@
                                 </div>
                                 <div class="product-details">
                                     <h6 class="mb-2">
-                                        <a href="{% url 'schools:retail_product_detail' product_id=product.id %}" class="text-dark product-title">
+                                        <a href="{% url 'schools:retail_product_detail' slug=product.slug %}" class="text-dark product-title">
                                             {{ product.name|truncatewords:6 }}
                                         </a>
                                     </h6>
@@ -343,7 +345,7 @@
                                 </div>
                             </div>
                             <div class="card-footer bg-transparent border-top">
-                                <a href="{% url 'schools:retail_product_detail' product_id=product.id %}" class="btn btn-tus-primary btn-sm w-100">
+                                <a href="{% url 'schools:retail_product_detail' slug=product.slug %}" class="btn btn-tus-primary btn-sm w-100">
                                     <i class="uil-eye me-1"></i> View Details
                                 </a>
                             </div>
