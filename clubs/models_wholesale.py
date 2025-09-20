@@ -96,6 +96,21 @@ class WholesaleSchool(models.Model):
         ]
         return ', '.join([part for part in address_parts if part])
 
+    @property
+    def categories(self):
+        """Get all categories that have products for this school"""
+        return WholesaleCategory.objects.filter(products__school=self).distinct()
+
+    @property
+    def total_categories(self):
+        """Get count of categories for this school"""
+        return self.categories.count()
+
+    @property
+    def total_products(self):
+        """Get count of total products for this school"""
+        return self.products.filter(is_active=True).count()
+
 
 class WholesaleCategory(models.Model):
     """
@@ -142,6 +157,14 @@ class WholesaleCategory(models.Model):
         if not self.slug:
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
+
+    def products_for_school(self, school):
+        """Get products in this category for a specific school"""
+        return self.products.filter(school=school)
+
+    def product_count_for_school(self, school):
+        """Get count of products in this category for a specific school"""
+        return self.products.filter(school=school).count()
 
 
 class WholesaleProduct(models.Model):

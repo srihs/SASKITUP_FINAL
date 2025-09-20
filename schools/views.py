@@ -1228,11 +1228,11 @@ class WholesaleSchoolDetailView(DetailView):
         context = super().get_context_data(**kwargs)
         school = self.get_object()
 
-        # Get categories for this school through products
+        # Get categories for this school through products, excluding "General"
         categories_with_products = WholesaleCategory.objects.filter(
             products__school=school,
             is_active=True
-        ).distinct().order_by('name')
+        ).exclude(name__iexact='General').distinct().order_by('name')
 
         context['categories'] = categories_with_products
 
@@ -1243,6 +1243,15 @@ class WholesaleSchoolDetailView(DetailView):
         ).select_related('school').prefetch_related('categories').order_by('name')
 
         context['products'] = products
+
+        # Get products specifically from the "General" category for this school
+        general_products = WholesaleProduct.objects.filter(
+            school=school,
+            is_active=True,
+            categories__name__iexact='General'
+        ).select_related('school').prefetch_related('categories').order_by('name')
+
+        context['general_products'] = general_products
 
         return context
 

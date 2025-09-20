@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load wholesale_tags %}
 
 {% block title %}{{ school.name }} - Wholesale Schools{% endblock %}
 
@@ -145,19 +146,17 @@
 </div>
 
 <!-- School Categories -->
+{% if categories %}
 <div class="row">
     <div class="col-12">
         <div class="card">
             <div class="card-header align-items-center d-flex">
                 <h4 class="card-title mb-0 flex-grow-1">School Categories</h4>
                 <div class="flex-shrink-0">
-                    {% if categories %}
                     <span class="badge bg-soft-primary text-primary">{{ categories.count }} Categories</span>
-                    {% endif %}
                 </div>
             </div>
             <div class="card-body">
-                {% if categories %}
                 <div class="row g-4">
                     {% for category in categories %}
                     <div class="col-xl-4 col-lg-6 col-md-6">
@@ -181,7 +180,7 @@
                                         <a href="{% url 'schools:wholesale_category_detail' category.slug %}" class="text-dark category-title">{{ category.name }}</a>
                                     </h5>
                                     <p class="text-muted font-size-14 mb-3">
-                                        <i class="uil-shopping-bag me-1"></i>{{ category.products.count }} product{{ category.products.count|pluralize }}
+                                        <i class="uil-shopping-bag me-1"></i>{{ category|product_count_for_school:school }} product{{ category|product_count_for_school:school|pluralize }}
                                     </p>
                                     {% if category.description %}
                                     <p class="text-muted font-size-13 mb-0">{{ category.description|truncatechars:120 }}</p>
@@ -197,21 +196,71 @@
                     </div>
                     {% endfor %}
                 </div>
-                {% else %}
-                <div class="text-center py-5">
-                    <div class="avatar-xl mx-auto mb-4">
-                        <div class="avatar-title bg-soft-secondary text-secondary rounded-circle font-size-48">
-                            <i class="uil-folder-open"></i>
-                        </div>
-                    </div>
-                    <h5>No Categories Found</h5>
-                    <p class="text-muted">This school doesn't have any categories with products yet.</p>
-                </div>
-                {% endif %}
             </div>
         </div>
     </div>
 </div>
+{% endif %}
+
+<!-- School Products (from General category) -->
+{% if general_products %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">School Products</h4>
+                <div class="flex-shrink-0">
+                    <span class="badge bg-soft-success text-success">{{ general_products.count }} Products</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    {% for product in general_products %}
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <div class="card border h-100 product-card">
+                            <div class="card-body p-3">
+                                <div class="text-center mb-3">
+                                    <div class="product-image-container">
+                                        {% if product.image_url %}
+                                        <img src="{{ product.image_url }}" alt="{{ product.name }}" class="product-image rounded-3 shadow-sm">
+                                        {% else %}
+                                        <div class="product-placeholder rounded-3 shadow-sm">
+                                            <i class="uil-package"></i>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="text-center">
+                                    <h6 class="font-size-14 mb-2">
+                                        <a href="#" class="text-dark product-title">{{ product.name }}</a>
+                                    </h6>
+                                    <p class="text-muted font-size-12 mb-2">
+                                        <i class="uil-tag me-1"></i>{{ product.code }}
+                                    </p>
+                                    {% if product.wholesale_price %}
+                                    <div class="price-info mb-2">
+                                        <span class="text-primary font-weight-bold">${{ product.wholesale_price }}</span>
+                                        {% if product.retail_price %}
+                                        <small class="text-muted ms-2">RRP: ${{ product.retail_price }}</small>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="card-footer bg-transparent border-top text-center">
+                                <button class="btn btn-soft-primary btn-sm px-4" onclick="viewProductDetails('{{ product.code }}')">
+                                    <i class="uil-eye me-1"></i> View Details
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <style>
 .avatar-lg {
@@ -356,6 +405,95 @@
     }
 
     .category-card .card-body {
+        padding: 1rem;
+    }
+}
+
+/* Product Card Enhancements */
+.product-card {
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef !important;
+}
+
+.product-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1) !important;
+    border-color: #556ee6 !important;
+}
+
+.product-image-container {
+    position: relative;
+    width: 100%;
+    max-width: 200px;
+    margin: 0 auto;
+}
+
+.product-image {
+    width: 100%;
+    height: 150px;
+    min-height: 150px;
+    object-fit: cover;
+    transition: all 0.3s ease;
+    border: 2px solid #f8f9fa;
+}
+
+.product-image:hover {
+    transform: scale(1.05);
+    border-color: #556ee6;
+}
+
+.product-placeholder {
+    width: 100%;
+    height: 150px;
+    min-height: 150px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    border: 2px solid #f8f9fa;
+}
+
+.product-placeholder:hover {
+    background: linear-gradient(135deg, #556ee6 0%, #74b9ff 100%);
+    color: white;
+    transform: scale(1.05);
+}
+
+.product-placeholder i {
+    font-size: 2.5rem;
+    color: #74788d;
+    transition: all 0.3s ease;
+}
+
+.product-placeholder:hover i {
+    color: white;
+    transform: scale(1.1);
+}
+
+.product-title {
+    text-decoration: none;
+    transition: color 0.3s ease;
+    font-weight: 600;
+}
+
+.product-title:hover {
+    color: #556ee6 !important;
+}
+
+.price-info {
+    font-size: 14px;
+}
+
+/* Responsive Design for Products */
+@media (max-width: 768px) {
+    .product-image,
+    .product-placeholder {
+        height: 120px;
+        min-height: 120px;
+    }
+
+    .product-card .card-body {
         padding: 1rem;
     }
 }

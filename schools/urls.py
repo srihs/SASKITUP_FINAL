@@ -41,8 +41,9 @@ urlpatterns = [
     path('retail/api/products/<int:product_id>/variation-details/', views.tus_get_variation_details, name='tus_get_variation_details'),
     path('retail/api/products/<int:product_id>/options/<str:attribute_type>/', views.tus_get_available_options, name='tus_get_available_options'),
 
-    # TUS Sync endpoint
+    # TUS Sync endpoints
     path('retail/sync/tus/execute/', views.sync_tus_schools, name='sync-tus-schools'),
+    path('retail/sync/status/<uuid:job_id>/', views.tus_sync_status, name='tus-sync-status'),
 
     # Wholesale Schools URLs - Main entry point
     path('wholesale/', views.WholesaleSchoolsView.as_view(), name='wholesale_schools'),
@@ -55,6 +56,9 @@ urlpatterns = [
     # Wholesale sync endpoints
     path('wholesale/sync/execute/', views.wholesale_sync_execute, name='wholesale-sync-execute'),
     path('wholesale/sync/status/', views.wholesale_sync_status, name='wholesale-sync-status'),
+
+    # CSV upload endpoint
+    path('wholesale/upload-csv/', views.wholesale_csv_upload, name='wholesale-csv-upload'),
 
     # Legacy placeholder pages
     path('retail-legacy/', views.RetailSchoolsView.as_view(), name='retail_schools_legacy'),

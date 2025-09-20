@@ -841,7 +841,7 @@ function monitorTUSSync(jobId) {
     const syncSpinner = document.getElementById('syncSpinner');
 
     const checkStatus = () => {
-        fetch(`/clubs/sync/status/${jobId}/`, {
+        fetch(`/schools/retail/sync/status/${jobId}/`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',

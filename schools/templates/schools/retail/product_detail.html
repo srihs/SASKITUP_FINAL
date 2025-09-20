@@ -239,22 +239,6 @@
     color: white;
 }
 
-.btn-wishlist {
-    background: white;
-    border: 2px solid #387ADF;
-    color: #387ADF;
-    padding: 12px 24px;
-    border-radius: 8px;
-    font-weight: 600;
-    transition: all 0.3s ease;
-}
-
-.btn-wishlist:hover {
-    background: #387ADF;
-    color: white;
-    transform: translateY(-2px);
-}
-
 /* Product Meta */
 .product-meta {
     margin-top: 2rem;
@@ -604,6 +588,7 @@
                 </div>
 
                 <!-- Available Colors -->
+                {% if product.color_variations %}
                 <div class="color-options mb-4">
                     <div class="option-label mb-3">
                         <h6 class="mb-2 text-tus-primary">Available Colors</h6>
@@ -612,8 +597,10 @@
                         <!-- Color swatches would be dynamically loaded here -->
                     </div>
                 </div>
+                {% endif %}
 
                 <!-- Select Size -->
+                {% if product.size_variations %}
                 <div class="size-options mb-4">
                     <div class="option-label mb-3">
                         <h6 class="mb-2 text-tus-primary">Select Size</h6>
@@ -621,13 +608,13 @@
                     <div class="size-selection">
                         <div class="variation-title">Size:</div>
                         <div class="size-buttons">
-                            <button type="button" class="size-button">10</button>
-                            <button type="button" class="size-button">12</button>
-                            <button type="button" class="size-button">6</button>
-                            <button type="button" class="size-button">8</button>
+                            {% for size in product.size_variations %}
+                            <button type="button" class="size-button">{{ size }}</button>
+                            {% endfor %}
                         </div>
                     </div>
                 </div>
+                {% endif %}
 
                 <!-- Action Buttons -->
                 <div class="action-buttons">
@@ -636,9 +623,6 @@
                         <i class="uil-shopping-cart me-2"></i>Contact for Purchase
                     </button>
                     {% endif %}
-                    <button type="button" class="btn-wishlist">
-                        <i class="uil-heart me-2"></i>Add to Wishlist
-                    </button>
                 </div>
 
                 <!-- Product Meta Information -->
@@ -647,17 +631,6 @@
                     <div class="meta-item">
                         <span class="meta-label">SKU:</span>
                         <span class="meta-value">{{ product.sku }}</span>
-                    </div>
-                    {% endif %}
-
-                    {% if categories %}
-                    <div class="meta-item">
-                        <span class="meta-label">Categories:</span>
-                        <div>
-                            {% for category in categories %}
-                                <span class="badge bg-soft-tus-primary text-tus-primary me-1">{{ category.name }}</span>
-                            {% endfor %}
-                        </div>
                     </div>
                     {% endif %}
                 </div>
@@ -726,19 +699,11 @@ function initializeImageGallery() {
 // Add smooth animations to action buttons
 document.addEventListener('DOMContentLoaded', function() {
     const contactBtn = document.querySelector('.btn-contact-purchase');
-    const wishlistBtn = document.querySelector('.btn-wishlist');
 
     if (contactBtn) {
         contactBtn.addEventListener('click', function() {
             // Add contact functionality here
             console.log('Contact for purchase clicked');
-        });
-    }
-
-    if (wishlistBtn) {
-        wishlistBtn.addEventListener('click', function() {
-            // Add wishlist functionality here
-            console.log('Add to wishlist clicked');
         });
     }
 });
