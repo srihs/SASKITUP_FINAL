@@ -419,9 +419,8 @@ class TUSSchoolDetailView(DetailView):
         paginator = Paginator(products_queryset, 12)
         page = self.request.GET.get('page')
         context['products'] = paginator.get_page(page)
-        # Filter out "General" categories from display
-        filtered_categories = [cat for cat in categories if cat.name.lower() != 'general']
-        context['categories'] = filtered_categories
+        # Show all categories including "General" - schools may only have General categories
+        context['categories'] = categories
 
         # Remove similar schools section - not needed
         # context['similar_schools'] = []
@@ -1059,6 +1058,154 @@ def wholesale_sync_status(request):
         }, status=500)
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def wholesale_csv_upload(request):
+    """
+    Handle CSV file upload for wholesale schools data
+    Uses the import_wholesale_csv management command
+    """
+    import os
+    import tempfile
+    from django.core.files.storage import default_storage
+    from django.core.files.base import ContentFile
+    from django.core.management import call_command
+    from io import StringIO
+    import sys
+
+    logger = logging.getLogger(__name__)
+
+    if 'csv_file' not in request.FILES:
+        return JsonResponse({
+            'success': False,
+            'error': 'No CSV file provided'
+        }, status=400)
+
+    csv_file = request.FILES['csv_file']
+
+    # Validate file type
+    allowed_extensions = ['.csv', '.xls', '.xlsx']
+    file_extension = os.path.splitext(csv_file.name)[1].lower()
+    if file_extension not in allowed_extensions:
+        return JsonResponse({
+            'success': False,
+            'error': f'Invalid file type. Allowed types: {", ".join(allowed_extensions)}'
+        }, status=400)
+
+    # Validate file size (max 10MB)
+    if csv_file.size > 10 * 1024 * 1024:
+        return JsonResponse({
+            'success': False,
+            'error': 'File size must be less than 10MB'
+        }, status=400)
+
+    try:
+        # Create a temporary file to store the uploaded CSV
+        with tempfile.NamedTemporaryFile(mode='w+b', suffix=file_extension, delete=False) as temp_file:
+            # Write uploaded file content to temporary file
+            for chunk in csv_file.chunks():
+                temp_file.write(chunk)
+            temp_file_path = temp_file.name
+
+        # Capture command output
+        captured_output = StringIO()
+        original_stdout = sys.stdout
+        original_stderr = sys.stderr
+
+        try:
+            # Redirect output to capture it
+            sys.stdout = captured_output
+            sys.stderr = captured_output
+
+            # Call the management command with the temporary file
+            call_command(
+                'import_wholesale_csv',
+                temp_file_path,
+                verbosity=1
+            )
+
+            # Get the captured output
+            command_output = captured_output.getvalue()
+
+            # Parse the output to extract statistics
+            stats = {
+                'schools_created': 0,
+                'schools_updated': 0,
+                'categories_created': 0,
+                'categories_updated': 0,
+                'products_created': 0,
+                'products_updated': 0,
+                'variations_created': 0,
+                'variations_updated': 0,
+                'rows_processed': 0
+            }
+
+            errors = []
+
+            # Parse command output for statistics
+            for line in command_output.split('\n'):
+                if 'Schools created:' in line:
+                    stats['schools_created'] = int(line.split(':')[1].strip())
+                elif 'Schools updated:' in line:
+                    stats['schools_updated'] = int(line.split(':')[1].strip())
+                elif 'Categories created:' in line:
+                    stats['categories_created'] = int(line.split(':')[1].strip())
+                elif 'Categories updated:' in line:
+                    stats['categories_updated'] = int(line.split(':')[1].strip())
+                elif 'Products created:' in line:
+                    stats['products_created'] = int(line.split(':')[1].strip())
+                elif 'Products updated:' in line:
+                    stats['products_updated'] = int(line.split(':')[1].strip())
+                elif 'Variations created:' in line:
+                    stats['variations_created'] = int(line.split(':')[1].strip())
+                elif 'Variations updated:' in line:
+                    stats['variations_updated'] = int(line.split(':')[1].strip())
+                elif 'Rows processed:' in line:
+                    stats['rows_processed'] = int(line.split(':')[1].strip())
+                elif 'Row ' in line and ':' in line:
+                    # Extract error messages
+                    errors.append(line.strip())
+
+            logger.info(f"CSV import completed successfully. Stats: {stats}")
+
+            return JsonResponse({
+                'success': True,
+                'message': 'CSV file processed successfully',
+                'stats': stats,
+                'errors': errors[:10],  # Limit to first 10 errors
+                'command_output': command_output
+            })
+
+        finally:
+            # Restore original stdout/stderr
+            sys.stdout = original_stdout
+            sys.stderr = original_stderr
+
+    except Exception as e:
+        logger.error(f"CSV import failed: {str(e)}", exc_info=True)
+
+        # Clean up temp file
+        try:
+            if 'temp_file_path' in locals():
+                os.unlink(temp_file_path)
+        except:
+            pass
+
+        return JsonResponse({
+            'success': False,
+            'error': f'CSV import failed: {str(e)}',
+            'command_output': captured_output.getvalue() if 'captured_output' in locals() else ''
+        }, status=500)
+
+    finally:
+        # Clean up temporary file
+        try:
+            if 'temp_file_path' in locals():
+                os.unlink(temp_file_path)
+        except:
+            pass
+
+
 # Wholesale School Detail Views
 
 class WholesaleSchoolDetailView(DetailView):
@@ -1180,3 +1327,24 @@ class WholesaleProductDetailView(DetailView):
         context['variations'] = product.variations.filter(is_active=True).order_by('variation_type', 'variation_value')
 
         return context
+
+
+def tus_sync_status(request, job_id):
+    """
+    Get TUS retail sync status
+    Delegates to clubs app sync_status functionality
+    """
+    try:
+        # Import the clubs app sync status function
+        from clubs.views import sync_status
+
+        # Delegate to the clubs app function
+        return sync_status(request, job_id)
+
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error getting TUS sync status for job {job_id}: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'Failed to get sync status: {str(e)}'
+        }, status=500)
