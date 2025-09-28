@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if object %}Edit Customer{% else %}Add Customer{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-control, .form-select {
+        border-radius: 0.375rem;
+        border: 1px solid #ced4da;
+        padding: 0.75rem;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border: 1px solid rgba(0, 0, 0, 0.125);
+    }
+
+    .btn {
+        border-radius: 0.375rem;
+    }
+
+    .form-check-input:checked {
+        background-color: #198754;
+        border-color: #198754;
+    }
+
+    .invalid-feedback {
+        font-size: 0.875rem;
+    }
+
+    .alert {
+        border-radius: 0.5rem;
+    }
+
+    .border-bottom {
+        border-bottom: 2px solid #dee2e6 !important;
+    }
+
+    .form-switch .form-check-input {
+        width: 3rem;
+        height: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Form validation
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const requiredFields = this.querySelectorAll('[required]');
+        let allValid = true;
+
+        requiredFields.forEach(field => {
+            if (!field.value.trim()) {
+                field.classList.add('is-invalid');
+                allValid = false;
+            } else {
+                field.classList.remove('is-invalid');
+            }
+        });
+
+        // Email validation
+        const email = document.querySelector('#{{ form.email.id_for_label }}');
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        if (email.value && !emailRegex.test(email.value)) {
+            e.preventDefault();
+            email.classList.add('is-invalid');
+            alert('Please enter a valid email address.');
+            email.focus();
+            return false;
+        }
+
+        if (!allValid) {
+            e.preventDefault();
+            alert('Please fill in all required fields.');
+        }
+    });
+
+    // Auto-save indicator
+    let formChanged = false;
+    document.querySelectorAll('input, select, textarea').forEach(field => {
+        field.addEventListener('change', function() {
+            formChanged = true;
+        });
+    });
+
+    // Warn on page leave if form changed
+    window.addEventListener('beforeunload', function(e) {
+        if (formChanged) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+
+    // Clear change flag on form submit
+    document.querySelector('form').addEventListener('submit', function() {
+        formChanged = false;
+    });
+
+    {% if object %}
+    function resetPassword() {
+        const modal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
+        modal.show();
+    }
+
+    function confirmResetPassword() {
+        alert('Password reset functionality will be implemented with AJAX.');
+        bootstrap.Modal.getInstance(document.getElementById('resetPasswordModal')).hide();
+    }
+
+    function sendLoginInfo() {
+        if (confirm('Send login information to {{ object.email }}?')) {
+            alert('Send login info functionality will be implemented with email system.');
+        }
+    }
+
+    function activateCustomer() {
+        if (confirm('Are you sure you want to activate this customer account?')) {
+            document.querySelector('#{{ form.is_active.id_for_label }}').checked = true;
+            document.querySelector('form').submit();
+        }
+    }
+
+    function deactivateCustomer() {
+        if (confirm('Are you sure you want to deactivate this customer account?')) {
+            document.querySelector('#{{ form.is_active.id_for_label }}').checked = false;
+            document.querySelector('form').submit();
+        }
+    }
+    {% endif %}
+
+    // Field focus effects
+    document.querySelectorAll('.form-control').forEach(field => {
+        field.addEventListener('focus', function() {
+            this.closest('.mb-3').style.transform = 'scale(1.02)';
+            this.closest('.mb-3').style.transition = 'transform 0.2s ease';
+        });
+
+        field.addEventListener('blur', function() {
+            this.closest('.mb-3').style.transform = 'scale(1)';
+        });
+    });
+
+    // Username validation (real-time)
+    const usernameField = document.querySelector('#{{ form.username.id_for_label }}');
+    if (usernameField) {
+        usernameField.addEventListener('input', function() {
+            const value = this.value;
+            const isValid = /^[a-zA-Z0-9_.-]+$/.test(value) && value.length >= 3;
+
+            if (value && !isValid) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+    }
+</script>
+{% endblock %}

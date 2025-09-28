@@ -1,0 +1,528 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+.user-avatar {
+    width: 80px;
+    height: 80px;
+    font-size: 2rem;
+}
+.activity-timeline {
+    position: relative;
+}
+.activity-timeline::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e9ecef;
+}
+.activity-item {
+    position: relative;
+    padding-left: 50px;
+    margin-bottom: 1.5rem;
+}
+.activity-item::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    top: 8px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #28a745;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #e9ecef;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-flex align-items-center justify-content-between">
+            <h4 class="mb-0">
+                <i class="uil-user text-primary me-2"></i>User Details
+            </h4>
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'authentication:user-management-dashboard' %}">User Management</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'authentication:user-list' %}">Users</a></li>
+                    <li class="breadcrumb-item active">{{ object.username }}</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <!-- User Information -->
+    <div class="col-md-8">
+        <!-- Basic Information -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Basic Information</h5>
+                <div>
+                    <a href="{% url 'authentication:user-update' object.pk %}" class="btn btn-outline-primary btn-sm">
+                        <i class="uil-edit me-1"></i>Edit
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-5">Username:</dt>
+                            <dd class="col-sm-7">{{ object.username }}</dd>
+
+                            <dt class="col-sm-5">Full Name:</dt>
+                            <dd class="col-sm-7">{{ object.get_full_name|default:"-" }}</dd>
+
+                            <dt class="col-sm-5">Email:</dt>
+                            <dd class="col-sm-7">
+                                {{ object.email }}
+                                {% if not object.email_verified %}
+                                    <span class="badge bg-warning ms-2">Unverified</span>
+                                {% else %}
+                                    <span class="badge bg-success ms-2">Verified</span>
+                                {% endif %}
+                            </dd>
+
+                            <dt class="col-sm-5">Phone:</dt>
+                            <dd class="col-sm-7">
+                                {% if object.phone %}
+                                    <a href="tel:{{ object.phone }}">{{ object.phone }}</a>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-5">User Type:</dt>
+                            <dd class="col-sm-7">
+                                <span class="badge bg-{% if object.user_type == 'admin' %}danger{% elif object.user_type == 'sales_rep' %}warning{% else %}secondary{% endif %}">
+                                    {{ object.get_user_type_display }}
+                                </span>
+                            </dd>
+
+                            <dt class="col-sm-5">Status:</dt>
+                            <dd class="col-sm-7">
+                                <span class="badge bg-{% if object.is_active %}success{% else %}secondary{% endif %}">
+                                    {% if object.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                                {% if object.is_staff %}
+                                    <span class="badge bg-info ms-1">Staff</span>
+                                {% endif %}
+                                {% if object.is_superuser %}
+                                    <span class="badge bg-danger ms-1">Superuser</span>
+                                {% endif %}
+                            </dd>
+
+                            <dt class="col-sm-5">Date Joined:</dt>
+                            <dd class="col-sm-7">{{ object.date_joined|date:"M d, Y H:i" }}</dd>
+
+                            <dt class="col-sm-5">Last Login:</dt>
+                            <dd class="col-sm-7">
+                                {% if object.last_login %}
+                                    {{ object.last_login|date:"M d, Y H:i" }}
+                                {% else %}
+                                    <span class="text-muted">Never</span>
+                                {% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Professional Information -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Professional Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-5">Employee ID:</dt>
+                            <dd class="col-sm-7">{{ object.employee_id|default:"-" }}</dd>
+
+                            <dt class="col-sm-5">Department:</dt>
+                            <dd class="col-sm-7">{{ object.department|default:"-" }}</dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-5">Hire Date:</dt>
+                            <dd class="col-sm-7">
+                                {% if object.hire_date %}
+                                    {{ object.hire_date|date:"M d, Y" }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Assignments (for Sales Representatives) -->
+        {% if object.user_type == 'sales_rep' %}
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Assignments</h5>
+                <div>
+                    <a href="{% url 'authentication:school-assignment-create' %}?sales_rep={{ object.pk }}" class="btn btn-outline-primary btn-sm">
+                        <i class="uil-plus me-1"></i>Assign School
+                    </a>
+                    <a href="{% url 'authentication:club-assignment-create' %}?sales_rep={{ object.pk }}" class="btn btn-outline-info btn-sm">
+                        <i class="uil-plus me-1"></i>Assign Club
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- School Assignments -->
+                <h6 class="mb-3">
+                    <i class="uil-building me-2"></i>
+                    School Assignments ({{ object.school_assignments.count }})
+                </h6>
+                {% if object.school_assignments.exists %}
+                    <div class="table-responsive mb-4">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>School Name</th>
+                                    <th>Type</th>
+                                    <th>Contact</th>
+                                    <th>Assigned Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for assignment in object.school_assignments.all %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ assignment.school.name }}</strong>
+                                        {% if assignment.school.address %}
+                                            <br>
+                                            <small class="text-muted">{{ assignment.school.address }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if assignment.school.is_wholesale %}warning{% else %}primary{% endif %}">
+                                            {% if assignment.school.is_wholesale %}Wholesale{% else %}Retail{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {{ assignment.school.contact_person|default:"-" }}
+                                        {% if assignment.school.contact_email %}
+                                            <br>
+                                            <small><a href="mailto:{{ assignment.school.contact_email }}">{{ assignment.school.contact_email }}</a></small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ assignment.assigned_at|date:"M d, Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'authentication:school-assignment-detail' assignment.pk %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="uil-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="uil-info-circle me-2"></i>
+                        No school assignments found.
+                    </div>
+                {% endif %}
+
+                <!-- Club Assignments -->
+                <h6 class="mb-3">
+                    <i class="uil-users-alt me-2"></i>
+                    Club Assignments ({{ object.club_assignments.count }})
+                </h6>
+                {% if object.club_assignments.exists %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Club Name</th>
+                                    <th>Contact</th>
+                                    <th>Assigned Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for assignment in object.club_assignments.all %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ assignment.club.name }}</strong>
+                                        {% if assignment.club.address %}
+                                            <br>
+                                            <small class="text-muted">{{ assignment.club.address }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ assignment.club.contact_person|default:"-" }}
+                                        {% if assignment.club.contact_email %}
+                                            <br>
+                                            <small><a href="mailto:{{ assignment.club.contact_email }}">{{ assignment.club.contact_email }}</a></small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ assignment.assigned_at|date:"M d, Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'authentication:club-assignment-detail' assignment.pk %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="uil-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="uil-info-circle me-2"></i>
+                        No club assignments found.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Recent Activity -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Recent Activity</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_activities %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Action</th>
+                                    <th>Details</th>
+                                    <th>IP Address</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for activity in recent_activities %}
+                                <tr>
+                                    <td>{{ activity.timestamp|date:"M d, Y H:i" }}</td>
+                                    <td>
+                                        <span class="badge bg-info">{{ activity.action }}</span>
+                                    </td>
+                                    <td>{{ activity.details|default:"-" }}</td>
+                                    <td>
+                                        <code>{{ activity.ip_address|default:"-" }}</code>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3">
+                        <a href="{% url 'authentication:audit_log_list' %}?user={{ object.pk }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="uil-history me-1"></i>View Full Activity Log
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="text-center py-3">
+                        <i class="uil-history fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-0">No recent activity found.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-md-4">
+        <!-- Quick Actions -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'authentication:user-update' object.pk %}" class="btn btn-outline-primary">
+                        <i class="uil-edit me-2"></i>Edit User
+                    </a>
+
+                    {% if object.user_type == 'sales_rep' %}
+                        <a href="{% url 'authentication:school-assignment-create' %}?sales_rep={{ object.pk }}" class="btn btn-outline-success">
+                            <i class="uil-building me-2"></i>Assign School
+                        </a>
+                        <a href="{% url 'authentication:club-assignment-create' %}?sales_rep={{ object.pk }}" class="btn btn-outline-info">
+                            <i class="uil-users-alt me-2"></i>Assign Club
+                        </a>
+                    {% endif %}
+
+                    {% if object.is_active %}
+                        <button class="btn btn-outline-warning" onclick="toggleUserStatus('deactivate')">
+                            <i class="uil-user-times me-2"></i>Deactivate User
+                        </button>
+                    {% else %}
+                        <button class="btn btn-outline-success" onclick="toggleUserStatus('activate')">
+                            <i class="uil-user-check me-2"></i>Activate User
+                        </button>
+                    {% endif %}
+
+                    <button class="btn btn-outline-secondary" onclick="resetPassword()">
+                        <i class="uil-key-skeleton me-2"></i>Reset Password
+                    </button>
+
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" data-bs-toggle="dropdown">
+                            <i class="uil-setting me-2"></i>More Actions
+                        </button>
+                        <ul class="dropdown-menu w-100">
+                            <li><a class="dropdown-item" href="#" onclick="sendEmail()">
+                                <i class="uil-envelope me-2"></i>Send Email
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="viewSessions()">
+                                <i class="uil-desktop me-2"></i>View Sessions
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="#" onclick="deleteUser()">
+                                <i class="uil-trash me-2"></i>Delete User
+                            </a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Statistics</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center">
+                    {% if object.user_type == 'sales_rep' %}
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h4 class="text-primary">{{ object.school_assignments.count }}</h4>
+                                <small class="text-muted">School{{ object.school_assignments.count|pluralize }}</small>
+                            </div>
+                            <div class="col-6">
+                                <h4 class="text-info">{{ object.club_assignments.count }}</h4>
+                                <small class="text-muted">Club{{ object.club_assignments.count|pluralize }}</small>
+                            </div>
+                        </div>
+                        <hr>
+                    {% endif %}
+
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <h5 class="text-success">{{ user_stats.login_count }}</h5>
+                            <small class="text-muted">Total Logins</small>
+                        </div>
+                        <div class="col-6">
+                            <h5 class="text-warning">{{ user_stats.days_since_join }}</h5>
+                            <small class="text-muted">Days Active</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Information -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">System Information</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row small">
+                    <dt class="col-6">User ID:</dt>
+                    <dd class="col-6">{{ object.pk }}</dd>
+
+                    <dt class="col-6">UUID:</dt>
+                    <dd class="col-6">
+                        <code class="small">{{ object.uuid }}</code>
+                    </dd>
+
+                    <dt class="col-6">Created:</dt>
+                    <dd class="col-6">{{ object.date_joined|date:"M d, Y" }}</dd>
+
+                    <dt class="col-6">Modified:</dt>
+                    <dd class="col-6">{{ object.modified_at|date:"M d, Y" }}</dd>
+
+                    <dt class="col-6">Sessions:</dt>
+                    <dd class="col-6">{{ active_sessions }} active</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleUserStatus(action) {
+        const username = '{{ object.username }}';
+        const message = action === 'activate' ?
+            `Are you sure you want to activate user "${username}"?` :
+            `Are you sure you want to deactivate user "${username}"?`;
+
+        if (confirm(message)) {
+            // TODO: Implement AJAX call to toggle user status
+            console.log(`${action} user:`, '{{ object.pk }}');
+        }
+    }
+
+    function resetPassword() {
+        const username = '{{ object.username }}';
+        if (confirm(`Reset password for user "${username}"? A new temporary password will be generated.`)) {
+            // TODO: Implement password reset functionality
+            console.log('Reset password for user:', '{{ object.pk }}');
+        }
+    }
+
+    function sendEmail() {
+        const email = '{{ object.email }}';
+        if (email) {
+            window.open(`mailto:${email}`, '_blank');
+        } else {
+            alert('User has no email address configured.');
+        }
+    }
+
+    function viewSessions() {
+        // TODO: Implement session viewing
+        console.log('View sessions for user:', '{{ object.pk }}');
+    }
+
+    function deleteUser() {
+        const username = '{{ object.username }}';
+        if (confirm(`Are you sure you want to delete user "${username}"? This action cannot be undone.`)) {
+            if (confirm('This will permanently delete the user and all associated data. Are you absolutely sure?')) {
+                // TODO: Implement user deletion
+                console.log('Delete user:', '{{ object.pk }}');
+            }
+        }
+    }
+
+    // Add tooltips to badges
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Bootstrap tooltips if available
+        if (typeof bootstrap !== 'undefined') {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        }
+    });
+</script>
+{% endblock %}

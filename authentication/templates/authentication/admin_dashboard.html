@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-flex align-items-center justify-content-between">
+            <h4 class="mb-0">
+                <i class="uil-tachometer-fast text-primary me-2"></i>Admin Dashboard
+            </h4>
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Admin Dashboard</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-2">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <h3 class="text-primary">{{ total_users }}</h3>
+                <p class="mb-0">Total Users</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <h3 class="text-success">{{ active_users }}</h3>
+                <p class="mb-0">Active Users</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <h3 class="text-warning">{{ sales_reps }}</h3>
+                <p class="mb-0">Sales Reps</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <h3 class="text-info">{{ customers }}</h3>
+                <p class="mb-0">Customers</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <h3 class="text-success">{{ active_customers }}</h3>
+                <p class="mb-0">Active Customers</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <h3 class="text-primary">{{ total_school_assignments|add:total_club_assignments }}</h3>
+                <p class="mb-0">Assignments</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="uil-rocket text-primary me-2"></i>Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'authentication:user-create' %}" class="btn btn-primary w-100">
+                            <i class="uil-user-plus me-2"></i>
+                            Create User
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'authentication:user-list' %}" class="btn btn-secondary w-100">
+                            <i class="uil-users-alt me-2"></i>
+                            Manage Users
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'authentication:customer-management' %}" class="btn btn-info w-100">
+                            <i class="uil-user-square me-2"></i>
+                            Manage Customers
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'authentication:customer-create' %}" class="btn btn-success w-100">
+                            <i class="uil-user-plus me-2"></i>
+                            Add Customer
+                        </a>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'authentication:school-assignment-list' %}" class="btn btn-outline-secondary w-100">
+                            <i class="uil-building me-2"></i>
+                            School Assignments
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'authentication:club-assignment-list' %}" class="btn btn-outline-secondary w-100">
+                            <i class="uil-users-alt me-2"></i>
+                            Club Assignments
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'authentication:audit-log-list' %}" class="btn btn-outline-info w-100">
+                            <i class="uil-clipboard-notes me-2"></i>
+                            Audit Logs
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'authentication:settings-dashboard' %}" class="btn btn-outline-warning w-100">
+                            <i class="uil-setting me-2"></i>
+                            Settings
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity and System Status -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="uil-history text-primary me-2"></i>Recent Activity
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center text-muted">
+                    <i class="uil-history font-size-24 mb-2"></i>
+                    <p class="mb-0">Recent activity will be displayed here</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="uil-server text-primary me-2"></i>System Status
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h5 class="text-success">99.8%</h5>
+                        <small class="text-muted">Uptime</small>
+                    </div>
+                    <div class="col-6">
+                        <h5 class="text-info">45ms</h5>
+                        <small class="text-muted">Response</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.stats-card {
+    transition: transform 0.2s ease-in-out;
+}
+.stats-card:hover {
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-refresh dashboard data every 5 minutes
+    setTimeout(function() {
+        location.reload();
+    }, 300000);
+
+    // Add hover effects to stats cards
+    document.querySelectorAll('.stats-card').forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.transition = 'transform 0.3s ease';
+        });
+
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+</script>
+{% endblock %}

@@ -22,9 +22,17 @@ from .views import GlobalDashboardView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('auth/', include('authentication.urls')),
     path('clubs/', include('clubs.urls')),
     path('schools/', include('schools.urls')),
     path('', GlobalDashboardView.as_view(), name='global-dashboard'),  # Global dashboard at root
+
+    # =================================================================
+    # API Documentation (accessible at root level)
+    # =================================================================
+
+    # Main API documentation endpoints
+    path('api/', include('clubs.api_urls')),
 ]
 
 # Serve media files during development

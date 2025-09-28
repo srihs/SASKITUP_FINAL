@@ -60,6 +60,13 @@ urlpatterns = [
     # CSV upload endpoint
     path('wholesale/upload-csv/', views.wholesale_csv_upload, name='wholesale-csv-upload'),
 
+    # Wholesale settings endpoints
+    path('wholesale/settings/price-update/', views.wholesale_price_update_settings, name='wholesale-price-update-settings'),
+
+    # Wholesale price update API endpoints
+    path('wholesale/api/price-preview/', views.wholesale_price_preview, name='wholesale-price-preview'),
+    path('wholesale/api/price-apply/', views.wholesale_price_apply, name='wholesale-price-apply'),
+
     # Legacy placeholder pages
     path('retail-legacy/', views.RetailSchoolsView.as_view(), name='retail_schools_legacy'),
 ]

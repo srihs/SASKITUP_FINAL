@@ -9,7 +9,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
-from clubs.models_wholesale import WholesaleSchool, WholesaleCategory, WholesaleProduct, WholesaleProductVariation
+from schools.models import WholesaleSchool, WholesaleCategory, WholesaleProduct, WholesaleProductVariation
 
 logger = logging.getLogger(__name__)
 

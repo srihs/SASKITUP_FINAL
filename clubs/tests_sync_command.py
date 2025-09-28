@@ -23,7 +23,7 @@ from django.utils import timezone
 from freezegun import freeze_time
 
 from clubs.management.commands.sync_wholesale_schools import Command
-from clubs.models_wholesale import (
+from schools.models import (
     WholesaleSchool, WholesaleCategory, WholesaleProduct,
     WholesaleProductVariation, WholesaleProductCategoryAssignment,
     WholesaleSyncJob

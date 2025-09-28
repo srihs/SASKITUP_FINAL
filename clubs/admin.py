@@ -1,17 +1,26 @@
+import logging
 from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.contrib import messages
+from django.db.models import Q
+from decimal import Decimal
 from .models import Club, ClubCategory, Product, ProductVariation, ProductCategoryAssignment
 from .models_lotto import LottoClub, LottoClubCategory, LottoProduct, LottoProductVariation
 from .models_sas import SASSport, SASClub, SASProduct
-from .models_wholesale import (
+from schools.models import (
     WholesaleSchool, WholesaleCategory, WholesaleProduct,
     WholesaleProductVariation, WholesaleProductCategoryAssignment, WholesaleSyncJob
 )
 from .services.woocommerce_service import WooCommerceService
+from .utils.price_calculation import (
+    ProductPriceManager, PriceAnalyzer, calculate_product_pricing,
+    batch_calculate_pricing, generate_pricing_analysis, generate_pricing_report
+)
+
+logger = logging.getLogger(__name__)
 
 
 @admin.register(Club)
@@ -1563,9 +1572,9 @@ class WholesaleProductAdmin(admin.ModelAdmin):
     Admin interface for WholesaleProduct model
     """
     list_display = [
-        'name', 'school', 'primary_category', 'wholesale_price', 'retail_price',
-        'stock_status', 'quantity_available', 'is_in_stock', 'is_active',
-        'cin7_id', 'last_synced_at'
+        'name', 'school', 'primary_category', 'wholesale_price', 'retail_price', 'margin_75_price',
+        'discount_percentage', 'stock_status', 'quantity_available', 'is_in_stock', 'is_active',
+        'cin7_id', 'last_price_update', 'last_synced_at'
     ]
     list_filter = [
         'stock_status', 'is_active', 'school', 'cin7_brand', 'cin7_supplier',
@@ -1577,6 +1586,7 @@ class WholesaleProductAdmin(admin.ModelAdmin):
     ]
     readonly_fields = [
         'slug', 'cin7_id', 'is_in_stock', 'profit_margin', 'primary_category',
+        'margin_75_price', 'discount_percentage', 'last_price_update',
         'last_synced_at', 'created_at', 'updated_at'
     ]
     prepopulated_fields = {'slug': ('name',)}
@@ -1591,6 +1601,10 @@ class WholesaleProductAdmin(admin.ModelAdmin):
         }),
         ('Pricing', {
             'fields': ('wholesale_price', 'retail_price', 'cost_price', 'profit_margin')
+        }),
+        ('Calculated Pricing', {
+            'fields': ('margin_75_price', 'discount_percentage', 'last_price_update'),
+            'description': 'Automatically calculated pricing fields for price update feature'
         }),
         ('Stock Management', {
             'fields': ('stock_status', 'quantity_available', 'quantity_on_hand',
@@ -1647,9 +1661,28 @@ class WholesaleProductAdmin(admin.ModelAdmin):
         return format_html('<span style="color: gray;">-</span>')
     profit_margin.short_description = 'Profit Margin'
 
+    def margin_75_price(self, obj):
+        """Display 75% margin price"""
+        if obj.margin_75_price:
+            return f"${obj.margin_75_price:.2f}"
+        return format_html('<span style="color: gray;">-</span>')
+    margin_75_price.short_description = '75% Margin Price'
+
+    def discount_percentage(self, obj):
+        """Display discount percentage with color coding"""
+        if obj.discount_percentage is not None:
+            color = 'red' if obj.discount_percentage > 50 else 'orange' if obj.discount_percentage > 25 else 'green'
+            return format_html(
+                '<span style="color: {}; font-weight: bold;">{:.1f}%</span>',
+                color, obj.discount_percentage
+            )
+        return format_html('<span style="color: gray;">-</span>')
+    discount_percentage.short_description = 'Discount %'
+
     actions = [
         'activate_products', 'deactivate_products', 'mark_in_stock',
-        'mark_out_of_stock', 'sync_products'
+        'mark_out_of_stock', 'update_calculated_pricing', 'batch_update_pricing',
+        'generate_pricing_report', 'analyze_pricing_issues', 'sync_products'
     ]
 
     def activate_products(self, request, queryset):
@@ -1675,6 +1708,207 @@ class WholesaleProductAdmin(admin.ModelAdmin):
         updated = queryset.update(stock_status='out_of_stock')
         self.message_user(request, f"Successfully marked {updated} products as out of stock.", messages.SUCCESS)
     mark_out_of_stock.short_description = "Mark as out of stock"
+
+    def update_calculated_pricing(self, request, queryset):
+        """Update calculated pricing fields for selected products (legacy method)"""
+        updated_count = 0
+        error_count = 0
+
+        for product in queryset:
+            try:
+                product.update_calculated_pricing()
+                updated_count += 1
+            except Exception as e:
+                error_count += 1
+                logger.error(f"Error updating pricing for product {product.id}: {str(e)}")
+
+        if updated_count > 0:
+            self.message_user(
+                request,
+                f"Successfully updated calculated pricing for {updated_count} products.",
+                messages.SUCCESS
+            )
+        if error_count > 0:
+            self.message_user(
+                request,
+                f"Failed to update pricing for {error_count} products. Check logs for details.",
+                messages.WARNING
+            )
+    update_calculated_pricing.short_description = "Update calculated pricing (legacy)"
+
+    def batch_update_pricing(self, request, queryset):
+        """Update pricing using the new calculation engine with enhanced validation"""
+        if not queryset.exists():
+            self.message_user(request, "No products selected.", messages.WARNING)
+            return
+
+        # Filter products that have cost prices
+        products_with_cost = queryset.filter(cost_price__isnull=False, cost_price__gt=0)
+        products_without_cost = queryset.filter(
+            Q(cost_price__isnull=True) | Q(cost_price__lte=0)
+        )
+
+        if products_without_cost.exists():
+            self.message_user(
+                request,
+                f"Warning: {products_without_cost.count()} products don't have valid cost prices and will be skipped.",
+                messages.WARNING
+            )
+
+        if not products_with_cost.exists():
+            self.message_user(request, "No products with valid cost prices to process.", messages.ERROR)
+            return
+
+        try:
+            # Use the new calculation engine
+            batch_result = batch_calculate_pricing(products_with_cost)
+
+            # Report results
+            success_msg = f"Batch pricing update completed: {batch_result.successful_updates} updated"
+            if batch_result.failed_updates > 0:
+                success_msg += f", {batch_result.failed_updates} failed"
+            if batch_result.skipped_updates > 0:
+                success_msg += f", {batch_result.skipped_updates} skipped"
+
+            success_msg += f" (Success rate: {batch_result.success_rate:.1f}%)"
+            success_msg += f" [Processing time: {batch_result.processing_time:.2f}s]"
+
+            if batch_result.successful_updates > 0:
+                self.message_user(request, success_msg, messages.SUCCESS)
+            else:
+                self.message_user(request, "No products were successfully updated.", messages.WARNING)
+
+            # Report warnings
+            if batch_result.warnings:
+                warning_count = len(batch_result.warnings)
+                self.message_user(
+                    request,
+                    f"{warning_count} warnings generated during processing. Check logs for details.",
+                    messages.WARNING
+                )
+
+            # Report errors
+            if batch_result.errors:
+                error_count = len(batch_result.errors)
+                self.message_user(
+                    request,
+                    f"{error_count} errors occurred during processing. Check logs for details.",
+                    messages.ERROR
+                )
+
+        except Exception as e:
+            logger.error(f"Batch pricing update failed: {e}")
+            self.message_user(
+                request,
+                f"Batch pricing update failed: {str(e)}",
+                messages.ERROR
+            )
+
+    batch_update_pricing.short_description = "Update pricing (enhanced engine)"
+
+    def generate_pricing_report(self, request, queryset):
+        """Generate comprehensive pricing analysis report"""
+        if not queryset.exists():
+            self.message_user(request, "No products selected.", messages.WARNING)
+            return
+
+        try:
+            # Generate pricing analysis
+            stats = generate_pricing_analysis(queryset)
+            report = generate_pricing_report(queryset, format_type='text')
+
+            # Create response
+            response = HttpResponse(report, content_type='text/plain')
+            response['Content-Disposition'] = 'attachment; filename="pricing_report.txt"'
+
+            # Also show summary in admin
+            summary_msg = (
+                f"Pricing report generated for {stats.total_products} products. "
+                f"Products with cost: {stats.products_with_cost}, "
+                f"High discount (>50%): {stats.high_discount_products}, "
+                f"Low margin (<10%): {stats.low_margin_products}"
+            )
+            self.message_user(request, summary_msg, messages.SUCCESS)
+
+            return response
+
+        except Exception as e:
+            logger.error(f"Failed to generate pricing report: {e}")
+            self.message_user(
+                request,
+                f"Failed to generate pricing report: {str(e)}",
+                messages.ERROR
+            )
+
+    generate_pricing_report.short_description = "Generate pricing analysis report"
+
+    def analyze_pricing_issues(self, request, queryset):
+        """Analyze and report pricing issues for selected products"""
+        if not queryset.exists():
+            self.message_user(request, "No products selected.", messages.WARNING)
+            return
+
+        try:
+            analyzer = PriceAnalyzer()
+            stats = analyzer.analyze_product_pricing(queryset)
+
+            issues = []
+
+            # Check for products without cost prices
+            no_cost_count = queryset.filter(
+                Q(cost_price__isnull=True) | Q(cost_price__lte=0)
+            ).count()
+            if no_cost_count > 0:
+                issues.append(f"{no_cost_count} products missing valid cost prices")
+
+            # Check for high discount products
+            if stats.high_discount_products > 0:
+                issues.append(f"{stats.high_discount_products} products with >50% discount")
+
+            # Check for negative margin products
+            if stats.negative_margin_products > 0:
+                issues.append(f"{stats.negative_margin_products} products with negative margins")
+
+            # Check for low margin products
+            if stats.low_margin_products > 0:
+                issues.append(f"{stats.low_margin_products} products with <10% profit margin")
+
+            # Check for products missing 75% margin prices
+            missing_margin_75 = queryset.filter(
+                cost_price__isnull=False,
+                cost_price__gt=0,
+                margin_75_price__isnull=True
+            ).count()
+            if missing_margin_75 > 0:
+                issues.append(f"{missing_margin_75} products missing 75% margin price calculation")
+
+            if issues:
+                issue_summary = "Pricing issues found: " + "; ".join(issues)
+                self.message_user(request, issue_summary, messages.WARNING)
+            else:
+                self.message_user(
+                    request,
+                    f"No major pricing issues found in {stats.total_products} products.",
+                    messages.SUCCESS
+                )
+
+            # Additional statistics
+            if stats.avg_discount_percentage is not None:
+                self.message_user(
+                    request,
+                    f"Average discount: {stats.avg_discount_percentage:.1f}%",
+                    messages.INFO
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to analyze pricing issues: {e}")
+            self.message_user(
+                request,
+                f"Failed to analyze pricing issues: {str(e)}",
+                messages.ERROR
+            )
+
+    analyze_pricing_issues.short_description = "Analyze pricing issues"
 
     def sync_products(self, request, queryset):
         """Sync selected products with CIN7"""

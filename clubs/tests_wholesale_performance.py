@@ -23,7 +23,7 @@ from django.urls import reverse
 from django.utils import timezone
 from io import StringIO
 
-from clubs.models_wholesale import (
+from schools.models import (
     WholesaleSchool, WholesaleCategory, WholesaleProduct,
     WholesaleProductVariation, WholesaleProductCategoryAssignment,
     WholesaleSyncJob

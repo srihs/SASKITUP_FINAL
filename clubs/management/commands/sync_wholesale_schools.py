@@ -15,7 +15,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 from clubs.services.cin7_service import CIN7Service
-from clubs.models_wholesale import (
+from schools.models import (
     WholesaleSchool, WholesaleCategory, WholesaleProduct,
     WholesaleProductVariation, WholesaleProductCategoryAssignment, WholesaleSyncJob
 )

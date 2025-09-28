@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Customer Support{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border: 1px solid rgba(0, 0, 0, 0.125);
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
+    }
+
+    .list-group-item {
+        transition: all 0.2s ease;
+    }
+
+    .list-group-item:hover {
+        background-color: #f8f9fa;
+        transform: translateX(5px);
+    }
+
+    .badge {
+        font-size: 0.75em;
+        padding: 0.375rem 0.5rem;
+    }
+
+    .modal-dialog {
+        max-width: 600px;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function startChat() {
+        alert('Live chat feature will be implemented with a chat widget integration.');
+    }
+
+    function sendSupportEmail() {
+        const subject = document.getElementById('supportSubject').value;
+        const message = document.getElementById('supportMessage').value;
+        const priority = document.getElementById('supportPriority').value;
+
+        if (!subject || !message) {
+            alert('Please fill in all required fields.');
+            return;
+        }
+
+        // Placeholder for email sending functionality
+        alert('Email support functionality will be implemented with the email system.');
+
+        // Close modal
+        bootstrap.Modal.getInstance(document.getElementById('emailSupportModal')).hide();
+    }
+
+    function createSupportTicket() {
+        const subject = document.getElementById('ticketSubject').value;
+        const category = document.getElementById('ticketCategory').value;
+        const description = document.getElementById('ticketDescription').value;
+        const priority = document.getElementById('ticketPriority').value;
+
+        if (!subject || !category || !description) {
+            alert('Please fill in all required fields.');
+            return;
+        }
+
+        // Placeholder for ticket creation functionality
+        alert('Support ticket system will be implemented with the ticketing system.');
+
+        // Close modal
+        bootstrap.Modal.getInstance(document.getElementById('newTicketModal')).hide();
+    }
+
+    // Auto-resize textareas
+    document.querySelectorAll('textarea').forEach(textarea => {
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = this.scrollHeight + 'px';
+        });
+    });
+
+    // Form validation
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            const requiredFields = this.querySelectorAll('[required]');
+            let allValid = true;
+
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    field.classList.add('is-invalid');
+                    allValid = false;
+                } else {
+                    field.classList.remove('is-invalid');
+                }
+            });
+
+            if (!allValid) {
+                e.preventDefault();
+                alert('Please fill in all required fields.');
+            }
+        });
+    });
+</script>
+{% endblock %}

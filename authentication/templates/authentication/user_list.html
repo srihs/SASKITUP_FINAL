@@ -1,0 +1,506 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<!-- DataTables CSS -->
+<link href="{% static 'assets/libs/datatables.net-bs4/css/dataTables.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+<link href="{% static 'assets/libs/datatables.net-buttons-bs4/css/buttons.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+<link href="{% static 'assets/libs/datatables.net-responsive-bs4/css/responsive.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+
+<style>
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-weight: 600;
+    font-size: 14px;
+}
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+.action-buttons .btn {
+    padding: 0.25rem 0.5rem;
+    margin: 0 0.125rem;
+    font-size: 0.75rem;
+}
+.filter-card {
+    border: 1px solid #e9ecef;
+    border-radius: 0.375rem;
+    background-color: #f8f9fa;
+}
+.assignment-count {
+    background-color: #e3f2fd;
+    color: #1976d2;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+}
+.table th {
+    border-top: none;
+    background-color: #f8f9fa;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    padding: 0.375rem 0.75rem;
+    margin-left: 0.125rem;
+    border-radius: 0.375rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-flex align-items-center justify-content-between">
+            <h4 class="mb-0">User Management</h4>
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'authentication:user-management-dashboard' %}">User Management</a></li>
+                    <li class="breadcrumb-item active">All Users</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card filter-card">
+            <div class="card-body p-3">
+                <form method="get" id="filterForm">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label for="user_type" class="form-label">User Type</label>
+                            <select class="form-select" name="user_type" id="user_type">
+                                <option value="">All Types</option>
+                                <option value="admin" {% if request.GET.user_type == 'admin' %}selected{% endif %}>Administrator</option>
+                                <option value="sales_rep" {% if request.GET.user_type == 'sales_rep' %}selected{% endif %}>Sales Representative</option>
+                                <option value="customer" {% if request.GET.user_type == 'customer' %}selected{% endif %}>Customer</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="status" class="form-label">Status</label>
+                            <select class="form-select" name="status" id="status">
+                                <option value="">All Status</option>
+                                <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
+                                <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="search" class="form-label">Search</label>
+                            <input type="text" class="form-control" name="search" id="search"
+                                   placeholder="Name, username, email..." value="{{ request.GET.search }}">
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="uil-search me-1"></i>Filter
+                                </button>
+                                <a href="{% url 'authentication:user-list' %}" class="btn btn-outline-secondary">
+                                    <i class="uil-refresh me-1"></i>Reset
+                                </a>
+                                <a href="{% url 'authentication:user-create' %}" class="btn btn-success">
+                                    <i class="uil-plus me-1"></i>Add User
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Users Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="uil-users-alt text-primary me-2"></i>
+                        Users ({{ users.count }})
+                    </h5>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="exportUsers()">
+                            <i class="uil-export me-1"></i>Export
+                        </button>
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                                    id="bulkActions" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="uil-ellipsis-h me-1"></i>Bulk Actions
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="bulkActions">
+                                <li><a class="dropdown-item" href="#" onclick="bulkAction('activate')">
+                                    <i class="uil-check-circle me-2"></i>Activate Selected</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="bulkAction('deactivate')">
+                                    <i class="uil-times-circle me-2"></i>Deactivate Selected</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="#" onclick="bulkAction('delete')">
+                                    <i class="uil-trash me-2"></i>Delete Selected</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" id="usersTable">
+                        <thead>
+                            <tr>
+                                <th>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="selectAll">
+                                    </div>
+                                </th>
+                                <th>User</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Assignments</th>
+                                <th>Last Login</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td>
+                                    <div class="form-check">
+                                        <input class="form-check-input user-checkbox" type="checkbox" value="{{ user.id }}">
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="user-avatar bg-soft-primary text-primary me-3">
+                                            {{ user.first_name|first|default:user.username|first|upper }}
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-1 font-size-14">
+                                                {% if user.get_full_name %}
+                                                    {{ user.get_full_name }}
+                                                {% else %}
+                                                    {{ user.username }}
+                                                {% endif %}
+                                            </h6>
+                                            <p class="text-muted font-size-12 mb-0">{{ user.email }}</p>
+                                            {% if user.employee_id %}
+                                            <small class="text-muted">ID: {{ user.employee_id }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge status-badge
+                                        {% if user.user_type == 'admin' %}bg-danger text-white
+                                        {% elif user.user_type == 'sales_rep' %}bg-primary text-white
+                                        {% else %}bg-secondary text-white{% endif %}">
+                                        {{ user.get_user_type_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <span class="badge status-badge
+                                            {% if user.is_active %}bg-success text-white{% else %}bg-warning text-dark{% endif %}">
+                                            {% if user.is_active %}Active{% else %}Inactive{% endif %}
+                                        </span>
+                                        {% if user.is_sales_rep and not user.is_active_sales_rep %}
+                                        <span class="badge bg-warning text-dark ms-1">On Hold</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if user.is_sales_rep %}
+                                    <div class="d-flex gap-1">
+                                        {% if user.assigned_schools_count > 0 %}
+                                        <span class="assignment-count">
+                                            <i class="uil-building me-1"></i>{{ user.assigned_schools_count }}
+                                        </span>
+                                        {% endif %}
+                                        {% if user.assigned_clubs_count > 0 %}
+                                        <span class="assignment-count">
+                                            <i class="uil-users-alt me-1"></i>{{ user.assigned_clubs_count }}
+                                        </span>
+                                        {% endif %}
+                                        {% if user.total_assignments == 0 %}
+                                        <span class="text-muted font-size-12">No assignments</span>
+                                        {% endif %}
+                                    </div>
+                                    {% else %}
+                                    <span class="text-muted font-size-12">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user.last_login %}
+                                    <span class="font-size-12">{{ user.last_login|timesince }} ago</span>
+                                    {% else %}
+                                    <span class="text-muted font-size-12">Never</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="font-size-12">{{ user.created_at|date:"M d, Y" }}</span>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <a href="{% url 'authentication:user-detail' user.pk %}"
+                                           class="btn btn-outline-info btn-sm" title="View Details">
+                                            <i class="uil-eye"></i>
+                                        </a>
+                                        <a href="{% url 'authentication:user-update' user.pk %}"
+                                           class="btn btn-outline-primary btn-sm" title="Edit User">
+                                            <i class="uil-edit"></i>
+                                        </a>
+                                        {% if user.is_sales_rep %}
+                                        <button type="button" class="btn btn-outline-success btn-sm"
+                                                onclick="manageAssignments({{ user.id }})" title="Manage Assignments">
+                                            <i class="uil-clipboard-alt"></i>
+                                        </button>
+                                        {% endif %}
+                                        <div class="dropdown d-inline-block">
+                                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                                                    type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="uil-ellipsis-v"></i>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                {% if user.is_active %}
+                                                <li><a class="dropdown-item" href="#" onclick="toggleUserStatus({{ user.id }}, false)">
+                                                    <i class="uil-times-circle me-2"></i>Deactivate</a></li>
+                                                {% else %}
+                                                <li><a class="dropdown-item" href="#" onclick="toggleUserStatus({{ user.id }}, true)">
+                                                    <i class="uil-check-circle me-2"></i>Activate</a></li>
+                                                {% endif %}
+                                                <li><a class="dropdown-item" href="#" onclick="resetPassword({{ user.id }})">
+                                                    <i class="uil-key-skeleton me-2"></i>Reset Password</a></li>
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li><a class="dropdown-item text-danger" href="#" onclick="deleteUser({{ user.id }})">
+                                                    <i class="uil-trash me-2"></i>Delete</a></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center py-4">
+                                    <div class="text-muted">
+                                        <i class="uil-users-alt font-size-24 mb-2"></i>
+                                        <p class="mb-0">No users found matching your criteria</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assignment Modal -->
+<div class="modal fade" id="assignmentModal" tabindex="-1" aria-labelledby="assignmentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="assignmentModalLabel">Manage Assignments</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="assignmentModalBody">
+                <!-- Assignment content will be loaded here via AJAX -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- DataTables JS -->
+<script src="{% static 'assets/libs/datatables.net/js/jquery.dataTables.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-bs4/js/dataTables.bootstrap4.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-buttons/js/dataTables.buttons.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-buttons-bs4/js/buttons.bootstrap4.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-responsive/js/dataTables.responsive.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-responsive-bs4/js/responsive.bootstrap4.min.js' %}"></script>
+
+<script>
+$(document).ready(function() {
+    // Initialize DataTable
+    var table = $('#usersTable').DataTable({
+        responsive: true,
+        searching: false,
+        lengthChange: true,
+        pageLength: 25,
+        order: [[6, 'desc']], // Sort by created date
+        columnDefs: [
+            { orderable: false, targets: [0, 7] }, // Disable sorting for checkbox and actions
+            { responsivePriority: 1, targets: [1, 2, 7] }, // Priority columns for responsive
+            { responsivePriority: 2, targets: [3, 4] }
+        ],
+        language: {
+            search: "Search users:",
+            lengthMenu: "Show _MENU_ users per page",
+            info: "Showing _START_ to _END_ of _TOTAL_ users",
+            infoEmpty: "No users found",
+            emptyTable: "No users available"
+        }
+    });
+
+    // Select all checkbox functionality
+    $('#selectAll').on('change', function() {
+        $('.user-checkbox').prop('checked', this.checked);
+    });
+
+    // Individual checkbox change
+    $('.user-checkbox').on('change', function() {
+        if (!this.checked) {
+            $('#selectAll').prop('checked', false);
+        } else if ($('.user-checkbox:checked').length === $('.user-checkbox').length) {
+            $('#selectAll').prop('checked', true);
+        }
+    });
+});
+
+// User management functions
+function toggleUserStatus(userId, activate) {
+    const action = activate ? 'activate' : 'deactivate';
+    const message = activate ? 'activate' : 'deactivate';
+
+    if (confirm(`Are you sure you want to ${message} this user?`)) {
+        $.ajax({
+            url: '{% url "authentication:user-list" %}',
+            type: 'POST',
+            data: {
+                'action': action,
+                'user_id': userId,
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + response.message);
+                }
+            },
+            error: function() {
+                alert('An error occurred. Please try again.');
+            }
+        });
+    }
+}
+
+function deleteUser(userId) {
+    if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+        $.ajax({
+            url: '{% url "authentication:user-list" %}',
+            type: 'POST',
+            data: {
+                'action': 'delete',
+                'user_id': userId,
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + response.message);
+                }
+            },
+            error: function() {
+                alert('An error occurred. Please try again.');
+            }
+        });
+    }
+}
+
+function resetPassword(userId) {
+    if (confirm('Are you sure you want to reset this user\'s password?')) {
+        $.ajax({
+            url: '{% url "authentication:user-list" %}',
+            type: 'POST',
+            data: {
+                'action': 'reset_password',
+                'user_id': userId,
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.success) {
+                    alert('Password reset successfully. New password: ' + response.new_password);
+                } else {
+                    alert('Error: ' + response.message);
+                }
+            },
+            error: function() {
+                alert('An error occurred. Please try again.');
+            }
+        });
+    }
+}
+
+function manageAssignments(userId) {
+    $.ajax({
+        url: '{% url "authentication:assignment-management" %}',
+        data: {'user_id': userId},
+        success: function(response) {
+            $('#assignmentModalBody').html(response);
+            $('#assignmentModal').modal('show');
+        },
+        error: function() {
+            alert('An error occurred loading assignments.');
+        }
+    });
+}
+
+function bulkAction(action) {
+    const selectedUsers = $('.user-checkbox:checked').map(function() {
+        return this.value;
+    }).get();
+
+    if (selectedUsers.length === 0) {
+        alert('Please select at least one user.');
+        return;
+    }
+
+    let message = '';
+    switch(action) {
+        case 'activate': message = 'activate'; break;
+        case 'deactivate': message = 'deactivate'; break;
+        case 'delete': message = 'delete'; break;
+    }
+
+    if (confirm(`Are you sure you want to ${message} ${selectedUsers.length} selected user(s)?`)) {
+        $.ajax({
+            url: '{% url "authentication:user-list" %}',
+            type: 'POST',
+            data: {
+                'action': 'bulk_' + action,
+                'user_ids': selectedUsers,
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + response.message);
+                }
+            },
+            error: function() {
+                alert('An error occurred. Please try again.');
+            }
+        });
+    }
+}
+
+function exportUsers() {
+    window.location.href = '{% url "authentication:user-list" %}?export=csv&' + $('#filterForm').serialize();
+}
+</script>
+{% endblock %}

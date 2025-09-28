@@ -15,8 +15,8 @@ from .services import SchoolAPIService
 # Import SyncJob from clubs app
 from clubs.models import SyncJob
 
-# Import wholesale models from clubs app
-from clubs.models_wholesale import WholesaleSyncJob
+# Import wholesale models from schools app
+from .models import WholesaleSyncJob
 
 # Import TUS models from clubs app
 from clubs.models_tus import (
@@ -190,8 +190,8 @@ class WholesaleSchoolsView(ListView):
 
     def get_queryset(self):
         try:
-            # Import wholesale models from clubs app
-            from clubs.models_wholesale import WholesaleSchool
+            # Import wholesale models from schools app
+            from .models import WholesaleSchool
 
             queryset = WholesaleSchool.objects.filter(is_active=True)
 
@@ -218,7 +218,7 @@ class WholesaleSchoolsView(ListView):
 
         try:
             # Import wholesale models
-            from clubs.models_wholesale import WholesaleSchool, WholesaleCategory, WholesaleProduct
+            from .models import WholesaleSchool, WholesaleCategory, WholesaleProduct
 
             context['wholesale_available'] = True
 
@@ -1220,12 +1220,12 @@ class WholesaleSchoolDetailView(DetailView):
     slug_url_kwarg = 'slug'
 
     def get_queryset(self):
-        from clubs.models_wholesale import WholesaleSchool
+        from .models import WholesaleSchool
         self.model = WholesaleSchool
         return WholesaleSchool.objects.filter(is_active=True)
 
     def get_context_data(self, **kwargs):
-        from clubs.models_wholesale import WholesaleCategory, WholesaleProduct
+        from .models import WholesaleCategory, WholesaleProduct
         context = super().get_context_data(**kwargs)
         school = self.get_object()
 
@@ -1364,12 +1364,12 @@ class WholesaleCategoryDetailView(DetailView):
     slug_url_kwarg = 'slug'
 
     def get_queryset(self):
-        from clubs.models_wholesale import WholesaleCategory
+        from .models import WholesaleCategory
         self.model = WholesaleCategory
         return WholesaleCategory.objects.filter(is_active=True)
 
     def get_context_data(self, **kwargs):
-        from clubs.models_wholesale import WholesaleProduct
+        from .models import WholesaleProduct
         context = super().get_context_data(**kwargs)
         category = self.get_object()
 
@@ -1421,7 +1421,7 @@ class WholesaleProductDetailView(DetailView):
     slug_url_kwarg = 'slug'
 
     def get_queryset(self):
-        from clubs.models_wholesale import WholesaleProduct
+        from .models import WholesaleProduct
         self.model = WholesaleProduct
         return WholesaleProduct.objects.filter(is_active=True).select_related('school').prefetch_related('categories', 'variations')
 
@@ -1475,7 +1475,7 @@ class WholesaleProductDetailView(DetailView):
 
     def _get_products_by_base_sku(self, base_sku, school):
         """Get all products with the same base SKU"""
-        from clubs.models_wholesale import WholesaleProduct
+        from .models import WholesaleProduct
 
         # Find products where cin7_sku starts with base_sku
         return WholesaleProduct.objects.filter(
@@ -1486,7 +1486,7 @@ class WholesaleProductDetailView(DetailView):
 
     def _process_product_variations(self, products):
         """Process products to extract size and color variations from actual variation data"""
-        from clubs.models_wholesale import WholesaleProductVariation
+        from .models import WholesaleProductVariation
 
         sizes = set()
         colors = set()
@@ -1678,7 +1678,7 @@ class WholesaleProductDetailView(DetailView):
 
     def _check_price_uniformity(self, products):
         """Check if all variations have the same price"""
-        from clubs.models_wholesale import WholesaleProductVariation
+        from .models import WholesaleProductVariation
 
         # Get all variations for these products
         product_ids = [p.id for p in products]
@@ -1740,3 +1740,472 @@ def tus_sync_status(request, job_id):
             'success': False,
             'error': f'Failed to get sync status: {str(e)}'
         }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def wholesale_price_preview(request):
+    """
+    Generate preview of wholesale price updates from CSV upload.
+    Returns detailed preview data for user review before applying changes.
+    """
+    import os
+    import tempfile
+    import csv
+    import sys
+    from decimal import Decimal, InvalidOperation
+    from pathlib import Path
+    from django.core.files.storage import default_storage
+    from django.core.files.base import ContentFile
+    from .models import WholesaleProduct, WholesaleSchool
+
+    logger = logging.getLogger(__name__)
+    logger.info("=== WHOLESALE PRICE PREVIEW STARTED ===")
+
+    try:
+        if 'csv_file' not in request.FILES:
+            logger.warning("No CSV file provided in request")
+            return JsonResponse({
+                'success': False,
+                'error': 'No CSV file provided'
+            })
+
+        csv_file = request.FILES['csv_file']
+        logger.info(f"Processing CSV file: {csv_file.name} ({csv_file.size} bytes)")
+
+        # Save file temporarily
+        temp_file_path = None
+        try:
+            # Save to temporary file
+            temp_file = tempfile.NamedTemporaryFile(mode='w+b', suffix='.csv', delete=False)
+            temp_file_path = temp_file.name
+
+            for chunk in csv_file.chunks():
+                temp_file.write(chunk)
+            temp_file.close()
+
+            logger.info(f"CSV file saved to temporary path: {temp_file_path}")
+
+            # Process the CSV
+            preview_data = []
+            errors = []
+            row_count = 0
+            valid_rows = 0
+
+            with open(temp_file_path, 'r', encoding='utf-8-sig') as file:
+                # Detect dialect
+                sample = file.read(1024)
+                file.seek(0)
+                sniffer = csv.Sniffer()
+                dialect = sniffer.sniff(sample)
+
+                # Increase CSV field size limit to handle large fields
+                csv.field_size_limit(1048576)  # 1MB limit instead of default 128KB
+
+                reader = csv.DictReader(file, dialect=dialect)
+                logger.info(f"CSV headers detected: {reader.fieldnames}")
+
+                for row_num, row in enumerate(reader, 1):
+                    row_count += 1
+                    logger.debug(f"Processing row {row_num}: {dict(row)}")
+
+                    try:
+                        # Extract data from row - handle multiple possible field names
+                        product_code = str(row.get('product_code', '') or row.get('Code', '') or row.get('Style Code', '')).strip()
+                        barcode = str(row.get('barcode', '') or row.get('Barcode', '')).strip()
+                        product_name = str(row.get('product_name', '') or row.get('Product Name', '')).strip()
+
+                        if not product_code and not barcode:
+                            errors.append(f"Row {row_num}: Missing product code and barcode")
+                            continue
+
+                        # Try to find the product
+                        product = None
+                        if product_code:
+                            product = WholesaleProduct.objects.filter(cin7_sku=product_code).first()
+
+                        if not product and barcode:
+                            product = WholesaleProduct.objects.filter(cin7_barcode=barcode).first()
+
+                        preview_item = {
+                            'row_number': row_num,
+                            'product_code': product_code,
+                            'barcode': barcode,
+                            'product_name': product_name,
+                            'product_found': product is not None,
+                            'database_product_name': product.name if product else None,
+                            'school_name': product.school.name if product else None,
+                            'cost': row.get('cost', '') or row.get('Cost NZD Excl', ''),
+                            'margin_75_price': row.get('margin_75_price', '') or row.get('WholesaleExGST NZD Excl', ''),
+                            'discount_percentage': row.get('discount_percentage', ''),
+                            'current_retail_nzd_incl': row.get('current_retail_nzd_incl', '') or row.get('Retail NZD Incl', ''),
+                            'current_cost_price': float(product.cost_price) if product and product.cost_price else None,
+                            'current_margin_75_price': float(product.margin_75_price) if product and product.margin_75_price else None,
+                            'current_retail_price': float(product.retail_price) if product and product.retail_price else None,
+                        }
+
+                        preview_data.append(preview_item)
+                        if product:
+                            valid_rows += 1
+
+                    except Exception as e:
+                        error_msg = f"Row {row_num}: Error processing - {str(e)}"
+                        logger.error(error_msg)
+                        errors.append(error_msg)
+
+            logger.info(f"CSV processing complete: {row_count} rows processed, {valid_rows} valid products found")
+
+            return JsonResponse({
+                'success': True,
+                'preview_data': preview_data,
+                'summary': {
+                    'total_rows': row_count,
+                    'valid_products': valid_rows,
+                    'invalid_products': row_count - valid_rows,
+                    'errors': errors
+                }
+            })
+
+        finally:
+            # Clean up temporary file
+            if temp_file_path and os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
+                logger.debug(f"Temporary file cleaned up: {temp_file_path}")
+
+    except Exception as e:
+        logger.error(f"Price preview operation failed: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': f'Preview operation failed: {str(e)}'
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def wholesale_price_apply(request):
+    """
+    Apply selected price changes from preview data.
+    Enhanced with comprehensive logging to debug the 25/1701 update issue.
+    """
+    import json
+    from decimal import Decimal
+    from django.db import transaction
+    from django.utils import timezone
+    from .models import WholesaleProduct
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        # Parse request data
+        data = json.loads(request.body)
+        selected_items = data.get('selected_items', [])
+        backup_prices = data.get('backup_prices', True)
+
+        logger.info(f"=== WHOLESALE PRICE APPLY STARTED ===")
+        logger.info(f"Total items received: {len(selected_items)}")
+        logger.info(f"Backup prices enabled: {backup_prices}")
+
+        if not selected_items:
+            logger.warning("No items selected for update")
+            return JsonResponse({
+                'success': False,
+                'error': 'No items selected for update'
+            })
+
+        # Log first few items for structure verification
+        logger.info("=== SAMPLE DATA STRUCTURE ===")
+        for i, item in enumerate(selected_items[:3]):
+            logger.info(f"Item {i+1} structure: {json.dumps(item, indent=2)}")
+
+        # Log expected vs actual field mappings
+        logger.info("=== FIELD MAPPING ANALYSIS ===")
+        if selected_items:
+            first_item = selected_items[0]
+            expected_fields = ['product_code', 'barcode', 'cost', 'margin_75_price', 'discount_percentage', 'current_retail_nzd_incl']
+            available_fields = list(first_item.keys())
+
+            logger.info(f"Expected price update fields: {expected_fields}")
+            logger.info(f"Available fields in data: {available_fields}")
+
+            missing_fields = [field for field in expected_fields if field not in available_fields]
+            extra_fields = [field for field in available_fields if field not in expected_fields]
+
+            if missing_fields:
+                logger.warning(f"Missing expected fields: {missing_fields}")
+            if extra_fields:
+                logger.info(f"Extra fields available: {extra_fields}")
+
+            # Check for potential field name variations
+            field_variations = {
+                'product_code': ['sku', 'product_sku', 'cin7_sku', 'code'],
+                'barcode': ['cin7_barcode', 'product_barcode'],
+                'cost': ['cost_price', 'cost_nzd', 'unit_cost'],
+                'margin_75_price': ['margin_price', '75_margin_price', 'margin75'],
+                'current_retail_nzd_incl': ['retail_price', 'retail_nzd', 'selling_price']
+            }
+
+            for expected_field, variations in field_variations.items():
+                if expected_field not in available_fields:
+                    found_variations = [var for var in variations if var in available_fields]
+                    if found_variations:
+                        logger.warning(f"Field '{expected_field}' not found, but similar fields available: {found_variations}")
+
+        results = {
+            'successful_updates': 0,
+            'failed_updates': 0,
+            'errors': [],
+            'updated_products': [],
+            'not_found_products': [],
+            'skipped_products': []
+        }
+
+        # Track detailed statistics
+        processed_count = 0
+        found_by_sku_count = 0
+        found_by_barcode_count = 0
+        not_found_count = 0
+        update_failed_count = 0
+
+        # Add database diagnostics before processing
+        logger.info("=== DATABASE DIAGNOSTICS ===")
+        total_wholesale_products = WholesaleProduct.objects.count()
+        products_with_sku = WholesaleProduct.objects.exclude(cin7_sku='').exclude(cin7_sku__isnull=True).count()
+        products_with_barcode = WholesaleProduct.objects.exclude(cin7_barcode='').exclude(cin7_barcode__isnull=True).count()
+
+        logger.info(f"Total WholesaleProduct records: {total_wholesale_products}")
+        logger.info(f"Products with SKU: {products_with_sku}")
+        logger.info(f"Products with barcode: {products_with_barcode}")
+
+        # Sample some SKUs and barcodes for comparison
+        sample_skus = list(WholesaleProduct.objects.exclude(cin7_sku='').exclude(cin7_sku__isnull=True).values_list('cin7_sku', flat=True)[:5])
+        sample_barcodes = list(WholesaleProduct.objects.exclude(cin7_barcode='').exclude(cin7_barcode__isnull=True).values_list('cin7_barcode', flat=True)[:5])
+
+        logger.info(f"Sample SKUs in database: {sample_skus}")
+        logger.info(f"Sample barcodes in database: {sample_barcodes}")
+
+        # Process each selected item
+        logger.info("=== PROCESSING ITEMS ===")
+        logger.info("Starting database transaction...")
+
+        try:
+            with transaction.atomic():
+                for index, item in enumerate(selected_items, 1):
+                    processed_count += 1
+                    product_name = item.get('product_name', 'Unknown')
+                    product_code = item.get('product_code', '')
+                    barcode = item.get('barcode', '')
+
+                    logger.info(f"Processing item {index}/{len(selected_items)}: {product_name}")
+                    logger.info(f"  - Product code: {product_code}")
+                    logger.info(f"  - Barcode: {barcode}")
+
+                    try:
+                        # Find product by code or barcode
+                        product = None
+                        search_method = None
+
+                        # Try to find by SKU first with multiple search strategies
+                        if product_code:
+                            product_code_clean = str(product_code).strip()
+                            logger.debug(f"  - Searching by SKU: '{product_code_clean}'")
+
+                            # Try exact match first
+                            product = WholesaleProduct.objects.filter(cin7_sku=product_code_clean).first()
+                            if product:
+                                search_method = "SKU (exact)"
+                                found_by_sku_count += 1
+                                logger.info(f"  ✅ Product found by SKU (exact): {product.name} (ID: {product.id})")
+                            else:
+                                # Try case-insensitive match
+                                product = WholesaleProduct.objects.filter(cin7_sku__iexact=product_code_clean).first()
+                                if product:
+                                    search_method = "SKU (case-insensitive)"
+                                    found_by_sku_count += 1
+                                    logger.info(f"  ✅ Product found by SKU (case-insensitive): {product.name} (ID: {product.id})")
+                                else:
+                                    # Log potential matches for debugging
+                                    similar_skus = WholesaleProduct.objects.filter(cin7_sku__icontains=product_code_clean[:5] if len(product_code_clean) >= 5 else product_code_clean)[:3]
+                                    if similar_skus:
+                                        logger.debug(f"  - Similar SKUs found: {[p.cin7_sku for p in similar_skus]}")
+
+                        # Try barcode if not found by SKU
+                        if not product and barcode:
+                            barcode_clean = str(barcode).strip()
+                            logger.debug(f"  - Searching by barcode: '{barcode_clean}'")
+
+                            # Try exact match first
+                            product = WholesaleProduct.objects.filter(cin7_barcode=barcode_clean).first()
+                            if product:
+                                search_method = "Barcode (exact)"
+                                found_by_barcode_count += 1
+                                logger.info(f"  ✅ Product found by barcode (exact): {product.name} (ID: {product.id})")
+                            else:
+                                # Try case-insensitive match
+                                product = WholesaleProduct.objects.filter(cin7_barcode__iexact=barcode_clean).first()
+                                if product:
+                                    search_method = "Barcode (case-insensitive)"
+                                    found_by_barcode_count += 1
+                                    logger.info(f"  ✅ Product found by barcode (case-insensitive): {product.name} (ID: {product.id})")
+                                else:
+                                    # Log potential matches for debugging
+                                    similar_barcodes = WholesaleProduct.objects.filter(cin7_barcode__icontains=barcode_clean[:5] if len(barcode_clean) >= 5 else barcode_clean)[:3]
+                                    if similar_barcodes:
+                                        logger.debug(f"  - Similar barcodes found: {[p.cin7_barcode for p in similar_barcodes]}")
+
+                        if not product:
+                            not_found_count += 1
+                            error_msg = f"Product not found - Name: {product_name}, SKU: {product_code}, Barcode: {barcode}"
+                            logger.warning(f"  ❌ {error_msg}")
+                            results['failed_updates'] += 1
+                            results['errors'].append(error_msg)
+                            results['not_found_products'].append({
+                                'product_name': product_name,
+                                'product_code': product_code,
+                                'barcode': barcode
+                            })
+                            continue
+
+                        # Log current product state
+                        logger.info(f"  - Current product state:")
+                        logger.info(f"    * Cost price: {product.cost_price}")
+                        logger.info(f"    * Margin 75% price: {product.margin_75_price}")
+                        logger.info(f"    * Retail price: {product.retail_price}")
+                        logger.info(f"    * Discount percentage: {getattr(product, 'discount_percentage', 'N/A')}")
+
+                        # Create backup if requested
+                        backup_data = {}
+                        if backup_prices:
+                            backup_data = {
+                                'original_cost_price': float(product.cost_price) if product.cost_price else None,
+                                'original_margin_75_price': float(product.margin_75_price) if product.margin_75_price else None,
+                                'original_retail_price': float(product.retail_price) if product.retail_price else None,
+                                'original_discount_percentage': float(getattr(product, 'discount_percentage', 0)) if hasattr(product, 'discount_percentage') and getattr(product, 'discount_percentage') else None,
+                            }
+                            logger.debug(f"  - Backup created: {backup_data}")
+
+                        # Track what fields will be updated
+                        updates_to_apply = {}
+
+                        # Update product pricing fields using new structure
+                        if item.get('cost'):
+                            new_cost = Decimal(str(item['cost']))
+                            updates_to_apply['cost_price'] = new_cost
+                            product.cost_price = new_cost
+                            logger.info(f"  - Updating cost price: {new_cost}")
+
+                        if item.get('margin_75_price'):
+                            new_margin = Decimal(str(item['margin_75_price']))
+                            updates_to_apply['margin_75_price'] = new_margin
+                            product.margin_75_price = new_margin
+                            logger.info(f"  - Updating margin 75% price: {new_margin}")
+
+                        if item.get('discount_percentage'):
+                            new_discount = Decimal(str(item['discount_percentage']))
+                            if hasattr(product, 'discount_percentage'):
+                                updates_to_apply['discount_percentage'] = new_discount
+                                product.discount_percentage = new_discount
+                                logger.info(f"  - Updating discount percentage: {new_discount}")
+                            else:
+                                logger.warning(f"  - Product model doesn't have discount_percentage field")
+
+                        # Also update retail price if provided
+                        if item.get('current_retail_nzd_incl'):
+                            new_retail = Decimal(str(item['current_retail_nzd_incl']))
+                            updates_to_apply['retail_price'] = new_retail
+                            product.retail_price = new_retail
+                            logger.info(f"  - Updating retail price: {new_retail}")
+
+                        if not updates_to_apply:
+                            logger.warning(f"  ⚠️ No price fields to update for {product_name}")
+                            logger.warning(f"  - Available item fields: {list(item.keys())}")
+                            results['skipped_products'].append({
+                                'product_name': product_name,
+                                'reason': 'No price fields provided',
+                                'available_fields': list(item.keys())
+                            })
+                            continue
+
+                        product.last_price_update = timezone.now()
+
+                        # Save with explicit field list
+                        update_fields = list(updates_to_apply.keys()) + ['last_price_update']
+                        logger.debug(f"  - Saving with update_fields: {update_fields}")
+
+                        try:
+                            product.save(update_fields=update_fields)
+                            logger.debug(f"  - Database save successful")
+                        except Exception as save_error:
+                            logger.error(f"  - Database save failed: {save_error}")
+                            raise save_error
+
+                        results['successful_updates'] += 1
+                        results['updated_products'].append({
+                            'product_name': product.name,
+                            'school_name': product.school.name,
+                            'product_id': product.id,
+                            'search_method': search_method,
+                            'updates_applied': {k: float(v) for k, v in updates_to_apply.items()},
+                            'backup_data': backup_data,
+                            'new_cost_price': float(product.cost_price) if product.cost_price else None,
+                            'new_margin_price': float(product.margin_75_price) if product.margin_75_price else None
+                        })
+
+                        logger.info(f"  ✅ Successfully updated {product.name}")
+
+                    except Exception as e:
+                        update_failed_count += 1
+                        error_msg = f"Failed to update {product_name}: {str(e)}"
+                        logger.error(f"  ❌ {error_msg}", exc_info=True)
+                        results['failed_updates'] += 1
+                        results['errors'].append(error_msg)
+
+            logger.info("Database transaction completed successfully")
+
+        except Exception as transaction_error:
+            logger.error(f"Database transaction failed: {transaction_error}", exc_info=True)
+            raise transaction_error
+
+        # Log comprehensive summary
+        logger.info("=== WHOLESALE PRICE APPLY SUMMARY ===")
+        logger.info(f"Total items processed: {processed_count}")
+        logger.info(f"Successfully updated: {results['successful_updates']}")
+        logger.info(f"Failed updates: {results['failed_updates']}")
+        logger.info(f"Products found by SKU: {found_by_sku_count}")
+        logger.info(f"Products found by barcode: {found_by_barcode_count}")
+        logger.info(f"Products not found: {not_found_count}")
+        logger.info(f"Update failures: {update_failed_count}")
+
+        if results['errors']:
+            logger.warning("=== ERRORS ENCOUNTERED ===")
+            for error in results['errors']:
+                logger.warning(f"  - {error}")
+
+        return JsonResponse({
+            'success': True,
+            'results': results,
+            'message': f"Updated {results['successful_updates']} products successfully out of {len(selected_items)} items",
+            'summary': {
+                'total_processed': processed_count,
+                'found_by_sku': found_by_sku_count,
+                'found_by_barcode': found_by_barcode_count,
+                'not_found': not_found_count,
+                'update_failures': update_failed_count
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Price apply operation failed: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': f'Apply operation failed: {str(e)}'
+        }, status=500)
+
+
+def wholesale_price_update_settings(request):
+    """
+    Wholesale price update settings page
+    """
+    context = {
+        'page_title': 'Wholesale Price Update Settings',
+    }
+    return render(request, 'schools/wholesale/price_update_settings.html', context)

@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Frequently Asked Questions{% endblock %}
+
+{% block extra_css %}
+<style>
+    .faq-category-btn {
+        transition: all 0.3s ease;
+        min-height: 120px;
+    }
+
+    .faq-category-btn:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+
+    .accordion-button:not(.collapsed) {
+        background-color: #f8f9fa;
+        border-color: #dee2e6;
+    }
+
+    .accordion-button:focus {
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        border-color: #86b7fe;
+    }
+
+    .accordion-body {
+        line-height: 1.6;
+    }
+
+    .accordion-body a {
+        color: #0d6efd;
+        text-decoration: none;
+    }
+
+    .accordion-body a:hover {
+        text-decoration: underline;
+    }
+
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border: 1px solid rgba(0, 0, 0, 0.125);
+    }
+
+    #faqSearch:focus {
+        border-color: #86b7fe;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // FAQ Category filtering
+    document.querySelectorAll('.faq-category-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const category = this.dataset.category;
+            showFAQCategory(category);
+
+            // Update button states
+            document.querySelectorAll('.faq-category-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+
+    function showFAQCategory(category) {
+        // Hide all sections
+        document.querySelectorAll('.faq-section').forEach(section => {
+            section.classList.add('d-none');
+        });
+
+        // Show selected section
+        const selectedSection = document.querySelector(`.faq-section[data-category="${category}"]`);
+        if (selectedSection) {
+            selectedSection.classList.remove('d-none');
+        }
+
+        // Update title
+        const titleMap = {
+            orders: 'Orders & Shipping',
+            account: 'Account Management',
+            payment: 'Payment & Billing',
+            products: 'Products & Catalog',
+            returns: 'Returns & Refunds',
+            technical: 'Technical Issues',
+            all: 'All Frequently Asked Questions'
+        };
+
+        document.getElementById('faqCategoryTitle').innerHTML =
+            `<i class="uil-question-circle me-2"></i>${titleMap[category] || 'FAQ'}`;
+    }
+
+    function searchFAQ() {
+        const searchTerm = document.getElementById('faqSearch').value.toLowerCase();
+
+        if (!searchTerm.trim()) {
+            // Show all sections if search is empty
+            showFAQCategory('all');
+            return;
+        }
+
+        // Hide all sections first
+        document.querySelectorAll('.faq-section').forEach(section => {
+            section.classList.add('d-none');
+        });
+
+        // Search through all accordion items
+        let hasResults = false;
+        document.querySelectorAll('.accordion-item').forEach(item => {
+            const button = item.querySelector('.accordion-button');
+            const body = item.querySelector('.accordion-body');
+            const text = (button.textContent + ' ' + body.textContent).toLowerCase();
+
+            if (text.includes(searchTerm)) {
+                // Show the parent section
+                const section = item.closest('.faq-section');
+                section.classList.remove('d-none');
+
+                // Highlight the accordion item
+                item.style.backgroundColor = '#fff3cd';
+                setTimeout(() => {
+                    item.style.backgroundColor = '';
+                }, 3000);
+
+                hasResults = true;
+            }
+        });
+
+        if (!hasResults) {
+            alert('No FAQ articles found matching your search. Please try different keywords or contact support.');
+        }
+
+        // Update title
+        document.getElementById('faqCategoryTitle').innerHTML =
+            `<i class="uil-search me-2"></i>Search Results for "${searchTerm}"`;
+    }
+
+    // Search on Enter key
+    document.getElementById('faqSearch').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            searchFAQ();
+        }
+    });
+
+    // Track FAQ engagement
+    document.querySelectorAll('.accordion-button').forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Track which FAQ items are being viewed
+            console.log('FAQ opened:', this.textContent.trim());
+        });
+    });
+
+    // Auto-expand first item on page load
+    window.addEventListener('load', function() {
+        const firstAccordionButton = document.querySelector('.accordion-button');
+        if (firstAccordionButton && !firstAccordionButton.classList.contains('collapsed')) {
+            // Already expanded by default
+        }
+    });
+</script>
+{% endblock %}

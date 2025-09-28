@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ customer.get_full_name|default:customer.username }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 2rem;
+    }
+
+    .timeline-item {
+        position: relative;
+        padding-bottom: 1.5rem;
+    }
+
+    .timeline-item:not(:last-child)::before {
+        content: '';
+        position: absolute;
+        left: -1.625rem;
+        top: 1.5rem;
+        height: calc(100% - 1.5rem);
+        width: 2px;
+        background-color: #dee2e6;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: -1.75rem;
+        top: 0.25rem;
+        width: 0.75rem;
+        height: 0.75rem;
+        border-radius: 50%;
+        border: 2px solid #fff;
+    }
+
+    .timeline-content {
+        margin-left: 0.5rem;
+    }
+
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border: 1px solid rgba(0, 0, 0, 0.125);
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+
+    .badge {
+        font-size: 0.75em;
+        padding: 0.375rem 0.5rem;
+    }
+
+    .table-borderless td {
+        padding: 0.25rem 0.5rem;
+        border: none;
+    }
+
+    .table-borderless .text-muted {
+        width: 35%;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let pendingStatusChange = null;
+
+    function resetPassword() {
+        const modal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
+        modal.show();
+    }
+
+    function confirmResetPassword() {
+        alert('Password reset functionality will be implemented with AJAX.');
+        bootstrap.Modal.getInstance(document.getElementById('resetPasswordModal')).hide();
+    }
+
+    function sendLoginInfo() {
+        if (confirm('Send login information to {{ customer.email }}?')) {
+            alert('Send login info functionality will be implemented with email system.');
+        }
+    }
+
+    function toggleStatus(activate) {
+        const modal = new bootstrap.Modal(document.getElementById('statusChangeModal'));
+        const statusText = document.getElementById('statusChangeText');
+        const statusWarning = document.getElementById('statusChangeWarning');
+        const confirmBtn = document.getElementById('confirmStatusBtn');
+
+        pendingStatusChange = activate;
+
+        if (activate) {
+            statusText.textContent = 'Are you sure you want to activate {{ customer.username }}\'s account?';
+            statusWarning.textContent = 'The customer will be able to log in and access their account.';
+            confirmBtn.textContent = 'Activate Account';
+            confirmBtn.className = 'btn btn-success';
+        } else {
+            statusText.textContent = 'Are you sure you want to deactivate {{ customer.username }}\'s account?';
+            statusWarning.textContent = 'The customer will be logged out and unable to access their account.';
+            confirmBtn.textContent = 'Deactivate Account';
+            confirmBtn.className = 'btn btn-danger';
+        }
+
+        modal.show();
+    }
+
+    function confirmStatusChange() {
+        if (pendingStatusChange !== null) {
+            const action = pendingStatusChange ? 'activate' : 'deactivate';
+            alert(`Customer ${action} functionality will be implemented with AJAX.`);
+            bootstrap.Modal.getInstance(document.getElementById('statusChangeModal')).hide();
+            pendingStatusChange = null;
+        }
+    }
+
+    // Add hover effects to action buttons
+    document.querySelectorAll('.btn').forEach(btn => {
+        btn.addEventListener('mouseenter', function() {
+            if (this.classList.contains('btn-outline-primary') ||
+                this.classList.contains('btn-outline-warning') ||
+                this.classList.contains('btn-outline-info') ||
+                this.classList.contains('btn-outline-success') ||
+                this.classList.contains('btn-outline-danger')) {
+                this.style.transform = 'translateY(-1px)';
+                this.style.transition = 'transform 0.2s ease';
+            }
+        });
+
+        btn.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+
+    // Auto-refresh customer data every 5 minutes
+    setTimeout(function() {
+        location.reload();
+    }, 300000);
+
+    // Track admin actions for audit
+    document.querySelectorAll('button[onclick]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            console.log('Admin action:', this.textContent.trim(), 'for customer:', '{{ customer.username }}');
+        });
+    });
+</script>
+{% endblock %}

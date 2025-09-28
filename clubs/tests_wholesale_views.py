@@ -21,7 +21,7 @@ from django.contrib.auth.models import User
 from django.http import Http404
 from django.utils import timezone
 
-from clubs.models_wholesale import (
+from schools.models import (
     WholesaleSchool, WholesaleCategory, WholesaleProduct,
     WholesaleProductVariation, WholesaleProductCategoryAssignment,
     WholesaleSyncJob

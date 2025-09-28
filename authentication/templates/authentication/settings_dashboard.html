@@ -1,0 +1,718 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+.settings-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    cursor: pointer;
+    border: 1px solid #e9ecef;
+}
+.settings-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border-color: #007bff;
+}
+.settings-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    font-size: 1.5rem;
+}
+.quick-toggle {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+.system-status {
+    background: linear-gradient(45deg, #28a745, #20c997);
+    color: white;
+    border-radius: 0.375rem;
+    padding: 1rem;
+}
+.metric-card {
+    text-align: center;
+    padding: 1rem;
+    border: 1px solid #e9ecef;
+    border-radius: 0.375rem;
+    background-color: #ffffff;
+}
+.security-alert {
+    border-left: 4px solid #dc3545;
+    background-color: #f8d7da;
+    color: #721c24;
+}
+.info-alert {
+    border-left: 4px solid #17a2b8;
+    background-color: #d1ecf1;
+    color: #0c5460;
+}
+.maintenance-schedule {
+    background-color: #fff3cd;
+    border-left: 4px solid #ffc107;
+    color: #856404;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-flex align-items-center justify-content-between">
+            <h4 class="mb-0">Settings Dashboard</h4>
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Settings</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Status Overview -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card system-status">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="text-white mb-2">
+                            <i class="uil-check-circle me-2"></i>
+                            System Status: All Systems Operational
+                        </h5>
+                        <p class="text-white-50 mb-0">
+                            Last checked: {{ system_status.last_check|date:"M d, Y H:i" }} |
+                            Uptime: {{ system_status.uptime|default:"99.9%" }} |
+                            Response Time: {{ system_status.avg_response_time|default:"<200ms" }}
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-light btn-sm" onclick="refreshSystemStatus()">
+                            <i class="uil-refresh me-1"></i>Refresh Status
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Settings Categories -->
+<div class="row">
+    <!-- User Management -->
+    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+        <div class="card settings-card h-100" onclick="window.location.href='{% url 'authentication:user-management-dashboard' %}'">
+            <div class="card-body text-center">
+                <div class="settings-icon bg-soft-primary text-primary">
+                    <i class="uil-users-alt"></i>
+                </div>
+                <h6 class="mb-2">User Management</h6>
+                <p class="text-muted font-size-13 mb-3">Manage users, roles, and permissions</p>
+                <div class="row">
+                    <div class="col-6">
+                        <div class="metric-card">
+                            <h5 class="mb-1 text-primary">{{ user_metrics.total_users|default:"0" }}</h5>
+                            <small class="text-muted">Total Users</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="metric-card">
+                            <h5 class="mb-1 text-success">{{ user_metrics.active_users|default:"0" }}</h5>
+                            <small class="text-muted">Active</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Configuration -->
+    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+        <div class="card settings-card h-100" onclick="showModal('systemConfigModal')">
+            <div class="card-body text-center">
+                <div class="settings-icon bg-soft-warning text-warning">
+                    <i class="uil-cog"></i>
+                </div>
+                <h6 class="mb-2">System Configuration</h6>
+                <p class="text-muted font-size-13 mb-3">Configure system-wide settings</p>
+                <div class="row">
+                    <div class="col-6">
+                        <div class="metric-card">
+                            <h5 class="mb-1 text-warning">{{ config_metrics.total_settings|default:"25" }}</h5>
+                            <small class="text-muted">Settings</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="metric-card">
+                            <h5 class="mb-1 text-info">{{ config_metrics.modified_today|default:"3" }}</h5>
+                            <small class="text-muted">Modified</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Security Settings -->
+    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+        <div class="card settings-card h-100" onclick="showModal('securityModal')">
+            <div class="card-body text-center">
+                <div class="settings-icon bg-soft-danger text-danger">
+                    <i class="uil-shield-check"></i>
+                </div>
+                <h6 class="mb-2">Security & Access</h6>
+                <p class="text-muted font-size-13 mb-3">Security settings and access control</p>
+                <div class="row">
+                    <div class="col-6">
+                        <div class="metric-card">
+                            <h5 class="mb-1 text-danger">{{ security_metrics.failed_logins|default:"0" }}</h5>
+                            <small class="text-muted">Failed Logins</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="metric-card">
+                            <h5 class="mb-1 text-success">{{ security_metrics.active_sessions|default:"5" }}</h5>
+                            <small class="text-muted">Sessions</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Management -->
+    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+        <div class="card settings-card h-100" onclick="window.location.href='{% url 'clubs:sync-management' %}'">
+            <div class="card-body text-center">
+                <div class="settings-icon bg-soft-info text-info">
+                    <i class="uil-database"></i>
+                </div>
+                <h6 class="mb-2">Data Sync</h6>
+                <p class="text-muted font-size-13 mb-3">Manage data synchronization</p>
+                <div class="row">
+                    <div class="col-6">
+                        <div class="metric-card">
+                            <h5 class="mb-1 text-info">{{ sync_metrics.last_sync|default:"2h ago" }}</h5>
+                            <small class="text-muted">Last Sync</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="metric-card">
+                            <h5 class="mb-1 text-success">{{ sync_metrics.sync_status|default:"OK" }}</h5>
+                            <small class="text-muted">Status</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pricing Management -->
+    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+        <div class="card settings-card h-100" onclick="window.location.href='{% url 'schools:wholesale-price-update-settings' %}'">
+            <div class="card-body text-center">
+                <div class="settings-icon bg-soft-success text-success">
+                    <i class="uil-dollar-sign-alt"></i>
+                </div>
+                <h6 class="mb-2">Price Management</h6>
+                <p class="text-muted font-size-13 mb-3">Wholesale pricing updates</p>
+                <div class="row">
+                    <div class="col-6">
+                        <div class="metric-card">
+                            <h5 class="mb-1 text-success">{{ price_metrics.last_update|default:"1d ago" }}</h5>
+                            <small class="text-muted">Last Update</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="metric-card">
+                            <h5 class="mb-1 text-info">{{ price_metrics.pending_updates|default:"0" }}</h5>
+                            <small class="text-muted">Pending</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assignment Management -->
+    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+        <div class="card settings-card h-100" onclick="window.location.href='{% url 'authentication:assignment-management' %}'">
+            <div class="card-body text-center">
+                <div class="settings-icon bg-soft-purple text-purple">
+                    <i class="uil-clipboard-alt"></i>
+                </div>
+                <h6 class="mb-2">Assignment Management</h6>
+                <p class="text-muted font-size-13 mb-3">Manage sales rep assignments</p>
+                <div class="row">
+                    <div class="col-6">
+                        <div class="metric-card">
+                            <h5 class="mb-1 text-primary">{{ assignment_metrics.total_assignments|default:"0" }}</h5>
+                            <small class="text-muted">Total</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="metric-card">
+                            <h5 class="mb-1 text-warning">{{ assignment_metrics.unassigned|default:"0" }}</h5>
+                            <small class="text-muted">Unassigned</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audit & Logs -->
+    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+        <div class="card settings-card h-100" onclick="window.location.href='{% url 'authentication:audit-log-list' %}'">
+            <div class="card-body text-center">
+                <div class="settings-icon bg-soft-dark text-dark">
+                    <i class="uil-clipboard-notes"></i>
+                </div>
+                <h6 class="mb-2">Audit & Logs</h6>
+                <p class="text-muted font-size-13 mb-3">View system audit logs</p>
+                <div class="row">
+                    <div class="col-6">
+                        <div class="metric-card">
+                            <h5 class="mb-1 text-dark">{{ audit_metrics.today_events|default:"15" }}</h5>
+                            <small class="text-muted">Today</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="metric-card">
+                            <h5 class="mb-1 text-info">{{ audit_metrics.total_size|default:"2.1MB" }}</h5>
+                            <small class="text-muted">Log Size</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backup & Recovery -->
+    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+        <div class="card settings-card h-100" onclick="showModal('backupModal')">
+            <div class="card-body text-center">
+                <div class="settings-icon bg-soft-secondary text-secondary">
+                    <i class="uil-hdd"></i>
+                </div>
+                <h6 class="mb-2">Backup & Recovery</h6>
+                <p class="text-muted font-size-13 mb-3">Database backup management</p>
+                <div class="row">
+                    <div class="col-6">
+                        <div class="metric-card">
+                            <h5 class="mb-1 text-secondary">{{ backup_metrics.last_backup|default:"12h ago" }}</h5>
+                            <small class="text-muted">Last Backup</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="metric-card">
+                            <h5 class="mb-1 text-success">{{ backup_metrics.backup_size|default:"150MB" }}</h5>
+                            <small class="text-muted">Size</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions & Toggles -->
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="uil-toggle-on text-primary me-2"></i>
+                    Quick Settings
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="quick-toggle">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">Maintenance Mode</h6>
+                            <small class="text-muted">Enable maintenance mode for system updates</small>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="maintenanceMode" onchange="toggleMaintenanceMode(this.checked)">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quick-toggle">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">User Registration</h6>
+                            <small class="text-muted">Allow new users to register</small>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="userRegistration" checked onchange="toggleUserRegistration(this.checked)">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quick-toggle">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">Email Notifications</h6>
+                            <small class="text-muted">Send system email notifications</small>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="emailNotifications" checked onchange="toggleEmailNotifications(this.checked)">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quick-toggle">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">Debug Mode</h6>
+                            <small class="text-muted">Enable detailed error logging</small>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="debugMode" onchange="toggleDebugMode(this.checked)">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Alerts -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="uil-bell text-primary me-2"></i>
+                    System Alerts
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if system_alerts %}
+                    {% for alert in system_alerts %}
+                    <div class="alert {{ alert.css_class }} border-0 mb-3">
+                        <div class="d-flex align-items-start">
+                            <i class="{{ alert.icon }} me-2 mt-1"></i>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ alert.title }}</h6>
+                                <p class="mb-0 font-size-13">{{ alert.message }}</p>
+                                <small class="text-muted">{{ alert.timestamp|timesince }} ago</small>
+                            </div>
+                            <button type="button" class="btn-close" onclick="dismissAlert({{ alert.id }})"></button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="alert info-alert border-0">
+                        <i class="uil-info-circle me-2"></i>
+                        <strong>System Healthy:</strong> No active alerts or warnings.
+                    </div>
+
+                    <div class="alert maintenance-schedule border-0">
+                        <i class="uil-clock me-2"></i>
+                        <strong>Scheduled Maintenance:</strong> Next maintenance window is scheduled for Sunday, 2:00 AM - 4:00 AM.
+                    </div>
+                {% endif %}
+
+                <div class="text-center mt-3">
+                    <button class="btn btn-outline-primary btn-sm" onclick="refreshAlerts()">
+                        <i class="uil-refresh me-1"></i>Refresh Alerts
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Configuration Modal -->
+<div class="modal fade" id="systemConfigModal" tabindex="-1" aria-labelledby="systemConfigModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="systemConfigModalLabel">System Configuration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="siteName" class="form-label">Site Name</label>
+                            <input type="text" class="form-control" id="siteName" value="SAS KITUP">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="siteUrl" class="form-label">Site URL</label>
+                            <input type="url" class="form-control" id="siteUrl" value="https://saskitup.com">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="adminEmail" class="form-label">Admin Email</label>
+                            <input type="email" class="form-control" id="adminEmail" value="admin@saskitup.com">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="timezone" class="form-label">Timezone</label>
+                            <select class="form-select" id="timezone">
+                                <option selected>America/New_York</option>
+                                <option>America/Chicago</option>
+                                <option>America/Denver</option>
+                                <option>America/Los_Angeles</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveSystemConfig()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Security Modal -->
+<div class="modal fade" id="securityModal" tabindex="-1" aria-labelledby="securityModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="securityModalLabel">Security Settings</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="alert alert-warning">
+                            <i class="uil-exclamation-triangle me-2"></i>
+                            <strong>Warning:</strong> Changing security settings may affect user access. Proceed with caution.
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="sessionTimeout" class="form-label">Session Timeout (minutes)</label>
+                            <input type="number" class="form-control" id="sessionTimeout" value="30" min="5" max="480">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="maxLoginAttempts" class="form-label">Max Login Attempts</label>
+                            <input type="number" class="form-control" id="maxLoginAttempts" value="5" min="3" max="10">
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="require2FA" checked>
+                            <label class="form-check-label" for="require2FA">
+                                Require Two-Factor Authentication for Admins
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="passwordExpiry" checked>
+                            <label class="form-check-label" for="passwordExpiry">
+                                Force Password Change Every 90 Days
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveSecuritySettings()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Backup Modal -->
+<div class="modal fade" id="backupModal" tabindex="-1" aria-labelledby="backupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="backupModalLabel">Backup & Recovery</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <div class="bg-soft-secondary text-secondary rounded-circle mx-auto mb-3" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;">
+                        <i class="uil-hdd font-size-24"></i>
+                    </div>
+                    <h6>Database Backup</h6>
+                    <p class="text-muted">Create or restore database backups</p>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-primary" onclick="createBackup()">
+                        <i class="uil-download-alt me-2"></i>Create Backup Now
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="scheduleBackup()">
+                        <i class="uil-schedule me-2"></i>Schedule Automatic Backup
+                    </button>
+                    <button type="button" class="btn btn-outline-warning" onclick="restoreBackup()">
+                        <i class="uil-upload-alt me-2"></i>Restore from Backup
+                    </button>
+                </div>
+
+                <hr>
+
+                <h6>Recent Backups</h6>
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <div>
+                            <h6 class="mb-1">backup_2024_09_28.sql</h6>
+                            <small class="text-muted">150MB • 12 hours ago</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary">Download</button>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <div>
+                            <h6 class="mb-1">backup_2024_09_27.sql</h6>
+                            <small class="text-muted">148MB • 1 day ago</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary">Download</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showModal(modalId) {
+    const modal = new bootstrap.Modal(document.getElementById(modalId));
+    modal.show();
+}
+
+function refreshSystemStatus() {
+    // Simulate system status refresh
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="uil-sync-icon me-1"></i>Refreshing...';
+    button.disabled = true;
+
+    setTimeout(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+        // Show success message
+        showToast('System status refreshed successfully', 'success');
+    }, 2000);
+}
+
+function toggleMaintenanceMode(enabled) {
+    const action = enabled ? 'enable' : 'disable';
+    if (confirm(`Are you sure you want to ${action} maintenance mode?`)) {
+        // Implement maintenance mode toggle
+        showToast(`Maintenance mode ${enabled ? 'enabled' : 'disabled'}`, enabled ? 'warning' : 'success');
+    } else {
+        // Reset toggle if cancelled
+        document.getElementById('maintenanceMode').checked = !enabled;
+    }
+}
+
+function toggleUserRegistration(enabled) {
+    // Implement user registration toggle
+    showToast(`User registration ${enabled ? 'enabled' : 'disabled'}`, 'info');
+}
+
+function toggleEmailNotifications(enabled) {
+    // Implement email notifications toggle
+    showToast(`Email notifications ${enabled ? 'enabled' : 'disabled'}`, 'info');
+}
+
+function toggleDebugMode(enabled) {
+    if (enabled && !confirm('Debug mode will log detailed information. Enable only for troubleshooting.')) {
+        document.getElementById('debugMode').checked = false;
+        return;
+    }
+    // Implement debug mode toggle
+    showToast(`Debug mode ${enabled ? 'enabled' : 'disabled'}`, enabled ? 'warning' : 'success');
+}
+
+function saveSystemConfig() {
+    // Implement system configuration save
+    showToast('System configuration saved successfully', 'success');
+    bootstrap.Modal.getInstance(document.getElementById('systemConfigModal')).hide();
+}
+
+function saveSecuritySettings() {
+    // Implement security settings save
+    showToast('Security settings updated successfully', 'success');
+    bootstrap.Modal.getInstance(document.getElementById('securityModal')).hide();
+}
+
+function createBackup() {
+    if (confirm('Create a new database backup? This may take several minutes.')) {
+        // Implement backup creation
+        showToast('Backup creation started. You will be notified when complete.', 'info');
+        bootstrap.Modal.getInstance(document.getElementById('backupModal')).hide();
+    }
+}
+
+function scheduleBackup() {
+    // Implement backup scheduling
+    showToast('Backup schedule configuration opened', 'info');
+}
+
+function restoreBackup() {
+    if (confirm('WARNING: Restoring from backup will overwrite current data. Are you sure?')) {
+        // Implement backup restoration
+        showToast('Please select a backup file to restore', 'warning');
+    }
+}
+
+function dismissAlert(alertId) {
+    // Implement alert dismissal
+    event.target.closest('.alert').remove();
+}
+
+function refreshAlerts() {
+    // Implement alerts refresh
+    showToast('Alerts refreshed', 'info');
+}
+
+function showToast(message, type = 'info') {
+    // Simple toast notification
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type} position-fixed`;
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    toast.innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="uil-check-circle me-2"></i>
+            ${message}
+            <button type="button" class="btn-close ms-auto" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+    `;
+    document.body.appendChild(toast);
+
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.remove();
+        }
+    }, 5000);
+}
+
+// Load settings on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Load current setting values
+    loadSettings();
+});
+
+function loadSettings() {
+    // Simulate loading settings from backend
+    // This would typically make an AJAX call to get current settings
+}
+</script>
+{% endblock %}

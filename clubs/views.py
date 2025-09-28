@@ -16,27 +16,37 @@ from django.http import JsonResponse, HttpResponse
 from django.utils.decorators import method_decorator
 from django.utils import timezone
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from .models import SyncJob, Club, ClubCategory, Product
 from .models_sas import SASSport, SASClub, SASProduct
 from .models_lotto import LottoProduct, LottoProductVariation
-from .models_wholesale import (
+from schools.models import (
     WholesaleSchool, WholesaleCategory, WholesaleProduct,
     WholesaleProductVariation, WholesaleSyncJob
 )
+from authentication.permissions import (
+    AdminRequiredMixin, SalesRepRequiredMixin, ClubAccessMixin,
+    filter_clubs_for_user, can_user_manage_assignments
+)
+from authentication.models import AuditLog
 
 # Initialize logger
 logger = logging.getLogger(__name__)
 
 
-class ClubListView(ListView):
+class ClubListView(LoginRequiredMixin, ListView):
     """List all clubs with filtering and search functionality"""
     model = Club
     template_name = 'clubs/club_list.html'
     context_object_name = 'clubs'
     paginate_by = 12
+    login_url = '/auth/login/'
 
     def get_queryset(self):
-        queryset = Club.objects.filter(is_active=True).prefetch_related('categories')
+        # Filter clubs based on user permissions
+        base_queryset = Club.objects.filter(is_active=True).prefetch_related('categories')
+        queryset = filter_clubs_for_user(self.request.user, base_queryset)
         
         # Filter by club type
         club_type = self.request.GET.get('type')
@@ -75,37 +85,53 @@ class ClubListView(ListView):
         return context
 
 
-class ClubDetailView(DetailView):
+class ClubDetailView(LoginRequiredMixin, ClubAccessMixin, DetailView):
     """Detailed view of a specific club showing categories and products"""
     model = Club
     template_name = 'clubs/club_detail.html'
     context_object_name = 'club'
     slug_field = 'slug'
     slug_url_kwarg = 'slug'
+    login_url = '/auth/login/'
 
     def get_queryset(self):
         return Club.objects.filter(is_active=True).prefetch_related(
             'categories__products'
         )
 
+    def get_club_object(self):
+        """Required by ClubAccessMixin"""
+        return self.get_object()
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         club = self.get_object()
-        
+
+        # Log club access
+        AuditLog.log_action(
+            user=self.request.user,
+            action_type='data_access',
+            description=f'Accessed club details: {club.name}',
+            request=self.request,
+            club_id=club.id,
+            club_name=club.name
+        )
+
         # Get categories with product counts (using the existing product_count field)
         context['categories'] = club.categories.filter(product_count__gt=0).order_by('name')
-        
+
         # Recent products - using many-to-many relationship
         context['recent_products'] = Product.objects.filter(
             categories__club=club,
             stock_status__in=['instock', 'onbackorder']
         ).distinct().order_by('-created_at')[:6]
-        
+
         return context
 
 
-class ClubDashboardView(ListView):
+class ClubDashboardView(LoginRequiredMixin, ListView):
     """Dashboard view showing club statistics and overview"""
+    login_url = '/auth/login/'
     model = Club
     template_name = 'clubs/dashboard.html'
     context_object_name = 'clubs'
@@ -3730,3 +3756,16 @@ def wholesale_product_search_ajax(request):
     except Exception as e:
         logger.error(f"Error in wholesale product search: {str(e)}")
         return JsonResponse({'error': 'Search failed'}, status=500)
+
+
+def api_demo_view(request):
+    """
+    Display API demo page for wholesale price update system.
+
+    This view renders an interactive demo page that showcases all the API
+    endpoints and provides a user-friendly interface for testing the API.
+    """
+    return render(request, 'clubs/api_demo.html', {
+        'title': 'Wholesale Price Update API Demo',
+        'api_base_url': '/api'
+    })

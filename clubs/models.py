@@ -18,11 +18,7 @@ from .models_tus import (
     TUSProduct, TUSProductVariation, TUSProductCategoryAssignment
 )
 
-# Import Wholesale-specific models
-from .models_wholesale import (
-    WholesaleSchool, WholesaleCategory, WholesaleProduct,
-    WholesaleProductVariation, WholesaleProductCategoryAssignment, WholesaleSyncJob
-)
+# Wholesale models moved to schools app
 
 logger = logging.getLogger(__name__)
 

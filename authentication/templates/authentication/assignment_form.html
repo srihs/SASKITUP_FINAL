@@ -1,0 +1,410 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+{% if 'school' in request.resolver_match.url_name %}
+    {% if object %}Edit School Assignment{% else %}Create School Assignment{% endif %}
+{% else %}
+    {% if object %}Edit Club Assignment{% else %}Create Club Assignment{% endif %}
+{% endif %}
+{% endblock %}
+
+
+
+
+{% block content %}
+<form method="post" novalidate>
+    {% csrf_token %}
+
+    <!-- Assignment Information -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Assignment Details</h5>
+        </div>
+        <div class="card-body">
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-floating mb-3">
+                        {{ form.sales_rep }}
+                        <label for="{{ form.sales_rep.id_for_label }}">Sales Representative</label>
+                        {% if form.sales_rep.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.sales_rep.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">Select the sales representative to assign</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-floating mb-3">
+                        {% if 'school' in request.resolver_match.url_name %}
+                            {{ form.school }}
+                            <label for="{{ form.school.id_for_label }}">School</label>
+                            {% if form.school.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.school.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">Select the school to assign</div>
+                        {% else %}
+                            {{ form.club }}
+                            <label for="{{ form.club.id_for_label }}">Club</label>
+                            {% if form.club.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.club.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">Select the club to assign</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% if form.notes %}
+            <div class="row">
+                <div class="col-12">
+                    <div class="form-floating mb-3">
+                        {{ form.notes }}
+                        <label for="{{ form.notes.id_for_label }}">Notes (Optional)</label>
+                        {% if form.notes.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.notes.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">Any additional notes about this assignment</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Preview Information -->
+    <div class="card mb-4" id="previewCard" style="display: none;">
+        <div class="card-header">
+            <h5 class="mb-0">Assignment Preview</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Sales Representative</h6>
+                    <div id="repPreview" class="p-3 bg-light rounded">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-sm me-3">
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;" id="repAvatar"></div>
+                            </div>
+                            <div>
+                                <strong id="repName">Select a sales representative</strong>
+                                <div id="repDetails" class="text-muted small"></div>
+                                <div id="repStats" class="text-muted small"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    {% if 'school' in request.resolver_match.url_name %}
+                        <h6>School</h6>
+                        <div id="schoolPreview" class="p-3 bg-light rounded">
+                            <div>
+                                <strong id="schoolName">Select a school</strong>
+                                <div id="schoolDetails" class="text-muted small"></div>
+                                <div id="schoolContact" class="text-muted small"></div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <h6>Club</h6>
+                        <div id="clubPreview" class="p-3 bg-light rounded">
+                            <div>
+                                <strong id="clubName">Select a club</strong>
+                                <div id="clubDetails" class="text-muted small"></div>
+                                <div id="clubContact" class="text-muted small"></div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Validation Messages -->
+            <div class="mt-3">
+                <div id="validationMessages"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Important Information -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Important Information</h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-warning">
+                <h6><i class="uil-exclamation-triangle me-2"></i>Assignment Rules:</h6>
+                <ul class="mb-0">
+                    {% if 'school' in request.resolver_match.url_name %}
+                        <li>Each school can only be assigned to <strong>one</strong> sales representative</li>
+                        <li>One sales representative can be assigned to <strong>multiple</strong> schools</li>
+                        <li>If a school is already assigned, the previous assignment will be updated</li>
+                    {% else %}
+                        <li>Each club can only be assigned to <strong>one</strong> sales representative</li>
+                        <li>One sales representative can be assigned to <strong>multiple</strong> clubs</li>
+                        <li>If a club is already assigned, the previous assignment will be updated</li>
+                    {% endif %}
+                    <li>Only active sales representatives can be assigned</li>
+                    <li>Assignment changes are logged for audit purposes</li>
+                </ul>
+            </div>
+
+            {% if object %}
+                <div class="alert alert-info">
+                    <h6><i class="uil-info-circle me-2"></i>Current Assignment:</h6>
+                    <p class="mb-0">
+                        <strong>{{ object.sales_rep.get_full_name|default:object.sales_rep.username }}</strong>
+                        is currently assigned to
+                        {% if 'school' in request.resolver_match.url_name %}
+                            <strong>{{ object.school.name }}</strong>
+                        {% else %}
+                            <strong>{{ object.club.name }}</strong>
+                        {% endif %}
+                        since {{ object.assigned_at|date:"M d, Y" }}
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Form Actions -->
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between">
+                {% if 'school' in request.resolver_match.url_name %}
+                    <a href="{% url 'authentication:school-assignment-list' %}" class="btn btn-secondary">
+                        <i class="uil-arrow-left me-2"></i>Back to School Assignments
+                    </a>
+                {% else %}
+                    <a href="{% url 'authentication:club-assignment-list' %}" class="btn btn-secondary">
+                        <i class="uil-arrow-left me-2"></i>Back to Club Assignments
+                    </a>
+                {% endif %}
+                <div>
+                    {% if object %}
+                        {% if 'school' in request.resolver_match.url_name %}
+                            <a href="{% url 'authentication:school-assignment-detail' object.pk %}" class="btn btn-outline-primary me-2">
+                                <i class="uil-eye me-2"></i>View Details
+                            </a>
+                        {% else %}
+                            <a href="{% url 'authentication:club-assignment-detail' object.pk %}" class="btn btn-outline-primary me-2">
+                                <i class="uil-eye me-2"></i>View Details
+                            </a>
+                        {% endif %}
+                    {% endif %}
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <i class="uil-save me-2"></i>
+                        {% if object %}Update Assignment{% else %}Create Assignment{% endif %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // AJAX endpoints for fetching data
+    const salesRepUrl = '{% url "authentication:ajax_sales_rep_info" %}';
+    {% if 'school' in request.resolver_match.url_name %}
+        const schoolUrl = '{% url "authentication:ajax_school_info" %}';
+    {% else %}
+        const clubUrl = '{% url "authentication:ajax_club_info" %}';
+    {% endif %}
+
+    // Preview functionality
+    function updatePreview() {
+        const salesRepId = document.getElementById('{{ form.sales_rep.id_for_label }}').value;
+        {% if 'school' in request.resolver_match.url_name %}
+            const schoolId = document.getElementById('{{ form.school.id_for_label }}').value;
+        {% else %}
+            const clubId = document.getElementById('{{ form.club.id_for_label }}').value;
+        {% endif %}
+
+        if (salesRepId || {% if 'school' in request.resolver_match.url_name %}schoolId{% else %}clubId{% endif %}) {
+            document.getElementById('previewCard').style.display = 'block';
+        } else {
+            document.getElementById('previewCard').style.display = 'none';
+        }
+
+        if (salesRepId) {
+            updateSalesRepPreview(salesRepId);
+        }
+
+        {% if 'school' in request.resolver_match.url_name %}
+            if (schoolId) {
+                updateSchoolPreview(schoolId);
+            }
+        {% else %}
+            if (clubId) {
+                updateClubPreview(clubId);
+            }
+        {% endif %}
+
+        validateAssignment();
+    }
+
+    function updateSalesRepPreview(salesRepId) {
+        fetch(`${salesRepUrl}?id=${salesRepId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const rep = data.sales_rep;
+                    document.getElementById('repAvatar').textContent = rep.initials;
+                    document.getElementById('repName').textContent = rep.full_name;
+                    document.getElementById('repDetails').innerHTML = `
+                        ${rep.email}<br>
+                        ${rep.employee_id ? 'ID: ' + rep.employee_id : ''}
+                    `;
+                    document.getElementById('repStats').innerHTML = `
+                        ${rep.school_count} school${rep.school_count !== 1 ? 's' : ''},
+                        ${rep.club_count} club${rep.club_count !== 1 ? 's' : ''}
+                    `;
+                }
+            })
+            .catch(error => console.error('Error fetching sales rep info:', error));
+    }
+
+    {% if 'school' in request.resolver_match.url_name %}
+    function updateSchoolPreview(schoolId) {
+        fetch(`${schoolUrl}?id=${schoolId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const school = data.school;
+                    document.getElementById('schoolName').textContent = school.name;
+                    document.getElementById('schoolDetails').innerHTML = `
+                        <span class="badge bg-${school.is_wholesale ? 'warning' : 'primary'}">${school.type}</span><br>
+                        ${school.address || ''}
+                    `;
+                    let contact = '';
+                    if (school.contact_person) contact += school.contact_person + '<br>';
+                    if (school.contact_email) contact += school.contact_email + '<br>';
+                    if (school.contact_phone) contact += school.contact_phone;
+                    document.getElementById('schoolContact').innerHTML = contact || 'No contact information';
+                }
+            })
+            .catch(error => console.error('Error fetching school info:', error));
+    }
+    {% else %}
+    function updateClubPreview(clubId) {
+        fetch(`${clubUrl}?id=${clubId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const club = data.club;
+                    document.getElementById('clubName').textContent = club.name;
+                    document.getElementById('clubDetails').innerHTML = `
+                        ${club.address || ''}
+                    `;
+                    let contact = '';
+                    if (club.contact_person) contact += club.contact_person + '<br>';
+                    if (club.contact_email) contact += club.contact_email + '<br>';
+                    if (club.contact_phone) contact += club.contact_phone;
+                    document.getElementById('clubContact').innerHTML = contact || 'No contact information';
+                }
+            })
+            .catch(error => console.error('Error fetching club info:', error));
+    }
+    {% endif %}
+
+    function validateAssignment() {
+        const salesRepId = document.getElementById('{{ form.sales_rep.id_for_label }}').value;
+        {% if 'school' in request.resolver_match.url_name %}
+            const schoolId = document.getElementById('{{ form.school.id_for_label }}').value;
+        {% else %}
+            const clubId = document.getElementById('{{ form.club.id_for_label }}').value;
+        {% endif %}
+
+        const validationMessages = document.getElementById('validationMessages');
+        let messages = [];
+
+        if (salesRepId && {% if 'school' in request.resolver_match.url_name %}schoolId{% else %}clubId{% endif %}) {
+            // TODO: Add validation checks via AJAX
+            // Check for existing assignments, conflicts, etc.
+        }
+
+        if (messages.length > 0) {
+            validationMessages.innerHTML = `
+                <div class="alert alert-warning">
+                    <h6>Validation Warnings:</h6>
+                    <ul class="mb-0">
+                        ${messages.map(msg => `<li>${msg}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        } else {
+            validationMessages.innerHTML = '';
+        }
+    }
+
+    // Add event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        const salesRepField = document.getElementById('{{ form.sales_rep.id_for_label }}');
+        {% if 'school' in request.resolver_match.url_name %}
+            const schoolField = document.getElementById('{{ form.school.id_for_label }}');
+        {% else %}
+            const clubField = document.getElementById('{{ form.club.id_for_label }}');
+        {% endif %}
+
+        salesRepField.addEventListener('change', updatePreview);
+        {% if 'school' in request.resolver_match.url_name %}
+            schoolField.addEventListener('change', updatePreview);
+        {% else %}
+            clubField.addEventListener('change', updatePreview);
+        {% endif %}
+
+        // Initialize preview if editing existing assignment
+        {% if object %}
+            updatePreview();
+        {% endif %}
+    });
+
+    // Form submission
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const submitBtn = document.getElementById('submitBtn');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="uil-spinner fa-spin me-2"></i>Saving...';
+        submitBtn.disabled = true;
+
+        // Re-enable if form submission fails
+        setTimeout(() => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }, 5000);
+    });
+
+    // Search functionality for select fields
+    function makeSelectSearchable(selectId) {
+        const select = document.getElementById(selectId);
+        if (select) {
+            // TODO: Implement searchable select functionality
+            // Could use libraries like Select2 or implement custom search
+        }
+    }
+
+    // Initialize searchable selects
+    document.addEventListener('DOMContentLoaded', function() {
+        makeSelectSearchable('{{ form.sales_rep.id_for_label }}');
+        {% if 'school' in request.resolver_match.url_name %}
+            makeSelectSearchable('{{ form.school.id_for_label }}');
+        {% else %}
+            makeSelectSearchable('{{ form.club.id_for_label }}');
+        {% endif %}
+    });
+</script>
+{% endblock %}

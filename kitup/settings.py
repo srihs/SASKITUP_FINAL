@@ -14,6 +14,10 @@ import os
 from pathlib import Path
 from decouple import config
 
+# Configure PyMySQL to work with Django's MySQL backend
+import pymysql
+pymysql.install_as_MySQLdb()
+
 # Configure PyMySQL to work with Django
 try:
     import pymysql
@@ -34,7 +38,7 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-)71e$mb1*qcx_#+24zjp6
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'testserver']
 
 
 # Application definition
@@ -47,6 +51,15 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
+
+    # Django REST Framework
+    'rest_framework',
+    'django_filters',
+    'rest_framework_csv',
+    'drf_yasg',
+
+    # Local apps
+    'authentication',
     'clubs',
     'schools',
 ]
@@ -57,6 +70,9 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'authentication.middleware.AuthenticationMiddleware',
+    'authentication.middleware.RoleBasedAccessMiddleware',
+    'authentication.middleware.SessionSecurityMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -189,6 +205,67 @@ LOGGING = {
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Django REST Framework Configuration
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ],
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+        'rest_framework_csv.renderers.CSVRenderer',
+    ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.FormParser',
+        'rest_framework.parsers.MultiPartParser',
+        'rest_framework.parsers.FileUploadParser',
+    ],
+}
+
+# Swagger/OpenAPI Configuration
+SWAGGER_SETTINGS = {
+    'SECURITY_DEFINITIONS': {
+        'basic': {
+            'type': 'basic'
+        }
+    },
+    'USE_SESSION_AUTH': True,
+    'JSON_EDITOR': True,
+    'SUPPORTED_SUBMIT_METHODS': [
+        'get',
+        'post',
+        'put',
+        'delete',
+        'patch'
+    ],
+    'OPERATIONS_SORTER': 'alpha',
+    'TAGS_SORTER': 'alpha',
+    'DOC_EXPANSION': 'none',
+    'DEEP_LINKING': True,
+    'SHOW_EXTENSIONS': True,
+    'DEFAULT_MODEL_RENDERING': 'example'
+}
+
+# File Upload Settings
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+FILE_UPLOAD_TEMP_DIR = BASE_DIR / 'temp_uploads'
+
+# Ensure temp directory exists
+FILE_UPLOAD_TEMP_DIR.mkdir(exist_ok=True)
+
 # WooCommerce API Configuration for LOTTO
 LOTTO_WOO_URL = config('LOTTO_WOOCOMMERCE_API_URL')
 LOTTO_WOO_KEY = config('LOTTO_WOOCOMMERCE_API_CONSUMER_KEY') 
@@ -209,3 +286,16 @@ CIN7_ACCOUNT_ID = config('CIN7_ACCOUNT_ID', default='')
 CIN7_TIMEOUT = config('CIN7_TIMEOUT', default=30, cast=int)
 CIN7_MAX_RETRIES = config('CIN7_MAX_RETRIES', default=3, cast=int)
 CIN7_BATCH_SIZE = config('CIN7_BATCH_SIZE', default=100, cast=int)
+
+# Custom User Model
+AUTH_USER_MODEL = 'authentication.User'
+
+# Authentication Settings
+LOGIN_URL = '/auth/login/'
+LOGIN_REDIRECT_URL = '/clubs/dashboard/'
+LOGOUT_REDIRECT_URL = '/auth/login/'
+
+# Session Configuration
+SESSION_COOKIE_AGE = 86400  # 24 hours
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_SAVE_EVERY_REQUEST = True

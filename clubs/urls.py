@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
 
 app_name = 'clubs'
@@ -80,4 +80,14 @@ urlpatterns = [
     
     # Settings endpoints
     path('settings/sync-management/', views.sync_management_page, name='sync-management'),
+
+    # =================================================================
+    # REST API Endpoints
+    # =================================================================
+
+    # Include all API endpoints under /clubs/api/
+    path('api/', include('clubs.api_urls')),
+
+    # API demo page
+    path('api-demo/', views.api_demo_view, name='api-demo'),
 ]

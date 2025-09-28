@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}School Assignments{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleAllCheckboxes() {
+        const selectAll = document.getElementById('selectAll');
+        const checkboxes = document.querySelectorAll('.assignment-checkbox');
+
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectAll.checked;
+        });
+
+        toggleBulkActions();
+    }
+
+    function toggleBulkActions() {
+        const checkboxes = document.querySelectorAll('.assignment-checkbox:checked');
+        const bulkActions = document.getElementById('bulkActions');
+
+        if (checkboxes.length > 0) {
+            bulkActions.classList.remove('d-none');
+        } else {
+            bulkActions.classList.add('d-none');
+        }
+    }
+
+    function deleteAssignment(assignmentId, schoolName) {
+        if (confirm(`Are you sure you want to delete the assignment for "${schoolName}"?`)) {
+            // TODO: Implement AJAX deletion
+            console.log('Delete assignment:', assignmentId);
+        }
+    }
+
+    function bulkDelete() {
+        const checkboxes = document.querySelectorAll('.assignment-checkbox:checked');
+        const assignmentIds = Array.from(checkboxes).map(cb => cb.value);
+
+        if (assignmentIds.length === 0) {
+            alert('Please select at least one assignment.');
+            return;
+        }
+
+        if (confirm(`Delete ${assignmentIds.length} selected assignment(s)? This action cannot be undone.`)) {
+            // TODO: Implement bulk deletion
+            console.log('Bulk delete assignments:', assignmentIds);
+        }
+    }
+
+    function bulkReassign() {
+        const checkboxes = document.querySelectorAll('.assignment-checkbox:checked');
+        const assignmentIds = Array.from(checkboxes).map(cb => cb.value);
+
+        if (assignmentIds.length === 0) {
+            alert('Please select at least one assignment.');
+            return;
+        }
+
+        // TODO: Implement bulk reassignment modal
+        console.log('Bulk reassign assignments:', assignmentIds);
+    }
+
+    function exportAssignments() {
+        const params = new URLSearchParams(window.location.search);
+        params.set('export', 'csv');
+        window.location.href = `${window.location.pathname}?${params.toString()}`;
+    }
+
+    // Add event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        const checkboxes = document.querySelectorAll('.assignment-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', toggleBulkActions);
+        });
+
+        // Auto-submit form on filter change
+        document.getElementById('sales_rep').addEventListener('change', function() {
+            this.form.submit();
+        });
+
+        document.getElementById('school_type').addEventListener('change', function() {
+            this.form.submit();
+        });
+    });
+
+    // Add hover effects to stats cards
+    document.querySelectorAll('.stats-card').forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.transition = 'transform 0.3s ease';
+        });
+
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+</script>
+{% endblock %}

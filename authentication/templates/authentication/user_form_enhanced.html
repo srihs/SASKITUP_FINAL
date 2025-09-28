@@ -1,0 +1,614 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+.form-section {
+    border: 1px solid #e9ecef;
+    border-radius: 0.375rem;
+    background-color: #ffffff;
+    margin-bottom: 1rem;
+}
+.form-section-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    padding: 0.75rem 1rem;
+    border-radius: 0.375rem 0.375rem 0 0;
+}
+.form-section-body {
+    padding: 1rem;
+}
+.required {
+    color: #dc3545;
+}
+.password-strength {
+    height: 4px;
+    background-color: #e9ecef;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 0.25rem;
+}
+.password-strength-bar {
+    height: 100%;
+    transition: all 0.3s ease;
+}
+.password-strength-weak { background-color: #dc3545; width: 25%; }
+.password-strength-fair { background-color: #ffc107; width: 50%; }
+.password-strength-good { background-color: #20c997; width: 75%; }
+.password-strength-strong { background-color: #28a745; width: 100%; }
+.user-preview-card {
+    border: 1px solid #e9ecef;
+    border-radius: 0.375rem;
+    background-color: #f8f9fa;
+    position: sticky;
+    top: 20px;
+}
+.avatar-preview {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #007bff, #6f42c1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 2rem;
+    font-weight: bold;
+    margin: 0 auto 1rem;
+}
+.form-floating .form-control {
+    border-radius: 0.375rem;
+}
+.input-group-text {
+    border-radius: 0.375rem 0 0 0.375rem;
+}
+.btn-outline-secondary:hover {
+    color: #212529;
+    background-color: #f8f9fa;
+    border-color: #f8f9fa;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-flex align-items-center justify-content-between">
+            <h4 class="mb-0">
+                {% if form.instance.pk %}Edit User{% else %}Create New User{% endif %}
+            </h4>
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'authentication:user-management-dashboard' %}">User Management</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'authentication:user-list' %}">Users</a></li>
+                    <li class="breadcrumb-item active">
+                        {% if form.instance.pk %}Edit{% else %}Create{% endif %}
+                    </li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form method="post" id="userForm" novalidate>
+    {% csrf_token %}
+    <div class="row">
+        <!-- Main Form -->
+        <div class="col-lg-8">
+            <!-- Basic Information -->
+            <div class="form-section">
+                <div class="form-section-header">
+                    <h6 class="mb-0">
+                        <i class="uil-user-circle text-primary me-2"></i>
+                        Basic Information
+                    </h6>
+                </div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                <input type="text" class="form-control {% if form.username.errors %}is-invalid{% endif %}"
+                                       id="id_username" name="username" value="{{ form.username.value|default:'' }}"
+                                       placeholder="Username" required>
+                                <label for="id_username">Username <span class="required">*</span></label>
+                                {% if form.username.errors %}
+                                    <div class="invalid-feedback">{{ form.username.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                <input type="email" class="form-control {% if form.email.errors %}is-invalid{% endif %}"
+                                       id="id_email" name="email" value="{{ form.email.value|default:'' }}"
+                                       placeholder="Email Address" required>
+                                <label for="id_email">Email Address <span class="required">*</span></label>
+                                {% if form.email.errors %}
+                                    <div class="invalid-feedback">{{ form.email.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                <input type="text" class="form-control {% if form.first_name.errors %}is-invalid{% endif %}"
+                                       id="id_first_name" name="first_name" value="{{ form.first_name.value|default:'' }}"
+                                       placeholder="First Name">
+                                <label for="id_first_name">First Name</label>
+                                {% if form.first_name.errors %}
+                                    <div class="invalid-feedback">{{ form.first_name.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                <input type="text" class="form-control {% if form.last_name.errors %}is-invalid{% endif %}"
+                                       id="id_last_name" name="last_name" value="{{ form.last_name.value|default:'' }}"
+                                       placeholder="Last Name">
+                                <label for="id_last_name">Last Name</label>
+                                {% if form.last_name.errors %}
+                                    <div class="invalid-feedback">{{ form.last_name.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Authentication -->
+            {% if not form.instance.pk %}
+            <div class="form-section">
+                <div class="form-section-header">
+                    <h6 class="mb-0">
+                        <i class="uil-lock text-primary me-2"></i>
+                        Authentication
+                    </h6>
+                </div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                <div class="input-group">
+                                    <input type="password" class="form-control {% if form.password1.errors %}is-invalid{% endif %}"
+                                           id="id_password1" name="password1" placeholder="Password" required>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('id_password1')">
+                                        <i class="uil-eye" id="eye-icon-1"></i>
+                                    </button>
+                                </div>
+                                <label for="id_password1">Password <span class="required">*</span></label>
+                                <div class="password-strength mt-2">
+                                    <div class="password-strength-bar" id="password-strength-bar"></div>
+                                </div>
+                                <small class="text-muted" id="password-strength-text">Password strength: Weak</small>
+                                {% if form.password1.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.password1.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                <div class="input-group">
+                                    <input type="password" class="form-control {% if form.password2.errors %}is-invalid{% endif %}"
+                                           id="id_password2" name="password2" placeholder="Confirm Password" required>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('id_password2')">
+                                        <i class="uil-eye" id="eye-icon-2"></i>
+                                    </button>
+                                </div>
+                                <label for="id_password2">Confirm Password <span class="required">*</span></label>
+                                {% if form.password2.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.password2.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <i class="uil-info-circle me-2"></i>
+                                Password must be at least 8 characters long and contain a mix of letters, numbers, and special characters.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- User Type & Permissions -->
+            <div class="form-section">
+                <div class="form-section-header">
+                    <h6 class="mb-0">
+                        <i class="uil-shield-check text-primary me-2"></i>
+                        User Type & Permissions
+                    </h6>
+                </div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                <select class="form-select {% if form.user_type.errors %}is-invalid{% endif %}"
+                                        id="id_user_type" name="user_type" required onchange="updateUserTypeInfo()">
+                                    <option value="">Select User Type</option>
+                                    <option value="admin" {% if form.user_type.value == 'admin' %}selected{% endif %}>Administrator</option>
+                                    <option value="sales_rep" {% if form.user_type.value == 'sales_rep' %}selected{% endif %}>Sales Representative</option>
+                                    <option value="customer" {% if form.user_type.value == 'customer' %}selected{% endif %}>Customer</option>
+                                </select>
+                                <label for="id_user_type">User Type <span class="required">*</span></label>
+                                {% if form.user_type.errors %}
+                                    <div class="invalid-feedback">{{ form.user_type.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch mt-3">
+                                <input class="form-check-input" type="checkbox" id="id_is_active" name="is_active"
+                                       {% if form.is_active.value %}checked{% endif %}>
+                                <label class="form-check-label" for="id_is_active">
+                                    Active User
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" id="id_is_staff" name="is_staff"
+                                       {% if form.is_staff.value %}checked{% endif %}>
+                                <label class="form-check-label" for="id_is_staff">
+                                    Staff Access
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="alert alert-light" id="user-type-info">
+                                <i class="uil-info-circle me-2"></i>
+                                Select a user type to see specific permissions and capabilities.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Information -->
+            <div class="form-section" id="profile-section">
+                <div class="form-section-header">
+                    <h6 class="mb-0">
+                        <i class="uil-user text-primary me-2"></i>
+                        Profile Information
+                    </h6>
+                </div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                <input type="text" class="form-control {% if form.phone.errors %}is-invalid{% endif %}"
+                                       id="id_phone" name="phone" value="{{ form.phone.value|default:'' }}"
+                                       placeholder="Phone Number">
+                                <label for="id_phone">Phone Number</label>
+                                {% if form.phone.errors %}
+                                    <div class="invalid-feedback">{{ form.phone.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                <input type="text" class="form-control {% if form.department.errors %}is-invalid{% endif %}"
+                                       id="id_department" name="department" value="{{ form.department.value|default:'' }}"
+                                       placeholder="Department">
+                                <label for="id_department">Department</label>
+                                {% if form.department.errors %}
+                                    <div class="invalid-feedback">{{ form.department.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6" id="employee-id-field">
+                            <div class="form-floating">
+                                <input type="text" class="form-control {% if form.employee_id.errors %}is-invalid{% endif %}"
+                                       id="id_employee_id" name="employee_id" value="{{ form.employee_id.value|default:'' }}"
+                                       placeholder="Employee ID">
+                                <label for="id_employee_id">Employee ID</label>
+                                {% if form.employee_id.errors %}
+                                    <div class="invalid-feedback">{{ form.employee_id.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6" id="hire-date-field">
+                            <div class="form-floating">
+                                <input type="date" class="form-control {% if form.hire_date.errors %}is-invalid{% endif %}"
+                                       id="id_hire_date" name="hire_date" value="{{ form.hire_date.value|default:'' }}">
+                                <label for="id_hire_date">Hire Date</label>
+                                {% if form.hire_date.errors %}
+                                    <div class="invalid-feedback">{{ form.hire_date.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sales Rep Specific -->
+            <div class="form-section d-none" id="sales-rep-section">
+                <div class="form-section-header">
+                    <h6 class="mb-0">
+                        <i class="uil-briefcase text-primary me-2"></i>
+                        Sales Representative Settings
+                    </h6>
+                </div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="id_is_active_sales_rep" name="is_active_sales_rep"
+                                       {% if form.is_active_sales_rep.value %}checked{% endif %}>
+                                <label class="form-check-label" for="id_is_active_sales_rep">
+                                    Active Sales Representative
+                                </label>
+                                <div class="form-text">Allow this user to receive new assignments</div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <i class="uil-info-circle me-2"></i>
+                                Sales representatives can be assigned to schools and clubs. You can manage assignments after creating the user.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Preview -->
+        <div class="col-lg-4">
+            <div class="user-preview-card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="uil-eye text-primary me-2"></i>
+                        User Preview
+                    </h6>
+                </div>
+                <div class="card-body text-center">
+                    <div class="avatar-preview" id="avatar-preview">
+                        {{ form.first_name.value|first|default:form.username.value|first|default:'U'|upper }}
+                    </div>
+                    <h5 class="mb-1" id="preview-name">
+                        {% if form.first_name.value or form.last_name.value %}
+                            {{ form.first_name.value|default:'' }} {{ form.last_name.value|default:'' }}
+                        {% else %}
+                            {{ form.username.value|default:'New User' }}
+                        {% endif %}
+                    </h5>
+                    <p class="text-muted mb-2" id="preview-email">{{ form.email.value|default:'email@example.com' }}</p>
+                    <span class="badge bg-primary mb-3" id="preview-type">
+                        {{ form.user_type.value|default:'User Type' }}
+                    </span>
+
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h6 class="mb-1">Status</h6>
+                                <span class="badge bg-success" id="preview-status">
+                                    {% if form.is_active.value %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h6 class="mb-1">Access</h6>
+                            <span class="badge bg-info" id="preview-access">
+                                {% if form.is_staff.value %}Staff{% else %}User{% endif %}
+                            </span>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="text-start">
+                        <small class="text-muted d-block" id="preview-phone">
+                            <i class="uil-phone me-2"></i>{{ form.phone.value|default:'No phone' }}
+                        </small>
+                        <small class="text-muted d-block" id="preview-department">
+                            <i class="uil-building me-2"></i>{{ form.department.value|default:'No department' }}
+                        </small>
+                        <small class="text-muted d-block" id="preview-employee-id">
+                            <i class="uil-card-atm me-2"></i>{{ form.employee_id.value|default:'No employee ID' }}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form Actions -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="text-end">
+                <a href="{% url 'authentication:user-list' %}" class="btn btn-secondary me-2">
+                    <i class="uil-times me-1"></i>Cancel
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="uil-check me-1"></i>
+                    {% if form.instance.pk %}Update User{% else %}Create User{% endif %}
+                </button>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Update user type info on page load
+    updateUserTypeInfo();
+
+    // Update preview when form fields change
+    const formFields = ['username', 'first_name', 'last_name', 'email', 'phone', 'department', 'employee_id', 'user_type'];
+    formFields.forEach(field => {
+        const element = document.getElementById('id_' + field);
+        if (element) {
+            element.addEventListener('input', updatePreview);
+            element.addEventListener('change', updatePreview);
+        }
+    });
+
+    // Checkbox handlers
+    document.getElementById('id_is_active').addEventListener('change', updatePreview);
+    document.getElementById('id_is_staff').addEventListener('change', updatePreview);
+
+    // Password strength checker
+    const password1 = document.getElementById('id_password1');
+    if (password1) {
+        password1.addEventListener('input', checkPasswordStrength);
+    }
+});
+
+function updateUserTypeInfo() {
+    const userType = document.getElementById('id_user_type').value;
+    const infoDiv = document.getElementById('user-type-info');
+    const salesRepSection = document.getElementById('sales-rep-section');
+    const employeeIdField = document.getElementById('employee-id-field');
+    const hireDateField = document.getElementById('hire-date-field');
+
+    let infoText = '';
+    let infoClass = 'alert-light';
+
+    switch(userType) {
+        case 'admin':
+            infoText = '<i class="uil-shield-check me-2"></i><strong>Administrator:</strong> Full system access, can manage all users and settings.';
+            infoClass = 'alert-danger';
+            salesRepSection.classList.add('d-none');
+            break;
+        case 'sales_rep':
+            infoText = '<i class="uil-user-check me-2"></i><strong>Sales Representative:</strong> Can access assigned schools and clubs, manage customer relationships.';
+            infoClass = 'alert-primary';
+            salesRepSection.classList.remove('d-none');
+            break;
+        case 'customer':
+            infoText = '<i class="uil-user me-2"></i><strong>Customer:</strong> Limited access to customer-specific features and content.';
+            infoClass = 'alert-secondary';
+            salesRepSection.classList.add('d-none');
+            break;
+        default:
+            infoText = '<i class="uil-info-circle me-2"></i>Select a user type to see specific permissions and capabilities.';
+            infoClass = 'alert-light';
+            salesRepSection.classList.add('d-none');
+    }
+
+    infoDiv.innerHTML = infoText;
+    infoDiv.className = `alert ${infoClass}`;
+
+    // Show/hide employee fields for sales reps
+    if (userType === 'sales_rep') {
+        employeeIdField.style.display = 'block';
+        hireDateField.style.display = 'block';
+        document.getElementById('id_employee_id').required = true;
+    } else {
+        employeeIdField.style.display = 'none';
+        hireDateField.style.display = 'none';
+        document.getElementById('id_employee_id').required = false;
+    }
+
+    updatePreview();
+}
+
+function updatePreview() {
+    const username = document.getElementById('id_username').value || 'New User';
+    const firstName = document.getElementById('id_first_name').value;
+    const lastName = document.getElementById('id_last_name').value;
+    const email = document.getElementById('id_email').value || 'email@example.com';
+    const phone = document.getElementById('id_phone').value || 'No phone';
+    const department = document.getElementById('id_department').value || 'No department';
+    const employeeId = document.getElementById('id_employee_id').value || 'No employee ID';
+    const userType = document.getElementById('id_user_type').value || 'User Type';
+    const isActive = document.getElementById('id_is_active').checked;
+    const isStaff = document.getElementById('id_is_staff').checked;
+
+    // Update avatar
+    const avatarText = firstName ? firstName.charAt(0).toUpperCase() : username.charAt(0).toUpperCase();
+    document.getElementById('avatar-preview').textContent = avatarText;
+
+    // Update name
+    const fullName = firstName && lastName ? `${firstName} ${lastName}` : username;
+    document.getElementById('preview-name').textContent = fullName;
+
+    // Update email
+    document.getElementById('preview-email').textContent = email;
+
+    // Update type badge
+    const typeBadge = document.getElementById('preview-type');
+    typeBadge.textContent = userType === 'admin' ? 'Administrator' :
+                           userType === 'sales_rep' ? 'Sales Rep' :
+                           userType === 'customer' ? 'Customer' : 'User Type';
+    typeBadge.className = `badge mb-3 ${
+        userType === 'admin' ? 'bg-danger' :
+        userType === 'sales_rep' ? 'bg-primary' :
+        userType === 'customer' ? 'bg-secondary' : 'bg-light'
+    }`;
+
+    // Update status
+    const statusBadge = document.getElementById('preview-status');
+    statusBadge.textContent = isActive ? 'Active' : 'Inactive';
+    statusBadge.className = `badge ${isActive ? 'bg-success' : 'bg-warning'}`;
+
+    // Update access
+    const accessBadge = document.getElementById('preview-access');
+    accessBadge.textContent = isStaff ? 'Staff' : 'User';
+    accessBadge.className = `badge ${isStaff ? 'bg-info' : 'bg-secondary'}`;
+
+    // Update contact info
+    document.getElementById('preview-phone').innerHTML = `<i class="uil-phone me-2"></i>${phone}`;
+    document.getElementById('preview-department').innerHTML = `<i class="uil-building me-2"></i>${department}`;
+    document.getElementById('preview-employee-id').innerHTML = `<i class="uil-card-atm me-2"></i>${employeeId}`;
+}
+
+function togglePassword(fieldId) {
+    const field = document.getElementById(fieldId);
+    const icon = document.getElementById(fieldId === 'id_password1' ? 'eye-icon-1' : 'eye-icon-2');
+
+    if (field.type === 'password') {
+        field.type = 'text';
+        icon.className = 'uil-eye-slash';
+    } else {
+        field.type = 'password';
+        icon.className = 'uil-eye';
+    }
+}
+
+function checkPasswordStrength() {
+    const password = document.getElementById('id_password1').value;
+    const strengthBar = document.getElementById('password-strength-bar');
+    const strengthText = document.getElementById('password-strength-text');
+
+    let strength = 0;
+    let message = 'Weak';
+
+    if (password.length >= 8) strength++;
+    if (password.match(/[a-z]/)) strength++;
+    if (password.match(/[A-Z]/)) strength++;
+    if (password.match(/[0-9]/)) strength++;
+    if (password.match(/[^a-zA-Z0-9]/)) strength++;
+
+    strengthBar.className = 'password-strength-bar';
+
+    if (strength < 2) {
+        strengthBar.classList.add('password-strength-weak');
+        message = 'Weak';
+    } else if (strength < 3) {
+        strengthBar.classList.add('password-strength-fair');
+        message = 'Fair';
+    } else if (strength < 4) {
+        strengthBar.classList.add('password-strength-good');
+        message = 'Good';
+    } else {
+        strengthBar.classList.add('password-strength-strong');
+        message = 'Strong';
+    }
+
+    strengthText.textContent = `Password strength: ${message}`;
+}
+
+// Form validation
+document.getElementById('userForm').addEventListener('submit', function(e) {
+    const userType = document.getElementById('id_user_type').value;
+    const employeeId = document.getElementById('id_employee_id').value;
+
+    if (userType === 'sales_rep' && !employeeId) {
+        e.preventDefault();
+        alert('Employee ID is required for Sales Representatives');
+        document.getElementById('id_employee_id').focus();
+        return false;
+    }
+});
+</script>
+{% endblock %}
