@@ -105,7 +105,7 @@
             <div class="page-title-right">
                 <ol class="breadcrumb m-0">
                     <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'authentication:user-management-dashboard' %}">User Management</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'authentication:user-list' %}">User Management</a></li>
                     <li class="breadcrumb-item active">Assignments</li>
                 </ol>
             </div>
@@ -175,9 +175,9 @@
                     </div>
                     <div class="col-md-3">
                         <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-primary" onclick="showBulkAssignModal()">
-                                <i class="uil-clipboard-alt me-1"></i>Bulk Assign
-                            </button>
+                            <a href="{% url 'authentication:bulk-assignment' %}" class="btn btn-primary">
+                                <i class="uil-clipboard-alt me-1"></i>Bulk Assignment
+                            </a>
                             <button type="button" class="btn btn-outline-secondary" onclick="exportAssignments()">
                                 <i class="uil-export me-1"></i>Export
                             </button>

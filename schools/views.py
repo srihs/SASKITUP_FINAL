@@ -34,6 +34,13 @@ from .tus_utils import (
     get_tus_available_options, filter_tus_products, get_tus_breadcrumbs
 )
 
+# Import audit mixins
+from .mixins import (
+    SchoolViewAuditMixin, WholesaleAuditMixin, TUSAuditMixin,
+    SearchAuditMixin, SyncAuditMixin, PriceUpdateAuditMixin,
+    CSVAuditMixin, AjaxAuditMixin
+)
+
 # Import wholesale utility functions
 from .wholesale_utils import (
     is_tus_available, get_wholesale_dashboard_stats,
@@ -42,7 +49,7 @@ from .wholesale_utils import (
 )
 
 
-class SchoolListView(ListView):
+class SchoolListView(SchoolViewAuditMixin, SearchAuditMixin, ListView):
     """List view for schools database"""
     model = School
     template_name = 'schools/school_list.html'
@@ -135,7 +142,7 @@ class SchoolListView(ListView):
         return context
 
 
-class SchoolDetailView(DetailView):
+class SchoolDetailView(SchoolViewAuditMixin, DetailView):
     """Detail view for individual school"""
     model = School
     template_name = 'schools/school_detail.html'
@@ -182,7 +189,7 @@ class RetailSchoolsView(TemplateView):
         return context
 
 
-class WholesaleSchoolsView(ListView):
+class WholesaleSchoolsView(WholesaleAuditMixin, SearchAuditMixin, ListView):
     """Main wholesale schools view - shows Cin7 wholesale schools data"""
     template_name = 'schools/wholesale_schools.html'
     context_object_name = 'schools'
@@ -262,6 +269,22 @@ def school_search_ajax(request):
         for school in schools
     ]
 
+    # Log AJAX search
+    try:
+        from authentication.models import AuditLog
+        user = request.user if hasattr(request, 'user') else None
+        AuditLog.log_action(
+            user=user,
+            action_type='school_searched',
+            description=f"AJAX school search: '{query}' ({len(results)} results)",
+            request=request,
+            search_query=query,
+            results_count=len(results),
+            is_ajax=True
+        )
+    except Exception as e:
+        logger.error(f"Failed to audit AJAX school search: {str(e)}")
+
     return JsonResponse({'results': results})
 
 
@@ -269,7 +292,7 @@ def school_search_ajax(request):
 # TUS Retail Schools Views
 # ================================
 
-class TUSRetailSchoolsView(ListView):
+class TUSRetailSchoolsView(TUSAuditMixin, SearchAuditMixin, ListView):
     """Main retail schools listing view - shows locations and featured content"""
     model = TUSLocation
     template_name = 'schools/retail/retail_schools.html'
@@ -319,7 +342,7 @@ class TUSRetailSchoolsView(ListView):
         return context
 
 
-class TUSLocationDetailView(DetailView):
+class TUSLocationDetailView(TUSAuditMixin, DetailView):
     """Location detail view - shows schools within a location"""
     model = TUSLocation
     template_name = 'schools/retail/location_detail.html'
@@ -364,7 +387,7 @@ class TUSLocationDetailView(DetailView):
         return context
 
 
-class TUSSchoolDetailView(DetailView):
+class TUSSchoolDetailView(TUSAuditMixin, DetailView):
     """School detail view - shows categories and products for a specific school"""
     model = TUSSchool
     template_name = 'schools/retail/school_detail.html'
@@ -428,7 +451,7 @@ class TUSSchoolDetailView(DetailView):
         return context
 
 
-class TUSSchoolCategoryDetailView(DetailView):
+class TUSSchoolCategoryDetailView(TUSAuditMixin, DetailView):
     """School category detail view - shows products within a school category"""
     model = TUSSchoolCategory
     template_name = 'schools/retail/school_category_detail.html'
@@ -504,7 +527,7 @@ class TUSSchoolCategoryDetailView(DetailView):
         return context
 
 
-class TUSGeneralCategoryDetailView(DetailView):
+class TUSGeneralCategoryDetailView(TUSAuditMixin, DetailView):
     """General category detail view - shows products in general categories"""
     model = TUSGeneralCategory
     template_name = 'schools/retail/general_category_detail.html'
@@ -570,7 +593,7 @@ class TUSGeneralCategoryDetailView(DetailView):
         return context
 
 
-class TUSProductDetailView(DetailView):
+class TUSProductDetailView(TUSAuditMixin, DetailView):
     """Product detail view for TUS products"""
     model = TUSProduct
     template_name = 'schools/retail/product_detail.html'
@@ -673,6 +696,23 @@ def tus_search_ajax(request):
             'subtitle': f"${product.price}",
             'url': f"/schools/retail/product/{product.id}/"
         })
+
+    # Log TUS search
+    try:
+        from authentication.models import AuditLog
+        user = request.user if hasattr(request, 'user') else None
+        AuditLog.log_action(
+            user=user,
+            action_type='tus_search_performed',
+            description=f"TUS AJAX search: '{query}' ({len(results)} results)",
+            request=request,
+            search_query=query,
+            results_count=len(results),
+            result_types=[r['type'] for r in results],
+            is_ajax=True
+        )
+    except Exception as e:
+        logger.error(f"Failed to audit TUS search: {str(e)}")
 
     return JsonResponse({'results': results})
 
@@ -923,6 +963,17 @@ def sync_tus_schools(request):
 
     try:
         logger.info("Starting async sync request for TUS schools")
+
+        # Log sync start
+        from authentication.models import AuditLog
+        user = request.user if hasattr(request, 'user') and request.user.is_authenticated else None
+        AuditLog.log_action(
+            user=user,
+            action_type='tus_sync_started',
+            description="TUS schools sync initiated",
+            request=request,
+            sync_type='tus'
+        )
 
         # Auto-cleanup stale jobs before checking for running jobs
         cleaned_count = SyncJob.cleanup_stale_jobs(max_age_hours=2)
@@ -1209,7 +1260,7 @@ def wholesale_csv_upload(request):
 
 # Wholesale School Detail Views
 
-class WholesaleSchoolDetailView(DetailView):
+class WholesaleSchoolDetailView(WholesaleAuditMixin, DetailView):
     """
     Detailed view of a wholesale school with categories and products
     """
@@ -1353,7 +1404,7 @@ class WholesaleSchoolDetailView(DetailView):
         return ''
 
 
-class WholesaleCategoryDetailView(DetailView):
+class WholesaleCategoryDetailView(WholesaleAuditMixin, DetailView):
     """
     Detailed view of a wholesale category with products
     """
@@ -1410,7 +1461,7 @@ class WholesaleCategoryDetailView(DetailView):
         return context
 
 
-class WholesaleProductDetailView(DetailView):
+class WholesaleProductDetailView(WholesaleAuditMixin, DetailView):
     """
     Detailed view of a wholesale product with variations
     """
@@ -1761,6 +1812,20 @@ def wholesale_price_preview(request):
 
     logger = logging.getLogger(__name__)
     logger.info("=== WHOLESALE PRICE PREVIEW STARTED ===")
+
+    # Log price preview access
+    try:
+        from authentication.models import AuditLog
+        user = request.user if hasattr(request, 'user') and request.user.is_authenticated else None
+        AuditLog.log_action(
+            user=user,
+            action_type='wholesale_price_preview',
+            description="Wholesale price preview requested",
+            request=request,
+            operation_type='price_preview'
+        )
+    except Exception as e:
+        logger.error(f"Failed to audit price preview: {str(e)}")
 
     try:
         if 'csv_file' not in request.FILES:
@@ -2205,6 +2270,19 @@ def wholesale_price_update_settings(request):
     """
     Wholesale price update settings page
     """
+    # Log settings access
+    try:
+        from authentication.models import AuditLog
+        user = request.user if hasattr(request, 'user') and request.user.is_authenticated else None
+        AuditLog.log_action(
+            user=user,
+            action_type='wholesale_price_settings_accessed',
+            description="Accessed wholesale price update settings",
+            request=request
+        )
+    except Exception as e:
+        logger.error(f"Failed to audit settings access: {str(e)}")
+
     context = {
         'page_title': 'Wholesale Price Update Settings',
     }

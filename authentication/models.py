@@ -494,6 +494,7 @@ class AuditLog(models.Model):
     Model to log important user actions for security and compliance
     """
     ACTION_TYPES = [
+        # Authentication & User Management
         ('login', 'User Login'),
         ('logout', 'User Logout'),
         ('password_change', 'Password Change'),
@@ -507,6 +508,143 @@ class AuditLog(models.Model):
         ('permission_revoked', 'Permission Revoked'),
         ('data_access', 'Data Access'),
         ('admin_action', 'Admin Action'),
+
+        # Schools Operations
+        ('school_viewed', 'School Viewed'),
+        ('school_searched', 'School Search'),
+        ('school_list_viewed', 'School List Viewed'),
+        ('school_detail_viewed', 'School Detail Viewed'),
+        ('school_data_accessed', 'School Data Access'),
+
+        # Wholesale Schools Operations
+        ('wholesale_school_viewed', 'Wholesale School Viewed'),
+        ('wholesale_school_searched', 'Wholesale School Search'),
+        ('wholesale_school_created', 'Wholesale School Created'),
+        ('wholesale_school_updated', 'Wholesale School Updated'),
+        ('wholesale_school_deleted', 'Wholesale School Deleted'),
+        ('wholesale_category_viewed', 'Wholesale Category Viewed'),
+        ('wholesale_category_created', 'Wholesale Category Created'),
+        ('wholesale_category_updated', 'Wholesale Category Updated'),
+        ('wholesale_product_viewed', 'Wholesale Product Viewed'),
+        ('wholesale_product_created', 'Wholesale Product Created'),
+        ('wholesale_product_updated', 'Wholesale Product Updated'),
+        ('wholesale_product_deleted', 'Wholesale Product Deleted'),
+        ('wholesale_variation_created', 'Wholesale Variation Created'),
+        ('wholesale_variation_updated', 'Wholesale Variation Updated'),
+
+        # Wholesale Price Operations
+        ('wholesale_price_preview', 'Wholesale Price Preview'),
+        ('wholesale_price_update', 'Wholesale Price Update'),
+        ('wholesale_price_bulk_update', 'Wholesale Price Bulk Update'),
+        ('wholesale_price_settings_accessed', 'Wholesale Price Settings Accessed'),
+
+        # Sync Operations
+        ('wholesale_sync_started', 'Wholesale Sync Started'),
+        ('wholesale_sync_completed', 'Wholesale Sync Completed'),
+        ('wholesale_sync_failed', 'Wholesale Sync Failed'),
+        ('tus_sync_started', 'TUS Sync Started'),
+        ('tus_sync_completed', 'TUS Sync Completed'),
+        ('tus_sync_failed', 'TUS Sync Failed'),
+        ('sync_job_created', 'Sync Job Created'),
+        ('sync_job_updated', 'Sync Job Updated'),
+        ('sync_job_cancelled', 'Sync Job Cancelled'),
+
+        # CSV Import/Export Operations
+        ('csv_upload_started', 'CSV Upload Started'),
+        ('csv_upload_completed', 'CSV Upload Completed'),
+        ('csv_upload_failed', 'CSV Upload Failed'),
+        ('csv_import_started', 'CSV Import Started'),
+        ('csv_import_completed', 'CSV Import Completed'),
+        ('csv_import_failed', 'CSV Import Failed'),
+        ('data_export_requested', 'Data Export Requested'),
+        ('data_export_completed', 'Data Export Completed'),
+
+        # TUS Retail Operations
+        ('tus_location_viewed', 'TUS Location Viewed'),
+        ('tus_school_viewed', 'TUS School Viewed'),
+        ('tus_category_viewed', 'TUS Category Viewed'),
+        ('tus_product_viewed', 'TUS Product Viewed'),
+        ('tus_search_performed', 'TUS Search Performed'),
+        ('tus_variation_checked', 'TUS Variation Checked'),
+
+        # Clubs Operations
+        ('club_viewed', 'Club Viewed'),
+        ('club_searched', 'Club Search'),
+        ('club_list_viewed', 'Club List Viewed'),
+        ('club_detail_viewed', 'Club Detail Viewed'),
+        ('club_data_accessed', 'Club Data Access'),
+        ('club_created', 'Club Created'),
+        ('club_updated', 'Club Updated'),
+        ('club_deleted', 'Club Deleted'),
+
+        # Club Category Operations
+        ('club_category_viewed', 'Club Category Viewed'),
+        ('club_category_created', 'Club Category Created'),
+        ('club_category_updated', 'Club Category Updated'),
+        ('club_category_deleted', 'Club Category Deleted'),
+        ('club_category_list_viewed', 'Club Category List Viewed'),
+
+        # Club Product Operations
+        ('club_product_viewed', 'Club Product Viewed'),
+        ('club_product_created', 'Club Product Created'),
+        ('club_product_updated', 'Club Product Updated'),
+        ('club_product_deleted', 'Club Product Deleted'),
+        ('club_product_searched', 'Club Product Search'),
+        ('club_product_variation_viewed', 'Club Product Variation Viewed'),
+        ('club_product_variation_created', 'Club Product Variation Created'),
+        ('club_product_variation_updated', 'Club Product Variation Updated'),
+        ('club_product_variation_deleted', 'Club Product Variation Deleted'),
+
+        # Club Category Assignment Operations
+        ('club_product_category_assigned', 'Club Product Category Assigned'),
+        ('club_product_category_unassigned', 'Club Product Category Unassigned'),
+        ('club_product_category_primary_changed', 'Club Product Category Primary Changed'),
+
+        # LOTTO Club Operations
+        ('lotto_club_viewed', 'LOTTO Club Viewed'),
+        ('lotto_club_searched', 'LOTTO Club Search'),
+        ('lotto_product_viewed', 'LOTTO Product Viewed'),
+        ('lotto_category_viewed', 'LOTTO Category Viewed'),
+        ('lotto_variation_checked', 'LOTTO Variation Checked'),
+
+        # SAS Club Operations
+        ('sas_club_viewed', 'SAS Club Viewed'),
+        ('sas_club_searched', 'SAS Club Search'),
+        ('sas_sport_viewed', 'SAS Sport Viewed'),
+        ('sas_product_viewed', 'SAS Product Viewed'),
+        ('sas_variation_checked', 'SAS Variation Checked'),
+
+        # Club Sync Operations
+        ('club_sync_started', 'Club Sync Started'),
+        ('club_sync_completed', 'Club Sync Completed'),
+        ('club_sync_failed', 'Club Sync Failed'),
+        ('lotto_sync_started', 'LOTTO Sync Started'),
+        ('lotto_sync_completed', 'LOTTO Sync Completed'),
+        ('lotto_sync_failed', 'LOTTO Sync Failed'),
+        ('sas_sync_started', 'SAS Sync Started'),
+        ('sas_sync_completed', 'SAS Sync Completed'),
+        ('sas_sync_failed', 'SAS Sync Failed'),
+        ('club_sync_job_created', 'Club Sync Job Created'),
+        ('club_sync_job_updated', 'Club Sync Job Updated'),
+        ('club_sync_job_cancelled', 'Club Sync Job Cancelled'),
+
+        # Club Bulk Operations
+        ('club_bulk_update', 'Club Bulk Update'),
+        ('club_product_bulk_update', 'Club Product Bulk Update'),
+        ('club_category_bulk_update', 'Club Category Bulk Update'),
+        ('club_bulk_delete', 'Club Bulk Delete'),
+        ('club_product_bulk_delete', 'Club Product Bulk Delete'),
+
+        # Club Stock Operations
+        ('club_stock_updated', 'Club Stock Updated'),
+        ('club_stock_status_changed', 'Club Stock Status Changed'),
+        ('club_variation_stock_updated', 'Club Variation Stock Updated'),
+
+        # Club Image Operations
+        ('club_image_uploaded', 'Club Image Uploaded'),
+        ('club_product_image_uploaded', 'Club Product Image Uploaded'),
+        ('club_variation_image_uploaded', 'Club Variation Image Uploaded'),
+        ('club_image_proxy_accessed', 'Club Image Proxy Accessed'),
     ]
 
     # Primary identification

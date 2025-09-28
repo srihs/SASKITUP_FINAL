@@ -4,7 +4,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django.views.generic import (
     ListView, DetailView, CreateView, UpdateView, DeleteView,
-    TemplateView, FormView
+    TemplateView, FormView, View
 )
 from django.urls import reverse_lazy, reverse
 from django.db.models import Q, Count
@@ -19,12 +19,11 @@ from .forms import (
 from django.utils import timezone
 
 from .models import (
-    User, SalesRepSchoolAssignment, SalesRepClubAssignment,
-    UserSession, AuditLog
+    User, UserSession, AuditLog, SalesRepSchoolAssignment, SalesRepClubAssignment
 )
 from .permissions import (
-    AdminRequiredMixin, SalesRepRequiredMixin, CustomerRequiredMixin, AssignmentPermissionMixin,
-    can_user_manage_assignments, can_user_create_users, can_customer_access_data
+    AdminRequiredMixin, SalesRepRequiredMixin, CustomerRequiredMixin,
+    can_user_create_users, can_customer_access_data
 )
 from clubs.models import Club
 from schools.models import School, WholesaleSchool
@@ -185,9 +184,7 @@ class UserListView(AdminRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = User.objects.prefetch_related(
-            'school_assignments', 'club_assignments'
-        ).order_by('-date_joined')
+        queryset = User.objects.order_by('-date_joined')
 
         # Filter by user type
         user_type = self.request.GET.get('user_type')
@@ -220,6 +217,34 @@ class UserListView(AdminRequiredMixin, ListView):
             'is_active': self.request.GET.get('is_active', ''),
             'search': self.request.GET.get('search', ''),
         }
+
+        # Add user statistics for tiles
+        total_users = User.objects.count()
+        context['user_stats'] = {
+            'total_users': total_users,
+            'active_users': User.objects.filter(is_active=True).count(),
+            'inactive_users': User.objects.filter(is_active=False).count(),
+            'admin_count': User.objects.filter(user_type='admin').count(),
+            'sales_rep_count': User.objects.filter(user_type='sales_rep').count(),
+            'customer_count': User.objects.filter(user_type='customer').count(),
+            'new_users_this_month': User.objects.filter(created_at__month=timezone.now().month).count(),
+            'recent_registrations': User.objects.filter(
+                created_at__gte=timezone.now() - timezone.timedelta(days=7)
+            ).count(),
+        }
+
+        # Calculate percentages
+        if total_users > 0:
+            context['user_stats']['active_percentage'] = round((context['user_stats']['active_users'] / total_users) * 100, 1)
+            context['user_stats']['admin_percentage'] = round((context['user_stats']['admin_count'] / total_users) * 100, 1)
+            context['user_stats']['sales_rep_percentage'] = round((context['user_stats']['sales_rep_count'] / total_users) * 100, 1)
+            context['user_stats']['customer_percentage'] = round((context['user_stats']['customer_count'] / total_users) * 100, 1)
+        else:
+            context['user_stats']['active_percentage'] = 0
+            context['user_stats']['admin_percentage'] = 0
+            context['user_stats']['sales_rep_percentage'] = 0
+            context['user_stats']['customer_percentage'] = 0
+
         return context
 
 
@@ -264,15 +289,6 @@ class UserDetailView(AdminRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         user = self.object
-
-        # Get assignments
-        context['school_assignments'] = user.school_assignments.select_related(
-            'school', 'wholesale_school'
-        ).order_by('-assigned_date')
-
-        context['club_assignments'] = user.club_assignments.select_related(
-            'club'
-        ).order_by('-assigned_date')
 
         # Get recent sessions
         context['recent_sessions'] = user.user_sessions.order_by('-login_time')[:5]
@@ -324,7 +340,7 @@ class AccessDeniedView(TemplateView):
 @login_required
 def user_search_ajax(request):
     """AJAX search for users"""
-    if not can_user_manage_assignments(request.user):
+    if not request.user.is_admin:
         return JsonResponse({'error': 'Permission denied'}, status=403)
 
     query = request.GET.get('q', '')
@@ -598,63 +614,6 @@ class CustomerUpdateView(AdminRequiredMixin, UpdateView):
 # New Enhanced Views for User Management UI
 
 
-class UserManagementDashboardView(AdminRequiredMixin, TemplateView):
-    """Enhanced User Management Dashboard"""
-    template_name = 'authentication/user_management_dashboard.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-
-        # User statistics
-        context['user_stats'] = {
-            'total_users': User.objects.count(),
-            'active_users': User.objects.filter(is_active=True).count(),
-            'active_sales_reps': User.objects.filter(user_type='sales_rep', is_active_sales_rep=True).count(),
-            'total_sales_reps': User.objects.filter(user_type='sales_rep').count(),
-            'admin_count': User.objects.filter(user_type='admin').count(),
-            'sales_rep_count': User.objects.filter(user_type='sales_rep').count(),
-            'customer_count': User.objects.filter(user_type='customer').count(),
-            'new_users_this_month': User.objects.filter(created_at__month=timezone.now().month).count(),
-            'online_users': UserSession.objects.filter(is_active=True).count(),
-        }
-
-        # Calculate percentages
-        total = context['user_stats']['total_users']
-        if total > 0:
-            context['user_stats']['admin_percentage'] = round((context['user_stats']['admin_count'] / total) * 100, 1)
-            context['user_stats']['sales_rep_percentage'] = round((context['user_stats']['sales_rep_count'] / total) * 100, 1)
-            context['user_stats']['customer_percentage'] = round((context['user_stats']['customer_count'] / total) * 100, 1)
-        else:
-            context['user_stats']['admin_percentage'] = 0
-            context['user_stats']['sales_rep_percentage'] = 0
-            context['user_stats']['customer_percentage'] = 0
-
-        # Assignment statistics
-        context['assignment_stats'] = {
-            'total_assignments': SalesRepSchoolAssignment.objects.filter(is_active=True).count() +
-                               SalesRepClubAssignment.objects.filter(is_active=True).count(),
-            'school_assignments': SalesRepSchoolAssignment.objects.filter(is_active=True).count(),
-            'club_assignments': SalesRepClubAssignment.objects.filter(is_active=True).count(),
-        }
-
-        # Recent users (last 5)
-        context['recent_users'] = User.objects.order_by('-created_at')[:5]
-
-        # Recent activity
-        context['recent_activity'] = AuditLog.objects.select_related('user').order_by('-timestamp')[:10]
-
-        # System health metrics (placeholder)
-        context['system_health'] = {
-            'uptime_percentage': 99.9,
-            'avg_response_time': 145,
-            'failed_logins_today': AuditLog.objects.filter(
-                action_type='login',
-                timestamp__date=timezone.now().date()
-            ).count(),
-            'active_sessions': UserSession.objects.filter(is_active=True).count(),
-        }
-
-        return context
 
 
 class SettingsDashboardView(AdminRequiredMixin, TemplateView):
@@ -727,6 +686,17 @@ class SettingsDashboardView(AdminRequiredMixin, TemplateView):
         context['system_alerts'] = []
 
         return context
+
+
+class AuditLogListView(AdminRequiredMixin, ListView):
+    """List audit logs"""
+    model = AuditLog
+    template_name = 'authentication/audit_log_list.html'
+    context_object_name = 'logs'
+    paginate_by = 50
+
+    def get_queryset(self):
+        return AuditLog.objects.select_related('user').order_by('-timestamp')
 
 
 # AJAX view for user search
@@ -933,3 +903,599 @@ class UserStatsView(AdminRequiredMixin, TemplateView):
         }
 
         return context
+
+
+# Assignment Management Views
+
+class AssignmentManagementView(AdminRequiredMixin, TemplateView):
+    """Assignment management dashboard"""
+    template_name = 'authentication/assignment_management.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Get all sales reps
+        context['sales_reps'] = User.objects.filter(
+            user_type='sales_rep',
+            is_active=True
+        ).order_by('first_name', 'last_name')
+
+        # Assignment statistics
+        context['stats'] = {
+            'total_school_assignments': SalesRepSchoolAssignment.objects.filter(is_active=True).count(),
+            'total_club_assignments': SalesRepClubAssignment.objects.filter(is_active=True).count(),
+            'total_sales_reps': User.objects.filter(user_type='sales_rep', is_active=True).count(),
+            'assigned_sales_reps': User.objects.filter(
+                user_type='sales_rep',
+                is_active=True
+            ).filter(
+                Q(school_assignments__is_active=True) |
+                Q(club_assignments__is_active=True)
+            ).distinct().count()
+        }
+
+        return context
+
+
+class BulkAssignmentView(AdminRequiredMixin, TemplateView):
+    """Bulk assignment interface for customers"""
+    template_name = 'authentication/bulk_assignment_datatables.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Get all active sales reps with assignment counts
+        sales_reps = User.objects.filter(
+            user_type='sales_rep',
+            is_active=True
+        ).order_by('first_name', 'last_name')
+
+        # Annotate sales reps with total assignment counts
+        for sales_rep in sales_reps:
+            school_assignments = SalesRepSchoolAssignment.objects.filter(
+                sales_rep=sales_rep,
+                is_active=True
+            ).count()
+            club_assignments = SalesRepClubAssignment.objects.filter(
+                sales_rep=sales_rep,
+                is_active=True
+            ).count()
+            sales_rep.total_assignments_count = school_assignments + club_assignments
+
+        context['sales_reps'] = sales_reps
+
+        # Get business entities data
+        customers_data = []
+
+        # Add Retail Clubs
+        retail_clubs = Club.objects.filter(is_active=True).order_by('name')
+        for club in retail_clubs:
+            # Check if club is assigned
+            current_assignment = SalesRepClubAssignment.objects.filter(
+                club=club,
+                is_active=True
+            ).select_related('sales_rep').first()
+
+            customers_data.append({
+                'id': club.id,
+                'name': club.name,
+                'type': 'club',
+                'type_display': 'Retail Club',
+                'customer_id': getattr(club, 'customer_id', None),
+                'address': club.address or 'No address',
+                'region': 'Not specified',
+                'contact_person': club.contact_person or 'Not specified',
+                'phone': 'Not specified',
+                'email': club.email or 'Not specified',
+                'is_assigned': current_assignment is not None,
+                'current_assignment': current_assignment.sales_rep.get_full_name() if current_assignment else None,
+                'assignment_status': 'Assigned' if current_assignment else 'Unassigned'
+            })
+
+        # Add Wholesale Schools
+        from schools.models import WholesaleSchool
+        from authentication.utils.school_matcher import SchoolMatcher
+
+        wholesale_schools = WholesaleSchool.objects.filter(is_active=True).order_by('name')
+
+        # Batch match schools for better performance
+        school_contact_details = SchoolMatcher.batch_match_schools(list(wholesale_schools))
+
+        for school in wholesale_schools:
+            # Check if school is assigned
+            current_assignment = SalesRepSchoolAssignment.objects.filter(
+                wholesale_school=school,
+                is_active=True
+            ).select_related('sales_rep').first()
+
+            # Get contact details from matcher (uses NZ school data if available)
+            contact_details = school_contact_details.get(school.id, {})
+
+            customers_data.append({
+                'id': school.id,
+                'name': school.name,
+                'type': 'wholesale_school',
+                'type_display': 'Wholesale School',
+                'customer_id': getattr(school, 'customer_id', None),
+                'address': contact_details.get('address', 'No address available'),
+                'region': contact_details.get('region', 'No region'),
+                'contact_person': contact_details.get('contact_person', 'Not specified'),
+                'phone': contact_details.get('phone', 'Not specified'),
+                'email': contact_details.get('email', 'Not specified'),
+                'is_assigned': current_assignment is not None,
+                'current_assignment': current_assignment.sales_rep.get_full_name() if current_assignment else None,
+                'assignment_status': 'Assigned' if current_assignment else 'Unassigned'
+            })
+
+        # Add any retail schools (business entities) - excluding NZ reference schools
+        # Using org_type to filter for business-type schools
+        retail_schools = School.objects.filter(
+            status='Open',  # Only open schools
+            org_type__in=['Private School', 'Private', 'Independent School']  # Only business entities
+        ).order_by('org_name')
+
+        for school in retail_schools:
+            # Check if school is assigned
+            current_assignment = SalesRepSchoolAssignment.objects.filter(
+                school=school,
+                is_active=True
+            ).select_related('sales_rep').first()
+
+            # Format comprehensive address from NZ school database
+            address_parts = []
+            if school.add1_line1:
+                address_parts.append(school.add1_line1)
+            if school.add1_suburb:
+                address_parts.append(school.add1_suburb)
+            if school.add1_city:
+                address_parts.append(school.add1_city)
+
+            # Use postal address if physical address is incomplete
+            if not address_parts and school.add2_line1:
+                if school.add2_line1:
+                    address_parts.append(school.add2_line1)
+                if school.add2_suburb:
+                    address_parts.append(school.add2_suburb)
+                if school.add2_city:
+                    address_parts.append(school.add2_city)
+                if school.add2_postal_code:
+                    address_parts.append(school.add2_postal_code)
+
+            full_address = ', '.join(address_parts) if address_parts else 'No address available'
+
+            # Format contact information with fallbacks
+            contact_person = school.contact1_name or 'Not specified'
+            phone = school.telephone if school.telephone else (school.fax if school.fax else 'Not specified')
+            email = school.email or 'Not specified'
+
+            customers_data.append({
+                'id': school.id,
+                'name': school.org_name,
+                'type': 'retail_school',
+                'type_display': 'Retail School',
+                'customer_id': getattr(school, 'customer_id', None),
+                'address': full_address,
+                'region': school.education_region or school.regional_council or 'No region',
+                'contact_person': contact_person,
+                'phone': phone,
+                'email': email,
+                'is_assigned': current_assignment is not None,
+                'current_assignment': current_assignment.sales_rep.get_full_name() if current_assignment else None,
+                'assignment_status': 'Assigned' if current_assignment else 'Unassigned'
+            })
+
+        context['customers_data'] = customers_data
+
+        # Calculate statistics
+        total_customers = len(customers_data)
+        assigned_customers = sum(1 for customer in customers_data if customer['is_assigned'])
+        unassigned_customers = total_customers - assigned_customers
+
+        context['total_schools'] = total_customers  # Template uses 'total_schools' for customers
+        context['assigned_schools'] = assigned_customers
+        context['unassigned_schools'] = unassigned_customers
+
+        # Legacy context for backward compatibility
+        context['retail_clubs'] = retail_clubs
+        context['wholesale_schools'] = wholesale_schools
+        context['total_entities'] = total_customers
+
+        return context
+
+
+class ProcessBulkAssignmentView(AdminRequiredMixin, View):
+    """Process bulk assignment requests"""
+
+    def post(self, request, *args, **kwargs):
+        """Handle bulk assignment processing"""
+        try:
+            import json
+            data = json.loads(request.body)
+
+            sales_rep_id = data.get('sales_rep_id')
+            customer_ids = data.get('customer_ids', [])
+            school_ids = data.get('school_ids', [])  # Alternative field name
+            priority = data.get('priority', 'medium')
+            territory = data.get('territory', '')
+            notes = data.get('notes', '')
+
+            # Use customer_ids or school_ids (templates use different field names)
+            entity_ids = customer_ids or school_ids
+
+            if not sales_rep_id or not entity_ids:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Sales rep and entities are required'
+                }, status=400)
+
+            # Get the sales rep
+            try:
+                sales_rep = User.objects.get(id=sales_rep_id, user_type='sales_rep')
+            except User.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Sales rep not found'
+                }, status=404)
+
+            assignments_created = 0
+
+            # Process assignments for each entity
+            for entity_id in entity_ids:
+                try:
+                    # Try to find the entity in clubs first, then wholesale schools, then retail schools
+                    club = None
+                    wholesale_school = None
+                    retail_school = None
+
+                    # Try clubs first
+                    try:
+                        club = Club.objects.get(id=entity_id, is_active=True)
+                    except Club.DoesNotExist:
+                        # Try wholesale schools
+                        try:
+                            from schools.models import WholesaleSchool
+                            wholesale_school = WholesaleSchool.objects.get(id=entity_id, is_active=True)
+                        except WholesaleSchool.DoesNotExist:
+                            # Try retail schools (business entities)
+                            try:
+                                retail_school = School.objects.get(
+                                    id=entity_id,
+                                    is_active=True,
+                                    school_type__in=['private', 'business']
+                                )
+                            except School.DoesNotExist:
+                                continue  # Skip this entity if not found
+
+                    # Create appropriate assignment
+                    if club:
+                        # Create club assignment
+                        assignment, created = SalesRepClubAssignment.objects.get_or_create(
+                            sales_rep=sales_rep,
+                            club=club,
+                            defaults={
+                                'priority': priority,
+                                'territory': territory,
+                                'notes': notes,
+                                'is_active': True,
+                                'assigned_by': request.user,
+                                'assigned_date': timezone.now()
+                            }
+                        )
+                        if created:
+                            assignments_created += 1
+                        elif not assignment.is_active:
+                            # Reactivate if it was previously deactivated
+                            assignment.is_active = True
+                            assignment.assigned_by = request.user
+                            assignment.assigned_date = timezone.now()
+                            assignment.save()
+                            assignments_created += 1
+
+                    elif wholesale_school:
+                        # Create wholesale school assignment
+                        assignment, created = SalesRepSchoolAssignment.objects.get_or_create(
+                            sales_rep=sales_rep,
+                            wholesale_school=wholesale_school,
+                            defaults={
+                                'priority': priority,
+                                'territory': territory,
+                                'notes': notes,
+                                'is_active': True,
+                                'assigned_by': request.user,
+                                'assigned_date': timezone.now()
+                            }
+                        )
+                        if created:
+                            assignments_created += 1
+                        elif not assignment.is_active:
+                            # Reactivate if it was previously deactivated
+                            assignment.is_active = True
+                            assignment.assigned_by = request.user
+                            assignment.assigned_date = timezone.now()
+                            assignment.save()
+                            assignments_created += 1
+
+                    elif retail_school:
+                        # Create retail school assignment
+                        assignment, created = SalesRepSchoolAssignment.objects.get_or_create(
+                            sales_rep=sales_rep,
+                            school=retail_school,
+                            defaults={
+                                'priority': priority,
+                                'territory': territory,
+                                'notes': notes,
+                                'is_active': True,
+                                'assigned_by': request.user,
+                                'assigned_date': timezone.now()
+                            }
+                        )
+                        if created:
+                            assignments_created += 1
+                        elif not assignment.is_active:
+                            # Reactivate if it was previously deactivated
+                            assignment.is_active = True
+                            assignment.assigned_by = request.user
+                            assignment.assigned_date = timezone.now()
+                            assignment.save()
+                            assignments_created += 1
+
+                except Exception as e:
+                    # Log the error but continue processing other entities
+                    print(f"Error processing entity {entity_id}: {str(e)}")
+                    continue
+
+            # Log the bulk assignment action
+            AuditLog.log_action(
+                user=request.user,
+                action_type='bulk_assignment_created',
+                description=f'Bulk assigned {assignments_created} entities to {sales_rep.get_full_name()}',
+                request=request,
+                sales_rep_id=sales_rep.id
+            )
+
+            return JsonResponse({
+                'success': True,
+                'message': f'Successfully assigned {assignments_created} entities to {sales_rep.get_full_name()}',
+                'assignments_created': assignments_created
+            })
+
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid JSON data'
+            }, status=400)
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Server error: {str(e)}'
+            }, status=500)
+
+
+@login_required
+def assignment_ajax_handler(request):
+    """AJAX handler for assignment operations"""
+    if not request.user.is_admin:
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+
+    action = request.POST.get('action')
+
+    if action == 'get_current_assignments':
+        sales_rep_id = request.POST.get('sales_rep_id')
+        try:
+            sales_rep = User.objects.get(id=sales_rep_id, user_type='sales_rep')
+
+            # Get current assignments
+            school_assignments = SalesRepSchoolAssignment.objects.filter(
+                sales_rep=sales_rep,
+                is_active=True
+            ).select_related('school', 'wholesale_school')
+
+            club_assignments = SalesRepClubAssignment.objects.filter(
+                sales_rep=sales_rep,
+                is_active=True
+            ).select_related('club')
+
+            # Format response
+            school_data = []
+            for assignment in school_assignments:
+                entity_name = assignment.wholesale_school.name if assignment.wholesale_school else assignment.school.name
+                school_data.append({
+                    'id': assignment.id,
+                    'name': entity_name,
+                    'type': 'wholesale' if assignment.wholesale_school else 'retail',
+                    'assigned_date': assignment.assigned_date.strftime('%Y-%m-%d')
+                })
+
+            club_data = []
+            for assignment in club_assignments:
+                club_data.append({
+                    'id': assignment.id,
+                    'name': assignment.club.name,
+                    'type': 'club',
+                    'assigned_date': assignment.assigned_date.strftime('%Y-%m-%d')
+                })
+
+            return JsonResponse({
+                'success': True,
+                'school_assignments': school_data,
+                'club_assignments': club_data,
+                'total_assignments': len(school_data) + len(club_data)
+            })
+
+        except User.DoesNotExist:
+            return JsonResponse({'error': 'Sales rep not found'}, status=404)
+
+    elif action == 'bulk_assign':
+        sales_rep_id = request.POST.get('sales_rep_id')
+        entity_ids = request.POST.getlist('entity_ids[]')
+        entity_type = request.POST.get('entity_type')
+
+        try:
+            sales_rep = User.objects.get(id=sales_rep_id, user_type='sales_rep')
+            created_count = 0
+
+            if entity_type == 'wholesale':
+                from schools.models import WholesaleSchool
+                for entity_id in entity_ids:
+                    try:
+                        wholesale_school = WholesaleSchool.objects.get(id=entity_id)
+                        # Check if assignment already exists
+                        existing = SalesRepSchoolAssignment.objects.filter(
+                            sales_rep=sales_rep,
+                            wholesale_school=wholesale_school,
+                            is_active=True
+                        ).exists()
+
+                        if not existing:
+                            SalesRepSchoolAssignment.objects.create(
+                                sales_rep=sales_rep,
+                                wholesale_school=wholesale_school,
+                                assigned_by=request.user,
+                                assigned_date=timezone.now(),
+                                is_active=True
+                            )
+                            created_count += 1
+                    except WholesaleSchool.DoesNotExist:
+                        continue
+
+            elif entity_type == 'retail':
+                for entity_id in entity_ids:
+                    try:
+                        club = Club.objects.get(id=entity_id)
+                        # Check if assignment already exists
+                        existing = SalesRepClubAssignment.objects.filter(
+                            sales_rep=sales_rep,
+                            club=club,
+                            is_active=True
+                        ).exists()
+
+                        if not existing:
+                            SalesRepClubAssignment.objects.create(
+                                sales_rep=sales_rep,
+                                club=club,
+                                assigned_by=request.user,
+                                assigned_date=timezone.now(),
+                                is_active=True
+                            )
+                            created_count += 1
+                    except Club.DoesNotExist:
+                        continue
+
+            # Log the bulk assignment action
+            AuditLog.log_action(
+                user=request.user,
+                action_type='assignment_created',
+                description=f'Bulk assigned {created_count} {entity_type} customers to {sales_rep.get_full_name()}',
+                request=request,
+                sales_rep_id=sales_rep.id
+            )
+
+            return JsonResponse({
+                'success': True,
+                'message': f'Successfully assigned {created_count} customers to {sales_rep.get_full_name()}',
+                'assignments_created': created_count
+            })
+
+        except User.DoesNotExist:
+            return JsonResponse({'error': 'Sales rep not found'}, status=404)
+
+    elif action == 'remove_assignment':
+        assignment_id = request.POST.get('assignment_id')
+        assignment_type = request.POST.get('assignment_type')
+
+        try:
+            if assignment_type == 'school':
+                assignment = SalesRepSchoolAssignment.objects.get(id=assignment_id)
+                entity_name = assignment.wholesale_school.name if assignment.wholesale_school else assignment.school.name
+            else:
+                assignment = SalesRepClubAssignment.objects.get(id=assignment_id)
+                entity_name = assignment.club.name
+
+            # Deactivate instead of delete
+            assignment.is_active = False
+            assignment.save()
+
+            # Log the removal
+            AuditLog.log_action(
+                user=request.user,
+                action_type='assignment_deleted',
+                description=f'Removed assignment: {entity_name} from {assignment.sales_rep.get_full_name()}',
+                request=request,
+                sales_rep_id=assignment.sales_rep.id
+            )
+
+            return JsonResponse({
+                'success': True,
+                'message': f'Assignment removed successfully'
+            })
+
+        except (SalesRepSchoolAssignment.DoesNotExist, SalesRepClubAssignment.DoesNotExist):
+            return JsonResponse({'error': 'Assignment not found'}, status=404)
+
+    return JsonResponse({'error': 'Invalid action'}, status=400)
+
+
+@login_required
+def get_current_assignments(request):
+    """Get current assignments for a sales rep"""
+    if not request.user.is_admin:
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+
+    sales_rep_id = request.GET.get('sales_rep')
+    if not sales_rep_id:
+        return JsonResponse({'error': 'Sales rep ID is required'}, status=400)
+
+    try:
+        sales_rep = User.objects.get(id=sales_rep_id, user_type='sales_rep')
+
+        # Get current assignments
+        school_assignments = SalesRepSchoolAssignment.objects.filter(
+            sales_rep=sales_rep,
+            is_active=True
+        ).select_related('school', 'wholesale_school')
+
+        club_assignments = SalesRepClubAssignment.objects.filter(
+            sales_rep=sales_rep,
+            is_active=True
+        ).select_related('club')
+
+        # Format school assignments response
+        school_data = []
+        for assignment in school_assignments:
+            if assignment.wholesale_school:
+                entity_name = assignment.wholesale_school.name
+                entity_type = 'Wholesale School'
+            elif assignment.school:
+                entity_name = assignment.school.name
+                entity_type = 'Retail School'
+            else:
+                continue  # Skip invalid assignments
+
+            school_data.append({
+                'school_name': entity_name,
+                'school_type': entity_type,
+                'territory': assignment.territory or 'Not specified',
+                'assigned_date': assignment.assigned_date.strftime('%Y-%m-%d')
+            })
+
+        # Format club assignments response
+        club_data = []
+        for assignment in club_assignments:
+            club_data.append({
+                'club_name': assignment.club.name,
+                'club_type': 'Retail Club',
+                'territory': assignment.territory or 'Not specified',
+                'assigned_date': assignment.assigned_date.strftime('%Y-%m-%d')
+            })
+
+        return JsonResponse({
+            'success': True,
+            'school_assignments': school_data,
+            'club_assignments': club_data,
+            'total_assignments': len(school_data) + len(club_data)
+        })
+
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'Sales rep not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)

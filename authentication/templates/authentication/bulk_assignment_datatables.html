@@ -1,0 +1,1138 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<!-- CSRF Token for AJAX requests -->
+<meta name="csrf-token" content="{{ csrf_token }}">
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/select/1.7.0/css/select.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
+
+<style>
+/* Bulk Assignment Page Specific Styles */
+.bulk-assignment-container {
+    min-height: calc(100vh - 200px);
+}
+
+.sales-rep-selection {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.bulk-actions-toolbar {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.selected-count-badge {
+    background: linear-gradient(45deg, #28a745, #20c997);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 0.5rem;
+}
+
+.status-assigned { background-color: #28a745; }
+.status-unassigned { background-color: #dc3545; }
+
+/* DataTable customizations */
+.dataTables_wrapper {
+    padding: 0;
+}
+
+.dataTables_filter {
+    float: none !important;
+    text-align: left;
+    margin-bottom: 1rem;
+}
+
+.dataTables_filter input {
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    margin-left: 0.5rem;
+    width: 300px;
+}
+
+.dataTables_length {
+    float: none !important;
+    margin-bottom: 1rem;
+}
+
+.dataTables_info {
+    padding-top: 1rem;
+}
+
+.dataTables_paginate {
+    padding-top: 1rem;
+}
+
+/* Custom checkbox styling - Enhanced visibility */
+.form-check-input {
+    width: 1.2em;
+    height: 1.2em;
+    border: 2px solid #6c757d;
+    border-radius: 0.25em;
+    background-color: white;
+    position: relative;
+    margin: 0;
+}
+
+.form-check-input:hover {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.1rem rgba(0, 123, 255, 0.25);
+}
+
+.form-check-input:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    outline: none;
+}
+
+.form-check-input:checked {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.form-check-input:disabled {
+    opacity: 0.5;
+    background-color: #e9ecef;
+    border-color: #ced4da;
+}
+
+/* Enhanced visibility on light rows */
+.table tbody tr:nth-child(even) .form-check-input {
+    border-color: #495057;
+    background-color: #f8f9fa;
+}
+
+.table tbody tr:nth-child(even) .form-check-input:checked {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.table-responsive {
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.table thead th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+}
+
+.table tbody tr:hover {
+    background-color: #f5f5f5;
+}
+
+.table tbody tr.selected {
+    background-color: #e7f3ff !important;
+}
+
+.badge-customer-type {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* Animation for success states */
+.assignment-success {
+    animation: successPulse 1s ease-in-out;
+}
+
+@keyframes successPulse {
+    0% { background-color: inherit; }
+    50% { background-color: #d4edda; }
+    100% { background-color: inherit; }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .sales-rep-selection {
+        padding: 1rem;
+    }
+
+    .bulk-actions-toolbar {
+        text-align: center;
+    }
+
+    .dataTables_filter input {
+        width: 100%;
+    }
+
+    .btn-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- CSRF Token -->
+{% csrf_token %}
+<div class="bulk-assignment-container">
+    <!-- Page Header -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-title-box d-flex align-items-center justify-content-between">
+                <h4 class="mb-0">
+                    <i class="uil-users-alt text-primary me-2"></i>
+                    Bulk Assignment Manager (DataTables)
+                </h4>
+                <div class="page-title-right">
+                    <ol class="breadcrumb m-0">
+                        <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'authentication:user-list' %}">User Management</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'authentication:assignment-management' %}">Assignments</a></li>
+                        <li class="breadcrumb-item active">Bulk Assignment</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="row mb-3">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="text-primary mb-1">{{ total_schools }}</h3>
+                    <p class="text-muted mb-0">Total Customers</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="text-success mb-1">{{ assigned_schools }}</h3>
+                    <p class="text-muted mb-0">Assigned Customers</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="text-warning mb-1">{{ unassigned_schools }}</h3>
+                    <p class="text-muted mb-0">Unassigned Customers</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="text-info mb-1">{{ sales_reps|length }}</h3>
+                    <p class="text-muted mb-0">Sales Reps</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sales Rep Selection Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="sales-rep-selection">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h5 class="mb-0">
+                            <i class="uil-user-circle me-2"></i>
+                            Select Sales Representative
+                        </h5>
+                        <p class="mb-0 mt-1 opacity-75">Choose a sales rep to assign multiple customers at once</p>
+                    </div>
+                    <div class="col-md-6">
+                        <select class="form-select form-select-lg" id="salesRepSelect" onchange="onSalesRepChange()">
+                            <option value="">Choose Sales Representative...</option>
+                            {% for sales_rep in sales_reps %}
+                            <option value="{{ sales_rep.id }}"
+                                    data-name="{% if sales_rep.get_full_name %}{{ sales_rep.get_full_name }}{% else %}{{ sales_rep.username }}{% endif %}"
+                                    data-email="{{ sales_rep.email }}"
+                                    data-assignments="{{ sales_rep.total_assignments_count }}">
+                                {% if sales_rep.get_full_name %}{{ sales_rep.get_full_name }}{% else %}{{ sales_rep.username }}{% endif %}
+                                {% if sales_rep.total_assignments_count > 0 %}({{ sales_rep.total_assignments_count }} assigned){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Selected Sales Rep Info -->
+    <div class="row d-none" id="selectedRepInfo">
+        <div class="col-12">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-lg bg-soft-primary text-primary rounded-circle d-flex align-items-center justify-content-center me-3">
+                                    <i class="uil-user font-size-24"></i>
+                                </div>
+                                <div>
+                                    <h5 class="mb-1" id="selectedRepName">Sales Rep Name</h5>
+                                    <p class="text-muted mb-1" id="selectedRepEmail">email@example.com</p>
+                                    <div class="d-flex gap-2">
+                                        <span class="badge bg-soft-info text-info" id="currentAssignmentsCount">
+                                            <i class="uil-building me-1"></i>0 Assignments
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="viewCurrentAssignments()">
+                                <i class="uil-eye me-1"></i>View Current Assignments
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Actions Toolbar -->
+    <div class="row d-none" id="bulkActionsToolbar">
+        <div class="col-12">
+            <div class="bulk-actions-toolbar">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <div class="selected-count-badge">
+                            <i class="uil-check-circle me-1"></i>
+                            <span id="selectedCount">0</span> customers selected
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="selectAllVisible()">
+                                <i class="uil-check-square me-1"></i>Select All Visible
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="selectAllUnassigned()">
+                                <i class="uil-check me-1"></i>Select Unassigned
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearSelection()">
+                                <i class="uil-times me-1"></i>Clear All
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <button type="button" class="btn btn-primary" onclick="processBulkAssignment()" id="assignButton" disabled>
+                            <i class="uil-user-plus me-1"></i>
+                            Assign Selected Customers
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customers DataTable Section -->
+    <div class="row d-none" id="customersSection">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="uil-building text-primary me-2"></i>
+                            Available Customers
+                        </h5>
+                        <div class="d-flex gap-2">
+                            <span class="badge bg-soft-info text-info">{{ total_schools }} Total</span>
+                            <span class="badge bg-soft-success text-success">{{ assigned_schools }} Assigned</span>
+                            <span class="badge bg-soft-warning text-warning">{{ unassigned_schools }} Unassigned</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped" id="customersTable">
+                            <thead>
+                                <tr>
+                                    <th width="50">
+                                        <input type="checkbox" class="form-check-input" id="selectAllCheckbox">
+                                    </th>
+                                    <th>Customer Name</th>
+                                    <th>Type</th>
+                                    <th>Location</th>
+                                    <th>Contact Person</th>
+                                    <th>Contact Details</th>
+                                    <th>Current Assignment</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for customer in customers_data %}
+                                <tr data-customer-id="{{ customer.id }}" data-assigned="{{ customer.is_assigned|yesno:'true,false' }}">
+                                    <td>
+                                        <input type="checkbox" class="form-check-input customer-checkbox"
+                                               value="{{ customer.id }}"
+                                               onchange="handleCheckboxChange(this)"
+                                               {% if customer.is_assigned %}disabled{% endif %}>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="status-indicator {{ customer.is_assigned|yesno:'status-assigned,status-unassigned' }} me-2"></div>
+                                            <div>
+                                                <strong>{{ customer.name }}</strong>
+                                                {% if customer.customer_id %}<br><small class="text-muted">ID: {{ customer.customer_id }}</small>{% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-customer-type {{ customer.type|yesno:'bg-soft-info text-info,bg-soft-primary text-primary' }}">
+                                            {{ customer.type_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <i class="uil-map-marker me-1 text-muted"></i>
+                                        {{ customer.address }}
+                                        {% if customer.region %}<br><small class="text-muted">{{ customer.region }}</small>{% endif %}
+                                    </td>
+                                    <td>
+                                        <i class="uil-user me-1 text-muted"></i>
+                                        {{ customer.contact_person }}
+                                    </td>
+                                    <td>
+                                        <div>
+                                            {% if customer.phone and customer.phone != 'Not specified' %}
+                                                <i class="uil-phone me-1 text-muted"></i>{{ customer.phone }}<br>
+                                            {% endif %}
+                                            {% if customer.email and customer.email != 'Not specified' %}
+                                                <i class="uil-envelope me-1 text-muted"></i>{{ customer.email }}
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if customer.current_assignment %}
+                                            <span class="text-success">
+                                                <i class="uil-user-check me-1"></i>{{ customer.current_assignment }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">Not assigned</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-soft-{{ customer.is_assigned|yesno:'success,warning' }} text-{{ customer.is_assigned|yesno:'success,warning' }}">
+                                            {{ customer.assignment_status }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assignment Confirmation Modal -->
+<div class="modal fade" id="assignmentConfirmModal" tabindex="-1" aria-labelledby="assignmentConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="assignmentConfirmModalLabel">
+                    <i class="uil-check-circle text-success me-2"></i>
+                    Confirm Bulk Assignment
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="uil-info-circle me-2"></i>
+                    You are about to assign <strong id="confirmCustomerCount">0</strong> customers to
+                    <strong id="confirmSalesRepName">Sales Rep</strong>.
+                </div>
+
+                <h6 class="mb-3">Customers to be assigned:</h6>
+                <div class="max-height-300 overflow-auto border rounded p-2" id="confirmCustomersList">
+                    <!-- Selected customers list will be populated here -->
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <label for="assignmentPriority" class="form-label">Priority Level</label>
+                        <select class="form-select" id="assignmentPriority">
+                            <option value="medium">Medium Priority</option>
+                            <option value="high">High Priority</option>
+                            <option value="low">Low Priority</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="assignmentTerritory" class="form-label">Territory (Optional)</label>
+                        <input type="text" class="form-control" id="assignmentTerritory" placeholder="Enter territory name">
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <label for="assignmentNotes" class="form-label">Notes (Optional)</label>
+                    <textarea class="form-control" id="assignmentNotes" rows="3"
+                              placeholder="Add any notes about this bulk assignment..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="confirmBulkAssignment()" id="confirmAssignButton">
+                    <i class="uil-user-plus me-1"></i>
+                    Confirm Assignment
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Current Assignments Modal -->
+<div class="modal fade" id="currentAssignmentsModal" tabindex="-1" aria-labelledby="currentAssignmentsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="currentAssignmentsModalLabel">
+                    <i class="uil-clipboard-alt text-primary me-2"></i>
+                    Current Assignments
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="currentAssignmentsContent">
+                    <!-- Current assignments will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/select/1.7.0/js/dataTables.select.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+
+<script>
+// Global variables
+let selectedSalesRep = null;
+let selectedCustomers = new Set();
+let customersTable = null;
+
+// Ensure global variables are accessible
+window.selectedSalesRep = selectedSalesRep;
+window.selectedCustomers = selectedCustomers;
+window.customersTable = customersTable;
+
+// Simple, direct checkbox change handler
+function handleCheckboxChange(checkbox) {
+    const customerId = checkbox.value;
+    const isChecked = checkbox.checked;
+
+    console.log('Checkbox changed:', customerId, 'checked:', isChecked);
+
+    if (isChecked) {
+        selectedCustomers.add(customerId);
+    } else {
+        selectedCustomers.delete(customerId);
+    }
+
+    window.selectedCustomers = selectedCustomers;
+    console.log('selectedCustomers size:', selectedCustomers.size);
+
+    // Update UI immediately
+    updateSelectedCount();
+    updateSelectAllCheckbox();
+}
+
+// Initialize the page
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if there's a pre-selected sales rep from URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const salesRepId = urlParams.get('sales_rep');
+    if (salesRepId) {
+        document.getElementById('salesRepSelect').value = salesRepId;
+        onSalesRepChange();
+    }
+});
+
+function onSalesRepChange() {
+    const select = document.getElementById('salesRepSelect');
+    const selectedOption = select.options[select.selectedIndex];
+
+    if (select.value) {
+        selectedSalesRep = {
+            id: select.value,
+            name: selectedOption.dataset.name,
+            email: selectedOption.dataset.email,
+            assignments: selectedOption.dataset.assignments
+        };
+        window.selectedSalesRep = selectedSalesRep;
+
+        showSelectedRepInfo();
+        initializeDataTable();
+    } else {
+        selectedSalesRep = null;
+        window.selectedSalesRep = null;
+        hideAllSections();
+        if (customersTable) {
+            customersTable.destroy();
+            customersTable = null;
+            window.customersTable = null;
+        }
+    }
+}
+
+function showSelectedRepInfo() {
+    const infoSection = document.getElementById('selectedRepInfo');
+
+    document.getElementById('selectedRepName').textContent = selectedSalesRep.name;
+    document.getElementById('selectedRepEmail').textContent = selectedSalesRep.email;
+    document.getElementById('currentAssignmentsCount').innerHTML =
+        `<i class="uil-building me-1"></i>${selectedSalesRep.assignments || 0} Total`;
+
+    infoSection.classList.remove('d-none');
+    document.getElementById('bulkActionsToolbar').classList.remove('d-none');
+    document.getElementById('customersSection').classList.remove('d-none');
+}
+
+function hideAllSections() {
+    document.getElementById('selectedRepInfo').classList.add('d-none');
+    document.getElementById('bulkActionsToolbar').classList.add('d-none');
+    document.getElementById('customersSection').classList.add('d-none');
+    clearSelection();
+}
+
+function initializeDataTable() {
+    if (customersTable) {
+        customersTable.destroy();
+    }
+
+    // Ensure selectedCustomers is initialized
+    if (typeof selectedCustomers === 'undefined') {
+        selectedCustomers = new Set();
+        window.selectedCustomers = selectedCustomers;
+    }
+
+    customersTable = $('#customersTable').DataTable({
+        "responsive": true,
+        "pageLength": 25,
+        "lengthMenu": [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+        "order": [[1, 'asc']], // Sort by customer name by default
+        "columnDefs": [
+            {
+                "targets": 0, // Checkbox column
+                "orderable": false,
+                "searchable": false,
+                "width": "50px"
+            },
+            {
+                "targets": 7, // Status column (now at index 7 instead of 6)
+                "width": "100px"
+            }
+        ],
+        "dom": "<'row'<'col-sm-6'l><'col-sm-6'f>>" +
+               "<'row'<'col-sm-12'tr>>" +
+               "<'row'<'col-sm-5'i><'col-sm-7'p>>",
+        "language": {
+            "search": "Search customers:",
+            "lengthMenu": "Show _MENU_ customers per page",
+            "info": "Showing _START_ to _END_ of _TOTAL_ customers",
+            "infoEmpty": "No customers found",
+            "infoFiltered": "(filtered from _MAX_ total customers)",
+            "paginate": {
+                "first": "First",
+                "last": "Last",
+                "next": "Next",
+                "previous": "Previous"
+            }
+        },
+        "drawCallback": function() {
+            // Re-apply selection state after table redraw
+            updateSelectionUI();
+            // Force count update after redraw
+            setTimeout(() => {
+                updateSelectedCount();
+            }, 10);
+        }
+    });
+
+    // Assign to window for global access
+    window.customersTable = customersTable;
+
+    // Handle individual checkbox changes with delegated events
+    $('#customersTable tbody').on('change', '.customer-checkbox', function() {
+        const customerId = $(this).val();
+        const isChecked = $(this).is(':checked');
+
+        console.log('jQuery change event - Checkbox changed:', customerId, 'checked:', isChecked);
+
+        if (isChecked) {
+            selectedCustomers.add(customerId);
+        } else {
+            selectedCustomers.delete(customerId);
+        }
+
+        // Update window reference
+        window.selectedCustomers = selectedCustomers;
+
+        console.log('jQuery change event - selectedCustomers size after change:', selectedCustomers.size);
+
+        // Update UI immediately
+        updateSelectedCount();
+        updateSelectAllCheckbox();
+    });
+
+    // Also add direct event delegation for broader compatibility
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.classList.contains('customer-checkbox')) {
+            const customerId = e.target.value;
+            const isChecked = e.target.checked;
+
+            console.log('Native change event - Checkbox changed:', customerId, 'checked:', isChecked);
+
+            if (isChecked) {
+                selectedCustomers.add(customerId);
+            } else {
+                selectedCustomers.delete(customerId);
+            }
+
+            // Update window reference
+            window.selectedCustomers = selectedCustomers;
+
+            console.log('Native change event - selectedCustomers size after change:', selectedCustomers.size);
+
+            // Update UI immediately
+            updateSelectedCount();
+            updateSelectAllCheckbox();
+        }
+    });
+
+    // Also handle click events to ensure immediate response
+    $('#customersTable tbody').on('click', '.customer-checkbox', function() {
+        // Small delay to ensure the change event has processed
+        setTimeout(() => {
+            updateSelectedCount();
+            updateSelectAllCheckbox();
+        }, 10);
+    });
+
+    // Handle select all checkbox
+    $('#selectAllCheckbox').on('change', function() {
+        const isChecked = $(this).is(':checked');
+
+        if (isChecked) {
+            selectAllVisible();
+        } else {
+            clearSelection();
+        }
+    });
+
+    // Initialize selection count on table load and set up additional event handlers
+    setTimeout(() => {
+        updateSelectedCount();
+        updateSelectAllCheckbox();
+
+        // Add event listeners directly to existing checkboxes as backup
+        $('.customer-checkbox').each(function() {
+            const checkbox = this;
+            console.log('Adding direct event listener to checkbox:', checkbox.value);
+
+            // Remove any existing listeners to avoid duplicates
+            $(checkbox).off('change.bulkAssign');
+
+            // Add direct event listener
+            $(checkbox).on('change.bulkAssign', function() {
+                const customerId = checkbox.value;
+                const isChecked = checkbox.checked;
+
+                console.log('Direct event - Checkbox changed:', customerId, 'checked:', isChecked);
+
+                if (isChecked) {
+                    selectedCustomers.add(customerId);
+                } else {
+                    selectedCustomers.delete(customerId);
+                }
+
+                window.selectedCustomers = selectedCustomers;
+                console.log('Direct event - selectedCustomers size:', selectedCustomers.size);
+
+                updateSelectedCount();
+                updateSelectAllCheckbox();
+            });
+        });
+    }, 500);
+}
+
+function selectAllVisible() {
+    // Get all visible rows (after filtering)
+    customersTable.rows({ search: 'applied' }).every(function() {
+        const row = this.node();
+        const checkbox = $(row).find('.customer-checkbox');
+        const customerId = checkbox.val();
+        const isAssigned = $(row).data('assigned');
+
+        // Only select unassigned customers
+        if (!isAssigned && !checkbox.is(':disabled')) {
+            selectedCustomers.add(customerId);
+            checkbox.prop('checked', true);
+        }
+    });
+
+    // Force immediate UI update
+    setTimeout(() => {
+        updateSelectedCount();
+        updateSelectAllCheckbox();
+    }, 5);
+}
+
+function selectAllUnassigned() {
+    // Select all unassigned customers (not just visible ones)
+    $('.customer-checkbox').each(function() {
+        const $checkbox = $(this);
+        const customerId = $checkbox.val();
+        const $row = $checkbox.closest('tr');
+        const isAssigned = $row.data('assigned');
+
+        if (!isAssigned && !$checkbox.is(':disabled')) {
+            selectedCustomers.add(customerId);
+            $checkbox.prop('checked', true);
+        }
+    });
+
+    // Force immediate UI update
+    setTimeout(() => {
+        updateSelectedCount();
+        updateSelectAllCheckbox();
+    }, 5);
+}
+
+function clearSelection() {
+    selectedCustomers.clear();
+    window.selectedCustomers = selectedCustomers;
+    $('.customer-checkbox').prop('checked', false);
+    $('#selectAllCheckbox').prop('checked', false);
+    $('#selectAllCheckbox').prop('indeterminate', false);
+
+    // Force immediate UI update
+    setTimeout(() => {
+        updateSelectedCount();
+        updateSelectAllCheckbox();
+    }, 5);
+}
+
+function updateSelectionUI() {
+    // Update checkboxes based on selectedCustomers set
+    $('.customer-checkbox').each(function() {
+        const customerId = $(this).val();
+        $(this).prop('checked', selectedCustomers.has(customerId));
+    });
+
+    updateSelectAllCheckbox();
+}
+
+function updateSelectAllCheckbox() {
+    // Safely check if DataTable is available
+    if (!customersTable || !customersTable.rows) {
+        console.log('DataTable not available for updateSelectAllCheckbox');
+        return;
+    }
+
+    try {
+        const totalVisibleUnassigned = customersTable.rows({ search: 'applied' }).nodes().toArray()
+            .filter(row => !$(row).data('assigned')).length;
+
+        const selectedVisibleUnassigned = customersTable.rows({ search: 'applied' }).nodes().toArray()
+            .filter(row => {
+                const checkbox = $(row).find('.customer-checkbox');
+                return checkbox.is(':checked') && !$(row).data('assigned');
+            }).length;
+
+        const selectAllCheckbox = $('#selectAllCheckbox');
+
+        if (selectedVisibleUnassigned === 0) {
+            selectAllCheckbox.prop('checked', false);
+            selectAllCheckbox.prop('indeterminate', false);
+        } else if (selectedVisibleUnassigned === totalVisibleUnassigned) {
+            selectAllCheckbox.prop('checked', true);
+            selectAllCheckbox.prop('indeterminate', false);
+        } else {
+            selectAllCheckbox.prop('checked', false);
+            selectAllCheckbox.prop('indeterminate', true);
+        }
+    } catch (error) {
+        console.log('Error in updateSelectAllCheckbox:', error);
+    }
+}
+
+function updateSelectedCount() {
+    const count = selectedCustomers.size;
+    console.log('updateSelectedCount called, count:', count);
+
+    const countElement = document.getElementById('selectedCount');
+    if (countElement) {
+        countElement.textContent = count;
+        console.log('Updated count element to:', count);
+    } else {
+        console.log('Count element not found!');
+    }
+
+    const assignButton = document.getElementById('assignButton');
+    if (assignButton) {
+        assignButton.disabled = count === 0 || !selectedSalesRep;
+
+        if (count > 0) {
+            assignButton.innerHTML = `<i class="uil-user-plus me-1"></i>Assign ${count} Selected Customer${count > 1 ? 's' : ''}`;
+        } else {
+            assignButton.innerHTML = '<i class="uil-user-plus me-1"></i>Assign Selected Customers';
+        }
+    }
+}
+
+function processBulkAssignment() {
+    if (selectedCustomers.size === 0) {
+        showToast('Please select at least one customer to assign.', 'warning');
+        return;
+    }
+
+    if (!selectedSalesRep) {
+        showToast('Please select a sales representative.', 'warning');
+        return;
+    }
+
+    // Get selected customers data for confirmation
+    const selectedCustomersData = [];
+    selectedCustomers.forEach(customerId => {
+        const row = $(`tr[data-customer-id="${customerId}"]`);
+        if (row.length) {
+            const customerName = row.find('td:nth-child(2) strong').text();
+            const customerType = row.find('td:nth-child(3) .badge').text();
+            const customerAddress = row.find('td:nth-child(4)').text().trim();
+            const isAssigned = row.data('assigned');
+
+            selectedCustomersData.push({
+                id: customerId,
+                name: customerName,
+                type: customerType,
+                address: customerAddress,
+                is_assigned: isAssigned
+            });
+        }
+    });
+
+    // Populate confirmation modal
+    document.getElementById('confirmCustomerCount').textContent = selectedCustomersData.length;
+    document.getElementById('confirmSalesRepName').textContent = selectedSalesRep.name;
+
+    // Build customers list for confirmation
+    let listHtml = '';
+    selectedCustomersData.forEach(customer => {
+        listHtml += `
+            <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
+                <div>
+                    <strong>${customer.name}</strong>
+                    <br><small class="text-muted">${customer.type} • ${customer.address}</small>
+                </div>
+                <span class="badge ${customer.is_assigned ? 'bg-warning' : 'bg-success'}">
+                    ${customer.is_assigned ? 'Reassign' : 'New'}
+                </span>
+            </div>
+        `;
+    });
+    document.getElementById('confirmCustomersList').innerHTML = listHtml;
+
+    // Show confirmation modal
+    const modal = new bootstrap.Modal(document.getElementById('assignmentConfirmModal'));
+    modal.show();
+}
+
+function confirmBulkAssignment() {
+    const button = document.getElementById('confirmAssignButton');
+    const originalText = button.innerHTML;
+
+    // Show loading state
+    button.innerHTML = '<i class="spinner-border spinner-border-sm me-2"></i>Processing...';
+    button.disabled = true;
+
+    // Prepare assignment data
+    const assignmentData = {
+        sales_rep_id: selectedSalesRep.id,
+        customer_ids: Array.from(selectedCustomers),
+        priority: document.getElementById('assignmentPriority').value,
+        territory: document.getElementById('assignmentTerritory').value,
+        notes: document.getElementById('assignmentNotes').value
+    };
+
+    // Send AJAX request
+    fetch('{% url "authentication:process-bulk-assignment" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(assignmentData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Close modal
+            bootstrap.Modal.getInstance(document.getElementById('assignmentConfirmModal')).hide();
+
+            // Show success message
+            showToast(`Successfully assigned ${data.assigned_count} customers to ${selectedSalesRep.name}`, 'success');
+
+            // Clear selection and refresh the page to show updated assignments
+            clearSelection();
+
+            // Refresh the page to show updated assignment status
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+
+        } else {
+            showToast(data.message || 'Error processing bulk assignment', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Error processing bulk assignment. Please try again.', 'error');
+    })
+    .finally(() => {
+        // Reset button
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+}
+
+function viewCurrentAssignments() {
+    if (!selectedSalesRep) return;
+
+    // Load current assignments in modal
+    const modal = new bootstrap.Modal(document.getElementById('currentAssignmentsModal'));
+    const content = document.getElementById('currentAssignmentsContent');
+
+    content.innerHTML = '<div class="text-center p-3"><div class="spinner-border text-primary"></div><p class="mt-2">Loading assignments...</p></div>';
+    modal.show();
+
+    fetch(`{% url 'authentication:get-current-assignments' %}?sales_rep=${selectedSalesRep.id}`)
+        .then(response => response.json())
+        .then(data => {
+            let html = '';
+
+            if (data.school_assignments && data.school_assignments.length > 0) {
+                html += `
+                    <h6><i class="uil-building me-2"></i>Wholesale Customer Assignments (${data.school_assignments.length})</h6>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-sm">
+                            <thead><tr><th>Customer Name</th><th>Type</th><th>Territory</th><th>Assigned Date</th></tr></thead>
+                            <tbody>
+                `;
+                data.school_assignments.forEach(assignment => {
+                    html += `
+                        <tr>
+                            <td>${assignment.school_name}</td>
+                            <td><span class="badge bg-soft-primary text-primary">${assignment.school_type}</span></td>
+                            <td>${assignment.territory || 'Not specified'}</td>
+                            <td>${assignment.assigned_date}</td>
+                        </tr>
+                    `;
+                });
+                html += '</tbody></table></div>';
+            }
+
+            if (data.club_assignments && data.club_assignments.length > 0) {
+                html += `
+                    <h6><i class="uil-users-alt me-2"></i>Retail Customer Assignments (${data.club_assignments.length})</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead><tr><th>Customer Name</th><th>Type</th><th>Territory</th><th>Assigned Date</th></tr></thead>
+                            <tbody>
+                `;
+                data.club_assignments.forEach(assignment => {
+                    html += `
+                        <tr>
+                            <td>${assignment.club_name}</td>
+                            <td><span class="badge bg-soft-success text-success">${assignment.club_type}</span></td>
+                            <td>${assignment.territory || 'Not specified'}</td>
+                            <td>${assignment.assigned_date}</td>
+                        </tr>
+                    `;
+                });
+                html += '</tbody></table></div>';
+            }
+
+            if (!html) {
+                html = '<div class="text-center p-4"><i class="uil-clipboard-alt font-size-48 text-muted"></i><h6 class="text-muted">No current assignments</h6></div>';
+            }
+
+            content.innerHTML = html;
+        })
+        .catch(error => {
+            content.innerHTML = '<div class="alert alert-danger">Error loading assignments</div>';
+        });
+}
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value ||
+           document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+}
+
+function showToast(message, type = 'info') {
+    const toastContainer = document.getElementById('toast-container') || createToastContainer();
+
+    const toastId = 'toast-' + Date.now();
+    const iconClass = type === 'success' ? 'uil-check-circle' :
+                     type === 'error' ? 'uil-times-circle' :
+                     type === 'warning' ? 'uil-exclamation-triangle' : 'uil-info-circle';
+
+    const toastHtml = `
+        <div class="toast align-items-center text-white bg-${type === 'error' ? 'danger' : type} border-0"
+             role="alert" aria-live="assertive" aria-atomic="true" id="${toastId}">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="${iconClass} me-2"></i>${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                        data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    `;
+
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+    toast.show();
+
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-container position-fixed top-0 end-0 p-3';
+    container.style.zIndex = '9999';
+    document.body.appendChild(container);
+    return container;
+}
+</script>
+{% endblock %}

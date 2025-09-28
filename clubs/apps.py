@@ -10,4 +10,8 @@ class ClubsConfig(AppConfig):
         """
         Initialize app when Django starts
         """
-        pass  # Import signals if we create any later
+        # Import signals to register them with Django
+        try:
+            import clubs.signals
+        except ImportError:
+            pass

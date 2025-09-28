@@ -30,12 +30,16 @@ from authentication.permissions import (
     filter_clubs_for_user, can_user_manage_assignments
 )
 from authentication.models import AuditLog
+from .mixins import (
+    ClubViewAuditMixin, ClubCategoryAuditMixin, ClubProductAuditMixin,
+    ClubSearchAuditMixin, ClubSyncAuditMixin, AjaxAuditMixin
+)
 
 # Initialize logger
 logger = logging.getLogger(__name__)
 
 
-class ClubListView(LoginRequiredMixin, ListView):
+class ClubListView(LoginRequiredMixin, ClubViewAuditMixin, ClubSearchAuditMixin, ListView):
     """List all clubs with filtering and search functionality"""
     model = Club
     template_name = 'clubs/club_list.html'
@@ -85,7 +89,7 @@ class ClubListView(LoginRequiredMixin, ListView):
         return context
 
 
-class ClubDetailView(LoginRequiredMixin, ClubAccessMixin, DetailView):
+class ClubDetailView(LoginRequiredMixin, ClubAccessMixin, ClubViewAuditMixin, DetailView):
     """Detailed view of a specific club showing categories and products"""
     model = Club
     template_name = 'clubs/club_detail.html'
@@ -106,16 +110,6 @@ class ClubDetailView(LoginRequiredMixin, ClubAccessMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         club = self.get_object()
-
-        # Log club access
-        AuditLog.log_action(
-            user=self.request.user,
-            action_type='data_access',
-            description=f'Accessed club details: {club.name}',
-            request=self.request,
-            club_id=club.id,
-            club_name=club.name
-        )
 
         # Get categories with product counts (using the existing product_count field)
         context['categories'] = club.categories.filter(product_count__gt=0).order_by('name')
@@ -223,7 +217,7 @@ class LottoClubsView(ListView):
 
 
 
-class ClubCategoryDetailView(DetailView):
+class ClubCategoryDetailView(ClubCategoryAuditMixin, DetailView):
     """Detailed view of a club category showing all products"""
     model = ClubCategory
     template_name = 'clubs/category_detail.html'
@@ -265,12 +259,27 @@ def club_search_ajax(request):
     query = request.GET.get('q', '')
     if len(query) < 2:
         return JsonResponse({'results': []})
-    
+
     clubs = Club.objects.filter(
         Q(name__icontains=query) & Q(is_active=True)
     ).values('slug', 'name', 'club_type', 'sport_tag')[:10]
-    
+
     results = list(clubs)
+
+    # Log AJAX search
+    try:
+        AuditLog.log_action(
+            user=request.user if request.user.is_authenticated else None,
+            action_type='club_searched',
+            description=f"AJAX search performed: '{query}' ({len(results)} results)",
+            request=request,
+            search_query=query,
+            results_count=len(results),
+            is_ajax=True
+        )
+    except Exception as e:
+        logger.error(f"Failed to log AJAX search: {str(e)}")
+
     return JsonResponse({'results': results})
 
 
@@ -641,7 +650,20 @@ def sync_lotto_clubs(request):
         )
         
         logger.info(f"Created sync job {sync_job.id}")
-        
+
+        # Log sync start
+        try:
+            AuditLog.log_action(
+                user=request.user if request.user.is_authenticated else None,
+                action_type='lotto_sync_started',
+                description=f"Started LOTTO clubs synchronization",
+                request=request,
+                sync_job_id=str(sync_job.id),
+                sync_type='lotto'
+            )
+        except Exception as e:
+            logger.error(f"Failed to log sync start: {str(e)}")
+
         # Start background sync in a separate thread
         sync_thread = threading.Thread(
             target=run_sync_in_background,
@@ -714,7 +736,20 @@ def sync_sas_clubs(request):
         )
         
         logger.info(f"Created SAS sync job {sync_job.id}")
-        
+
+        # Log sync start
+        try:
+            AuditLog.log_action(
+                user=request.user if request.user.is_authenticated else None,
+                action_type='sas_sync_started',
+                description=f"Started SAS clubs synchronization",
+                request=request,
+                sync_job_id=str(sync_job.id),
+                sync_type='sas'
+            )
+        except Exception as e:
+            logger.error(f"Failed to log SAS sync start: {str(e)}")
+
         # Start background sync in a separate thread
         sync_thread = threading.Thread(
             target=run_sas_sync_in_background,
@@ -1492,7 +1527,7 @@ def sas_product_search_ajax(request):
     return JsonResponse({'results': results})
 
 
-class LottoProductDetailView(DetailView):
+class LottoProductDetailView(ClubProductAuditMixin, DetailView):
     """Detail view for LOTTO products with Stanley-inspired layout"""
     model = Product
     template_name = 'clubs/lotto_product_detail.html'
@@ -1629,7 +1664,7 @@ class LottoProductDetailView(DetailView):
         return context
 
 
-class SASProductDetailView(DetailView):
+class SASProductDetailView(ClubProductAuditMixin, DetailView):
     """Detail view for SAS products with comprehensive inventory management"""
     model = SASProduct
     template_name = 'clubs/sas_product_detail.html'

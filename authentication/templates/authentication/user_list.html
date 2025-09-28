@@ -63,9 +63,103 @@
             <div class="page-title-right">
                 <ol class="breadcrumb m-0">
                     <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'authentication:user-management-dashboard' %}">User Management</a></li>
-                    <li class="breadcrumb-item active">All Users</li>
+                    <li class="breadcrumb-item active">User Management</li>
                 </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Statistics Tiles -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex">
+                    <div class="flex-grow-1">
+                        <p class="text-truncate font-size-14 mb-2">Total Users</p>
+                        <h4 class="mb-2">{{ user_stats.total_users }}</h4>
+                        <p class="text-muted mb-0">
+                            <span class="text-success fw-bold font-size-12 me-2">
+                                <i class="ri-arrow-right-up-line me-1 align-middle"></i>+{{ user_stats.new_users_this_month }}
+                            </span>this month
+                        </p>
+                    </div>
+                    <div class="avatar-sm">
+                        <span class="avatar-title bg-light text-primary rounded-3">
+                            <i class="uil-users-alt font-size-24"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex">
+                    <div class="flex-grow-1">
+                        <p class="text-truncate font-size-14 mb-2">Active Users</p>
+                        <h4 class="mb-2">{{ user_stats.active_users }}</h4>
+                        <p class="text-muted mb-0">
+                            <span class="text-success fw-bold font-size-12 me-2">
+                                <i class="ri-check-line me-1 align-middle"></i>{{ user_stats.active_percentage }}%
+                            </span>of total
+                        </p>
+                    </div>
+                    <div class="avatar-sm">
+                        <span class="avatar-title bg-light text-success rounded-3">
+                            <i class="uil-check-circle font-size-24"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex">
+                    <div class="flex-grow-1">
+                        <p class="text-truncate font-size-14 mb-2">User Types</p>
+                        <h4 class="mb-2">3</h4>
+                        <p class="text-muted mb-0">
+                            <small class="text-primary me-2">{{ user_stats.admin_count }} Admin</small>
+                            <small class="text-info me-2">{{ user_stats.sales_rep_count }} Sales</small>
+                            <small class="text-secondary">{{ user_stats.customer_count }} Customer</small>
+                        </p>
+                    </div>
+                    <div class="avatar-sm">
+                        <span class="avatar-title bg-light text-info rounded-3">
+                            <i class="uil-chart-pie font-size-24"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex">
+                    <div class="flex-grow-1">
+                        <p class="text-truncate font-size-14 mb-2">Recent Registrations</p>
+                        <h4 class="mb-2">{{ user_stats.recent_registrations }}</h4>
+                        <p class="text-muted mb-0">
+                            <span class="text-warning fw-bold font-size-12 me-2">
+                                <i class="ri-time-line me-1 align-middle"></i>Last 7 days
+                            </span>
+                        </p>
+                    </div>
+                    <div class="avatar-sm">
+                        <span class="avatar-title bg-light text-warning rounded-3">
+                            <i class="uil-calendar-alt font-size-24"></i>
+                        </span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -165,7 +259,6 @@
                                 <th>User</th>
                                 <th>Type</th>
                                 <th>Status</th>
-                                <th>Assignments</th>
                                 <th>Last Login</th>
                                 <th>Created</th>
                                 <th>Actions</th>
@@ -219,27 +312,6 @@
                                     </div>
                                 </td>
                                 <td>
-                                    {% if user.is_sales_rep %}
-                                    <div class="d-flex gap-1">
-                                        {% if user.assigned_schools_count > 0 %}
-                                        <span class="assignment-count">
-                                            <i class="uil-building me-1"></i>{{ user.assigned_schools_count }}
-                                        </span>
-                                        {% endif %}
-                                        {% if user.assigned_clubs_count > 0 %}
-                                        <span class="assignment-count">
-                                            <i class="uil-users-alt me-1"></i>{{ user.assigned_clubs_count }}
-                                        </span>
-                                        {% endif %}
-                                        {% if user.total_assignments == 0 %}
-                                        <span class="text-muted font-size-12">No assignments</span>
-                                        {% endif %}
-                                    </div>
-                                    {% else %}
-                                    <span class="text-muted font-size-12">N/A</span>
-                                    {% endif %}
-                                </td>
-                                <td>
                                     {% if user.last_login %}
                                     <span class="font-size-12">{{ user.last_login|timesince }} ago</span>
                                     {% else %}
@@ -259,12 +331,6 @@
                                            class="btn btn-outline-primary btn-sm" title="Edit User">
                                             <i class="uil-edit"></i>
                                         </a>
-                                        {% if user.is_sales_rep %}
-                                        <button type="button" class="btn btn-outline-success btn-sm"
-                                                onclick="manageAssignments({{ user.id }})" title="Manage Assignments">
-                                            <i class="uil-clipboard-alt"></i>
-                                        </button>
-                                        {% endif %}
                                         <div class="dropdown d-inline-block">
                                             <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
                                                     type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -290,7 +356,7 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="8" class="text-center py-4">
+                                <td colspan="6" class="text-center py-4">
                                     <div class="text-muted">
                                         <i class="uil-users-alt font-size-24 mb-2"></i>
                                         <p class="mb-0">No users found matching your criteria</p>
@@ -306,20 +372,6 @@
     </div>
 </div>
 
-<!-- Assignment Modal -->
-<div class="modal fade" id="assignmentModal" tabindex="-1" aria-labelledby="assignmentModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="assignmentModalLabel">Manage Assignments</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body" id="assignmentModalBody">
-                <!-- Assignment content will be loaded here via AJAX -->
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -339,10 +391,10 @@ $(document).ready(function() {
         searching: false,
         lengthChange: true,
         pageLength: 25,
-        order: [[6, 'desc']], // Sort by created date
+        order: [[5, 'desc']], // Sort by created date
         columnDefs: [
-            { orderable: false, targets: [0, 7] }, // Disable sorting for checkbox and actions
-            { responsivePriority: 1, targets: [1, 2, 7] }, // Priority columns for responsive
+            { orderable: false, targets: [0, 6] }, // Disable sorting for checkbox and actions
+            { responsivePriority: 1, targets: [1, 2, 6] }, // Priority columns for responsive
             { responsivePriority: 2, targets: [3, 4] }
         ],
         language: {
@@ -445,19 +497,6 @@ function resetPassword(userId) {
     }
 }
 
-function manageAssignments(userId) {
-    $.ajax({
-        url: '{% url "authentication:assignment-management" %}',
-        data: {'user_id': userId},
-        success: function(response) {
-            $('#assignmentModalBody').html(response);
-            $('#assignmentModal').modal('show');
-        },
-        error: function() {
-            alert('An error occurred loading assignments.');
-        }
-    });
-}
 
 function bulkAction(action) {
     const selectedUsers = $('.user-checkbox:checked').map(function() {
