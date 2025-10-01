@@ -11,8 +11,8 @@
 
             <div class="page-title-right">
                 <ol class="breadcrumb m-0">
-                    <li class="breadcrumb-item"><a href="{% url 'clubs:club-list' %}">Clubs</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'clubs:club-detail' category.club.slug %}">{{ category.club.name }}</a></li>
+                    <li class="breadcrumb-item"><a href="{% if category.club.club_type == 'LOTTO' %}{% url 'clubs:lotto-clubs' %}{% else %}{% url 'clubs:sas-clubs' %}{% endif %}">Clubs</a></li>
+                    <li class="breadcrumb-item">{{ category.club.name }}</li>
                     <li class="breadcrumb-item active">{{ category.name }}</li>
                 </ol>
             </div>
@@ -39,7 +39,7 @@
                     <div class="flex-grow-1">
                         <h4 class="mb-1">{{ category.name }}</h4>
                         <p class="text-muted mb-2">
-                            <a href="{% url 'clubs:club-detail' category.club.slug %}" class="text-primary">{{ category.club.name }}</a>
+                            <span class="text-primary">{{ category.club.name }}</span>
                             <span class="badge {% if category.club.club_type == 'LOTTO' %}badge-lotto{% else %}bg-warning{% endif %} font-size-11 ms-2">
                                 {{ category.club.club_type }}
                             </span>
@@ -53,8 +53,8 @@
                             <button type="button" class="btn btn-soft-primary">
                                 <i class="uil-edit-alt me-1"></i> Edit Category
                             </button>
-                            <a href="{% url 'clubs:club-detail' category.club.slug %}" class="btn btn-soft-secondary">
-                                <i class="uil-arrow-left me-1"></i> Back to Club
+                            <a href="{% if category.club.club_type == 'LOTTO' %}{% url 'clubs:lotto-clubs' %}{% else %}{% url 'clubs:sas-clubs' %}{% endif %}" class="btn btn-soft-secondary">
+                                <i class="uil-arrow-left me-1"></i> Back to Clubs
                             </a>
                         </div>
                     </div>

@@ -18,9 +18,11 @@ from django.utils import timezone
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from .models import SyncJob, Club, ClubCategory, Product
+from .models import SyncJob
+# TODO: Update views to use separate LOTTO/SAS models
+# from .models import Club, ClubCategory, Product
 from .models_sas import SASSport, SASClub, SASProduct
-from .models_lotto import LottoProduct, LottoProductVariation
+from .models_lotto import LottoClub, LottoClubCategory, LottoProduct, LottoProductVariation
 from schools.models import (
     WholesaleSchool, WholesaleCategory, WholesaleProduct,
     WholesaleProductVariation, WholesaleSyncJob
@@ -39,24 +41,138 @@ from .mixins import (
 logger = logging.getLogger(__name__)
 
 
-class ClubListView(LoginRequiredMixin, ClubViewAuditMixin, ClubSearchAuditMixin, ListView):
-    """List all clubs with filtering and search functionality"""
-    model = Club
-    template_name = 'clubs/club_list.html'
+# TODO: Update to use separate LOTTO/SAS models
+# class ClubListView(LoginRequiredMixin, ClubViewAuditMixin, ClubSearchAuditMixin, ListView):
+#     """List all clubs with filtering and search functionality"""
+#     model = Club
+#     template_name = 'clubs/club_list.html'
+#     context_object_name = 'clubs'
+#     paginate_by = 12
+#     login_url = '/auth/login/'
+#
+#     def get_queryset(self):
+#         # Filter clubs based on user permissions
+#         base_queryset = Club.objects.filter(is_active=True).prefetch_related('categories')
+#         queryset = filter_clubs_for_user(self.request.user, base_queryset)
+#
+#         # Filter by club type
+#         club_type = self.request.GET.get('type')
+#         if club_type and club_type in ['LOTTO', 'SAS']:
+#             queryset = queryset.filter(club_type=club_type)
+#
+#         # Search functionality
+#         search_query = self.request.GET.get('search')
+#         if search_query:
+#             queryset = queryset.filter(
+#                 Q(name__icontains=search_query) |
+#                 Q(contact_person__icontains=search_query) |
+#                 Q(sport_tag__icontains=search_query)
+#             )
+#
+#         # Filter by sport tag
+#         sport = self.request.GET.get('sport')
+#         if sport:
+#             queryset = queryset.filter(sport_tag=sport)
+#
+#         return queryset.order_by('name')
+#
+#     def get_context_data(self, **kwargs):
+#         context = super().get_context_data(**kwargs)
+#         context['club_types'] = Club.CLUB_TYPES
+#         context['sport_tags'] = Club.SPORT_TAGS
+#         context['current_type'] = self.request.GET.get('type', '')
+#         context['current_search'] = self.request.GET.get('search', '')
+#         context['current_sport'] = self.request.GET.get('sport', '')
+#
+#         # Stats for dashboard
+#         context['total_clubs'] = Club.objects.filter(is_active=True).count()
+#         context['lotto_clubs'] = Club.objects.filter(is_active=True, club_type='LOTTO').count()
+#         context['sas_clubs'] = Club.objects.filter(is_active=True, club_type='SAS').count()
+#
+#         return context
+
+
+# TODO: Update to use separate LOTTO/SAS models
+# class ClubDetailView(LoginRequiredMixin, ClubAccessMixin, ClubViewAuditMixin, DetailView):
+#     """Detailed view of a specific club showing categories and products"""
+#     model = Club
+#     template_name = 'clubs/club_detail.html'
+#     context_object_name = 'club'
+#     slug_field = 'slug'
+#     slug_url_kwarg = 'slug'
+#     login_url = '/auth/login/'
+#
+#     def get_queryset(self):
+#         return Club.objects.filter(is_active=True).prefetch_related(
+#             'categories__products'
+#         )
+#
+#     def get_club_object(self):
+#         """Required by ClubAccessMixin"""
+#         return self.get_object()
+#
+#     def get_context_data(self, **kwargs):
+#         context = super().get_context_data(**kwargs)
+#         club = self.get_object()
+#
+#         # Get categories with product counts (using the existing product_count field)
+#         context['categories'] = club.categories.filter(product_count__gt=0).order_by('name')
+#
+#         # Recent products - using many-to-many relationship
+#         context['recent_products'] = Product.objects.filter(
+#             categories__club=club,
+#             stock_status__in=['instock', 'onbackorder']
+#         ).distinct().order_by('-created_at')[:6]
+#
+#         return context
+
+
+# TODO: Update to use separate LOTTO/SAS models
+# class ClubDashboardView(LoginRequiredMixin, ListView):
+#     """Dashboard view showing club statistics and overview"""
+#     login_url = '/auth/login/'
+#     model = Club
+#     template_name = 'clubs/dashboard.html'
+#     context_object_name = 'clubs'
+#
+#     def get_queryset(self):
+#         return Club.objects.filter(is_active=True).annotate(
+#             total_categories=Count('categories', filter=Q(categories__product_count__gt=0)),
+#             available_products=Count('categories__products', filter=Q(categories__products__stock_status__in=['instock', 'onbackorder']))
+#         ).order_by('-available_products', 'name')[:15]
+#
+#     def get_context_data(self, **kwargs):
+#         context = super().get_context_data(**kwargs)
+#
+#         # Dashboard statistics
+#         context['total_clubs'] = Club.objects.filter(is_active=True).count()
+#         context['total_lotto_clubs'] = Club.objects.filter(is_active=True, club_type='LOTTO').count()
+#         context['total_sas_clubs'] = Club.objects.filter(is_active=True, club_type='SAS').count()
+#         context['total_categories'] = ClubCategory.objects.filter(product_count__gt=0).count()
+#         context['total_products'] = Product.objects.filter(stock_status__in=['instock', 'onbackorder']).count()
+#
+#         # Top performing clubs
+#         context['top_clubs'] = self.get_queryset()
+#
+#         # Recent activity - updated for multi-category products
+#         context['recent_products'] = Product.objects.filter(
+#             stock_status__in=['instock', 'onbackorder']
+#         ).prefetch_related('categories__club').order_by('-created_at')[:8]
+#
+#         return context
+
+
+class LottoClubsView(ListView):
+    """List view specifically for LOTTO clubs"""
+    # model is set in get_queryset() using LottoClub
+    template_name = 'clubs/lotto_clubs.html'
     context_object_name = 'clubs'
     paginate_by = 12
-    login_url = '/auth/login/'
 
     def get_queryset(self):
-        # Filter clubs based on user permissions
-        base_queryset = Club.objects.filter(is_active=True).prefetch_related('categories')
-        queryset = filter_clubs_for_user(self.request.user, base_queryset)
-        
-        # Filter by club type
-        club_type = self.request.GET.get('type')
-        if club_type and club_type in ['LOTTO', 'SAS']:
-            queryset = queryset.filter(club_type=club_type)
-        
+        from .models_lotto import LottoClub
+        queryset = LottoClub.objects.filter(is_active=True).prefetch_related('categories')
+
         # Search functionality
         search_query = self.request.GET.get('search')
         if search_query:
@@ -65,179 +181,95 @@ class ClubListView(LoginRequiredMixin, ClubViewAuditMixin, ClubSearchAuditMixin,
                 Q(contact_person__icontains=search_query) |
                 Q(sport_tag__icontains=search_query)
             )
-        
+
         # Filter by sport tag
         sport = self.request.GET.get('sport')
         if sport:
             queryset = queryset.filter(sport_tag=sport)
-        
+
         return queryset.order_by('name')
 
     def get_context_data(self, **kwargs):
+        from .models_lotto import LottoClub, LottoClubCategory, LottoProduct
         context = super().get_context_data(**kwargs)
-        context['club_types'] = Club.CLUB_TYPES
-        context['sport_tags'] = Club.SPORT_TAGS
-        context['current_type'] = self.request.GET.get('type', '')
+        context['sport_tags'] = LottoClub.SPORT_TAGS
         context['current_search'] = self.request.GET.get('search', '')
         context['current_sport'] = self.request.GET.get('sport', '')
-        
-        # Stats for dashboard
-        context['total_clubs'] = Club.objects.filter(is_active=True).count()
-        context['lotto_clubs'] = Club.objects.filter(is_active=True, club_type='LOTTO').count()
-        context['sas_clubs'] = Club.objects.filter(is_active=True, club_type='SAS').count()
-        
+        context['club_type'] = 'LOTTO'
+
+        # LOTTO Statistics for dashboard tiles
+        context['stats'] = {
+            'total_clubs': LottoClub.objects.filter(is_active=True).count(),
+            'total_categories': LottoClubCategory.objects.filter(product_count__gt=0).count(),
+            'total_products': LottoProduct.objects.filter(
+                stock_status__in=['instock', 'onbackorder']
+            ).count(),
+            'active_clubs': LottoClub.objects.filter(
+                is_active=True
+            ).annotate(
+                active_products=Count('categories__products', filter=Q(
+                    categories__products__stock_status__in=['instock', 'onbackorder']
+                ))
+            ).filter(active_products__gt=0).count(),
+            'sports_count': LottoClub.objects.filter(
+                is_active=True
+            ).values('sport_tag').distinct().count(),
+        }
+
         return context
 
 
-class ClubDetailView(LoginRequiredMixin, ClubAccessMixin, ClubViewAuditMixin, DetailView):
-    """Detailed view of a specific club showing categories and products"""
-    model = Club
-    template_name = 'clubs/club_detail.html'
+class LottoClubDetailView(DetailView):
+    """Detailed view of a specific LOTTO club showing categories and products"""
+    template_name = 'clubs/club_detail.html'  # Use existing template
     context_object_name = 'club'
     slug_field = 'slug'
     slug_url_kwarg = 'slug'
-    login_url = '/auth/login/'
 
     def get_queryset(self):
-        return Club.objects.filter(is_active=True).prefetch_related(
-            'categories__products'
-        )
-
-    def get_club_object(self):
-        """Required by ClubAccessMixin"""
-        return self.get_object()
+        from .models_lotto import LottoClub
+        return LottoClub.objects.filter(is_active=True).prefetch_related('categories__products')
 
     def get_context_data(self, **kwargs):
+        from .models_lotto import LottoProduct
         context = super().get_context_data(**kwargs)
         club = self.get_object()
 
         # Get categories with product counts (using the existing product_count field)
         context['categories'] = club.categories.filter(product_count__gt=0).order_by('name')
 
-        # Recent products - using many-to-many relationship
-        context['recent_products'] = Product.objects.filter(
-            categories__club=club,
+        # Recent products - matching old ClubDetailView logic
+        recent_products = LottoProduct.objects.filter(
+            category__club=club,
             stock_status__in=['instock', 'onbackorder']
-        ).distinct().order_by('-created_at')[:6]
+        ).order_by('-created_at')[:6]
+
+        context['recent_products'] = recent_products
 
         return context
 
 
-class ClubDashboardView(LoginRequiredMixin, ListView):
-    """Dashboard view showing club statistics and overview"""
-    login_url = '/auth/login/'
-    model = Club
-    template_name = 'clubs/dashboard.html'
-    context_object_name = 'clubs'
-
-    def get_queryset(self):
-        return Club.objects.filter(is_active=True).annotate(
-            total_categories=Count('categories', filter=Q(categories__product_count__gt=0)),
-            available_products=Count('categories__products', filter=Q(categories__products__stock_status__in=['instock', 'onbackorder']))
-        ).order_by('-available_products', 'name')[:15]
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        
-        # Dashboard statistics
-        context['total_clubs'] = Club.objects.filter(is_active=True).count()
-        context['total_lotto_clubs'] = Club.objects.filter(is_active=True, club_type='LOTTO').count()
-        context['total_sas_clubs'] = Club.objects.filter(is_active=True, club_type='SAS').count()
-        context['total_categories'] = ClubCategory.objects.filter(product_count__gt=0).count()
-        context['total_products'] = Product.objects.filter(stock_status__in=['instock', 'onbackorder']).count()
-        
-        # Top performing clubs
-        context['top_clubs'] = self.get_queryset()
-        
-        # Recent activity - updated for multi-category products
-        context['recent_products'] = Product.objects.filter(
-            stock_status__in=['instock', 'onbackorder']
-        ).prefetch_related('categories__club').order_by('-created_at')[:8]
-        
-        return context
-
-
-class LottoClubsView(ListView):
-    """List view specifically for LOTTO clubs"""
-    model = Club
-    template_name = 'clubs/lotto_clubs.html'
-    context_object_name = 'clubs'
-    paginate_by = 12
-
-    def get_queryset(self):
-        queryset = Club.objects.filter(is_active=True, club_type='LOTTO').prefetch_related('categories')
-        
-        # Search functionality
-        search_query = self.request.GET.get('search')
-        if search_query:
-            queryset = queryset.filter(
-                Q(name__icontains=search_query) |
-                Q(contact_person__icontains=search_query) |
-                Q(sport_tag__icontains=search_query)
-            )
-        
-        # Filter by sport tag
-        sport = self.request.GET.get('sport')
-        if sport:
-            queryset = queryset.filter(sport_tag=sport)
-        
-        return queryset.order_by('name')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['sport_tags'] = Club.SPORT_TAGS
-        context['current_search'] = self.request.GET.get('search', '')
-        context['current_sport'] = self.request.GET.get('sport', '')
-        context['club_type'] = 'LOTTO'
-        
-        # LOTTO Statistics for dashboard tiles
-        context['stats'] = {
-            'total_clubs': Club.objects.filter(is_active=True, club_type='LOTTO').count(),
-            'total_categories': ClubCategory.objects.filter(club__club_type='LOTTO', product_count__gt=0).count(),
-            'total_products': Product.objects.filter(
-                categories__club__club_type='LOTTO',
-                stock_status__in=['instock', 'onbackorder']
-            ).distinct().count(),
-            'active_clubs': Club.objects.filter(
-                is_active=True, 
-                club_type='LOTTO'
-            ).annotate(
-                active_products=Count('categories__products', filter=Q(
-                    categories__products__stock_status__in=['instock', 'onbackorder']
-                ))
-            ).filter(active_products__gt=0).count(),
-            'sports_count': Club.objects.filter(
-                is_active=True, 
-                club_type='LOTTO'
-            ).values('sport_tag').distinct().count(),
-        }
-        
-        return context
-
-
-
-
-class ClubCategoryDetailView(ClubCategoryAuditMixin, DetailView):
-    """Detailed view of a club category showing all products"""
-    model = ClubCategory
-    template_name = 'clubs/category_detail.html'
+class LottoCategoryDetailView(DetailView):
+    """Detailed view of a LOTTO club category showing all products"""
+    template_name = 'clubs/category_detail.html'  # Use existing template
     context_object_name = 'category'
     slug_field = 'slug'
     slug_url_kwarg = 'slug'
 
     def get_queryset(self):
-        return ClubCategory.objects.select_related('club').prefetch_related('products')
+        from .models_lotto import LottoClubCategory
+        return LottoClubCategory.objects.select_related('club').prefetch_related('products')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         category = self.get_object()
-        
+
         # Get products in this category
         products = category.products.filter(
             stock_status__in=['instock', 'onbackorder']
         ).order_by('name')
         context['products'] = products
-        
+
         # Calculate average price for products with valid prices
         products_with_prices = products.filter(price__gt=0)
         if products_with_prices.exists():
@@ -250,8 +282,46 @@ class ClubCategoryDetailView(ClubCategoryAuditMixin, DetailView):
         else:
             context['average_price'] = 0
             context['price_range'] = {'min': 0, 'max': 0}
-        
+
         return context
+
+
+# TODO: Update to use separate LOTTO/SAS models
+# class ClubCategoryDetailView(ClubCategoryAuditMixin, DetailView):
+#     """Detailed view of a club category showing all products"""
+#     model = ClubCategory
+#     template_name = 'clubs/category_detail.html'
+#     context_object_name = 'category'
+#     slug_field = 'slug'
+#     slug_url_kwarg = 'slug'
+#
+#     def get_queryset(self):
+#         return ClubCategory.objects.select_related('club').prefetch_related('products')
+#
+#     def get_context_data(self, **kwargs):
+#         context = super().get_context_data(**kwargs)
+#         category = self.get_object()
+#
+#         # Get products in this category
+#         products = category.products.filter(
+#             stock_status__in=['instock', 'onbackorder']
+#         ).order_by('name')
+#         context['products'] = products
+#
+#         # Calculate average price for products with valid prices
+#         products_with_prices = products.filter(price__gt=0)
+#         if products_with_prices.exists():
+#             total_price = sum(product.price for product in products_with_prices)
+#             context['average_price'] = total_price / products_with_prices.count()
+#             context['price_range'] = {
+#                 'min': min(product.price for product in products_with_prices),
+#                 'max': max(product.price for product in products_with_prices),
+#             }
+#         else:
+#             context['average_price'] = 0
+#             context['price_range'] = {'min': 0, 'max': 0}
+#
+#         return context
 
 
 def club_search_ajax(request):
@@ -260,11 +330,26 @@ def club_search_ajax(request):
     if len(query) < 2:
         return JsonResponse({'results': []})
 
-    clubs = Club.objects.filter(
+    # Search across both LOTTO and SAS clubs
+    lotto_clubs = LottoClub.objects.filter(
         Q(name__icontains=query) & Q(is_active=True)
-    ).values('slug', 'name', 'club_type', 'sport_tag')[:10]
+    ).values('slug', 'name')[:5]
 
-    results = list(clubs)
+    sas_clubs = SASClub.objects.filter(
+        Q(name__icontains=query) & Q(is_active=True)
+    ).values('slug', 'name')[:5]
+
+    # Combine results and add club_type
+    results = []
+    for club in lotto_clubs:
+        club['club_type'] = 'LOTTO'
+        club['sport_tag'] = ''  # LottoClub doesn't have sport_tag
+        results.append(club)
+
+    for club in sas_clubs:
+        club['club_type'] = 'SAS'
+        club['sport_tag'] = ''  # SASClub uses SASSport relationship
+        results.append(club)
 
     # Log AJAX search
     try:
@@ -814,13 +899,13 @@ def test_sync_endpoint(request):
             except Exception as e:
                 connection_test = f"Connection failed: {str(e)}"
         
-        # Database stats
+        # Database stats - using separate models
         db_stats = {
-            'total_clubs': Club.objects.filter(is_active=True).count(),
-            'lotto_clubs': Club.objects.filter(is_active=True, club_type='LOTTO').count(),
-            'sas_clubs': Club.objects.filter(is_active=True, club_type='SAS').count(),
-            'total_categories': ClubCategory.objects.count(),
-            'total_products': Product.objects.count(),
+            'total_clubs': LottoClub.objects.filter(is_active=True).count() + SASClub.objects.filter(is_active=True).count(),
+            'lotto_clubs': LottoClub.objects.filter(is_active=True).count(),
+            'sas_clubs': SASClub.objects.filter(is_active=True).count(),
+            'total_categories': LottoClubCategory.objects.count(),
+            'total_products': LottoProduct.objects.count() + SASProduct.objects.count(),
         }
         
         return JsonResponse({
@@ -1034,11 +1119,11 @@ def sync_lotto_clubs_page(request):
     Page view for sync status and manual trigger
     """
     context = {
-        'total_lotto_clubs': Club.objects.filter(is_active=True, club_type='LOTTO').count(),
-        'total_lotto_categories': ClubCategory.objects.filter(club__club_type='LOTTO').count(),
-        'total_lotto_products': Product.objects.filter(categories__club__club_type='LOTTO').distinct().count(),
+        'total_lotto_clubs': LottoClub.objects.filter(is_active=True).count(),
+        'total_lotto_categories': LottoClubCategory.objects.count(),
+        'total_lotto_products': LottoProduct.objects.count(),
     }
-    
+
     return render(request, 'clubs/sync_lotto.html', context)
 
 
@@ -1048,14 +1133,14 @@ def sync_management_page(request):
     Provides lock status checking and clearing functionality
     """
     context = {
-        'total_lotto_clubs': Club.objects.filter(is_active=True, club_type='LOTTO').count(),
-        'total_lotto_categories': ClubCategory.objects.filter(club__club_type='LOTTO').count(),
-        'total_lotto_products': Product.objects.filter(categories__club__club_type='LOTTO').distinct().count(),
-        'total_sas_clubs': Club.objects.filter(is_active=True, club_type='SAS').count(),
-        'total_sas_categories': ClubCategory.objects.filter(club__club_type='SAS').count(),
-        'total_sas_products': Product.objects.filter(categories__club__club_type='SAS').distinct().count(),
+        'total_lotto_clubs': LottoClub.objects.filter(is_active=True).count(),
+        'total_lotto_categories': LottoClubCategory.objects.count(),
+        'total_lotto_products': LottoProduct.objects.count(),
+        'total_sas_clubs': SASClub.objects.filter(is_active=True).count(),
+        'total_sas_categories': 0,  # TODO: Add SASClubCategory model if needed
+        'total_sas_products': SASProduct.objects.count(),
     }
-    
+
     return render(request, 'clubs/sync_management.html', context)
 
 
@@ -1529,24 +1614,25 @@ def sas_product_search_ajax(request):
 
 class LottoProductDetailView(ClubProductAuditMixin, DetailView):
     """Detail view for LOTTO products with Stanley-inspired layout"""
-    model = Product
+    # model is set in get_queryset() using LottoProduct
     template_name = 'clubs/lotto_product_detail.html'
     context_object_name = 'product'
     slug_field = 'slug'
     slug_url_kwarg = 'slug'
-    
+
     def get_queryset(self):
         # Only show LOTTO products that are published
-        return Product.objects.filter(
+        return LottoProduct.objects.filter(
             stock_status__in=['instock', 'outofstock', 'onbackorder']
-        ).prefetch_related('categories__club', 'variations')
+        ).prefetch_related('variations')
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         product = self.get_object()
         
-        # Get the primary category for this product (for breadcrumbs and navigation)
-        primary_category = product.categories.first() if product.categories.exists() else None
+        # Get the category for this product (for breadcrumbs and navigation)
+        # LottoProduct has a single category (ForeignKey), not multiple categories
+        primary_category = product.category
         context['primary_category'] = primary_category
         
         # Add product variations with stock information
@@ -1639,10 +1725,10 @@ class LottoProductDetailView(ClubProductAuditMixin, DetailView):
         
         # Add related products from same club
         if primary_category and primary_category.club:
-            context['related_products'] = Product.objects.filter(
-                categories__club=primary_category.club,
+            context['related_products'] = LottoProduct.objects.filter(
+                category__club=primary_category.club,
                 stock_status__in=['instock', 'onbackorder']
-            ).exclude(id=product.id).prefetch_related('categories')[:4]
+            ).exclude(id=product.id).select_related('category')[:4]
         else:
             context['related_products'] = []
         
@@ -2067,18 +2153,12 @@ def product_variations_api(request, product_id, store_type=None):
                 pass
         
         if not product:
-            # Fallback to generic Product - try Django ID first, then WooCommerce ID
-            try:
-                try:
-                    product = Product.objects.get(id=product_id)
-                except Product.DoesNotExist:
-                    product = Product.objects.get(woo_product_id=product_id)
-            except Product.DoesNotExist:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Product not found',
-                    'error_code': 'PRODUCT_NOT_FOUND'
-                }, status=404)
+            # No product found in either LOTTO or SAS models
+            return JsonResponse({
+                'success': False,
+                'error': 'Product not found in LOTTO or SAS stores',
+                'error_code': 'PRODUCT_NOT_FOUND'
+            }, status=404)
         
         # Check if product has variations
         has_variations = getattr(product, 'has_variations', False)
@@ -2222,18 +2302,12 @@ def check_variation_availability(request, product_id, store_type=None):
                 pass
         
         if not product:
-            # Fallback to generic Product - try Django ID first, then WooCommerce ID
-            try:
-                try:
-                    product = Product.objects.get(id=product_id)
-                except Product.DoesNotExist:
-                    product = Product.objects.get(woo_product_id=product_id)
-            except Product.DoesNotExist:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Product not found',
-                    'error_code': 'PRODUCT_NOT_FOUND'
-                }, status=404)
+            # No product found in either LOTTO or SAS models
+            return JsonResponse({
+                'success': False,
+                'error': 'Product not found in LOTTO or SAS stores',
+                'error_code': 'PRODUCT_NOT_FOUND'
+            }, status=404)
         
         # Parse request data
         try:
@@ -2301,18 +2375,12 @@ def get_variation_details(request, product_id, store_type=None):
                 pass
         
         if not product:
-            # Fallback to generic Product
-            try:
-                product = Product.objects.get(woo_product_id=product_id)
-                # Import the ProductVariation model for generic products
-                from .models_lotto import LottoProductVariation as ProductVariation
-                variation_model = ProductVariation
-            except Product.DoesNotExist:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Product not found',
-                    'error_code': 'PRODUCT_NOT_FOUND'
-                }, status=404)
+            # No product found in either LOTTO or SAS models
+            return JsonResponse({
+                'success': False,
+                'error': 'Product not found in LOTTO or SAS stores',
+                'error_code': 'PRODUCT_NOT_FOUND'
+            }, status=404)
         
         # Parse request data
         try:
@@ -2387,19 +2455,16 @@ def get_available_options(request, product_id, attribute_type, store_type=None):
     Query params: Current selection as GET parameters
     """
     try:
-        # Try to get LOTTO product first, then generic Product
+        # Try to get LOTTO product
         product = None
         try:
             product = LottoProduct.objects.get(id=product_id)
         except LottoProduct.DoesNotExist:
-            try:
-                product = Product.objects.get(woo_product_id=product_id)
-            except Product.DoesNotExist:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Product not found',
-                    'error_code': 'PRODUCT_NOT_FOUND'
-                }, status=404)
+            return JsonResponse({
+                'success': False,
+                'error': 'Product not found in LOTTO store',
+                'error_code': 'PRODUCT_NOT_FOUND'
+            }, status=404)
         
         # Validate attribute type
         valid_types = ['size', 'color', 'material', 'style', 'gender', 'age_group']
@@ -2487,14 +2552,12 @@ def check_stock_api(request):
                 pass
         
         if not product:
-            try:
-                product = Product.objects.get(woo_product_id=product_id)
-            except Product.DoesNotExist:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Product not found',
-                    'error_code': 'PRODUCT_NOT_FOUND'
-                }, status=404)
+            # No product found in either LOTTO or SAS models
+            return JsonResponse({
+                'success': False,
+                'error': 'Product not found in LOTTO or SAS stores',
+                'error_code': 'PRODUCT_NOT_FOUND'
+            }, status=404)
         
         # Check stock for variation combination
         is_available = True
@@ -3051,14 +3114,12 @@ def product_color_size_stock_api(request):
         
         # Fallback to generic Product model
         if not product:
-            try:
-                product = Product.objects.get(woo_product_id=product_id)
-            except Product.DoesNotExist:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Product not found',
-                    'error_code': 'PRODUCT_NOT_FOUND'
-                }, status=404)
+            # No product found in either LOTTO or SAS models
+            return JsonResponse({
+                'success': False,
+                'error': 'Product not found in LOTTO or SAS stores',
+                'error_code': 'PRODUCT_NOT_FOUND'
+            }, status=404)
         
         # Get stock information for the selected color using existing variation data
         color_stock_info = {

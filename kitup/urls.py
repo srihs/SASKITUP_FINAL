@@ -18,14 +18,21 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from .views import GlobalDashboardView
+from .views import GlobalDashboardView, frontend_landing_view, products_view, product_detail_view, cart_view, user_choice_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('auth/', include('authentication.urls')),
     path('clubs/', include('clubs.urls')),
     path('schools/', include('schools.urls')),
-    path('', GlobalDashboardView.as_view(), name='global-dashboard'),  # Global dashboard at root
+    path('dashboard/', GlobalDashboardView.as_view(), name='global-dashboard'),  # Global dashboard moved to /dashboard/
+
+    # Frontend pages
+    path('', frontend_landing_view, name='frontend-home'),  # CozaStore home page at root
+    path('choose/', user_choice_view, name='user-choice'),  # Original user choice page (School/Club vs Customer)
+    path('products/', products_view, name='frontend-products'),  # Products listing page
+    path('product-detail/', product_detail_view, name='frontend-product-detail'),  # Product detail page
+    path('cart/', cart_view, name='frontend-cart'),  # Shopping cart page
 
     # =================================================================
     # API Documentation (accessible at root level)
@@ -35,7 +42,7 @@ urlpatterns = [
     path('api/', include('clubs.api_urls')),
 ]
 
-# Serve media files during development
+# Serve media and static files during development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

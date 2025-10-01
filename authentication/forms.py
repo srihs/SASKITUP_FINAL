@@ -250,12 +250,11 @@ class ClubAssignmentForm(forms.ModelForm):
     class Meta:
         model = SalesRepClubAssignment
         fields = [
-            'sales_rep', 'club', 'territory_name',
+            'sales_rep', 'territory_name',
             'priority_level', 'notes'
         ]
         widgets = {
             'sales_rep': forms.Select(attrs={'class': 'form-control'}),
-            'club': forms.Select(attrs={'class': 'form-control'}),
             'territory_name': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Enter territory name'
@@ -267,6 +266,8 @@ class ClubAssignmentForm(forms.ModelForm):
                 'placeholder': 'Enter notes about this assignment'
             }),
         }
+
+    # TODO: Add custom club selection field for GenericForeignKey
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

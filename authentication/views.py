@@ -25,7 +25,8 @@ from .permissions import (
     AdminRequiredMixin, SalesRepRequiredMixin, CustomerRequiredMixin,
     can_user_create_users, can_customer_access_data
 )
-from clubs.models import Club
+# TODO: Update to use LottoClub and SASClub instead of unified Club model
+# from clubs.models import Club
 from schools.models import School, WholesaleSchool
 
 
@@ -967,30 +968,32 @@ class BulkAssignmentView(AdminRequiredMixin, TemplateView):
         # Get business entities data
         customers_data = []
 
-        # Add Retail Clubs
-        retail_clubs = Club.objects.filter(is_active=True).order_by('name')
-        for club in retail_clubs:
-            # Check if club is assigned
-            current_assignment = SalesRepClubAssignment.objects.filter(
-                club=club,
-                is_active=True
-            ).select_related('sales_rep').first()
-
-            customers_data.append({
-                'id': club.id,
-                'name': club.name,
-                'type': 'club',
-                'type_display': 'Retail Club',
-                'customer_id': getattr(club, 'customer_id', None),
-                'address': club.address or 'No address',
-                'region': 'Not specified',
-                'contact_person': club.contact_person or 'Not specified',
-                'phone': 'Not specified',
-                'email': club.email or 'Not specified',
-                'is_assigned': current_assignment is not None,
-                'current_assignment': current_assignment.sales_rep.get_full_name() if current_assignment else None,
-                'assignment_status': 'Assigned' if current_assignment else 'Unassigned'
-            })
+        # TODO: Update to use LottoClub and SASClub from clubs app
+        # Add Retail Clubs (DISABLED - unified Club model removed)
+        # retail_clubs = Club.objects.filter(is_active=True).order_by('name')
+        # for club in retail_clubs:
+        #     # Check if club is assigned
+        #     current_assignment = SalesRepClubAssignment.objects.filter(
+        #         club=club,
+        #         is_active=True
+        #     ).select_related('sales_rep').first()
+        #
+        #     customers_data.append({
+        #         'id': club.id,
+        #         'name': club.name,
+        #         'type': 'club',
+        #         'type_display': 'Retail Club',
+        #         'customer_id': getattr(club, 'customer_id', None),
+        #         'address': club.address or 'No address',
+        #         'region': 'Not specified',
+        #         'contact_person': club.contact_person or 'Not specified',
+        #         'phone': 'Not specified',
+        #         'email': club.email or 'Not specified',
+        #         'is_assigned': current_assignment is not None,
+        #         'current_assignment': current_assignment.sales_rep.get_full_name() if current_assignment else None,
+        #         'assignment_status': 'Assigned' if current_assignment else 'Unassigned'
+        #     })
+        retail_clubs = []  # Empty list for now
 
         # Add Wholesale Schools
         from schools.models import WholesaleSchool
@@ -1147,10 +1150,12 @@ class ProcessBulkAssignmentView(AdminRequiredMixin, View):
                     wholesale_school = None
                     retail_school = None
 
-                    # Try clubs first
-                    try:
-                        club = Club.objects.get(id=entity_id, is_active=True)
-                    except Club.DoesNotExist:
+                    # TODO: Update to use LottoClub and SASClub from clubs app
+                    # Try clubs first (DISABLED - unified Club model removed)
+                    # try:
+                    #     club = Club.objects.get(id=entity_id, is_active=True)
+                    # except Club.DoesNotExist:
+                    if True:  # Always skip club lookup for now
                         # Try wholesale schools
                         try:
                             from schools.models import WholesaleSchool
@@ -1166,8 +1171,9 @@ class ProcessBulkAssignmentView(AdminRequiredMixin, View):
                             except School.DoesNotExist:
                                 continue  # Skip this entity if not found
 
+                    # TODO: Update to use LottoClub and SASClub from clubs app
                     # Create appropriate assignment
-                    if club:
+                    if club and False:  # Disabled - Club model removed
                         # Create club assignment
                         assignment, created = SalesRepClubAssignment.objects.get_or_create(
                             sales_rep=sales_rep,
@@ -1359,27 +1365,30 @@ def assignment_ajax_handler(request):
                         continue
 
             elif entity_type == 'retail':
-                for entity_id in entity_ids:
-                    try:
-                        club = Club.objects.get(id=entity_id)
-                        # Check if assignment already exists
-                        existing = SalesRepClubAssignment.objects.filter(
-                            sales_rep=sales_rep,
-                            club=club,
-                            is_active=True
-                        ).exists()
-
-                        if not existing:
-                            SalesRepClubAssignment.objects.create(
-                                sales_rep=sales_rep,
-                                club=club,
-                                assigned_by=request.user,
-                                assigned_date=timezone.now(),
-                                is_active=True
-                            )
-                            created_count += 1
-                    except Club.DoesNotExist:
-                        continue
+                # TODO: Update to use LottoClub and SASClub from clubs app
+                # Disabled - unified Club model removed
+                # for entity_id in entity_ids:
+                #     try:
+                #         club = Club.objects.get(id=entity_id)
+                #         # Check if assignment already exists
+                #         existing = SalesRepClubAssignment.objects.filter(
+                #             sales_rep=sales_rep,
+                #             club=club,
+                #             is_active=True
+                #         ).exists()
+                #
+                #         if not existing:
+                #             SalesRepClubAssignment.objects.create(
+                #                 sales_rep=sales_rep,
+                #                 club=club,
+                #                 assigned_by=request.user,
+                #                 assigned_date=timezone.now(),
+                #                 is_active=True
+                #             )
+                #             created_count += 1
+                #     except Club.DoesNotExist:
+                #         continue
+                pass  # Skip retail club assignments for now
 
             # Log the bulk assignment action
             AuditLog.log_action(

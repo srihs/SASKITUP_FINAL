@@ -12,7 +12,7 @@
 
             <div class="page-title-right">
                 <ol class="breadcrumb m-0">
-                    <li class="breadcrumb-item"><a href="{% url 'clubs:club-list' %}">Clubs</a></li>
+                    <li class="breadcrumb-item"><a href="{% if club.club_type == 'LOTTO' %}{% url 'clubs:lotto-clubs' %}{% else %}{% url 'clubs:sas-clubs' %}{% endif %}">Clubs</a></li>
                     <li class="breadcrumb-item active">{{ club.name }}</li>
                 </ol>
             </div>
@@ -61,7 +61,7 @@
                                     <i class="uil-sync me-1"></i> Sync Products
                                 </a>
                                 <div class="dropdown-divider"></div>
-                                <a class="dropdown-item" href="{% url 'clubs:club-list' %}">
+                                <a class="dropdown-item" href="{% if club.club_type == 'LOTTO' %}{% url 'clubs:lotto-clubs' %}{% else %}{% url 'clubs:sas-clubs' %}{% endif %}">
                                     <i class="uil-arrow-left me-1"></i> Back to Clubs
                                 </a>
                             </div>
@@ -181,7 +181,7 @@
                                 </div>
                                 <div class="text-center">
                                     <h5 class="font-size-16 mb-2">
-                                        <a href="{% url 'clubs:category-detail' category.slug %}" class="text-dark category-title">{{ category.name }}</a>
+                                        <span class="text-dark category-title">{{ category.name }}</span>
                                     </h5>
                                     <p class="text-muted font-size-14 mb-3">
                                         <i class="uil-shopping-bag me-1"></i>{{ category.product_count }} product{{ category.product_count|pluralize }}
@@ -192,9 +192,15 @@
                                 </div>
                             </div>
                             <div class="card-footer bg-transparent border-top text-center">
-                                <a href="{% url 'clubs:category-detail' category.slug %}" class="btn {% if club.club_type == 'LOTTO' %}btn-soft-lotto{% else %}btn-soft-primary{% endif %} btn-sm px-4">
+                                {% if club.club_type == 'LOTTO' %}
+                                <a href="{% url 'clubs:lotto-category-detail' category.slug %}" class="btn btn-soft-lotto btn-sm px-4">
                                     <i class="uil-eye me-1"></i> View Products
                                 </a>
+                                {% else %}
+                                <button type="button" class="btn btn-soft-primary btn-sm px-4" disabled>
+                                    <i class="uil-eye me-1"></i> View Products (Coming Soon)
+                                </button>
+                                {% endif %}
                             </div>
                         </div>
                     </div>

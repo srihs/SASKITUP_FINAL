@@ -141,10 +141,12 @@ class RoleBasedAccessMiddleware:
 
         # Public paths that don't require authentication
         self.public_paths = [
+            '/',  # Frontend landing page
             '/auth/login/',
             '/auth/logout/',
             '/static/',
             '/media/',
+            '/frontend/',  # Frontend static files
         ]
 
     def __call__(self, request):

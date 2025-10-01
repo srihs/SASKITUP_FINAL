@@ -1,81 +1,111 @@
-# Implementation Notes & Documentation
+# Schools App
 
-This directory contains all implementation notes, documentation files, test scripts, and utility files for the SAS KITUP project.
+Django app for managing New Zealand school data from the government API.
 
-## Directory Structure
+## Features
 
-### 📋 **Documentation Files**
-- **Authentication System**
-  - `AUTHENTICATION_SYSTEM_SUMMARY.md` - Authentication system overview
-  - `LOGIN_PAGE_UPDATE_COMPLETE.md` - Login page implementation notes
-  - `USER_MANAGEMENT_TESTING_REPORT.md` - User management testing results
-  - `USER_MANAGEMENT_UI_IMPLEMENTATION.md` - User management UI implementation
+- **School Database**: Comprehensive list of NZ schools with search and filtering
+- **School Detail Pages**: Detailed information for each school including enrollment data
+- **API Integration**: Syncs with NZ Government Schools API
+- **Admin Interface**: Django admin integration for data management
+- **Responsive UI**: Clean, responsive interface consistent with existing design
 
-- **Price Update Features**
-  - `PRICE_UPDATE_FEATURE_PLAN.md` - Comprehensive price update feature planning
-  - `WHOLESALE_PRICE_UPDATE_UI_IMPLEMENTATION.md` - Wholesale price update UI
-  - `WHOLESALE_PRICING_UPDATE.md` - Wholesale pricing system notes
+## Models
 
-- **LOTTO Club Integration**
-  - `# LOTTO Club Sync Logic Documentation.md` - LOTTO sync logic
-  - `ASYNC_SYNC_IMPLEMENTATION.md` - Async sync implementation
-  - `CLUBS_README.md` - Clubs system documentation
-  - `LOTTO_MODELS_IMPLEMENTATION_SUMMARY.md` - LOTTO models implementation
-  - `LOTTO_SYNC_TEST_REPORT.md` - LOTTO sync testing
-  - `SAS_COMPLETE_SYNC_LOGIC_IMPLEMENTATION.md` - Complete sync logic
+### School
+Main model for storing school information with fields:
+- Basic info: School ID, name, type, authority, status
+- Contact: Phone, fax, email, contact person, website
+- Location: Physical and postal addresses, coordinates
+- Administrative: Regional council, territorial authority, education region
+- Enrollment: Student counts by ethnicity, total enrollment
+- Characteristics: Co-ed status, language of instruction, boarding facilities
 
-- **Product & Variations**
-  - `PRODUCT_VARIATIONS_IMPLEMENTATION.md` - Product variations system
-  - `COLOR_VARIATION_ENHANCEMENT_SUMMARY.md` - Color variation enhancements
-  - `VARIATION_IMAGE_SYSTEM.md` - Variation image handling
-  - `SAS_CATEGORY_VARIATIONS_IMPLEMENTATION.md` - SAS category variations
+## API Integration
 
-- **Technical Implementation**
-  - `ENHANCED_IMPLEMENTATION_SUMMARY.md` - Enhanced features summary
-  - `IMPLEMENTATION_SUMMARY.md` - General implementation notes
-  - `SAS_IMPLEMENTATION_SUMMARY.md` - SAS specific implementation
-  - `SAS_MODELS_IMPLEMENTATION_SUMMARY.md` - SAS models implementation
-  - `MULTI_CATEGORY_IMPLEMENTATION_PLAN.md` - Multi-category implementation
+### Data Source
+- **API URL**: https://catalogue.data.govt.nz/api/3/action/datastore_search
+- **Resource ID**: 4b292323-9fcc-41f8-814b-3c7b19cf14b3
+- **Total Schools**: ~2,574 schools
 
-### 🔧 **Utility Scripts**
-- `create_audit_tables.py` - Database audit table creation
-- `create_authentication_tables.py` - Authentication table setup
-- `create_mysql_auth_tables.py` - MySQL authentication setup
-- `fix_database_tables.py` - Database table fixes
-- `fix_mysql_migrations.py` - MySQL migration fixes
-- `setup_demo_users.py` - Demo user setup
-- `setup_mysql_demo_users.py` - MySQL demo user setup
+### Management Commands
 
-### 🧪 **Test Files & Reports**
-- `test_*.py` - Various test scripts
-- `test_*.html` - HTML test files
-- `*_TEST_REPORT.md` - Test result reports
-- `test_results.json` - JSON test results
-- `sas_api_analysis_results.json` - API analysis results
+```bash
+# Test API connection
+python manage.py sync_schools --dry-run
 
-### 📊 **Analysis & Reports**
-- `SAS_API_ANALYSIS_REPORT.md` - SAS API analysis
-- `TUS_COMPREHENSIVE_TEST_REPORT.md` - TUS testing comprehensive report
-- `TUS_TESTING_SUMMARY.md` - TUS testing summary
-- `TUS_WHOLESALE_IMPLEMENTATION_SUMMARY.md` - TUS wholesale implementation
+# Sync all schools
+python manage.py sync_schools
 
-### 🔒 **Security & Performance**
-- `CLOUDFLARE_BYPASS_SUMMARY.md` - Cloudflare bypass implementation
-- `CLEAR_LOCKS_BUTTON_TEST_GUIDE.md` - Clear locks functionality
-- `ENHANCED_STOCK_DISPLAY_GUIDE.md` - Stock display enhancements
-- `RESPONSIVE_DESIGN_REPORT.md` - Responsive design implementation
+# Sync limited number
+python manage.py sync_schools --limit 100
+```
 
-### 📝 **Log Files**
-- `django.log` - Django application logs
-- `server.log` - Server logs
+## URL Structure
 
-## Usage Notes
+- `/schools/` - School database list
+- `/schools/school/<school_id>/` - School detail page
+- `/schools/search/` - AJAX search endpoint
+- `/schools/retail/` - Retail schools (placeholder)
+- `/schools/wholesale/` - Wholesale schools (placeholder)
 
-- All files in this directory are for reference and implementation tracking
-- Test scripts can be run for debugging but are not part of the main application
-- Utility scripts should be used carefully and only when needed
-- Documentation files provide historical context for implementation decisions
+## Navigation
 
-## Important
+Added to main navigation under "Schools" section:
+- School Database
+- Retail Schools
+- Wholesale Schools
 
-These files have been moved from the root directory to keep the main project structure clean and organized. They contain valuable implementation history and should be preserved for future reference.
+## Usage Examples
+
+### Search and Filter Schools
+```python
+from schools.services import SchoolAPIService
+
+# Search schools
+schools = SchoolAPIService.search_schools(
+    query="Auckland",
+    filters={'org_type': 'Full Primary'}
+)
+
+# Get filter options
+options = SchoolAPIService.get_filter_options()
+```
+
+### Sync Data
+```python
+from schools.services import SchoolAPIService
+
+# Sync schools from API
+stats = SchoolAPIService.sync_schools(limit=50)
+print(f"Created: {stats['created']}, Updated: {stats['updated']}")
+```
+
+## File Structure
+
+```
+schools/
+├── models.py              # School model
+├── views.py               # List, detail, and placeholder views
+├── services.py            # API integration service
+├── urls.py                # URL configuration
+├── admin.py               # Django admin configuration
+├── management/
+│   └── commands/
+│       └── sync_schools.py # Management command
+└── templates/schools/
+    ├── school_list.html    # Main database page
+    ├── school_detail.html  # Individual school page
+    ├── retail_schools.html # Placeholder page
+    └── wholesale_schools.html # Placeholder page
+```
+
+## Implementation Notes
+
+- Model fields mapped to API response structure
+- Timezone-aware datetime handling
+- Error handling for API failures
+- Pagination for large datasets
+- Search across multiple fields
+- Database indexes for performance
+- Admin interface with organized fieldsets

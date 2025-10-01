@@ -325,7 +325,7 @@
                                 {% endif %}
                                 {% if user.is_customer %}
                                 <a class="dropdown-item" href="{% url 'authentication:customer-profile' %}"><i class="uil uil-cog font-size-18 align-middle me-1 text-muted"></i> <span class="align-middle">Profile Settings</span></a>
-                                {% else %}
+                                {% elif user.id %}
                                 <a class="dropdown-item" href="{% url 'authentication:user-detail' user.id %}"><i class="uil uil-cog font-size-18 align-middle me-1 text-muted"></i> <span class="align-middle">Profile Settings</span></a>
                                 {% endif %}
                                 {% if user.is_staff %}
@@ -402,7 +402,6 @@
                                     <span>Clubs</span>
                                 </a>
                                 <ul class="sub-menu" aria-expanded="false">
-                                    <li><a href="{% url 'clubs:dashboard' %}">Club Dashboard</a></li>
                                     <li><a href="{% url 'clubs:lotto-clubs' %}">LOTTO Clubs</a></li>
                                     <li><a href="{% url 'clubs:sas-clubs' %}">SAS Clubs</a></li>
                                     {% if user.is_authenticated and user.is_staff %}
@@ -455,7 +454,7 @@
                                     <li><a href="{% url 'authentication:settings-dashboard' %}">Settings Dashboard</a></li>
                                     <li><a href="{% url 'clubs:sync-management' %}">Sync Management</a></li>
                                     <li><a href="{% url 'schools:wholesale-price-update-settings' %}">Price Update</a></li>
-                                    {% else %}
+                                    {% elif user.is_authenticated and user.id %}
                                     <li><a href="{% url 'authentication:user-detail' user.id %}">My Profile</a></li>
                                     {% endif %}
                                 </ul>

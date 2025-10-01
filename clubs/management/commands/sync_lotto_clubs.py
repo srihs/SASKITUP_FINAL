@@ -7,7 +7,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils.text import slugify
 from django.utils import timezone
-from clubs.models import Club, ClubCategory, Product, ProductVariation, ProductCategoryAssignment
+from clubs.models_lotto import LottoClub, LottoClubCategory, LottoProduct, LottoProductVariation
 from clubs.services.woocommerce_service import WooCommerceService
 
 
@@ -197,7 +197,7 @@ class Command(BaseCommand):
             return {'result': 'created', 'club': None}
         
         # Check if club already exists
-        existing_club = Club.objects.filter(woo_category_id=woo_category_id).first()
+        existing_club = LottoClub.objects.filter(woo_category_id=woo_category_id).first()
         
         # Prepare comprehensive club data
         new_club_data = {
@@ -212,11 +212,11 @@ class Command(BaseCommand):
         # Extract additional data if available
         if category_data.get('description'):
             new_club_data['contact_person'] = category_data['description'][:100]  # Limit length
-        
-        # Handle logo image URL
+
+        # Extract image URL
         image_url = category_data.get('image', {}).get('src') if category_data.get('image') else None
         if image_url:
-            new_club_data['logo'] = self.woo_service.get_image_url(image_url)
+            new_club_data['logo'] = image_url
         
         if existing_club:
             if not self.force_update:
@@ -249,17 +249,8 @@ class Command(BaseCommand):
             if self.check_only:
                 self.stdout.write(f'  [CHECK] Would create club: {club_name}')
                 return {'result': 'would_create', 'club': None}
-            
-            # Handle logo URL for new clubs
-            if image_url:
-                validated_url = self.woo_service.get_image_url(image_url)
-                if validated_url:
-                    new_club_data['logo'] = validated_url
-                    self.stdout.write(f'    ✓ Set logo URL: {validated_url}')
-                else:
-                    self.stdout.write(f'    ⚠ Invalid logo URL for {club_name}')
-            
-            club = Club.objects.create(**new_club_data)
+
+            club = LottoClub.objects.create(**new_club_data)
             self.stdout.write(f'  ✓ Created club: {club.name}')
             return {'result': 'created', 'club': club}
     
@@ -318,8 +309,11 @@ class Command(BaseCommand):
         category_name = category_data['name']
         
         # Check if category already exists
-        existing_category = ClubCategory.objects.filter(woo_category_id=woo_category_id).first()
+        existing_category = LottoClubCategory.objects.filter(woo_category_id=woo_category_id).first()
         
+        # Extract image URL
+        image_url = category_data.get('image', {}).get('src') if category_data.get('image') else None
+
         # Prepare comprehensive category data
         new_category_data = {
             'club': club,
@@ -329,11 +323,9 @@ class Command(BaseCommand):
             'description': category_data.get('description', ''),
             'product_count': category_data.get('count', 0),
         }
-        
-        # Handle category image URL
-        image_url = category_data.get('image', {}).get('src') if category_data.get('image') else None
+
         if image_url:
-            new_category_data['image'] = self.woo_service.get_image_url(image_url)
+            new_category_data['image'] = image_url
         
         if existing_category:
             if not self.force_update:
@@ -366,17 +358,8 @@ class Command(BaseCommand):
             if self.check_only:
                 self.stdout.write(f'    [CHECK] Would create category: {category_name}')
                 return {'result': 'would_create', 'category': None}
-            
-            # Handle category image URL for new categories
-            if image_url:
-                validated_url = self.woo_service.get_image_url(image_url)
-                if validated_url:
-                    new_category_data['image'] = validated_url
-                    self.stdout.write(f'      ✓ Set category image URL: {validated_url}')
-                else:
-                    self.stdout.write(f'      ⚠ Invalid category image URL for {category_name}')
-            
-            category = ClubCategory.objects.create(**new_category_data)
+
+            category = LottoClubCategory.objects.create(**new_category_data)
             self.stdout.write(f'    ✓ Created category: {category.name}')
             return {'result': 'created', 'category': category}
     
@@ -440,16 +423,17 @@ class Command(BaseCommand):
             return {'result': 'created', 'product': None}
         
         # Check if product already exists (by WooCommerce ID)
-        existing_product = Product.objects.filter(woo_product_id=woo_product_id).first()
-        
-        # Parse comprehensive product data (without category field)
-        new_product_data = self._parse_comprehensive_product_data(product_data)
-        
-        # Handle primary product image URL
+        existing_product = LottoProduct.objects.filter(woo_product_id=woo_product_id).first()
+
+        # Extract image URL
         images = product_data.get('images', [])
         image_url = images[0]['src'] if images else None
+
+        # Parse comprehensive product data (without category field)
+        new_product_data = self._parse_comprehensive_product_data(product_data)
+
         if image_url:
-            new_product_data['image'] = self.woo_service.get_image_url(image_url)
+            new_product_data['image'] = image_url
         
         if existing_product:
             if not self.force_update:
@@ -459,8 +443,6 @@ class Command(BaseCommand):
                 if not changes:
                     if self.verbose:
                         self.stdout.write(f'        Product unchanged: {existing_product.name}')
-                    # Still need to ensure category assignment exists
-                    self._ensure_product_category_assignment(existing_product, category, product_data)
                     return {'result': 'skipped', 'product': existing_product}
                 
                 if self.verbose or self.check_only:
@@ -479,9 +461,6 @@ class Command(BaseCommand):
             # Update existing product
             updated = self._update_product_if_changed(existing_product, new_product_data, image_url)
             
-            # Ensure category assignment exists
-            self._ensure_product_category_assignment(existing_product, category, product_data)
-            
             if updated or self.force_update:
                 self.stdout.write(f'        ✓ Updated product: {existing_product.name}')
                 return {'result': 'updated', 'product': existing_product}
@@ -494,23 +473,9 @@ class Command(BaseCommand):
             if self.check_only:
                 self.stdout.write(f'        [CHECK] Would create product: {product_name}')
                 return {'result': 'would_create', 'product': None}
-            
-            # Handle product image URL for new products  
-            if image_url:
-                validated_url = self.woo_service.get_image_url(image_url)
-                if validated_url:
-                    new_product_data['image'] = validated_url
-                    if self.verbose:
-                        self.stdout.write(f'          ✓ Set product image URL: {validated_url}')
-                else:
-                    if self.verbose:
-                        self.stdout.write(f'          ⚠ Invalid product image URL for {product_name}')
-            
-            # Create product without categories first
-            product = Product.objects.create(**new_product_data)
-            
-            # Create category assignment
-            self._create_product_category_assignment(product, category, product_data, is_primary=True)
+
+            # Create product with category
+            product = LottoProduct.objects.create(category=category, **new_product_data)
             
             self.stdout.write(f'        ✓ Created product: {product.name}')
             return {'result': 'created', 'product': product}
@@ -759,41 +724,6 @@ class Command(BaseCommand):
         
         return base_data
     
-    def _ensure_product_category_assignment(self, product, category, product_data):
-        """Ensure product is assigned to category with proper metadata"""
-        # Check if assignment already exists
-        assignment, created = ProductCategoryAssignment.objects.get_or_create(
-            product=product,
-            category=category,
-            defaults={
-                'woo_category_id': category.woo_category_id,
-                'is_primary': not product.categories.exists(),  # First category becomes primary
-                'sort_order': 0,
-            }
-        )
-        
-        if created and self.verbose:
-            primary_text = " (Primary)" if assignment.is_primary else ""
-            self.stdout.write(f'          ✓ Assigned to category: {category.name}{primary_text}')
-        
-        return assignment
-    
-    def _create_product_category_assignment(self, product, category, product_data, is_primary=False):
-        """Create a new product-category assignment"""
-        assignment = ProductCategoryAssignment.objects.create(
-            product=product,
-            category=category,
-            woo_category_id=category.woo_category_id,
-            is_primary=is_primary,
-            sort_order=0,
-        )
-        
-        if self.verbose:
-            primary_text = " (Primary)" if is_primary else ""
-            self.stdout.write(f'          ✓ Assigned to category: {category.name}{primary_text}')
-        
-        return assignment
-    
     def _process_individual_variation(self, product, variation_data, product_data, extracted_data):
         """Process individual product variation with intelligent change detection and duplicate prevention"""
         woo_variation_id = extracted_data['woo_variation_id']
@@ -801,18 +731,32 @@ class Command(BaseCommand):
         variation_value = extracted_data['variation_value']
         
         # Check if variation already exists by WooCommerce ID first
-        existing_variation = ProductVariation.objects.filter(
+        existing_variation = LottoProductVariation.objects.filter(
             woo_variation_id=woo_variation_id
         ).first()
-        
+
         # If not found by WooCommerce ID, check by unique constraint to handle duplicates
         if not existing_variation:
-            existing_variation = ProductVariation.objects.filter(
+            existing_variation = LottoProductVariation.objects.filter(
                 product=product,
                 variation_type=variation_type,
                 variation_value=variation_value
             ).first()
         
+        # Get intelligent image data
+        image_data = extracted_data.get('image_data', {})
+        image_url = None
+
+        # Use intelligent image selection from WooCommerce service
+        if image_data.get('should_use_variation_image') and image_data.get('variation_image_url'):
+            image_url = image_data['variation_image_url']
+        elif image_data.get('fallback_image_url'):
+            image_url = image_data['fallback_image_url']
+
+        if self.verbose and image_data.get('image_strategy'):
+            strategy = image_data['image_strategy']
+            self.stdout.write(f'            Image strategy for {extracted_data["variation_value"]}: {strategy}')
+
         # Prepare comprehensive variation data
         new_variation_data = {
             'product': product,
@@ -827,20 +771,9 @@ class Command(BaseCommand):
             'weight': extracted_data['weight'],
             'dimensions': extracted_data['dimensions'],
         }
-        
-        # Get intelligent image data
-        image_data = extracted_data.get('image_data', {})
-        image_url = None
-        
-        # Use intelligent image selection from WooCommerce service
-        if image_data.get('should_use_variation_image') and image_data.get('variation_image_url'):
-            image_url = image_data['variation_image_url']
-        elif image_data.get('fallback_image_url'):
-            image_url = image_data['fallback_image_url']
-        
-        if self.verbose and image_data.get('image_strategy'):
-            strategy = image_data['image_strategy']
-            self.stdout.write(f'            Image strategy for {extracted_data["variation_value"]}: {strategy}')
+
+        if image_url:
+            new_variation_data['image'] = image_url
         
         if existing_variation:
             if not self.force_update:
@@ -875,20 +808,10 @@ class Command(BaseCommand):
             if self.check_only:
                 self.stdout.write(f'            [CHECK] Would create variation: {extracted_data["variation_value"]}')
                 return {'result': 'would_create', 'variation': None}
-            
-            if image_url:
-                validated_url = self.woo_service.get_image_url(image_url)
-                if validated_url:
-                    new_variation_data['image'] = validated_url
-                    if self.verbose:
-                        self.stdout.write(f'            ✓ Set variation image URL: {validated_url}')
-                else:
-                    if self.verbose:
-                        self.stdout.write(f'            ⚠ Invalid variation image URL for {extracted_data["variation_value"]}')
-            
+
             # Use get_or_create to avoid duplicate entries based on unique constraint
             try:
-                variation, created = ProductVariation.objects.get_or_create(
+                variation, created = LottoProductVariation.objects.get_or_create(
                     product=product,
                     variation_type=variation_type,
                     variation_value=variation_value,
@@ -905,7 +828,7 @@ class Command(BaseCommand):
                             self.stdout.write(f'            ⚠ Found existing variation with different WooCommerce ID: {variation.woo_variation_id} vs {woo_variation_id}')
                         
                         # Check if the new WooCommerce ID is already taken by another variation
-                        conflicting_variation = ProductVariation.objects.filter(
+                        conflicting_variation = LottoProductVariation.objects.filter(
                             woo_variation_id=woo_variation_id
                         ).exclude(id=variation.id).first()
                         
@@ -1108,113 +1031,61 @@ class Command(BaseCommand):
     def _update_club_if_changed(self, existing_club, new_data, new_image_url):
         """Update club only if there are actual changes"""
         updated = False
-        
-        # Update basic fields
+
+        # Update basic fields including logo URL
         for field, value in new_data.items():
-            if field != 'logo' and hasattr(existing_club, field) and getattr(existing_club, field) != value:
+            if hasattr(existing_club, field) and getattr(existing_club, field) != value:
                 setattr(existing_club, field, value)
                 updated = True
-        
-        # Handle logo URL update
-        current_logo_url = existing_club.logo if existing_club.logo else None
-        if new_image_url and current_logo_url != new_image_url:
-            validated_url = self.woo_service.get_image_url(new_image_url)
-            if validated_url:
-                existing_club.logo = validated_url
-                updated = True
-                if self.verbose:
-                    self.stdout.write(f'    ✓ Updated logo URL: {validated_url}')
-            else:
-                if self.verbose:
-                    self.stdout.write(f'    ⚠ Invalid logo URL for {existing_club.name}')
-        
+
         if updated:
             existing_club.save()
-        
+
         return updated
     
     def _update_category_if_changed(self, existing_category, new_data, new_image_url):
         """Update category only if there are actual changes"""
         updated = False
-        
-        # Update basic fields
+
+        # Update basic fields including image URL
         for field, value in new_data.items():
-            if field != 'image' and hasattr(existing_category, field) and getattr(existing_category, field) != value:
+            if hasattr(existing_category, field) and getattr(existing_category, field) != value:
                 setattr(existing_category, field, value)
                 updated = True
-        
-        # Handle category image URL update
-        current_image_url = existing_category.image if existing_category.image else None
-        if new_image_url and current_image_url != new_image_url:
-            validated_url = self.woo_service.get_image_url(new_image_url)
-            if validated_url:
-                existing_category.image = validated_url
-                updated = True
-                if self.verbose:
-                    self.stdout.write(f'      ✓ Updated category image URL: {validated_url}')
-            else:
-                if self.verbose:
-                    self.stdout.write(f'      ⚠ Invalid category image URL for {existing_category.name}')
-        
+
         if updated:
             existing_category.save()
-        
+
         return updated
     
     def _update_product_if_changed(self, existing_product, new_data, new_image_url):
         """Update product only if there are actual changes"""
         updated = False
-        
-        # Update basic fields
+
+        # Update basic fields including image URL
         for field, value in new_data.items():
-            if field != 'image' and hasattr(existing_product, field) and getattr(existing_product, field) != value:
+            if hasattr(existing_product, field) and getattr(existing_product, field) != value:
                 setattr(existing_product, field, value)
                 updated = True
-        
-        # Handle product image URL update
-        current_image_url = existing_product.image if existing_product.image else None
-        if new_image_url and current_image_url != new_image_url:
-            validated_url = self.woo_service.get_image_url(new_image_url)
-            if validated_url:
-                existing_product.image = validated_url
-                updated = True
-                if self.verbose:
-                    self.stdout.write(f'          ✓ Updated product image URL: {validated_url}')
-            else:
-                if self.verbose:
-                    self.stdout.write(f'          ⚠ Invalid product image URL for {existing_product.name}')
-        
+
         if updated:
             existing_product.save()
-        
+
         return updated
     
     def _update_variation_if_changed(self, existing_variation, new_data, new_image_url):
         """Update variation only if there are actual changes"""
         updated = False
-        
-        # Update basic fields
+
+        # Update basic fields including image URL
         for field, value in new_data.items():
-            if field != 'image' and hasattr(existing_variation, field) and getattr(existing_variation, field) != value:
+            if hasattr(existing_variation, field) and getattr(existing_variation, field) != value:
                 setattr(existing_variation, field, value)
                 updated = True
-        
-        # Handle variation image URL update
-        current_image_url = existing_variation.image if existing_variation.image else None
-        if new_image_url and current_image_url != new_image_url:
-            validated_url = self.woo_service.get_image_url(new_image_url)
-            if validated_url:
-                existing_variation.image = validated_url
-                updated = True
-                if self.verbose:
-                    self.stdout.write(f'            ✓ Updated variation image URL: {validated_url}')
-            else:
-                if self.verbose:
-                    self.stdout.write(f'            ⚠ Invalid variation image URL for {existing_variation.variation_value}')
-        
+
         if updated:
             existing_variation.save()
-        
+
         return updated
     
     def _update_stats(self, main_stats, operation_stats, operation_type):

@@ -188,7 +188,7 @@
                     </div>
                     <div class="flex-grow-1">
                         <h5 class="mb-1">
-                            <a href="{% url 'clubs:club-detail' club.slug %}" class="text-dark">{{ club.name }}</a>
+                            <span class="text-dark">{{ club.name }}</span>
                         </h5>
                         <div class="d-flex align-items-center gap-2">
                             <span class="badge badge-lotto font-size-11">LOTTO</span>
@@ -258,8 +258,8 @@
             </div>
             <div class="card-footer bg-transparent border-top">
                 <div class="d-flex gap-2">
-                    <a href="{% url 'clubs:club-detail' club.slug %}" class="btn btn-lotto btn-sm flex-grow-1">
-                        <i class="uil-eye me-1"></i> Explore Club
+                    <a href="{% url 'clubs:lotto-club-detail' club.slug %}" class="btn btn-lotto btn-sm flex-grow-1">
+                        <i class="uil-eye me-1"></i> View Details
                     </a>
                     <button type="button" class="btn btn-soft-lotto btn-sm" data-bs-toggle="tooltip" title="Add to Favorites">
                         <i class="uil-heart"></i>
@@ -283,8 +283,8 @@
                     <button type="button" class="btn btn-soft-lotto" onclick="clearFilters()">
                         <i class="uil-refresh me-1"></i> Clear Filters
                     </button>
-                    <a href="{% url 'clubs:club-list' %}" class="btn btn-lotto">
-                        <i class="uil-users-alt me-1"></i> View All Clubs
+                    <a href="{% url 'clubs:lotto-clubs' %}" class="btn btn-lotto">
+                        <i class="uil-users-alt me-1"></i> View All LOTTO Clubs
                     </a>
                 </div>
             </div>

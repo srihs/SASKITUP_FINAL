@@ -43,7 +43,7 @@ class LottoClub(models.Model):
     woo_category_id = models.PositiveIntegerField(unique=True, help_text="WooCommerce category ID")
     
     # Images
-    logo = models.ImageField(upload_to='lotto/clubs/images/', blank=True, null=True, help_text="Club logo image")
+    logo = models.URLField(max_length=500, blank=True, null=True, help_text="Club logo image URL")
     
     # Status
     is_active = models.BooleanField(default=True, help_text="Whether the club is active")
@@ -105,7 +105,7 @@ class LottoClubCategory(models.Model):
     product_count = models.PositiveIntegerField(default=0, help_text="Number of products in this category")
     
     # Images
-    image = models.ImageField(upload_to='lotto/categories/images/', blank=True, null=True, help_text="Category image")
+    image = models.URLField(max_length=1000, blank=True, null=True, help_text="Category image URL")
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -274,7 +274,7 @@ class LottoProduct(models.Model):
     attributes = models.JSONField(blank=True, null=True, help_text="Product attributes")
     
     # Local image
-    image = models.ImageField(upload_to='lotto/products/images/', blank=True, null=True, help_text="Primary product image")
+    image = models.URLField(max_length=1000, blank=True, null=True, help_text="Primary product image URL")
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -929,11 +929,11 @@ class LottoProductVariation(models.Model):
     dimensions = models.JSONField(blank=True, null=True, help_text="Variation dimensions")
     
     # Image
-    image = models.ImageField(
-        upload_to='lotto/variations/images/', 
-        blank=True, 
-        null=True, 
-        help_text="Variation-specific image"
+    image = models.URLField(
+        max_length=500,
+        blank=True,
+        null=True,
+        help_text="Variation-specific image URL"
     )
     
     # Timestamps

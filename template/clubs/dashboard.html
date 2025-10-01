@@ -157,9 +157,7 @@
                                         </div>
                                         <div class="flex-grow-1">
                                             <h5 class="font-size-14 mb-1">
-                                                <a href="{% url 'clubs:club-detail' club.slug %}" class="text-dark">
-                                                    {{ club.name }}
-                                                </a>
+                                                <span class="text-dark">{{ club.name }}</span>
                                             </h5>
                                             {% if club.contact_person %}
                                             <p class="text-muted font-size-12 mb-0">{{ club.contact_person }}</p>
@@ -183,15 +181,16 @@
                                 </td>
                                 <td>
                                     <div class="btn-group" role="group">
-                                        <a href="{% url 'clubs:club-detail' club.slug %}" 
-                                           class="btn btn-sm btn-soft-primary" 
-                                           data-bs-toggle="tooltip" 
-                                           title="View club details">
+                                        <button type="button"
+                                                class="btn btn-sm btn-soft-primary"
+                                                data-bs-toggle="tooltip"
+                                                title="View details (Coming soon)"
+                                                disabled>
                                             <i class="uil uil-eye"></i>
-                                        </a>
-                                        <button type="button" 
-                                                class="btn btn-sm btn-soft-secondary" 
-                                                data-bs-toggle="tooltip" 
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn-sm btn-soft-secondary"
+                                                data-bs-toggle="tooltip"
                                                 title="Edit club (Coming soon)">
                                             <i class="uil uil-edit-alt"></i>
                                         </button>

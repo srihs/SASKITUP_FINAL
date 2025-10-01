@@ -4,13 +4,15 @@ from . import views
 app_name = 'clubs'
 
 urlpatterns = [
-    # Dashboard and main views
-    path('', views.ClubListView.as_view(), name='club-list'),  # /clubs/ will show the club list
-    path('dashboard/', views.ClubDashboardView.as_view(), name='dashboard'),  # /clubs/dashboard/
-    
+    # Dashboard and main views (commented out - using separate LOTTO/SAS models now)
+    # path('', views.ClubListView.as_view(), name='club-list'),  # /clubs/ will show the club list
+    # path('dashboard/', views.ClubDashboardView.as_view(), name='dashboard'),  # /clubs/dashboard/
+
     # Club type specific views - LOTTO
     path('lotto/', views.LottoClubsView.as_view(), name='lotto-clubs'),
-    
+    path('lotto/club/<slug:slug>/', views.LottoClubDetailView.as_view(), name='lotto-club-detail'),
+    path('lotto/category/<slug:slug>/', views.LottoCategoryDetailView.as_view(), name='lotto-category-detail'),
+
     # SAS Management Section
     path('sas/', views.SASClubListView.as_view(), name='sas-clubs'),
     path('sas/dashboard/', views.SASDashboardView.as_view(), name='sas-dashboard'),
@@ -26,11 +28,11 @@ urlpatterns = [
     path('wholesale/categories/', views.WholesaleCategoryListView.as_view(), name='wholesale-category-list'),
     path('wholesale/category/<slug:slug>/', views.WholesaleCategoryDetailView.as_view(), name='wholesale-category-detail'),
     path('wholesale/product/<slug:slug>/', views.WholesaleProductDetailView.as_view(), name='wholesale-product-detail'),
-    
-    # Detail views
-    path('club/<slug:slug>/', views.ClubDetailView.as_view(), name='club-detail'),
-    path('category/<slug:slug>/', views.ClubCategoryDetailView.as_view(), name='category-detail'),
-    
+
+    # Detail views (commented out - using separate LOTTO/SAS models now)
+    # path('club/<slug:slug>/', views.ClubDetailView.as_view(), name='club-detail'),
+    # path('category/<slug:slug>/', views.ClubCategoryDetailView.as_view(), name='category-detail'),
+
     # Product detail views
     path('lotto/product/<slug:slug>/', views.LottoProductDetailView.as_view(), name='lotto-product-detail'),
     path('sas/product/<slug:slug>/', views.SASProductDetailView.as_view(), name='sas-product-detail'),

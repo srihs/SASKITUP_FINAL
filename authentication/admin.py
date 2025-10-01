@@ -158,20 +158,21 @@ class SalesRepSchoolAssignmentAdmin(admin.ModelAdmin):
 class SalesRepClubAssignmentAdmin(admin.ModelAdmin):
     """
     Admin for managing sales rep club assignments
+    TODO: Update to work properly with GenericForeignKey for club field
     """
     list_display = [
-        'sales_rep', 'club_name', 'club_type', 'is_active',
+        'sales_rep', 'club_name', 'is_active',
         'assigned_date', 'priority_level', 'territory_name'
     ]
 
     list_filter = [
-        'is_active', 'priority_level', 'club__club_type',
+        'is_active', 'priority_level',
         'assigned_date', 'territory_name'
     ]
 
     search_fields = [
         'sales_rep__username', 'sales_rep__first_name', 'sales_rep__last_name',
-        'club__name', 'territory_name'
+        'territory_name'
     ]
 
     date_hierarchy = 'assigned_date'
@@ -180,7 +181,7 @@ class SalesRepClubAssignmentAdmin(admin.ModelAdmin):
     fieldsets = [
         ('Assignment Details', {
             'fields': (
-                'sales_rep', 'club', 'is_active'
+                'sales_rep', 'club_content_type', 'club_object_id', 'is_active'
             )
         }),
         ('Territory Information', {
@@ -202,18 +203,15 @@ class SalesRepClubAssignmentAdmin(admin.ModelAdmin):
 
     def club_name(self, obj):
         """Display club name"""
-        return obj.club.name
+        if obj.club:
+            return getattr(obj.club, 'name', str(obj.club))
+        return '-'
     club_name.short_description = 'Club'
-
-    def club_type(self, obj):
-        """Display club type"""
-        return obj.club.club_type
-    club_type.short_description = 'Club Type'
 
     def get_queryset(self, request):
         """Optimize queryset"""
         return super().get_queryset(request).select_related(
-            'sales_rep', 'club', 'created_by'
+            'sales_rep', 'created_by', 'club_content_type'
         )
 
 

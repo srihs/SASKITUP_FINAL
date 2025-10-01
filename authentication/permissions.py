@@ -137,21 +137,27 @@ class ClubAccessMixin:
         """
         Get the club object for access checking
         Override this method in your view to specify how to get the club
+
+        TODO: Update to use GenericForeignKey or specific LottoClub/SASClub models
+        The unified Club model has been removed. This method needs to be updated
+        to handle LottoClub (from clubs.models_lotto) and SASClub (from clubs.models_sas)
+        or use a GenericForeignKey approach.
         """
+        # DISABLED - unified Club model removed
         # Try to get club from URL parameters
-        if 'club_id' in self.kwargs:
-            from clubs.models import Club
-            return get_object_or_404(Club, id=self.kwargs['club_id'])
-        elif 'slug' in self.kwargs:
-            from clubs.models import Club
-            return get_object_or_404(Club, slug=self.kwargs['slug'])
-        elif 'pk' in self.kwargs:
-            from clubs.models import Club
-            return get_object_or_404(Club, pk=self.kwargs['pk'])
-        elif hasattr(self, 'object') and self.object:
-            return self.object
-        else:
-            raise NotImplementedError("get_club_object must be implemented")
+        # if 'club_id' in self.kwargs:
+        #     from clubs.models import Club
+        #     return get_object_or_404(Club, id=self.kwargs['club_id'])
+        # elif 'slug' in self.kwargs:
+        #     from clubs.models import Club
+        #     return get_object_or_404(Club, slug=self.kwargs['slug'])
+        # elif 'pk' in self.kwargs:
+        #     from clubs.models import Club
+        #     return get_object_or_404(Club, pk=self.kwargs['pk'])
+        # elif hasattr(self, 'object') and self.object:
+        #     return self.object
+        # else:
+        raise NotImplementedError("get_club_object must be updated to use LottoClub/SASClub models")
 
 
 # Decorator functions for function-based views
@@ -224,38 +230,45 @@ def club_access_required(view_func):
     """
     Decorator to check club access for function-based views
     The view function should accept a club parameter or have club_id in kwargs
+
+    TODO: Update to use GenericForeignKey or specific LottoClub/SASClub models
+    The unified Club model has been removed. This decorator needs to be updated
+    to handle LottoClub (from clubs.models_lotto) and SASClub (from clubs.models_sas)
+    or use a GenericForeignKey approach.
     """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             raise PermissionDenied("Authentication required")
 
+        # DISABLED - unified Club model removed
         # Try to get club from different sources
-        club = None
+        # club = None
+        #
+        # # Check if club_id or slug is in URL kwargs
+        # if 'club_id' in kwargs:
+        #     from clubs.models import Club
+        #     club = get_object_or_404(Club, id=kwargs['club_id'])
+        # elif 'slug' in kwargs:
+        #     from clubs.models import Club
+        #     club = get_object_or_404(Club, slug=kwargs['slug'])
+        # elif 'pk' in kwargs:
+        #     from clubs.models import Club
+        #     club = get_object_or_404(Club, pk=kwargs['pk'])
+        #
+        # if club and not request.user.can_access_club(club):
+        #     AuditLog.log_action(
+        #         user=request.user,
+        #         action_type='permission_denied',
+        #         description=f'Attempted to access club {club} without permission',
+        #         request=request,
+        #         club_id=club.id,
+        #         club_name=club.name
+        #     )
+        #     raise PermissionDenied("You don't have permission to access this club")
 
-        # Check if club_id or slug is in URL kwargs
-        if 'club_id' in kwargs:
-            from clubs.models import Club
-            club = get_object_or_404(Club, id=kwargs['club_id'])
-        elif 'slug' in kwargs:
-            from clubs.models import Club
-            club = get_object_or_404(Club, slug=kwargs['slug'])
-        elif 'pk' in kwargs:
-            from clubs.models import Club
-            club = get_object_or_404(Club, pk=kwargs['pk'])
-
-        if club and not request.user.can_access_club(club):
-            AuditLog.log_action(
-                user=request.user,
-                action_type='permission_denied',
-                description=f'Attempted to access club {club} without permission',
-                request=request,
-                club_id=club.id,
-                club_name=club.name
-            )
-            raise PermissionDenied("You don't have permission to access this club")
-
-        return view_func(request, *args, **kwargs)
+        # For now, raise NotImplementedError until updated to use new club models
+        raise NotImplementedError("club_access_required decorator must be updated to use LottoClub/SASClub models")
 
     return wrapper
 
@@ -352,6 +365,11 @@ def filter_clubs_for_user(user, queryset):
 
     Returns:
         Filtered queryset based on user's assignments
+
+    TODO: Update to handle LottoClub and SASClub models with GenericForeignKey
+    The unified Club model has been removed. This function needs to be updated
+    to handle different club types (LottoClub, SASClub) using GenericForeignKey
+    or polymorphic queries.
     """
     if user.is_admin:
         return queryset
