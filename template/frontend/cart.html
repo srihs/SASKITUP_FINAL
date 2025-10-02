@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,14 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shopping Cart - SASKITUP</title>
 
+    <!-- Fonts -->
+    <link rel="stylesheet" type="text/css" href="{% static 'frontend/css/fonts.css' %}">
+
     <!-- Core Styles -->
-    <link rel="stylesheet" href="/frontend/css/styles.css">
-    <link rel="stylesheet" href="/frontend/css/cart.css">
+    <link rel="stylesheet" href="{% static 'frontend/css/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'frontend/css/cart.css' %}">
 
     <!-- External Dependencies -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- Meta Tags -->
@@ -25,15 +26,15 @@
         <div class="container">
             <div class="header-content">
                 <div class="logo-section">
-                    <a href="/frontend/index.html" class="logo-link">
+                    <a href="{% url 'index' %}" class="logo-link">
                         <h1 class="logo-text">SASKITUP</h1>
                         <span class="logo-tagline">School Merchandise</span>
                     </a>
                 </div>
 
                 <nav class="main-nav">
-                    <a href="/frontend/home.html" class="nav-link">Home</a>
-                    <a href="/frontend/products.html" class="nav-link">Products</a>
+                    <a href="{% url 'home' %}" class="nav-link">Home</a>
+                    <a href="{% url 'products' %}" class="nav-link">Products</a>
                     <a href="#" class="nav-link active">Cart</a>
                     <a href="#" class="nav-link">Account</a>
                 </nav>
@@ -59,9 +60,9 @@
     <div class="breadcrumb-section">
         <div class="container">
             <nav class="breadcrumb" aria-label="Breadcrumb">
-                <a href="/frontend/index.html" class="breadcrumb-link">Home</a>
+                <a href="{% url 'index' %}" class="breadcrumb-link">Home</a>
                 <i class="fas fa-chevron-right breadcrumb-separator"></i>
-                <a href="/frontend/products.html" class="breadcrumb-link">Products</a>
+                <a href="{% url 'products' %}" class="breadcrumb-link">Products</a>
                 <i class="fas fa-chevron-right breadcrumb-separator"></i>
                 <span class="breadcrumb-current">Shopping Cart</span>
             </nav>
@@ -117,7 +118,7 @@
                             <!-- Item 1: Custom T-Shirt -->
                             <div class="cart-item" data-item-id="lincoln-tshirt-001">
                                 <div class="item-image">
-                                    <img src="/frontend/images/item-cart-01.jpg" alt="Lincoln Elementary T-Shirt" loading="lazy">
+                                    <img src="{% static 'frontend/images/item-cart-01.jpg' %}" alt="Lincoln Elementary T-Shirt" loading="lazy">
                                     <div class="customization-indicator">
                                         <i class="fas fa-palette"></i>
                                         <span>Customized</span>
@@ -194,7 +195,7 @@
                             <!-- Item 2: Standard Hoodie -->
                             <div class="cart-item" data-item-id="lincoln-hoodie-001">
                                 <div class="item-image">
-                                    <img src="/frontend/images/item-cart-02.jpg" alt="Lincoln Elementary Hoodie" loading="lazy">
+                                    <img src="{% static 'frontend/images/item-cart-02.jpg' %}" alt="Lincoln Elementary Hoodie" loading="lazy">
                                 </div>
 
                                 <div class="item-details">
@@ -297,7 +298,7 @@
                             <!-- Item 3: Sports Jersey -->
                             <div class="cart-item" data-item-id="washington-jersey-001">
                                 <div class="item-image">
-                                    <img src="/frontend/images/item-cart-03.jpg" alt="Washington Warriors Jersey" loading="lazy">
+                                    <img src="{% static 'frontend/images/item-cart-03.jpg' %}" alt="Washington Warriors Jersey" loading="lazy">
                                     <div class="customization-indicator">
                                         <i class="fas fa-palette"></i>
                                         <span>Customized</span>
@@ -396,7 +397,7 @@
                         </div>
 
                         <div class="continue-shopping">
-                            <a href="/frontend/products.html" class="btn-continue">
+                            <a href="{% url 'products' %}" class="btn-continue">
                                 <i class="fas fa-arrow-left"></i>
                                 Continue Shopping
                             </a>
@@ -413,7 +414,7 @@
                         <div class="saved-items">
                             <div class="saved-item">
                                 <div class="saved-item-image">
-                                    <img src="/frontend/images/item-cart-04.jpg" alt="Saved Item" loading="lazy">
+                                    <img src="{% static 'frontend/images/item-cart-04.jpg' %}" alt="Saved Item" loading="lazy">
                                 </div>
                                 <div class="saved-item-details">
                                     <h4>Lincoln Elementary Backpack</h4>
@@ -427,7 +428,7 @@
 
                             <div class="saved-item">
                                 <div class="saved-item-image">
-                                    <img src="/frontend/images/item-cart-05.jpg" alt="Saved Item" loading="lazy">
+                                    <img src="{% static 'frontend/images/item-cart-05.jpg' %}" alt="Saved Item" loading="lazy">
                                 </div>
                                 <div class="saved-item-details">
                                     <h4>Washington High Letterman Jacket</h4>
@@ -566,7 +567,7 @@
                         <h4>Recently Viewed</h4>
                         <div class="recent-items">
                             <div class="recent-item">
-                                <img src="/frontend/images/item-cart-04.jpg" alt="Recently viewed" loading="lazy">
+                                <img src="{% static 'frontend/images/item-cart-04.jpg' %}" alt="Recently viewed" loading="lazy">
                                 <div class="recent-details">
                                     <span class="recent-name">School Polo Shirt</span>
                                     <span class="recent-price">$19.99</span>
@@ -697,7 +698,7 @@
 
     <!-- JavaScript -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="/frontend/js/cart.js"></script>
+    <script src="{% static 'frontend/js/cart.js' %}"></script>
 
     <!-- Accessibility Script -->
     <script>

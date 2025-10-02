@@ -1,0 +1,346 @@
+/* ================================================
+   Login Page Custom Styles - SASKITUP
+   ================================================ */
+
+/* CSS Variables */
+:root {
+	--saskitup-primary: #1e40af;
+	--saskitup-secondary: #f59e0b;
+	--saskitup-accent: #10b981;
+	--saskitup-dark: #1f2937;
+	--saskitup-light: #f8fafc;
+}
+
+/* Utility Classes */
+.saskitup-primary {
+	color: var(--saskitup-primary) !important;
+}
+
+.saskitup-bg-primary {
+	background-color: var(--saskitup-primary) !important;
+}
+
+.saskitup-secondary {
+	color: var(--saskitup-secondary) !important;
+}
+
+.saskitup-bg-secondary {
+	background-color: var(--saskitup-secondary) !important;
+}
+
+/* Hide header for login page */
+header {
+	display: none;
+}
+
+/* Login Section Styles */
+.login-section {
+	min-height: 100vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 2rem 1rem;
+	position: relative;
+	overflow: hidden;
+	background: linear-gradient(135deg, #f0f7ff 0%, #e6f2ff 100%);
+}
+
+/* Background Logo Grid Pattern */
+.logo-background {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	grid-auto-rows: 150px;
+	gap: 20px;
+	padding: 20px;
+	opacity: 0.18;
+	z-index: 0;
+	animation: floatBackground 30s ease-in-out infinite;
+}
+
+@keyframes floatBackground {
+	0%, 100% { transform: translateY(0) translateX(0); }
+	25% { transform: translateY(-10px) translateX(-5px); }
+	50% { transform: translateY(-15px) translateX(0); }
+	75% { transform: translateY(-10px) translateX(5px); }
+}
+
+.logo-background-item {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 10px;
+	filter: grayscale(30%);
+	opacity: 0.75;
+	transition: all 0.5s ease-in-out;
+	will-change: transform, opacity, filter;
+}
+
+/* Floating animation for individual logos */
+@keyframes logoFloat {
+	0%, 100% {
+		transform: translateY(0) translateX(0) scale(1) rotate(0deg);
+	}
+	25% {
+		transform: translateY(-15px) translateX(-8px) scale(1.05) rotate(1deg);
+	}
+	50% {
+		transform: translateY(-25px) translateX(0) scale(1.08) rotate(0deg);
+	}
+	75% {
+		transform: translateY(-15px) translateX(8px) scale(1.05) rotate(-1deg);
+	}
+}
+
+/* Pulse animation for alternating logos */
+@keyframes logoPulse {
+	0%, 100% {
+		transform: scale(1);
+		opacity: 0.75;
+	}
+	50% {
+		transform: scale(1.1);
+		opacity: 0.9;
+	}
+}
+
+/* Gentle wave effect */
+@keyframes waveEffect {
+	0%, 100% { transform: translateY(0) scale(1); }
+	50% { transform: translateY(-12px) scale(1.05); }
+}
+
+/* Combined animation - Apply different animations to different items */
+.logo-background-item:nth-child(6n+1) {
+	animation: logoFloat 15s ease-in-out infinite;
+}
+
+.logo-background-item:nth-child(6n+2) {
+	animation: logoPulse 18s ease-in-out infinite;
+}
+
+.logo-background-item:nth-child(6n+3) {
+	animation: waveEffect 16s ease-in-out infinite;
+}
+
+.logo-background-item:nth-child(6n+4) {
+	animation: logoFloat 17s ease-in-out infinite;
+	animation-delay: 2s;
+}
+
+.logo-background-item:nth-child(6n+5) {
+	animation: logoPulse 20s ease-in-out infinite;
+	animation-delay: 1.5s;
+}
+
+.logo-background-item:nth-child(6n) {
+	animation: waveEffect 19s ease-in-out infinite;
+	animation-delay: 3s;
+}
+
+/* Staggered delays for natural movement */
+.logo-background-item:nth-child(1) { animation-delay: 0s; }
+.logo-background-item:nth-child(2) { animation-delay: 0.5s; }
+.logo-background-item:nth-child(3) { animation-delay: 1s; }
+.logo-background-item:nth-child(4) { animation-delay: 1.5s; }
+.logo-background-item:nth-child(5) { animation-delay: 2s; }
+.logo-background-item:nth-child(7) { animation-delay: 3s; }
+.logo-background-item:nth-child(8) { animation-delay: 3.5s; }
+.logo-background-item:nth-child(9) { animation-delay: 4s; }
+.logo-background-item:nth-child(10) { animation-delay: 4.5s; }
+.logo-background-item:nth-child(11) { animation-delay: 5s; }
+.logo-background-item:nth-child(12) { animation-delay: 5.5s; }
+
+/* Hover effects for interactive engagement */
+.logo-background-item:hover {
+	filter: grayscale(0%);
+	opacity: 1;
+	transform: scale(1.15) translateY(-10px) !important;
+	z-index: 2;
+}
+
+.logo-background-item img {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	transition: filter 0.3s ease-in-out;
+}
+
+/* Login Card */
+.login-card {
+	background: white;
+	border-radius: 20px;
+	box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+	max-width: 450px;
+	width: 100%;
+	padding: 3rem 2.5rem;
+	position: relative;
+	z-index: 10;
+	animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+	from {
+		opacity: 0;
+		transform: translateY(30px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.login-card-header {
+	text-align: center;
+	margin-bottom: 2rem;
+}
+
+.login-card-header h1 {
+	font-size: 2rem;
+	font-weight: 700;
+	color: var(--saskitup-primary);
+	margin-bottom: 0.5rem;
+}
+
+.login-card-header p {
+	font-size: 1rem;
+	color: #6b7280;
+	margin-bottom: 0;
+}
+
+.login-headline {
+	font-size: 1.5rem;
+	font-weight: 600;
+	color: var(--saskitup-dark);
+	text-align: center;
+	margin-top: 1.5rem;
+	margin-bottom: 2rem;
+}
+
+.login-tagline {
+	font-size: 0.95rem;
+	color: #6b7280;
+	text-align: center;
+	margin-top: 1.5rem;
+	margin-bottom: 0;
+}
+
+/* Form Styles */
+.login-form-group {
+	margin-bottom: 1.5rem;
+}
+
+.login-form-label {
+	display: block;
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: var(--saskitup-dark);
+	margin-bottom: 0.5rem;
+}
+
+.login-form-input {
+	width: 100%;
+	padding: 0.875rem 1rem;
+	font-size: 1rem;
+	border: 2px solid #e5e7eb;
+	border-radius: 10px;
+	transition: all 0.3s ease;
+	background: #f9fafb;
+}
+
+.login-form-input:focus {
+	outline: none;
+	border-color: var(--saskitup-primary);
+	background: white;
+	box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.1);
+}
+
+.login-btn {
+	width: 100%;
+	padding: 1rem;
+	font-size: 1rem;
+	font-weight: 600;
+	color: white;
+	background: linear-gradient(135deg, var(--saskitup-primary) 0%, #1e3a8a 100%);
+	border: none;
+	border-radius: 10px;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	margin-top: 1rem;
+}
+
+.login-btn:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 10px 20px rgba(30, 64, 175, 0.3);
+}
+
+.login-btn:active {
+	transform: translateY(0);
+}
+
+.forgot-password {
+	text-align: center;
+	margin-top: 1rem;
+}
+
+.forgot-password a {
+	color: var(--saskitup-primary);
+	font-size: 0.875rem;
+	text-decoration: none;
+	font-weight: 500;
+	transition: color 0.3s ease;
+}
+
+.forgot-password a:hover {
+	color: #1e3a8a;
+	text-decoration: underline;
+}
+
+/* Hide original content */
+.sec-banner,
+section,
+footer,
+.wrap-header-cart {
+	display: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+	.login-card {
+		padding: 2rem 1.5rem;
+	}
+
+	.login-card-header h1 {
+		font-size: 1.5rem;
+	}
+
+	.login-headline {
+		font-size: 1.25rem;
+	}
+
+	.logo-background {
+		grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+		grid-auto-rows: 100px;
+		gap: 15px;
+	}
+}
+
+@media (max-width: 480px) {
+	.login-section {
+		padding: 1rem 0.5rem;
+	}
+
+	.login-card {
+		padding: 1.5rem 1rem;
+	}
+
+	.logo-background {
+		grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+		grid-auto-rows: 80px;
+		gap: 10px;
+	}
+}

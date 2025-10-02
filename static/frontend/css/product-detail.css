@@ -1,0 +1,232 @@
+/* ================================================
+   Product Detail Page Custom Styles - SASKITUP
+   ================================================ */
+
+/* School Badge Styling */
+.school-badge {
+	background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+	color: white;
+	padding: 8px 16px;
+	border-radius: 20px;
+	font-size: 12px;
+	font-weight: 600;
+	display: inline-block;
+	margin-bottom: 10px;
+}
+
+/* Pricing Tiers Table */
+.pricing-tiers {
+	background: #f8f9fa;
+	border-radius: 10px;
+	padding: 20px;
+	margin: 20px 0;
+}
+
+.pricing-tier {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 10px 0;
+	border-bottom: 1px solid #e9ecef;
+}
+
+.pricing-tier:last-child {
+	border-bottom: none;
+}
+
+.tier-quantity {
+	font-weight: 600;
+	color: #2c3e50;
+}
+
+.tier-price {
+	font-weight: 700;
+	color: #27ae60;
+}
+
+.tier-savings {
+	background: #e8f5e8;
+	color: #27ae60;
+	padding: 3px 8px;
+	border-radius: 15px;
+	font-size: 11px;
+	font-weight: 600;
+}
+
+/* Customization Options */
+.customization-section {
+	background: #fff;
+	border: 2px solid #e9ecef;
+	border-radius: 10px;
+	padding: 20px;
+	margin: 20px 0;
+}
+
+.custom-option {
+	margin-bottom: 15px;
+}
+
+.custom-preview {
+	border: 2px dashed #ddd;
+	border-radius: 10px;
+	padding: 30px;
+	text-align: center;
+	background: #f8f9fa;
+	margin: 15px 0;
+}
+
+/* School Information Card */
+.school-info-card {
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	color: white;
+	border-radius: 15px;
+	padding: 25px;
+	margin: 20px 0;
+}
+
+.school-logo {
+	width: 60px;
+	height: 60px;
+	border-radius: 50%;
+	border: 3px solid white;
+	margin-right: 15px;
+}
+
+/* Care Instructions */
+.care-instructions {
+	background: #fff3cd;
+	border: 1px solid #ffeaa7;
+	border-radius: 10px;
+	padding: 20px;
+	margin: 20px 0;
+}
+
+.care-icon {
+	font-size: 20px;
+	margin-right: 10px;
+	color: #856404;
+}
+
+/* Size Chart Modal Trigger */
+.size-chart-btn {
+	color: #007bff;
+	text-decoration: underline;
+	cursor: pointer;
+	font-size: 14px;
+}
+
+/* Quick Reorder */
+.quick-reorder {
+	background: #e3f2fd;
+	border: 1px solid #90caf9;
+	border-radius: 10px;
+	padding: 15px;
+	margin: 15px 0;
+}
+
+/* Approval Status */
+.approval-status {
+	display: inline-flex;
+	align-items: center;
+	padding: 8px 12px;
+	border-radius: 20px;
+	font-size: 12px;
+	font-weight: 600;
+	margin-left: 10px;
+}
+
+.status-approved {
+	background: #d4edda;
+	color: #155724;
+}
+
+.status-pending {
+	background: #fff3cd;
+	color: #856404;
+}
+
+/* Grade Level Indicators */
+.grade-levels {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 10px 0;
+}
+
+.grade-badge {
+	background: #6c757d;
+	color: white;
+	padding: 4px 8px;
+	border-radius: 12px;
+	font-size: 11px;
+	font-weight: 600;
+}
+
+/* Download Section */
+.download-section {
+	background: #f8f9fa;
+	border-radius: 10px;
+	padding: 20px;
+	margin: 20px 0;
+}
+
+.download-item {
+	display: flex;
+	align-items: center;
+	padding: 10px 0;
+	border-bottom: 1px solid #e9ecef;
+}
+
+.download-item:last-child {
+	border-bottom: none;
+}
+
+.download-icon {
+	font-size: 20px;
+	color: #007bff;
+	margin-right: 15px;
+}
+
+/* Delivery Options */
+.delivery-options {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 15px;
+	margin: 20px 0;
+}
+
+.delivery-option {
+	border: 2px solid #e9ecef;
+	border-radius: 10px;
+	padding: 15px;
+	text-align: center;
+	cursor: pointer;
+	transition: all 0.3s ease;
+}
+
+.delivery-option:hover,
+.delivery-option.selected {
+	border-color: #007bff;
+	background: #f8f9ff;
+}
+
+.delivery-icon {
+	font-size: 30px;
+	color: #007bff;
+	margin-bottom: 10px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+	.pricing-tiers {
+		padding: 15px;
+	}
+
+	.delivery-options {
+		grid-template-columns: 1fr;
+	}
+
+	.customization-section {
+		padding: 15px;
+	}
+}

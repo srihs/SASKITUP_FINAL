@@ -9,256 +9,27 @@
 	<meta name="keywords" content="school products, uniforms, spirit wear, Saskatchewan schools, educational supplies">
 
 	<!-- Favicon -->
-	<link rel="icon" type="image/png" href="{% static 'assets/images/icons/favicon.png' %}"/>
+	<link rel="icon" type="image/png" href="{% static 'frontend/assets/images/icons/favicon.png' %}"/>
+
+	<!-- Fonts -->
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/fonts.css' %}">
 
 	<!-- CSS Dependencies -->
-	<link rel="stylesheet" type="text/css" href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}">
-	<link rel="stylesheet" type="text/css" href="{% static 'fonts/font-awesome-4.7.0/css/font-awesome.min.css' %}">
-	<link rel="stylesheet" type="text/css" href="{% static 'fonts/iconic/css/material-design-iconic-font.min.css' %}">
-	<link rel="stylesheet" type="text/css" href="{% static 'fonts/linearicons-v1.0.0/icon-font.min.css' %}">
-	<link rel="stylesheet" type="text/css" href="{% static 'vendor/animate/animate.css' %}">
-	<link rel="stylesheet" type="text/css" href="{% static 'vendor/css-hamburgers/hamburgers.min.css' %}">
-	<link rel="stylesheet" type="text/css" href="{% static 'vendor/animsition/css/animsition.min.css' %}">
-	<link rel="stylesheet" type="text/css" href="{% static 'vendor/select2/select2.min.css' %}">
-	<link rel="stylesheet" type="text/css" href="{% static 'vendor/daterangepicker/daterangepicker.css' %}">
-	<link rel="stylesheet" type="text/css" href="{% static 'vendor/slick/slick.css' %}">
-	<link rel="stylesheet" type="text/css" href="{% static 'vendor/MagnificPopup/magnific-popup.css' %}">
-	<link rel="stylesheet" type="text/css" href="{% static 'vendor/perfect-scrollbar/perfect-scrollbar.css' %}">
-	<link rel="stylesheet" type="text/css" href="{% static 'css/util.css' %}">
-	<link rel="stylesheet" type="text/css" href="{% static 'css/main.css' %}">
-
-	<!-- Custom School Products Styles -->
-	<style>
-		.school-badge {
-			background: linear-gradient(45deg, #00a86b, #0066cc);
-			color: white;
-			padding: 2px 8px;
-			border-radius: 12px;
-			font-size: 10px;
-			font-weight: 600;
-			text-transform: uppercase;
-			position: absolute;
-			top: 8px;
-			left: 8px;
-			z-index: 2;
-		}
-
-		.pricing-tier {
-			display: flex;
-			gap: 8px;
-			align-items: center;
-			margin-top: 4px;
-		}
-
-		.retail-price {
-			color: #888;
-			font-size: 12px;
-		}
-
-		.wholesale-price {
-			color: #00a86b;
-			font-weight: 600;
-			font-size: 14px;
-		}
-
-		.bulk-indicator {
-			background: #ff6b35;
-			color: white;
-			padding: 1px 6px;
-			border-radius: 8px;
-			font-size: 9px;
-			font-weight: 600;
-		}
-
-		.grade-filter {
-			background: #f8f9fa;
-			border: 1px solid #dee2e6;
-			border-radius: 8px;
-			padding: 12px;
-			margin-bottom: 20px;
-		}
-
-		.availability-status {
-			display: flex;
-			align-items: center;
-			gap: 4px;
-			font-size: 11px;
-			margin-top: 4px;
-		}
-
-		.status-dot {
-			width: 6px;
-			height: 6px;
-			border-radius: 50%;
-		}
-
-		.status-available { background: #28a745; }
-		.status-limited { background: #ffc107; }
-		.status-unavailable { background: #dc3545; }
-
-		.product-rating {
-			display: flex;
-			align-items: center;
-			gap: 4px;
-			margin-top: 4px;
-		}
-
-		.rating-stars {
-			color: #ffc107;
-			font-size: 12px;
-		}
-
-		.rating-count {
-			color: #888;
-			font-size: 11px;
-		}
-
-		.quick-add-btn {
-			position: absolute;
-			bottom: 8px;
-			right: 8px;
-			background: rgba(0,0,0,0.8);
-			color: white;
-			border: none;
-			padding: 6px;
-			border-radius: 6px;
-			font-size: 12px;
-			opacity: 0;
-			transition: opacity 0.3s ease;
-		}
-
-		.block2:hover .quick-add-btn {
-			opacity: 1;
-		}
-
-		.school-logo-overlay {
-			position: absolute;
-			top: 8px;
-			right: 8px;
-			width: 32px;
-			height: 32px;
-			background: white;
-			border-radius: 50%;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-		}
-
-		.school-logo-overlay img {
-			width: 24px;
-			height: 24px;
-			border-radius: 50%;
-		}
-
-		.advanced-filters {
-			background: white;
-			border-radius: 12px;
-			padding: 20px;
-			box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-			margin-bottom: 30px;
-		}
-
-		.filter-group {
-			margin-bottom: 20px;
-		}
-
-		.filter-group h6 {
-			font-weight: 600;
-			margin-bottom: 12px;
-			color: #333;
-		}
-
-		.checkbox-group {
-			display: flex;
-			flex-wrap: wrap;
-			gap: 8px;
-		}
-
-		.checkbox-item {
-			display: flex;
-			align-items: center;
-			gap: 6px;
-			padding: 4px 8px;
-			border: 1px solid #dee2e6;
-			border-radius: 6px;
-			font-size: 13px;
-			cursor: pointer;
-			transition: all 0.2s ease;
-		}
-
-		.checkbox-item:hover {
-			background: #f8f9fa;
-			border-color: #0066cc;
-		}
-
-		.checkbox-item input:checked + label {
-			background: #0066cc;
-			color: white;
-		}
-
-		.search-suggestions {
-			position: absolute;
-			top: 100%;
-			left: 0;
-			right: 0;
-			background: white;
-			border: 1px solid #dee2e6;
-			border-top: none;
-			border-radius: 0 0 8px 8px;
-			max-height: 200px;
-			overflow-y: auto;
-			z-index: 1000;
-			display: none;
-		}
-
-		.suggestion-item {
-			padding: 8px 12px;
-			cursor: pointer;
-			border-bottom: 1px solid #f1f1f1;
-		}
-
-		.suggestion-item:hover {
-			background: #f8f9fa;
-		}
-
-		.results-summary {
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-			margin-bottom: 20px;
-			padding: 12px 0;
-			border-bottom: 1px solid #dee2e6;
-		}
-
-		.personalization-badge {
-			background: #6f42c1;
-			color: white;
-			padding: 2px 6px;
-			border-radius: 6px;
-			font-size: 9px;
-			font-weight: 600;
-			position: absolute;
-			top: 32px;
-			left: 8px;
-		}
-
-		@media (max-width: 768px) {
-			.advanced-filters {
-				padding: 15px;
-			}
-
-			.checkbox-group {
-				flex-direction: column;
-			}
-
-			.pricing-tier {
-				flex-direction: column;
-				align-items: flex-start;
-				gap: 2px;
-			}
-		}
-	</style>
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/bootstrap/css/bootstrap.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/fonts/font-awesome-4.7.0/css/font-awesome.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/fonts/iconic/css/material-design-iconic-font.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/fonts/linearicons-v1.0.0/icon-font.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/animate/animate.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/css-hamburgers/hamburgers.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/animsition/css/animsition.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/select2/select2.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/daterangepicker/daterangepicker.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/slick/slick.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/MagnificPopup/magnific-popup.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/perfect-scrollbar/perfect-scrollbar.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/util.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/main.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/products.css' %}">
 </head>
 
 <body class="animsition">
@@ -290,7 +61,7 @@
 				<nav class="limiter-menu-desktop container">
 					<!-- Logo desktop -->
 					<a href="home.html" class="logo">
-						<img src="{% static 'assets/images/logo/saskitup-logo.png' %}" alt="SASKITUP Logo" style="height: 40px;">
+						<img src="{% static 'frontend/assets/images/logo/saskitup-logo.png' %}" alt="SASKITUP Logo" style="height: 40px;">
 					</a>
 
 					<!-- Menu desktop -->
@@ -345,7 +116,7 @@
 		<div class="wrap-header-mobile">
 			<!-- Logo mobile -->
 			<div class="logo-mobile">
-				<a href="home.html"><img src="{% static 'assets/images/logo/saskitup-logo.png' %}" alt="SASKITUP Logo" style="height: 35px;"></a>
+				<a href="home.html"><img src="{% static 'frontend/assets/images/logo/saskitup-logo.png' %}" alt="SASKITUP Logo" style="height: 35px;"></a>
 			</div>
 
 			<!-- Icon header -->
@@ -412,7 +183,7 @@
 		<div class="modal-search-header flex-c-m trans-04 js-hide-modal-search">
 			<div class="container-search-header">
 				<button class="flex-c-m btn-hide-modal-search trans-04 js-hide-modal-search">
-					<img src="{% static 'assets/images/icons/icon-close2.png' %}" alt="CLOSE">
+					<img src="{% static 'frontend/assets/images/icons/icon-close2.png' %}" alt="CLOSE">
 				</button>
 
 				<form class="wrap-search-header flex-w p-l-15">
@@ -808,13 +579,13 @@
 				<div class="col-sm-6 col-md-4 col-lg-3 p-b-35 isotope-item uniforms university-saskatchewan college">
 					<div class="block2">
 						<div class="block2-pic hov-img0" style="position: relative;">
-							<img src="{% static 'assets/images/products/uofs-hoodie.jpg' %}" alt="University of Saskatchewan Hoodie">
+							<img src="{% static 'frontend/assets/images/products/uofs-hoodie.jpg' %}" alt="University of Saskatchewan Hoodie">
 
 							<div class="school-badge">U OF S</div>
 							<div class="personalization-badge">Custom</div>
 
 							<div class="school-logo-overlay">
-								<img src="{% static 'assets/images/schools/uofs-logo.png' %}" alt="U of S Logo">
+								<img src="{% static 'frontend/assets/images/schools/uofs-logo.png' %}" alt="U of S Logo">
 							</div>
 
 							<a href="#" class="block2-btn flex-c-m stext-103 cl2 size-102 bg0 bor2 hov-btn1 p-lr-15 trans-04 js-show-modal1">
@@ -857,8 +628,8 @@
 
 							<div class="block2-txt-child2 flex-r p-t-3">
 								<a href="#" class="btn-addwish-b2 dis-block pos-relative js-addwish-b2">
-									<img class="icon-heart1 dis-block trans-04" src="{% static 'assets/images/icons/icon-heart-01.png' %}" alt="ICON">
-									<img class="icon-heart2 dis-block trans-04 ab-t-l" src="{% static 'assets/images/icons/icon-heart-02.png' %}" alt="ICON">
+									<img class="icon-heart1 dis-block trans-04" src="{% static 'frontend/assets/images/icons/icon-heart-01.png' %}" alt="ICON">
+									<img class="icon-heart2 dis-block trans-04 ab-t-l" src="{% static 'frontend/assets/images/icons/icon-heart-02.png' %}" alt="ICON">
 								</a>
 							</div>
 						</div>
@@ -869,12 +640,12 @@
 				<div class="col-sm-6 col-md-4 col-lg-3 p-b-35 isotope-item spirit-wear regina-university college">
 					<div class="block2">
 						<div class="block2-pic hov-img0" style="position: relative;">
-							<img src="{% static 'assets/images/products/uofr-tshirt.jpg' %}" alt="University of Regina T-Shirt">
+							<img src="{% static 'frontend/assets/images/products/uofr-tshirt.jpg' %}" alt="University of Regina T-Shirt">
 
 							<div class="school-badge">U OF R</div>
 
 							<div class="school-logo-overlay">
-								<img src="{% static 'assets/images/schools/uofr-logo.png' %}" alt="U of R Logo">
+								<img src="{% static 'frontend/assets/images/schools/uofr-logo.png' %}" alt="U of R Logo">
 							</div>
 
 							<a href="#" class="block2-btn flex-c-m stext-103 cl2 size-102 bg0 bor2 hov-btn1 p-lr-15 trans-04 js-show-modal1">
@@ -916,8 +687,8 @@
 
 							<div class="block2-txt-child2 flex-r p-t-3">
 								<a href="#" class="btn-addwish-b2 dis-block pos-relative js-addwish-b2">
-									<img class="icon-heart1 dis-block trans-04" src="{% static 'assets/images/icons/icon-heart-01.png' %}" alt="ICON">
-									<img class="icon-heart2 dis-block trans-04 ab-t-l" src="{% static 'assets/images/icons/icon-heart-02.png' %}" alt="ICON">
+									<img class="icon-heart1 dis-block trans-04" src="{% static 'frontend/assets/images/icons/icon-heart-01.png' %}" alt="ICON">
+									<img class="icon-heart2 dis-block trans-04 ab-t-l" src="{% static 'frontend/assets/images/icons/icon-heart-02.png' %}" alt="ICON">
 								</a>
 							</div>
 						</div>
@@ -928,13 +699,13 @@
 				<div class="col-sm-6 col-md-4 col-lg-3 p-b-35 isotope-item uniforms walter-murray high-school">
 					<div class="block2">
 						<div class="block2-pic hov-img0" style="position: relative;">
-							<img src="{% static 'assets/images/products/high-school-polo.jpg' %}" alt="High School Polo Shirt">
+							<img src="{% static 'frontend/assets/images/products/high-school-polo.jpg' %}" alt="High School Polo Shirt">
 
 							<div class="school-badge">WMCI</div>
 							<div class="personalization-badge">Custom</div>
 
 							<div class="school-logo-overlay">
-								<img src="{% static 'assets/images/schools/wmci-logo.png' %}" alt="WMCI Logo">
+								<img src="{% static 'frontend/assets/images/schools/wmci-logo.png' %}" alt="WMCI Logo">
 							</div>
 
 							<a href="#" class="block2-btn flex-c-m stext-103 cl2 size-102 bg0 bor2 hov-btn1 p-lr-15 trans-04 js-show-modal1">
@@ -977,8 +748,8 @@
 
 							<div class="block2-txt-child2 flex-r p-t-3">
 								<a href="#" class="btn-addwish-b2 dis-block pos-relative js-addwish-b2">
-									<img class="icon-heart1 dis-block trans-04" src="{% static 'assets/images/icons/icon-heart-01.png' %}" alt="ICON">
-									<img class="icon-heart2 dis-block trans-04 ab-t-l" src="{% static 'assets/images/icons/icon-heart-02.png' %}" alt="ICON">
+									<img class="icon-heart1 dis-block trans-04" src="{% static 'frontend/assets/images/icons/icon-heart-01.png' %}" alt="ICON">
+									<img class="icon-heart2 dis-block trans-04 ab-t-l" src="{% static 'frontend/assets/images/icons/icon-heart-02.png' %}" alt="ICON">
 								</a>
 							</div>
 						</div>
@@ -989,12 +760,12 @@
 				<div class="col-sm-6 col-md-4 col-lg-3 p-b-35 isotope-item sports sask-polytech college">
 					<div class="block2">
 						<div class="block2-pic hov-img0" style="position: relative;">
-							<img src="{% static 'assets/images/products/polytech-backpack.jpg' %}" alt="Saskatchewan Polytechnic Backpack">
+							<img src="{% static 'frontend/assets/images/products/polytech-backpack.jpg' %}" alt="Saskatchewan Polytechnic Backpack">
 
 							<div class="school-badge">SIAST</div>
 
 							<div class="school-logo-overlay">
-								<img src="{% static 'assets/images/schools/siast-logo.png' %}" alt="SIAST Logo">
+								<img src="{% static 'frontend/assets/images/schools/siast-logo.png' %}" alt="SIAST Logo">
 							</div>
 
 							<a href="#" class="block2-btn flex-c-m stext-103 cl2 size-102 bg0 bor2 hov-btn1 p-lr-15 trans-04 js-show-modal1">
@@ -1036,8 +807,8 @@
 
 							<div class="block2-txt-child2 flex-r p-t-3">
 								<a href="#" class="btn-addwish-b2 dis-block pos-relative js-addwish-b2">
-									<img class="icon-heart1 dis-block trans-04" src="{% static 'assets/images/icons/icon-heart-01.png' %}" alt="ICON">
-									<img class="icon-heart2 dis-block trans-04 ab-t-l" src="{% static 'assets/images/icons/icon-heart-02.png' %}" alt="ICON">
+									<img class="icon-heart1 dis-block trans-04" src="{% static 'frontend/assets/images/icons/icon-heart-01.png' %}" alt="ICON">
+									<img class="icon-heart2 dis-block trans-04 ab-t-l" src="{% static 'frontend/assets/images/icons/icon-heart-02.png' %}" alt="ICON">
 								</a>
 							</div>
 						</div>
@@ -1048,12 +819,12 @@
 				<div class="col-sm-6 col-md-4 col-lg-3 p-b-35 isotope-item accessories luther-college college">
 					<div class="block2">
 						<div class="block2-pic hov-img0" style="position: relative;">
-							<img src="{% static 'assets/images/products/luther-mug.jpg' %}" alt="Luther College Coffee Mug">
+							<img src="{% static 'frontend/assets/images/products/luther-mug.jpg' %}" alt="Luther College Coffee Mug">
 
 							<div class="school-badge">LUTHER</div>
 
 							<div class="school-logo-overlay">
-								<img src="{% static 'assets/images/schools/luther-logo.png' %}" alt="Luther Logo">
+								<img src="{% static 'frontend/assets/images/schools/luther-logo.png' %}" alt="Luther Logo">
 							</div>
 
 							<a href="#" class="block2-btn flex-c-m stext-103 cl2 size-102 bg0 bor2 hov-btn1 p-lr-15 trans-04 js-show-modal1">
@@ -1096,8 +867,8 @@
 
 							<div class="block2-txt-child2 flex-r p-t-3">
 								<a href="#" class="btn-addwish-b2 dis-block pos-relative js-addwish-b2">
-									<img class="icon-heart1 dis-block trans-04" src="{% static 'assets/images/icons/icon-heart-01.png' %}" alt="ICON">
-									<img class="icon-heart2 dis-block trans-04 ab-t-l" src="{% static 'assets/images/icons/icon-heart-02.png' %}" alt="ICON">
+									<img class="icon-heart1 dis-block trans-04" src="{% static 'frontend/assets/images/icons/icon-heart-01.png' %}" alt="ICON">
+									<img class="icon-heart2 dis-block trans-04 ab-t-l" src="{% static 'frontend/assets/images/icons/icon-heart-02.png' %}" alt="ICON">
 								</a>
 							</div>
 						</div>
@@ -1108,13 +879,13 @@
 				<div class="col-sm-6 col-md-4 col-lg-3 p-b-35 isotope-item uniforms marion-graham high-school">
 					<div class="block2">
 						<div class="block2-pic hov-img0" style="position: relative;">
-							<img src="{% static 'assets/images/products/marion-cardigan.jpg' %}" alt="Marion Graham Cardigan">
+							<img src="{% static 'frontend/assets/images/products/marion-cardigan.jpg' %}" alt="Marion Graham Cardigan">
 
 							<div class="school-badge">MGCI</div>
 							<div class="personalization-badge">Custom</div>
 
 							<div class="school-logo-overlay">
-								<img src="{% static 'assets/images/schools/mgci-logo.png' %}" alt="MGCI Logo">
+								<img src="{% static 'frontend/assets/images/schools/mgci-logo.png' %}" alt="MGCI Logo">
 							</div>
 
 							<a href="#" class="block2-btn flex-c-m stext-103 cl2 size-102 bg0 bor2 hov-btn1 p-lr-15 trans-04 js-show-modal1">
@@ -1157,8 +928,8 @@
 
 							<div class="block2-txt-child2 flex-r p-t-3">
 								<a href="#" class="btn-addwish-b2 dis-block pos-relative js-addwish-b2">
-									<img class="icon-heart1 dis-block trans-04" src="{% static 'assets/images/icons/icon-heart-01.png' %}" alt="ICON">
-									<img class="icon-heart2 dis-block trans-04 ab-t-l" src="{% static 'assets/images/icons/icon-heart-02.png' %}" alt="ICON">
+									<img class="icon-heart1 dis-block trans-04" src="{% static 'frontend/assets/images/icons/icon-heart-01.png' %}" alt="ICON">
+									<img class="icon-heart2 dis-block trans-04 ab-t-l" src="{% static 'frontend/assets/images/icons/icon-heart-02.png' %}" alt="ICON">
 								</a>
 							</div>
 						</div>
@@ -1169,7 +940,7 @@
 				<div class="col-sm-6 col-md-4 col-lg-3 p-b-35 isotope-item textbooks elementary">
 					<div class="block2">
 						<div class="block2-pic hov-img0" style="position: relative;">
-							<img src="{% static 'assets/images/products/school-supplies-kit.jpg' %}" alt="Elementary School Supply Kit">
+							<img src="{% static 'frontend/assets/images/products/school-supplies-kit.jpg' %}" alt="Elementary School Supply Kit">
 
 							<div class="school-badge">ELEM</div>
 
@@ -1213,8 +984,8 @@
 
 							<div class="block2-txt-child2 flex-r p-t-3">
 								<a href="#" class="btn-addwish-b2 dis-block pos-relative js-addwish-b2">
-									<img class="icon-heart1 dis-block trans-04" src="{% static 'assets/images/icons/icon-heart-01.png' %}" alt="ICON">
-									<img class="icon-heart2 dis-block trans-04 ab-t-l" src="{% static 'assets/images/icons/icon-heart-02.png' %}" alt="ICON">
+									<img class="icon-heart1 dis-block trans-04" src="{% static 'frontend/assets/images/icons/icon-heart-01.png' %}" alt="ICON">
+									<img class="icon-heart2 dis-block trans-04 ab-t-l" src="{% static 'frontend/assets/images/icons/icon-heart-02.png' %}" alt="ICON">
 								</a>
 							</div>
 						</div>
@@ -1225,12 +996,12 @@
 				<div class="col-sm-6 col-md-4 col-lg-3 p-b-35 isotope-item sports aden-bowman high-school">
 					<div class="block2">
 						<div class="block2-pic hov-img0" style="position: relative;">
-							<img src="{% static 'assets/images/products/hockey-stick.jpg' %}" alt="Aden Bowman Hockey Stick">
+							<img src="{% static 'frontend/assets/images/products/hockey-stick.jpg' %}" alt="Aden Bowman Hockey Stick">
 
 							<div class="school-badge">ABCI</div>
 
 							<div class="school-logo-overlay">
-								<img src="{% static 'assets/images/schools/abci-logo.png' %}" alt="ABCI Logo">
+								<img src="{% static 'frontend/assets/images/schools/abci-logo.png' %}" alt="ABCI Logo">
 							</div>
 
 							<a href="#" class="block2-btn flex-c-m stext-103 cl2 size-102 bg0 bor2 hov-btn1 p-lr-15 trans-04 js-show-modal1">
@@ -1273,8 +1044,8 @@
 
 							<div class="block2-txt-child2 flex-r p-t-3">
 								<a href="#" class="btn-addwish-b2 dis-block pos-relative js-addwish-b2">
-									<img class="icon-heart1 dis-block trans-04" src="{% static 'assets/images/icons/icon-heart-01.png' %}" alt="ICON">
-									<img class="icon-heart2 dis-block trans-04 ab-t-l" src="{% static 'assets/images/icons/icon-heart-02.png' %}" alt="ICON">
+									<img class="icon-heart1 dis-block trans-04" src="{% static 'frontend/assets/images/icons/icon-heart-01.png' %}" alt="ICON">
+									<img class="icon-heart2 dis-block trans-04 ab-t-l" src="{% static 'frontend/assets/images/icons/icon-heart-02.png' %}" alt="ICON">
 								</a>
 							</div>
 						</div>
@@ -1406,19 +1177,19 @@
 			<div class="p-t-40">
 				<div class="flex-c-m flex-w p-b-18">
 					<a href="#" class="m-all-1">
-						<img src="{% static 'assets/images/icons/icon-pay-01.png' %}" alt="ICON-PAY">
+						<img src="{% static 'frontend/assets/images/icons/icon-pay-01.png' %}" alt="ICON-PAY">
 					</a>
 					<a href="#" class="m-all-1">
-						<img src="{% static 'assets/images/icons/icon-pay-02.png' %}" alt="ICON-PAY">
+						<img src="{% static 'frontend/assets/images/icons/icon-pay-02.png' %}" alt="ICON-PAY">
 					</a>
 					<a href="#" class="m-all-1">
-						<img src="{% static 'assets/images/icons/icon-pay-03.png' %}" alt="ICON-PAY">
+						<img src="{% static 'frontend/assets/images/icons/icon-pay-03.png' %}" alt="ICON-PAY">
 					</a>
 					<a href="#" class="m-all-1">
-						<img src="{% static 'assets/images/icons/icon-pay-04.png' %}" alt="ICON-PAY">
+						<img src="{% static 'frontend/assets/images/icons/icon-pay-04.png' %}" alt="ICON-PAY">
 					</a>
 					<a href="#" class="m-all-1">
-						<img src="{% static 'assets/images/icons/icon-pay-05.png' %}" alt="ICON-PAY">
+						<img src="{% static 'frontend/assets/images/icons/icon-pay-05.png' %}" alt="ICON-PAY">
 					</a>
 				</div>
 
@@ -1444,7 +1215,7 @@
 		<div class="container">
 			<div class="bg0 p-t-60 p-b-30 p-lr-15-lg how-pos3-parent">
 				<button class="how-pos3 hov3 trans-04 js-hide-modal1">
-					<img src="{% static 'assets/images/icons/icon-close.png' %}" alt="CLOSE">
+					<img src="{% static 'frontend/assets/images/icons/icon-close.png' %}" alt="CLOSE">
 				</button>
 
 				<div class="row">
@@ -1557,21 +1328,21 @@
 	</div>
 
 	<!-- JavaScript Dependencies -->
-	<script src="{% static 'vendor/jquery/jquery-3.2.1.min.js' %}"></script>
-	<script src="{% static 'vendor/animsition/js/animsition.min.js' %}"></script>
-	<script src="{% static 'vendor/bootstrap/js/popper.js' %}"></script>
-	<script src="{% static 'vendor/bootstrap/js/bootstrap.min.js' %}"></script>
-	<script src="{% static 'vendor/select2/select2.min.js' %}"></script>
-	<script src="{% static 'vendor/daterangepicker/moment.min.js' %}"></script>
-	<script src="{% static 'vendor/daterangepicker/daterangepicker.js' %}"></script>
-	<script src="{% static 'vendor/slick/slick.min.js' %}"></script>
-	<script src="{% static 'js/slick-custom.js' %}"></script>
-	<script src="{% static 'vendor/parallax100/parallax100.js' %}"></script>
-	<script src="{% static 'vendor/MagnificPopup/jquery.magnific-popup.min.js' %}"></script>
-	<script src="{% static 'vendor/isotope/isotope.pkgd.min.js' %}"></script>
-	<script src="{% static 'vendor/sweetalert/sweetalert.min.js' %}"></script>
-	<script src="{% static 'vendor/perfect-scrollbar/perfect-scrollbar.min.js' %}"></script>
-	<script src="{% static 'js/main.js' %}"></script>
+	<script src="{% static 'frontend/vendor/jquery/jquery-3.2.1.min.js' %}"></script>
+	<script src="{% static 'frontend/vendor/animsition/js/animsition.min.js' %}"></script>
+	<script src="{% static 'frontend/vendor/bootstrap/js/popper.js' %}"></script>
+	<script src="{% static 'frontend/vendor/bootstrap/js/bootstrap.min.js' %}"></script>
+	<script src="{% static 'frontend/vendor/select2/select2.min.js' %}"></script>
+	<script src="{% static 'frontend/vendor/daterangepicker/moment.min.js' %}"></script>
+	<script src="{% static 'frontend/vendor/daterangepicker/daterangepicker.js' %}"></script>
+	<script src="{% static 'frontend/vendor/slick/slick.min.js' %}"></script>
+	<script src="{% static 'frontend/js/slick-custom.js' %}"></script>
+	<script src="{% static 'frontend/vendor/parallax100/parallax100.js' %}"></script>
+	<script src="{% static 'frontend/vendor/MagnificPopup/jquery.magnific-popup.min.js' %}"></script>
+	<script src="{% static 'frontend/vendor/isotope/isotope.pkgd.min.js' %}"></script>
+	<script src="{% static 'frontend/vendor/sweetalert/sweetalert.min.js' %}"></script>
+	<script src="{% static 'frontend/vendor/perfect-scrollbar/perfect-scrollbar.min.js' %}"></script>
+	<script src="{% static 'frontend/js/main.js' %}"></script>
 
 	<!-- Custom School Products JavaScript -->
 	<script>

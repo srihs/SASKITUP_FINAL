@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
-from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib import messages
 from django.views.generic import (
     ListView, DetailView, CreateView, UpdateView, DeleteView,
@@ -102,6 +102,40 @@ def logout_view(request):
     logout(request)
     messages.success(request, 'You have been logged out successfully.')
     return redirect('authentication:login')
+
+
+class SignupView(FormView):
+    """Customer signup view"""
+    template_name = 'authentication/signup.html'
+    form_class = UserCreationForm
+    success_url = reverse_lazy('authentication:login')
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return redirect('global-dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        # Create the user as a customer
+        user = form.save(commit=False)
+        user.user_type = 'customer'
+        user.save()
+
+        # Log the signup
+        AuditLog.log_action(
+            user=user,
+            action_type='user_created',
+            description=f'New customer signup: {user.username}',
+            request=self.request,
+            created_user_id=user.id,
+            created_username=user.username
+        )
+
+        messages.success(
+            self.request,
+            'Your account has been created successfully! You can now log in.'
+        )
+        return super().form_valid(form)
 
 
 class AdminDashboardView(AdminRequiredMixin, TemplateView):

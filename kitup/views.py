@@ -30,10 +30,18 @@ class GlobalDashboardView(TemplateView):
 
 
 def frontend_landing_view(request):
-    """Serve the frontend landing page with featured clubs only"""
+    """Serve the frontend landing page with featured schools and clubs"""
     from django.db.models import Q
 
-    # Get 3 LOTTO clubs (exclude product/apparel names)
+    # Get ALL retail schools (TUS) with logos
+    retail_schools = TUSSchool.objects.filter(
+        is_active=True,
+        logo_url__isnull=False
+    ).exclude(
+        logo_url=''
+    ).order_by('name')  # All schools, alphabetically
+
+    # Get ALL LOTTO clubs (exclude product/apparel names)
     lotto_clubs = LottoClub.objects.filter(
         is_active=True,
         logo__isnull=False
@@ -46,17 +54,18 @@ def frontend_landing_view(request):
         Q(name__icontains='CLOTHING') |
         Q(name__icontains='PRODUCT') |
         Q(name__icontains='REFEREE')
-    ).order_by('?')[:3]  # Random 3 clubs
+    ).order_by('name')  # All clubs, alphabetically
 
-    # Get 3 SAS clubs from SASClub model
+    # Get ALL SAS clubs from SASClub model
     sas_clubs = SASClub.objects.filter(
         is_active=True,
         image_url__isnull=False
     ).exclude(
         image_url=''
-    ).order_by('?')[:3]  # Random 3 clubs
+    ).order_by('name')  # All clubs, alphabetically
 
     context = {
+        'retail_schools': retail_schools,
         'lotto_clubs': lotto_clubs,
         'sas_clubs': sas_clubs,
     }
@@ -70,11 +79,19 @@ def products_view(request):
 
 
 def get_random_clubs_ajax(request):
-    """AJAX endpoint to get random clubs for rotation"""
+    """AJAX endpoint to get all schools and clubs"""
     from django.http import JsonResponse
     from django.db.models import Q
 
-    # Get 3 random LOTTO clubs (exclude product/apparel names)
+    # Get ALL retail schools (TUS)
+    retail_schools = list(TUSSchool.objects.filter(
+        is_active=True,
+        logo_url__isnull=False
+    ).exclude(
+        logo_url=''
+    ).order_by('name').values('name', 'logo_url'))
+
+    # Get ALL LOTTO clubs (exclude product/apparel names)
     lotto_clubs = list(LottoClub.objects.filter(
         is_active=True,
         logo__isnull=False
@@ -87,19 +104,19 @@ def get_random_clubs_ajax(request):
         Q(name__icontains='CLOTHING') |
         Q(name__icontains='PRODUCT') |
         Q(name__icontains='REFEREE')
-    ).order_by('?')[:3].values('name', 'logo'))
+    ).order_by('name').values('name', 'logo'))
 
     # Rename logo field to logo_url for consistency
     for club in lotto_clubs:
         club['logo_url'] = club.pop('logo')
 
-    # Get 3 random SAS clubs
+    # Get ALL SAS clubs
     sas_clubs = list(SASClub.objects.filter(
         is_active=True,
         image_url__isnull=False
     ).exclude(
         image_url=''
-    ).order_by('?')[:3].values('name', 'image_url'))
+    ).order_by('name').values('name', 'image_url'))
 
     # Rename image_url to logo_url for consistency
     for club in sas_clubs:
@@ -107,6 +124,7 @@ def get_random_clubs_ajax(request):
 
     return JsonResponse({
         'success': True,
+        'retail_schools': retail_schools,
         'lotto_clubs': lotto_clubs,
         'sas_clubs': sas_clubs
     })

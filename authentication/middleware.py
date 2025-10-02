@@ -144,6 +144,8 @@ class RoleBasedAccessMiddleware:
             '/',  # Frontend landing page
             '/auth/login/',
             '/auth/logout/',
+            '/auth/signup/',  # Customer signup
+            '/accounts/',  # Django built-in auth URLs (password reset, etc.)
             '/static/',
             '/media/',
             '/frontend/',  # Frontend static files

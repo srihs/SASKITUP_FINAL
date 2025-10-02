@@ -22,7 +22,12 @@ from .views import GlobalDashboardView, frontend_landing_view, products_view, pr
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # Authentication URLs (both namespaced and non-namespaced for compatibility)
     path('auth/', include('authentication.urls')),
+    path('accounts/', include('django.contrib.auth.urls')),  # Django built-in auth URLs
+
+    # Core app URLs
     path('clubs/', include('clubs.urls')),
     path('schools/', include('schools.urls')),
     path('dashboard/', GlobalDashboardView.as_view(), name='global-dashboard'),  # Global dashboard moved to /dashboard/

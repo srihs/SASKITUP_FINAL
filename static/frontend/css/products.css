@@ -1,0 +1,253 @@
+/* ================================================
+   School Products Page Custom Styles - SASKITUP
+   ================================================ */
+
+/* School Badges */
+.school-badge {
+	background: linear-gradient(45deg, #00a86b, #0066cc);
+	color: white;
+	padding: 2px 8px;
+	border-radius: 12px;
+	font-size: 10px;
+	font-weight: 600;
+	text-transform: uppercase;
+	position: absolute;
+	top: 8px;
+	left: 8px;
+	z-index: 2;
+}
+
+/* Pricing Tiers */
+.pricing-tier {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin-top: 4px;
+}
+
+.retail-price {
+	color: #888;
+	font-size: 12px;
+}
+
+.wholesale-price {
+	color: #00a86b;
+	font-weight: 600;
+	font-size: 14px;
+}
+
+.bulk-indicator {
+	background: #ff6b35;
+	color: white;
+	padding: 1px 6px;
+	border-radius: 8px;
+	font-size: 9px;
+	font-weight: 600;
+}
+
+/* Grade Filter */
+.grade-filter {
+	background: #f8f9fa;
+	border: 1px solid #dee2e6;
+	border-radius: 8px;
+	padding: 12px;
+	margin-bottom: 20px;
+}
+
+/* Availability Status */
+.availability-status {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 11px;
+	margin-top: 4px;
+}
+
+.status-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+}
+
+.status-available {
+	background: #28a745;
+}
+
+.status-limited {
+	background: #ffc107;
+}
+
+.status-unavailable {
+	background: #dc3545;
+}
+
+/* Product Rating */
+.product-rating {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-top: 4px;
+}
+
+.rating-stars {
+	color: #ffc107;
+	font-size: 12px;
+}
+
+.rating-count {
+	color: #888;
+	font-size: 11px;
+}
+
+/* Quick Add Button */
+.quick-add-btn {
+	position: absolute;
+	bottom: 8px;
+	right: 8px;
+	background: rgba(0,0,0,0.8);
+	color: white;
+	border: none;
+	padding: 6px;
+	border-radius: 6px;
+	font-size: 12px;
+	opacity: 0;
+	transition: opacity 0.3s ease;
+}
+
+.block2:hover .quick-add-btn {
+	opacity: 1;
+}
+
+/* School Logo Overlay */
+.school-logo-overlay {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	width: 32px;
+	height: 32px;
+	background: white;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.school-logo-overlay img {
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+}
+
+/* Advanced Filters */
+.advanced-filters {
+	background: white;
+	border-radius: 12px;
+	padding: 20px;
+	box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+	margin-bottom: 30px;
+}
+
+.filter-group {
+	margin-bottom: 20px;
+}
+
+.filter-group h6 {
+	font-weight: 600;
+	margin-bottom: 12px;
+	color: #333;
+}
+
+.checkbox-group {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.checkbox-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px;
+	border: 1px solid #dee2e6;
+	border-radius: 6px;
+	font-size: 13px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.checkbox-item:hover {
+	background: #f8f9fa;
+	border-color: #0066cc;
+}
+
+.checkbox-item input:checked + label {
+	background: #0066cc;
+	color: white;
+}
+
+/* Search Suggestions */
+.search-suggestions {
+	position: absolute;
+	top: 100%;
+	left: 0;
+	right: 0;
+	background: white;
+	border: 1px solid #dee2e6;
+	border-top: none;
+	border-radius: 0 0 8px 8px;
+	max-height: 200px;
+	overflow-y: auto;
+	z-index: 1000;
+	display: none;
+}
+
+.suggestion-item {
+	padding: 8px 12px;
+	cursor: pointer;
+	border-bottom: 1px solid #f1f1f1;
+}
+
+.suggestion-item:hover {
+	background: #f8f9fa;
+}
+
+/* Results Summary */
+.results-summary {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 20px;
+	padding: 12px 0;
+	border-bottom: 1px solid #dee2e6;
+}
+
+/* Personalization Badge */
+.personalization-badge {
+	background: #6f42c1;
+	color: white;
+	padding: 2px 6px;
+	border-radius: 6px;
+	font-size: 9px;
+	font-weight: 600;
+	position: absolute;
+	top: 32px;
+	left: 8px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+	.advanced-filters {
+		padding: 15px;
+	}
+
+	.checkbox-group {
+		flex-direction: column;
+	}
+
+	.pricing-tier {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 2px;
+	}
+}
