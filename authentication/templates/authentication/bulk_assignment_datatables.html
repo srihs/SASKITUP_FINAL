@@ -202,8 +202,7 @@
                     <ol class="breadcrumb m-0">
                         <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
                         <li class="breadcrumb-item"><a href="{% url 'authentication:user-list' %}">User Management</a></li>
-                        <li class="breadcrumb-item"><a href="{% url 'authentication:assignment-management' %}">Assignments</a></li>
-                        <li class="breadcrumb-item active">Bulk Assignment</li>
+                        <li class="breadcrumb-item active">Assignments</li>
                     </ol>
                 </div>
             </div>
@@ -381,10 +380,11 @@
                             </thead>
                             <tbody>
                                 {% for customer in customers_data %}
-                                <tr data-customer-id="{{ customer.id }}" data-assigned="{{ customer.is_assigned|yesno:'true,false' }}">
+                                <tr data-customer-id="{{ customer.id }}" data-customer-type="{{ customer.type }}" data-assigned="{{ customer.is_assigned|yesno:'true,false' }}">
                                     <td>
                                         <input type="checkbox" class="form-check-input customer-checkbox"
                                                value="{{ customer.id }}"
+                                               data-type="{{ customer.type }}"
                                                onchange="handleCheckboxChange(this)"
                                                {% if customer.is_assigned %}disabled{% endif %}>
                                     </td>
@@ -464,24 +464,9 @@
                     <strong id="confirmSalesRepName">Sales Rep</strong>.
                 </div>
 
-                <h6 class="mb-3">Customers to be assigned:</h6>
+                <h6 class="mb-3">Customers to be assigned (set priority for each):</h6>
                 <div class="max-height-300 overflow-auto border rounded p-2" id="confirmCustomersList">
                     <!-- Selected customers list will be populated here -->
-                </div>
-
-                <div class="row mt-3">
-                    <div class="col-md-6">
-                        <label for="assignmentPriority" class="form-label">Priority Level</label>
-                        <select class="form-select" id="assignmentPriority">
-                            <option value="medium">Medium Priority</option>
-                            <option value="high">High Priority</option>
-                            <option value="low">Low Priority</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="assignmentTerritory" class="form-label">Territory (Optional)</label>
-                        <input type="text" class="form-control" id="assignmentTerritory" placeholder="Enter territory name">
-                    </div>
                 </div>
 
                 <div class="mt-3">
@@ -533,7 +518,7 @@
 <script>
 // Global variables
 let selectedSalesRep = null;
-let selectedCustomers = new Set();
+let selectedCustomers = new Map(); // Changed to Map to store {id, type}
 let customersTable = null;
 
 // Ensure global variables are accessible
@@ -544,12 +529,13 @@ window.customersTable = customersTable;
 // Simple, direct checkbox change handler
 function handleCheckboxChange(checkbox) {
     const customerId = checkbox.value;
+    const customerType = checkbox.getAttribute('data-type');
     const isChecked = checkbox.checked;
 
-    console.log('Checkbox changed:', customerId, 'checked:', isChecked);
+    console.log('Checkbox changed:', customerId, 'type:', customerType, 'checked:', isChecked);
 
     if (isChecked) {
-        selectedCustomers.add(customerId);
+        selectedCustomers.set(customerId, customerType);
     } else {
         selectedCustomers.delete(customerId);
     }
@@ -680,12 +666,13 @@ function initializeDataTable() {
     // Handle individual checkbox changes with delegated events
     $('#customersTable tbody').on('change', '.customer-checkbox', function() {
         const customerId = $(this).val();
+        const customerType = $(this).attr('data-type');
         const isChecked = $(this).is(':checked');
 
-        console.log('jQuery change event - Checkbox changed:', customerId, 'checked:', isChecked);
+        console.log('jQuery change event - Checkbox changed:', customerId, 'type:', customerType, 'checked:', isChecked);
 
         if (isChecked) {
-            selectedCustomers.add(customerId);
+            selectedCustomers.set(customerId, customerType);
         } else {
             selectedCustomers.delete(customerId);
         }
@@ -704,12 +691,13 @@ function initializeDataTable() {
     document.addEventListener('change', function(e) {
         if (e.target && e.target.classList.contains('customer-checkbox')) {
             const customerId = e.target.value;
+            const customerType = e.target.getAttribute('data-type');
             const isChecked = e.target.checked;
 
-            console.log('Native change event - Checkbox changed:', customerId, 'checked:', isChecked);
+            console.log('Native change event - Checkbox changed:', customerId, 'type:', customerType, 'checked:', isChecked);
 
             if (isChecked) {
-                selectedCustomers.add(customerId);
+                selectedCustomers.set(customerId, customerType);
             } else {
                 selectedCustomers.delete(customerId);
             }
@@ -761,12 +749,13 @@ function initializeDataTable() {
             // Add direct event listener
             $(checkbox).on('change.bulkAssign', function() {
                 const customerId = checkbox.value;
+                const customerType = checkbox.getAttribute('data-type');
                 const isChecked = checkbox.checked;
 
-                console.log('Direct event - Checkbox changed:', customerId, 'checked:', isChecked);
+                console.log('Direct event - Checkbox changed:', customerId, 'type:', customerType, 'checked:', isChecked);
 
                 if (isChecked) {
-                    selectedCustomers.add(customerId);
+                    selectedCustomers.set(customerId, customerType);
                 } else {
                     selectedCustomers.delete(customerId);
                 }
@@ -787,11 +776,12 @@ function selectAllVisible() {
         const row = this.node();
         const checkbox = $(row).find('.customer-checkbox');
         const customerId = checkbox.val();
+        const customerType = checkbox.attr('data-type');
         const isAssigned = $(row).data('assigned');
 
         // Only select unassigned customers
         if (!isAssigned && !checkbox.is(':disabled')) {
-            selectedCustomers.add(customerId);
+            selectedCustomers.set(customerId, customerType);
             checkbox.prop('checked', true);
         }
     });
@@ -808,11 +798,12 @@ function selectAllUnassigned() {
     $('.customer-checkbox').each(function() {
         const $checkbox = $(this);
         const customerId = $checkbox.val();
+        const customerType = $checkbox.attr('data-type');
         const $row = $checkbox.closest('tr');
         const isAssigned = $row.data('assigned');
 
         if (!isAssigned && !$checkbox.is(':disabled')) {
-            selectedCustomers.add(customerId);
+            selectedCustomers.set(customerId, customerType);
             $checkbox.prop('checked', true);
         }
     });
@@ -919,18 +910,18 @@ function processBulkAssignment() {
 
     // Get selected customers data for confirmation
     const selectedCustomersData = [];
-    selectedCustomers.forEach(customerId => {
+    selectedCustomers.forEach((customerType, customerId) => {
         const row = $(`tr[data-customer-id="${customerId}"]`);
         if (row.length) {
             const customerName = row.find('td:nth-child(2) strong').text();
-            const customerType = row.find('td:nth-child(3) .badge').text();
+            const customerTypeBadge = row.find('td:nth-child(3) .badge').text();
             const customerAddress = row.find('td:nth-child(4)').text().trim();
             const isAssigned = row.data('assigned');
 
             selectedCustomersData.push({
                 id: customerId,
                 name: customerName,
-                type: customerType,
+                type: customerTypeBadge,
                 address: customerAddress,
                 is_assigned: isAssigned
             });
@@ -941,18 +932,27 @@ function processBulkAssignment() {
     document.getElementById('confirmCustomerCount').textContent = selectedCustomersData.length;
     document.getElementById('confirmSalesRepName').textContent = selectedSalesRep.name;
 
-    // Build customers list for confirmation
+    // Build customers list for confirmation with priority dropdown for each
     let listHtml = '';
-    selectedCustomersData.forEach(customer => {
+    selectedCustomersData.forEach((customer, index) => {
         listHtml += `
             <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
-                <div>
+                <div class="flex-grow-1">
                     <strong>${customer.name}</strong>
                     <br><small class="text-muted">${customer.type} • ${customer.address}</small>
                 </div>
-                <span class="badge ${customer.is_assigned ? 'bg-warning' : 'bg-success'}">
-                    ${customer.is_assigned ? 'Reassign' : 'New'}
-                </span>
+                <div class="d-flex align-items-center gap-2">
+                    <select class="form-select form-select-sm customer-priority-select"
+                            data-customer-id="${customer.id}"
+                            style="width: 140px;">
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                        <option value="low">Low</option>
+                    </select>
+                    <span class="badge ${customer.is_assigned ? 'bg-warning' : 'bg-success'}">
+                        ${customer.is_assigned ? 'Reassign' : 'New'}
+                    </span>
+                </div>
             </div>
         `;
     });
@@ -964,6 +964,10 @@ function processBulkAssignment() {
 }
 
 function confirmBulkAssignment() {
+    console.log('confirmBulkAssignment called');
+    console.log('selectedCustomers:', selectedCustomers);
+    console.log('selectedSalesRep:', selectedSalesRep);
+
     const button = document.getElementById('confirmAssignButton');
     const originalText = button.innerHTML;
 
@@ -971,16 +975,32 @@ function confirmBulkAssignment() {
     button.innerHTML = '<i class="spinner-border spinner-border-sm me-2"></i>Processing...';
     button.disabled = true;
 
-    // Prepare assignment data
+    // Prepare assignment data with IDs, types, and individual priorities
+    const customers = Array.from(selectedCustomers.entries()).map(([id, type]) => {
+        // Get priority from the dropdown for this customer
+        const prioritySelect = document.querySelector(`.customer-priority-select[data-customer-id="${id}"]`);
+        const priority = prioritySelect ? prioritySelect.value : 'medium';
+
+        return {
+            id: id,
+            type: type,
+            priority: priority
+        };
+    });
+
+    console.log('Selected customers for assignment:', customers);
+    console.log('Selected sales rep:', selectedSalesRep);
+
     const assignmentData = {
         sales_rep_id: selectedSalesRep.id,
-        customer_ids: Array.from(selectedCustomers),
-        priority: document.getElementById('assignmentPriority').value,
-        territory: document.getElementById('assignmentTerritory').value,
+        customers: customers,
         notes: document.getElementById('assignmentNotes').value
     };
 
+    console.log('Assignment data to be sent:', assignmentData);
+
     // Send AJAX request
+    console.log('Sending POST request to:', '{% url "authentication:process-bulk-assignment" %}');
     fetch('{% url "authentication:process-bulk-assignment" %}', {
         method: 'POST',
         headers: {
@@ -989,8 +1009,12 @@ function confirmBulkAssignment() {
         },
         body: JSON.stringify(assignmentData)
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Response received:', response.status, response.statusText);
+        return response.json();
+    })
     .then(data => {
+        console.log('Response data:', data);
         if (data.success) {
             // Close modal
             bootstrap.Modal.getInstance(document.getElementById('assignmentConfirmModal')).hide();
@@ -1011,8 +1035,9 @@ function confirmBulkAssignment() {
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        showToast('Error processing bulk assignment. Please try again.', 'error');
+        console.error('Fetch error:', error);
+        console.error('Error details:', error.message, error.stack);
+        showToast('Error processing bulk assignment: ' + error.message, 'error');
     })
     .finally(() => {
         // Reset button
@@ -1038,18 +1063,20 @@ function viewCurrentAssignments() {
 
             if (data.school_assignments && data.school_assignments.length > 0) {
                 html += `
-                    <h6><i class="uil-building me-2"></i>Wholesale Customer Assignments (${data.school_assignments.length})</h6>
+                    <h6><i class="uil-building me-2"></i>Schools (${data.school_assignments.length})</h6>
                     <div class="table-responsive mb-4">
                         <table class="table table-sm">
-                            <thead><tr><th>Customer Name</th><th>Type</th><th>Territory</th><th>Assigned Date</th></tr></thead>
+                            <thead><tr><th>Customer Name</th><th>Type</th><th>Priority</th><th>Assigned Date</th></tr></thead>
                             <tbody>
                 `;
                 data.school_assignments.forEach(assignment => {
+                    const priorityBadge = assignment.priority === 'high' ? 'bg-danger' :
+                                         assignment.priority === 'medium' ? 'bg-warning' : 'bg-info';
                     html += `
                         <tr>
                             <td>${assignment.school_name}</td>
                             <td><span class="badge bg-soft-primary text-primary">${assignment.school_type}</span></td>
-                            <td>${assignment.territory || 'Not specified'}</td>
+                            <td><span class="badge ${priorityBadge}">${assignment.priority ? assignment.priority.charAt(0).toUpperCase() + assignment.priority.slice(1) : 'Medium'}</span></td>
                             <td>${assignment.assigned_date}</td>
                         </tr>
                     `;
@@ -1059,18 +1086,20 @@ function viewCurrentAssignments() {
 
             if (data.club_assignments && data.club_assignments.length > 0) {
                 html += `
-                    <h6><i class="uil-users-alt me-2"></i>Retail Customer Assignments (${data.club_assignments.length})</h6>
+                    <h6><i class="uil-users-alt me-2"></i>Clubs (${data.club_assignments.length})</h6>
                     <div class="table-responsive">
                         <table class="table table-sm">
-                            <thead><tr><th>Customer Name</th><th>Type</th><th>Territory</th><th>Assigned Date</th></tr></thead>
+                            <thead><tr><th>Customer Name</th><th>Type</th><th>Priority</th><th>Assigned Date</th></tr></thead>
                             <tbody>
                 `;
                 data.club_assignments.forEach(assignment => {
+                    const priorityBadge = assignment.priority === 'high' ? 'bg-danger' :
+                                         assignment.priority === 'medium' ? 'bg-warning' : 'bg-info';
                     html += `
                         <tr>
                             <td>${assignment.club_name}</td>
                             <td><span class="badge bg-soft-success text-success">${assignment.club_type}</span></td>
-                            <td>${assignment.territory || 'Not specified'}</td>
+                            <td><span class="badge ${priorityBadge}">${assignment.priority ? assignment.priority.charAt(0).toUpperCase() + assignment.priority.slice(1) : 'Medium'}</span></td>
                             <td>${assignment.assigned_date}</td>
                         </tr>
                     `;
@@ -1090,8 +1119,12 @@ function viewCurrentAssignments() {
 }
 
 function getCsrfToken() {
-    return document.querySelector('[name=csrfmiddlewaretoken]').value ||
-           document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    const tokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (tokenInput) {
+        return tokenInput.value;
+    }
+    const metaTag = document.querySelector('meta[name="csrf-token"]');
+    return metaTag ? metaTag.getAttribute('content') : '';
 }
 
 function showToast(message, type = 'info') {

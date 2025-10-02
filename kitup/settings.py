@@ -290,10 +290,16 @@ CIN7_BATCH_SIZE = config('CIN7_BATCH_SIZE', default=100, cast=int)
 # Custom User Model
 AUTH_USER_MODEL = 'authentication.User'
 
+# Authentication Backends - use email for login
+AUTHENTICATION_BACKENDS = [
+    'authentication.backends.EmailBackend',  # Custom email authentication
+    'django.contrib.auth.backends.ModelBackend',  # Fallback to username (for admin)
+]
+
 # Authentication Settings
 LOGIN_URL = '/auth/login/'
 LOGIN_REDIRECT_URL = '/clubs/dashboard/'
-LOGOUT_REDIRECT_URL = '/auth/login/'
+LOGOUT_REDIRECT_URL = '/'  # Redirect to home page with login form
 
 # Session Configuration
 SESSION_COOKIE_AGE = 86400  # 24 hours

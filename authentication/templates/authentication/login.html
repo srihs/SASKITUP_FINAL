@@ -240,14 +240,15 @@
                                     </div>
 
                                     <div class="mb-3">
-                                        <label class="form-label" for="username">Username</label>
-                                        <input type="text"
+                                        <label class="form-label" for="username">Email</label>
+                                        <input type="email"
                                                class="form-control {% if form.username.errors %}is-invalid{% endif %}"
                                                id="username"
                                                name="username"
-                                               placeholder="Enter username"
+                                               placeholder="Enter your email address"
                                                value="{{ form.username.value|default:'' }}"
-                                               required>
+                                               required
+                                               autofocus>
                                         {% if form.username.errors %}
                                             <div class="invalid-feedback">
                                                 {% for error in form.username.errors %}
@@ -255,6 +256,7 @@
                                                 {% endfor %}
                                             </div>
                                         {% endif %}
+                                        <small class="form-text text-muted">Use your email address to log in</small>
                                     </div>
 
                                     <div class="mb-3">

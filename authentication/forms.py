@@ -2,24 +2,115 @@
 Forms for authentication app
 """
 from django import forms
-from django.contrib.auth.forms import UserCreationForm, UserChangeForm
+from django.contrib.auth.forms import UserCreationForm, UserChangeForm, AuthenticationForm
 from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
 from .models import User, SalesRepSchoolAssignment, SalesRepClubAssignment
 
 
+class EmailAuthenticationForm(AuthenticationForm):
+    """
+    Custom authentication form that uses email instead of username
+    """
+    username = forms.EmailField(
+        label='Email',
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your email address',
+            'autofocus': True
+        })
+    )
+    password = forms.CharField(
+        label='Password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your password'
+        })
+    )
+
+    error_messages = {
+        'invalid_login': 'Please enter a correct email and password. Note that both fields may be case-sensitive.',
+        'inactive': 'This account is inactive.',
+    }
+
+
 class CustomUserCreationForm(UserCreationForm):
-    """Custom user creation form"""
+    """Custom user creation form with email as primary identifier"""
+    email = forms.EmailField(
+        required=True,
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter email address'
+        })
+    )
+
     class Meta:
         model = User
-        fields = ('username', 'email', 'first_name', 'last_name', 'user_type')
+        fields = ('email', 'username', 'first_name', 'last_name', 'user_type')
+        widgets = {
+            'username': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter username (optional - auto-generated from email)'
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Make username optional - it will be auto-generated from email if not provided
+        self.fields['username'].required = False
+        self.fields['username'].help_text = 'Optional - will be auto-generated from email if not provided'
+
+    def clean_email(self):
+        """Validate email is unique (case-insensitive)"""
+        email = self.cleaned_data.get('email')
+        if email:
+            email = email.lower()
+            if User.objects.filter(email__iexact=email).exists():
+                raise ValidationError('A user with this email address already exists.')
+        return email
+
+    def clean_username(self):
+        """Auto-generate username from email if not provided"""
+        username = self.cleaned_data.get('username')
+        email = self.cleaned_data.get('email')
+
+        if not username and email:
+            # Generate username from email (part before @)
+            base_username = email.split('@')[0]
+            username = base_username
+
+            # Ensure username is unique
+            counter = 1
+            while User.objects.filter(username=username).exists():
+                username = f"{base_username}{counter}"
+                counter += 1
+
+        return username
 
 
 class CustomUserChangeForm(UserChangeForm):
-    """Custom user change form"""
+    """Custom user change form with email as primary identifier"""
+    email = forms.EmailField(
+        required=True,
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter email address'
+        })
+    )
+
     class Meta:
         model = User
-        fields = ('username', 'email', 'first_name', 'last_name', 'user_type', 'is_active')
+        fields = ('email', 'username', 'first_name', 'last_name', 'user_type', 'is_active')
+
+    def clean_email(self):
+        """Validate email is unique (case-insensitive) for current user"""
+        email = self.cleaned_data.get('email')
+        if email:
+            email = email.lower()
+            existing = User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk)
+            if existing.exists():
+                raise ValidationError('A user with this email address already exists.')
+        return email
 
 
 class UserForm(forms.ModelForm):
@@ -46,14 +137,20 @@ class UserForm(forms.ModelForm):
     class Meta:
         model = User
         fields = [
-            'username', 'first_name', 'last_name', 'email',
+            'email', 'username', 'first_name', 'last_name',
             'user_type', 'employee_id', 'phone', 'department',
             'hire_date', 'is_active', 'is_staff', 'is_active_sales_rep'
         ]
+        # Note: email_verified is referenced in template but not in model
         widgets = {
+            'email': forms.EmailInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter email address (used for login)',
+                'autofocus': True
+            }),
             'username': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Enter username'
+                'placeholder': 'Enter username (optional - auto-generated)'
             }),
             'first_name': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -62,10 +159,6 @@ class UserForm(forms.ModelForm):
             'last_name': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Enter last name'
-            }),
-            'email': forms.EmailInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Enter email address'
             }),
             'user_type': forms.Select(attrs={'class': 'form-control'}),
             'employee_id': forms.TextInput(attrs={
@@ -97,11 +190,41 @@ class UserForm(forms.ModelForm):
         if not self.is_edit:
             self.fields['password1'].required = True
             self.fields['password2'].required = True
+            # Make username optional for new users (auto-generated from email)
+            self.fields['username'].required = False
+        else:
+            # For editing, username should still be present but not required
+            self.fields['username'].required = False
 
         # Add help text
+        self.fields['email'].help_text = "Email address - used for login and as username (required)"
+        self.fields['username'].help_text = "Will be automatically set to email address"
         self.fields['user_type'].help_text = "Select the user's role in the system"
-        self.fields['employee_id'].help_text = "Required for sales representatives"
-        self.fields['is_active_sales_rep'].help_text = "Whether this sales rep is actively working assignments"
+
+    def clean_email(self):
+        """Validate email is unique (case-insensitive)"""
+        email = self.cleaned_data.get('email')
+        if email:
+            email = email.lower()
+            existing = User.objects.filter(email__iexact=email)
+            if self.instance and self.instance.pk:
+                existing = existing.exclude(pk=self.instance.pk)
+            if existing.exists():
+                raise ValidationError('A user with this email address already exists.')
+        return email
+
+    def clean_username(self):
+        """Set username to email address"""
+        email = self.cleaned_data.get('email')
+
+        # Username is always set to email
+        if email:
+            username = email
+        else:
+            # Fallback for edge cases
+            username = self.cleaned_data.get('username') or ''
+
+        return username
 
     def clean(self):
         cleaned_data = super().clean()
@@ -109,22 +232,31 @@ class UserForm(forms.ModelForm):
         password2 = cleaned_data.get('password2')
         user_type = cleaned_data.get('user_type')
         employee_id = cleaned_data.get('employee_id')
+        email = cleaned_data.get('email')
+
+        # Email is required
+        if not email:
+            raise ValidationError({'email': 'Email address is required'})
 
         # Password validation
         if password1 or password2:
+            # Check if passwords match
             if password1 != password2:
-                raise ValidationError("Passwords don't match")
+                raise ValidationError({
+                    'password2': "Passwords don't match. Please ensure both password fields contain the same value."
+                })
 
+            # Validate password strength (only if password is provided)
             if password1:
                 try:
                     validate_password(password1, self.instance)
                 except ValidationError as e:
                     raise ValidationError({'password1': e.messages})
 
-        # Sales rep specific validation
-        if user_type == 'sales_rep' and not employee_id:
+        # For new users, password is required
+        if not self.is_edit and not password1:
             raise ValidationError({
-                'employee_id': 'Sales representatives must have an employee ID'
+                'password1': 'Password is required for new users.'
             })
 
         return cleaned_data
@@ -184,7 +316,7 @@ class UserSearchForm(forms.Form):
 
 
 class SalesRepAssignmentForm(forms.ModelForm):
-    """Form for creating sales rep assignments"""
+    """Form for creating sales rep and account manager assignments"""
 
     class Meta:
         model = SalesRepSchoolAssignment
@@ -211,9 +343,9 @@ class SalesRepAssignmentForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Filter sales_rep to only show sales representatives
+        # Filter sales_rep to only show sales representatives and account managers
         self.fields['sales_rep'].queryset = User.objects.filter(
-            user_type='sales_rep',
+            user_type__in=['sales_rep', 'account_manager'],
             is_active=True
         )
 
@@ -245,7 +377,7 @@ class SalesRepAssignmentForm(forms.ModelForm):
 
 
 class ClubAssignmentForm(forms.ModelForm):
-    """Form for creating club assignments"""
+    """Form for creating club assignments for sales reps and account managers"""
 
     class Meta:
         model = SalesRepClubAssignment
@@ -272,9 +404,9 @@ class ClubAssignmentForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Filter sales_rep to only show sales representatives
+        # Filter sales_rep to only show sales representatives and account managers
         self.fields['sales_rep'].queryset = User.objects.filter(
-            user_type='sales_rep',
+            user_type__in=['sales_rep', 'account_manager'],
             is_active=True
         )
 

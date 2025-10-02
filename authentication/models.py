@@ -11,13 +11,21 @@ from django.urls import reverse
 class User(AbstractUser):
     """
     Custom User model extending Django's AbstractUser
-    Supports Admin, Sales Rep, and Customer user types
+    Supports Admin, Sales Rep, Account Manager, and Customer user types
+    Uses email as the primary login identifier
     """
     USER_TYPE_CHOICES = [
         ('admin', 'Admin'),
         ('sales_rep', 'Sales Representative'),
+        ('account_manager', 'Account Manager'),
         ('customer', 'Customer'),
     ]
+
+    # Override email field to make it unique and required
+    email = models.EmailField(
+        unique=True,
+        help_text="Email address - used for login"
+    )
 
     # Custom fields
     user_type = models.CharField(
@@ -63,14 +71,35 @@ class User(AbstractUser):
         """Validate user data"""
         super().clean()
 
-        # Sales reps should have employee_id
-        if self.user_type == 'sales_rep' and not self.employee_id:
+        # Ensure email is provided
+        if not self.email:
             raise ValidationError({
-                'employee_id': 'Sales representatives must have an employee ID'
+                'email': 'Email address is required'
             })
 
+        # Normalize email to lowercase for case-insensitive matching
+        if self.email:
+            self.email = self.email.lower()
+
+        # Check for duplicate emails (case-insensitive)
+        if self.email:
+            existing_user = User.objects.filter(
+                email__iexact=self.email
+            ).exclude(pk=self.pk).first()
+
+            if existing_user:
+                raise ValidationError({
+                    'email': 'A user with this email address already exists'
+                })
+
     def save(self, *args, **kwargs):
-        self.full_clean()
+        # Only run full_clean if not creating a new user or if password is already set
+        # This allows set_password() to work properly after user creation
+        if self.pk or self.password:
+            self.full_clean()
+        else:
+            # For new users without password, only validate custom fields
+            self.clean()
         super().save(*args, **kwargs)
 
     @property
@@ -89,6 +118,11 @@ class User(AbstractUser):
         return self.user_type == 'customer'
 
     @property
+    def is_account_manager(self):
+        """Check if user is account manager"""
+        return self.user_type == 'account_manager'
+
+    @property
     def can_access_admin_panel(self):
         """Check if user can access admin panel"""
         return self.is_admin and self.is_superuser
@@ -96,14 +130,14 @@ class User(AbstractUser):
     @property
     def assigned_schools_count(self):
         """Get count of assigned schools"""
-        if self.is_sales_rep:
+        if self.is_sales_rep or self.is_account_manager:
             return self.school_assignments.filter(is_active=True).count()
         return 0
 
     @property
     def assigned_clubs_count(self):
         """Get count of assigned clubs"""
-        if self.is_sales_rep:
+        if self.is_sales_rep or self.is_account_manager:
             return self.club_assignments.filter(is_active=True).count()
         return 0
 
@@ -113,9 +147,24 @@ class User(AbstractUser):
         return self.assigned_schools_count + self.assigned_clubs_count
 
     def get_assigned_schools(self):
-        """Get all assigned schools for this sales rep"""
+        """
+        Get all assigned schools for this sales rep or account manager
+        Account managers have access to ALL schools
+        """
+        from schools.models import School, WholesaleSchool
+
+        # Account managers have access to all schools
+        if self.is_account_manager:
+            regular_schools = School.objects.filter(is_active=True)
+            wholesale_schools = WholesaleSchool.objects.filter(is_active=True)
+            return {
+                'regular': regular_schools,
+                'wholesale': wholesale_schools,
+                'total_count': regular_schools.count() + wholesale_schools.count()
+            }
+
+        # Sales reps only get their assigned schools
         if self.is_sales_rep:
-            from schools.models import School, WholesaleSchool
             school_assignments = self.school_assignments.filter(is_active=True)
 
             # Get both regular and wholesale schools
@@ -139,13 +188,27 @@ class User(AbstractUser):
 
     def get_assigned_clubs(self):
         """
-        Get all assigned clubs for this sales rep
+        Get all assigned clubs for this sales rep or account manager
+        Account managers have access to ALL clubs
 
         TODO: Update to use GenericForeignKey or return separate LottoClub/SASClub querysets
         The unified Club model has been removed. This method needs to be updated
         to handle LottoClub (from clubs.models_lotto) and SASClub (from clubs.models_sas).
         Consider returning a dict with separate querysets for each club type.
         """
+        # Account managers have access to all clubs
+        if self.is_account_manager:
+            # TODO: Uncomment and update when club models are properly integrated
+            # from clubs.models_lotto import LottoClub
+            # from clubs.models_sas import SASClub
+            # return {
+            #     'lotto': LottoClub.objects.filter(is_active=True),
+            #     'sas': SASClub.objects.filter(is_active=True),
+            #     'total_count': LottoClub.objects.filter(is_active=True).count() +
+            #                    SASClub.objects.filter(is_active=True).count()
+            # }
+            return None  # Return None until club models are properly integrated
+
         if self.is_sales_rep:
             # DISABLED - unified Club model removed
             # from clubs.models import Club
@@ -165,8 +228,15 @@ class User(AbstractUser):
         return None
 
     def can_access_school(self, school):
-        """Check if sales rep can access a specific school"""
+        """
+        Check if user can access a specific school
+        Account managers have access to ALL schools
+        """
         if self.is_admin:
+            return True
+
+        # Account managers have access to all schools
+        if self.is_account_manager:
             return True
 
         if self.is_sales_rep:
@@ -178,8 +248,15 @@ class User(AbstractUser):
         return False
 
     def can_access_club(self, club):
-        """Check if sales rep can access a specific club"""
+        """
+        Check if user can access a specific club
+        Account managers have access to ALL clubs
+        """
         if self.is_admin:
+            return True
+
+        # Account managers have access to all clubs
+        if self.is_account_manager:
             return True
 
         if self.is_sales_rep:
@@ -194,19 +271,22 @@ class User(AbstractUser):
 
 class SalesRepSchoolAssignment(models.Model):
     """
-    Model for assigning sales representatives to schools
+    Model for assigning sales representatives and account managers to schools
     Supports both regular schools and wholesale schools
-    Each school can only have one active sales rep
+    Each school can only have one active sales rep/account manager
+
+    Note: Despite the name, this model also supports account_manager assignments
     """
     # Primary key
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    # Relationships
+    # Relationships - supports both sales_rep and account_manager user types
     sales_rep = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='school_assignments',
-        limit_choices_to={'user_type': 'sales_rep'}
+        limit_choices_to={'user_type__in': ['sales_rep', 'account_manager']},
+        help_text="Sales representative or account manager assigned to this school"
     )
 
     # School relationships (one of these should be set, not both)
@@ -300,10 +380,10 @@ class SalesRepSchoolAssignment(models.Model):
                 "Assignment must have either a regular school or wholesale school."
             )
 
-        # Ensure sales rep is actually a sales rep
-        if self.sales_rep and not self.sales_rep.is_sales_rep:
+        # Ensure sales rep is actually a sales rep or account manager
+        if self.sales_rep and not (self.sales_rep.is_sales_rep or self.sales_rep.is_account_manager):
             raise ValidationError({
-                'sales_rep': 'Only sales representatives can be assigned to schools'
+                'sales_rep': 'Only sales representatives or account managers can be assigned to schools'
             })
 
         # Check for existing active assignments
@@ -370,18 +450,21 @@ class SalesRepSchoolAssignment(models.Model):
 
 class SalesRepClubAssignment(models.Model):
     """
-    Model for assigning sales representatives to clubs
-    Each club can only have one active sales rep
+    Model for assigning sales representatives and account managers to clubs
+    Each club can only have one active sales rep/account manager
+
+    Note: Despite the name, this model also supports account_manager assignments
     """
     # Primary key
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    # Relationships
+    # Relationships - supports both sales_rep and account_manager user types
     sales_rep = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='club_assignments',
-        limit_choices_to={'user_type': 'sales_rep'}
+        limit_choices_to={'user_type__in': ['sales_rep', 'account_manager']},
+        help_text="Sales representative or account manager assigned to this club"
     )
 
     # Generic relationship to support both LottoClub and SASClub
@@ -451,10 +534,10 @@ class SalesRepClubAssignment(models.Model):
         """Validate assignment data"""
         super().clean()
 
-        # Ensure sales rep is actually a sales rep
-        if self.sales_rep and not self.sales_rep.is_sales_rep:
+        # Ensure sales rep is actually a sales rep or account manager
+        if self.sales_rep and not (self.sales_rep.is_sales_rep or self.sales_rep.is_account_manager):
             raise ValidationError({
-                'sales_rep': 'Only sales representatives can be assigned to clubs'
+                'sales_rep': 'Only sales representatives or account managers can be assigned to clubs'
             })
 
         # Check for existing active assignments

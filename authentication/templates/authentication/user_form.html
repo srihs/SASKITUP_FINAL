@@ -15,29 +15,26 @@
     border-color: #bee5eb;
     color: #0c5460;
 }
+/* Password validation styling */
+.form-control.is-invalid {
+    border-color: #dc3545;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+.form-control.is-valid {
+    border-color: #28a745;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%2328a745' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="page-title-box d-flex align-items-center justify-content-between">
-            <h4 class="mb-0">
-                <i class="uil-user-plus text-primary me-2"></i>
-                {% if object %}Edit User{% else %}Create New User{% endif %}
-            </h4>
-            <div class="page-title-right">
-                <ol class="breadcrumb m-0">
-                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'authentication:user-list' %}">User Management</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'authentication:user-list' %}">Users</a></li>
-                    <li class="breadcrumb-item active">{% if object %}Edit{% else %}Create{% endif %}</li>
-                </ol>
-            </div>
-        </div>
-    </div>
-</div>
-<form method="post" novalidate>
+<form method="post" novalidate class="mb-4">
     {% csrf_token %}
 
     <!-- Basic Information -->
@@ -47,28 +44,19 @@
         </div>
         <div class="card-body">
             <div class="row">
-                <div class="col-md-6">
-                    <div class="form-floating mb-3">
-                        {{ form.username }}
-                        <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
-                        {% if form.username.errors %}
-                            <div class="text-danger small mt-1">
-                                {% for error in form.username.errors %}{{ error }}{% endfor %}
-                            </div>
-                        {% endif %}
-                        <div class="form-text">Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.</div>
-                    </div>
-                </div>
-                <div class="col-md-6">
+                <div class="col-md-12">
                     <div class="form-floating mb-3">
                         {{ form.email }}
-                        <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+                        <label for="{{ form.email.id_for_label }}">{{ form.email.label }} <span class="text-danger">*</span></label>
                         {% if form.email.errors %}
                             <div class="text-danger small mt-1">
                                 {% for error in form.email.errors %}{{ error }}{% endfor %}
                             </div>
                         {% endif %}
+                        <div class="form-text">This will be used as the username for login. Must be a valid email address.</div>
                     </div>
+                    <!-- Hidden username field - auto-populated from email -->
+                    <input type="hidden" name="username" id="{{ form.username.id_for_label }}" value="{{ form.username.value|default:'' }}">
                 </div>
             </div>
 
@@ -121,19 +109,18 @@
                     </div>
                 </div>
             </div>
+
         </div>
     </div>
 
-    <!-- Password Section -->
+    <!-- Credentials and Permissions -->
     <div class="card mb-4">
         <div class="card-header">
-            <h5 class="mb-0">
-                {% if object %}Change Password{% else %}Password{% endif %}
-            </h5>
+            <h5 class="mb-0">Credentials and Permissions</h5>
         </div>
         <div class="card-body">
             {% if object %}
-                <div class="alert alert-info">
+                <div class="alert alert-info mb-3">
                     <i class="uil-info-circle me-2"></i>
                     Leave password fields blank to keep the current password unchanged.
                 </div>
@@ -168,77 +155,31 @@
                             {% if object %}Confirm New Password{% else %}Confirm Password{% endif %}
                         </label>
                         {% if form.password2.errors %}
-                            <div class="text-danger small mt-1">
+                            <div id="djangoPasswordError" class="text-danger small mt-1">
                                 {% for error in form.password2.errors %}{{ error }}{% endfor %}
                             </div>
                         {% endif %}
+                        <div id="passwordMatchError" class="text-danger small mt-1" style="display: none;">
+                            <i class="uil-exclamation-triangle me-1"></i>Passwords do not match
+                        </div>
+                        <div id="passwordMatchSuccess" class="text-success small mt-1" style="display: none;">
+                            <i class="uil-check-circle me-1"></i>Passwords match
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Password Strength Indicator -->
-            <div class="mb-3">
+            <div class="mb-4">
                 <div class="progress password-strength">
                     <div class="progress-bar" id="passwordStrength" role="progressbar" style="width: 0%"></div>
                 </div>
                 <small class="form-text" id="passwordStrengthText">Password strength will be shown here</small>
             </div>
-        </div>
-    </div>
 
-    <!-- Professional Information -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0">Professional Information</h5>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="form-floating mb-3">
-                        {{ form.employee_id }}
-                        <label for="{{ form.employee_id.id_for_label }}">{{ form.employee_id.label }}</label>
-                        {% if form.employee_id.errors %}
-                            <div class="text-danger small mt-1">
-                                {% for error in form.employee_id.errors %}{{ error }}{% endfor %}
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-floating mb-3">
-                        {{ form.department }}
-                        <label for="{{ form.department.id_for_label }}">{{ form.department.label }}</label>
-                        {% if form.department.errors %}
-                            <div class="text-danger small mt-1">
-                                {% for error in form.department.errors %}{{ error }}{% endfor %}
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="mb-3">
-                        <label for="{{ form.hire_date.id_for_label }}" class="form-label">{{ form.hire_date.label }}</label>
-                        {{ form.hire_date }}
-                        {% if form.hire_date.errors %}
-                            <div class="text-danger small mt-1">
-                                {% for error in form.hire_date.errors %}{{ error }}{% endfor %}
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Permissions and Status -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0">Permissions and Status</h5>
-        </div>
-        <div class="card-body">
+            <!-- Permissions -->
+            <hr class="my-4">
+            <h6 class="mb-3">Permissions and Status</h6>
             <div class="row">
                 <div class="col-md-6">
                     <div class="form-check mb-3">
@@ -266,18 +207,6 @@
                         {% endif %}
                         <div class="form-text">Designates whether the user can log into this admin site.</div>
                     </div>
-
-                    <div class="form-check mb-3">
-                        {{ form.email_verified }}
-                        <label class="form-check-label" for="{{ form.email_verified.id_for_label }}">
-                            {{ form.email_verified.label }}
-                        </label>
-                        {% if form.email_verified.errors %}
-                            <div class="text-danger small mt-1">
-                                {% for error in form.email_verified.errors %}{{ error }}{% endfor %}
-                            </div>
-                        {% endif %}
-                    </div>
                 </div>
                 <div class="col-md-6">
                     <div class="alert alert-warning">
@@ -295,7 +224,7 @@
     </div>
 
     <!-- Form Actions -->
-    <div class="row">
+    <div class="row mt-3">
         <div class="col-12">
             <div class="d-flex justify-content-between">
                 <a href="{% url 'authentication:user-list' %}" class="btn btn-secondary">
@@ -379,26 +308,67 @@
     document.addEventListener('DOMContentLoaded', function() {
         const password1Field = document.getElementById('{{ form.password1.id_for_label }}');
         const password2Field = document.getElementById('{{ form.password2.id_for_label }}');
+        const emailField = document.getElementById('{{ form.email.id_for_label }}');
+        const usernameField = document.getElementById('{{ form.username.id_for_label }}');
+
+        // Auto-populate username from email
+        if (emailField && usernameField) {
+            emailField.addEventListener('input', function() {
+                usernameField.value = this.value;
+            });
+
+            // Initialize username with email value if editing
+            if (emailField.value && !usernameField.value) {
+                usernameField.value = emailField.value;
+            }
+        }
+
+        // Password matching validation with visual feedback
+        function validatePasswordMatch() {
+            const password1 = password1Field.value;
+            const password2 = password2Field.value;
+            const errorDiv = document.getElementById('passwordMatchError');
+            const successDiv = document.getElementById('passwordMatchSuccess');
+            const djangoErrorDiv = document.getElementById('djangoPasswordError');
+
+            // Hide Django backend error when user starts typing
+            if (djangoErrorDiv) {
+                djangoErrorDiv.style.display = 'none';
+            }
+
+            // Only validate if password2 has content
+            if (!password2) {
+                errorDiv.style.display = 'none';
+                successDiv.style.display = 'none';
+                password2Field.classList.remove('is-invalid', 'is-valid');
+                password2Field.setCustomValidity('');
+                return;
+            }
+
+            if (password1 !== password2) {
+                // Passwords don't match
+                errorDiv.style.display = 'block';
+                successDiv.style.display = 'none';
+                password2Field.classList.add('is-invalid');
+                password2Field.classList.remove('is-valid');
+                password2Field.setCustomValidity('Passwords do not match');
+            } else {
+                // Passwords match
+                errorDiv.style.display = 'none';
+                successDiv.style.display = 'block';
+                password2Field.classList.remove('is-invalid');
+                password2Field.classList.add('is-valid');
+                password2Field.setCustomValidity('');
+            }
+        }
 
         if (password1Field) {
             password1Field.addEventListener('input', updatePasswordStrength);
-            password1Field.addEventListener('input', function() {
-                if (password2Field.value && password1Field.value !== password2Field.value) {
-                    password2Field.setCustomValidity('Passwords do not match');
-                } else {
-                    password2Field.setCustomValidity('');
-                }
-            });
+            password1Field.addEventListener('input', validatePasswordMatch);
         }
 
         if (password2Field) {
-            password2Field.addEventListener('input', function() {
-                if (password1Field.value !== password2Field.value) {
-                    password2Field.setCustomValidity('Passwords do not match');
-                } else {
-                    password2Field.setCustomValidity('');
-                }
-            });
+            password2Field.addEventListener('input', validatePasswordMatch);
         }
 
         // User type change handler
@@ -406,6 +376,8 @@
         if (userTypeField) {
             userTypeField.addEventListener('change', function() {
                 const isStaffField = document.getElementById('{{ form.is_staff.id_for_label }}');
+
+                // Handle admin user type
                 if (this.value === 'admin') {
                     isStaffField.checked = true;
                     isStaffField.parentElement.classList.add('alert', 'alert-info');
@@ -418,8 +390,32 @@
 
     // Form validation
     document.querySelector('form').addEventListener('submit', function(e) {
+        const emailField = document.getElementById('{{ form.email.id_for_label }}');
+        const usernameField = document.getElementById('{{ form.username.id_for_label }}');
         const password1 = document.getElementById('{{ form.password1.id_for_label }}').value;
         const password2 = document.getElementById('{{ form.password2.id_for_label }}').value;
+
+        // Validate email is provided
+        if (!emailField.value) {
+            e.preventDefault();
+            alert('Email is required.');
+            emailField.focus();
+            return;
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(emailField.value)) {
+            e.preventDefault();
+            alert('Please enter a valid email address.');
+            emailField.focus();
+            return;
+        }
+
+        // Ensure username is set to email
+        if (usernameField) {
+            usernameField.value = emailField.value;
+        }
 
         {% if not object %}
         if (!password1) {

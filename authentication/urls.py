@@ -48,9 +48,8 @@ urlpatterns = [
     path('users/<int:pk>/password/', views.UserPasswordChangeView.as_view(), name='user-password-change'),
 
     # Assignment Management URLs
-    path('assignments/', views.AssignmentManagementView.as_view(), name='assignment-management'),
-    path('assignments/bulk/', views.BulkAssignmentView.as_view(), name='bulk-assignment'),
-    path('assignments/bulk/process/', views.ProcessBulkAssignmentView.as_view(), name='process-bulk-assignment'),
+    path('assignments/', views.BulkAssignmentView.as_view(), name='bulk-assignment'),
+    path('assignments/process/', views.ProcessBulkAssignmentView.as_view(), name='process-bulk-assignment'),
     path('assignments/current/', views.get_current_assignments, name='get-current-assignments'),
 
     # AJAX URLs

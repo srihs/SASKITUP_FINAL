@@ -49,8 +49,8 @@ class AuthenticationMiddleware:
                 logout(request)
                 return redirect('authentication:login')
 
-            # Check if sales rep is still active
-            if request.user.is_sales_rep and not request.user.is_active_sales_rep:
+            # Check if sales rep or account manager is still active
+            if (request.user.is_sales_rep or request.user.is_account_manager) and not request.user.is_active_sales_rep:
                 logout(request)
                 return redirect('authentication:login')
 
@@ -136,7 +136,15 @@ class RoleBasedAccessMiddleware:
         self.sales_rep_restricted_paths = [
             '/admin/',
             '/auth/users/create/',
-            '/auth/assignments/bulk/',
+            '/auth/assignments/',
+        ]
+
+        # Account manager accessible paths (similar to sales rep but with broader access)
+        self.account_manager_accessible_paths = [
+            '/auth/assignments/',
+            '/schools/',
+            '/clubs/',
+            '/wholesale/',
         ]
 
         # Public paths that don't require authentication
@@ -184,13 +192,13 @@ class RoleBasedAccessMiddleware:
                 )
                 return redirect('authentication:access-denied')
 
-        # Check sales rep restrictions
+        # Check sales rep restrictions (account managers also restricted from these paths)
         if any(path.startswith(restricted_path) for restricted_path in self.sales_rep_restricted_paths):
-            if request.user.is_sales_rep:
+            if request.user.is_sales_rep or request.user.is_account_manager:
                 AuditLog.log_action(
                     user=request.user,
                     action_type='permission_denied',
-                    description=f'Sales rep attempted to access restricted path: {path}',
+                    description=f'{request.user.get_user_type_display()} attempted to access restricted path: {path}',
                     request=request,
                     attempted_path=path
                 )

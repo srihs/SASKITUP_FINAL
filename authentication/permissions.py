@@ -56,6 +56,16 @@ class SalesRepRequiredMixin(RoleRequiredMixin):
     required_roles = ['admin', 'sales_rep']
 
 
+class AccountManagerRequiredMixin(RoleRequiredMixin):
+    """Mixin to require account manager role (or admin)"""
+    required_roles = ['admin', 'account_manager']
+
+
+class SalesRepOrAccountManagerMixin(RoleRequiredMixin):
+    """Mixin to require sales rep or account manager role (or admin)"""
+    required_roles = ['admin', 'sales_rep', 'account_manager']
+
+
 class CustomerRequiredMixin(RoleRequiredMixin):
     """Mixin to require customer role (or admin)"""
     required_roles = ['admin', 'customer']
@@ -177,6 +187,24 @@ def sales_rep_required(view_func):
         return user.is_authenticated and (user.is_admin or user.is_sales_rep)
 
     actual_decorator = user_passes_test(check_sales_rep, login_url='/auth/login/')
+    return actual_decorator(view_func)
+
+
+def account_manager_required(view_func):
+    """Decorator to require account manager role (or admin) for function-based views"""
+    def check_account_manager(user):
+        return user.is_authenticated and (user.is_admin or user.is_account_manager)
+
+    actual_decorator = user_passes_test(check_account_manager, login_url='/auth/login/')
+    return actual_decorator(view_func)
+
+
+def sales_rep_or_account_manager_required(view_func):
+    """Decorator to require sales rep or account manager role (or admin) for function-based views"""
+    def check_sales_rep_or_account_manager(user):
+        return user.is_authenticated and (user.is_admin or user.is_sales_rep or user.is_account_manager)
+
+    actual_decorator = user_passes_test(check_sales_rep_or_account_manager, login_url='/auth/login/')
     return actual_decorator(view_func)
 
 
@@ -332,6 +360,10 @@ def filter_schools_for_user(user, queryset):
     if user.is_admin:
         return queryset
 
+    # Account managers have access to all schools
+    if user.is_account_manager:
+        return queryset
+
     if user.is_sales_rep:
         # Get assigned school IDs
         school_assignments = user.school_assignments.filter(is_active=True)
@@ -374,6 +406,10 @@ def filter_clubs_for_user(user, queryset):
     if user.is_admin:
         return queryset
 
+    # Account managers have access to all clubs
+    if user.is_account_manager:
+        return queryset
+
     if user.is_sales_rep:
         # Get assigned club IDs
         club_assignments = user.club_assignments.filter(is_active=True)
@@ -397,8 +433,8 @@ class AssignmentPermissionMixin:
         if self.request.user.is_admin:
             return queryset
 
-        # Sales reps can only see their own assignments
-        if self.request.user.is_sales_rep:
+        # Sales reps and account managers can only see their own assignments
+        if self.request.user.is_sales_rep or self.request.user.is_account_manager:
             return queryset.filter(sales_rep=self.request.user)
 
         return queryset.none()
