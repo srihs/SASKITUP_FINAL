@@ -34,14 +34,40 @@ logger = logging.getLogger(__name__)
 
 class Command(BaseCommand):
     help = 'Synchronize SAS sports clubs data from WooCommerce API'
-    
+
+    # Valid sport category IDs - only these will be synced as sports
+    # This whitelist ensures we only sync legitimate sports, not products/events/apparel
+    VALID_SPORT_CATEGORIES = [
+        17,   # Athletics
+        46,   # Basketball
+        358,  # American Flag Football
+        462,  # Cricket
+        48,   # Hockey
+        120,  # Netball
+        60,   # Rugby
+        51,   # Rugby League
+        384,  # Softball
+        328,  # Taranaki Hockey
+        383,  # Tennis
+        99,   # Touch
+        319,  # Touch NZ - Referee
+    ]
+
+    # Keywords to exclude from club subcategories (products, apparel, events)
+    # These help filter out non-club entries within valid sport categories
+    EXCLUDE_CLUB_KEYWORDS = [
+        'APPAREL', 'GARMENT', 'UNIFORM', 'CLOTHING', 'PRODUCT',
+        'REFEREE', 'DEALS', 'Clearance', 'Range', 'Option',
+        'Pack', 'Nationals', 'Tournament'
+    ]
+
     # School filtering keywords (case-insensitive)
     SCHOOL_KEYWORDS = [
         'school', 'high school', 'primary school', 'college', 'university',
         'academy', 'institute', 'education', 'learning', 'student',
         'grade', 'matric', 'junior', 'senior', 'prep'
     ]
-    
+
     # Schools category ID to exclude
     SCHOOLS_CATEGORY_ID = 98
     
@@ -189,46 +215,81 @@ class Command(BaseCommand):
                 continue
     
     def _fetch_sport_categories(self, sport_filter=None, skip_schools=True) -> List[Dict]:
-        """Fetch top-level sport categories"""
+        """
+        Fetch whitelisted sport categories only.
+
+        Uses VALID_SPORT_CATEGORIES whitelist to ensure only legitimate sports
+        are synced, not products/events/apparel/generic categories.
+        """
         try:
-            # Fetch root categories (parent=0)
-            categories = self.woo_service.get_categories(parent_id=0, per_page=100)
-            
-            if not categories:
-                return []
-            
             sport_categories = []
-            
-            for category in categories:
-                category_id = category['id']
-                category_name = category['name']
-                
-                # Skip schools category if filtering enabled
-                if skip_schools and category_id == self.SCHOOLS_CATEGORY_ID:
-                    if self.options['verbose']:
-                        self.stdout.write(f'⏭️  Skipping Schools category (ID: {category_id})')
-                    continue
-                
-                # Skip school-related categories by name
-                if skip_schools and self._is_school_related(category_name):
-                    if self.options['verbose']:
-                        self.stdout.write(f'⏭️  Skipping school-related category: {category_name}')
-                    continue
-                
+
+            # If sport filter is specified, validate it's in the whitelist
+            if sport_filter:
+                # Try to convert to int if it's a category ID
+                try:
+                    filter_id = int(sport_filter)
+                    if filter_id not in self.VALID_SPORT_CATEGORIES:
+                        self.stdout.write(
+                            self.style.WARNING(
+                                f'⚠️  Sport filter ID {filter_id} is not in the whitelist. '
+                                f'Valid sport IDs: {self.VALID_SPORT_CATEGORIES}'
+                            )
+                        )
+                        return []
+                except ValueError:
+                    # It's a name filter, we'll check it later
+                    pass
+
+            # Iterate through whitelisted sport categories only
+            for sport_id in self.VALID_SPORT_CATEGORIES:
                 # Apply sport filter if specified
                 if sport_filter:
-                    if not (str(category_id) == sport_filter or 
-                           sport_filter.lower() in category_name.lower()):
-                        continue
-                
+                    # Check if filter matches this sport ID
+                    try:
+                        filter_id = int(sport_filter)
+                        if filter_id != sport_id:
+                            continue
+                    except ValueError:
+                        # Will check name match below after fetching category
+                        pass
+
+                # Fetch this specific sport category
+                category = self.woo_service.get_category_by_id(sport_id)
+
+                if not category:
+                    if self.options['verbose']:
+                        self.stdout.write(f'⏭️  Skipping sport ID {sport_id}: Category not found in WooCommerce')
+                    continue
+
+                category_name = category.get('name', '')
+
+                # Check name-based sport filter
+                if sport_filter:
+                    try:
+                        int(sport_filter)  # If this works, we already checked ID match above
+                    except ValueError:
+                        # It's a name filter
+                        if sport_filter.lower() not in category_name.lower():
+                            continue
+
                 # Only include categories with products
-                if category.get('count', 0) > 0:
+                product_count = category.get('count', 0)
+                if product_count > 0:
                     sport_categories.append(category)
                     if self.options['verbose']:
-                        self.stdout.write(f'✓ Found sport: {category_name} (ID: {category_id}, Products: {category["count"]})')
-            
+                        self.stdout.write(
+                            f'✓ Found valid sport: {category_name} '
+                            f'(ID: {sport_id}, Products: {product_count})'
+                        )
+                else:
+                    if self.options['verbose']:
+                        self.stdout.write(
+                            f'⏭️  Skipping sport {category_name} (ID: {sport_id}): No products'
+                        )
+
             return sport_categories
-            
+
         except Exception as e:
             logger.error(f"Failed to fetch sport categories: {str(e)}")
             raise
@@ -281,31 +342,47 @@ class Command(BaseCommand):
                 continue
     
     def _fetch_clubs_for_sport(self, sport_id, skip_schools) -> List[Dict]:
-        """Fetch club subcategories for a specific sport"""
+        """
+        Fetch club subcategories for a specific sport with enhanced filtering.
+
+        Filters out:
+        - School-related clubs (if skip_schools=True)
+        - Product/apparel/event subcategories using EXCLUDE_CLUB_KEYWORDS
+        """
         try:
             clubs = self.woo_service.get_categories(parent_id=sport_id, per_page=100)
-            
+
             if not clubs:
                 return []
-            
+
             filtered_clubs = []
-            
+
             for club in clubs:
                 club_name = club['name']
-                
+
                 # Skip school-related clubs if filtering enabled
                 if skip_schools and self._is_school_related(club_name):
                     if self.options['verbose']:
                         self.stdout.write(f'    ⏭️  Skipping school-related club: {club_name}')
                     self.stats['clubs_skipped'] += 1
                     continue
-                
+
+                # Skip product/apparel/event subcategories
+                if self._is_excluded_subcategory(club_name):
+                    if self.options['verbose']:
+                        self.stdout.write(
+                            f'    ⏭️  Skipping non-club subcategory: {club_name} '
+                            f'(matches exclusion keywords)'
+                        )
+                    self.stats['clubs_skipped'] += 1
+                    continue
+
                 # Only include clubs with products
                 if club.get('count', 0) > 0:
                     filtered_clubs.append(club)
-            
+
             return filtered_clubs
-            
+
         except Exception as e:
             logger.error(f"Failed to fetch clubs for sport {sport_id}: {str(e)}")
             return []
@@ -538,6 +615,16 @@ class Command(BaseCommand):
         """Check if a category/club name is school-related"""
         name_lower = name.lower()
         return any(keyword in name_lower for keyword in self.SCHOOL_KEYWORDS)
+
+    def _is_excluded_subcategory(self, name: str) -> bool:
+        """
+        Check if a subcategory should be excluded based on EXCLUDE_CLUB_KEYWORDS.
+
+        This filters out product/apparel/event subcategories that are not actual clubs.
+        Case-insensitive matching against name.
+        """
+        name_upper = name.upper()
+        return any(keyword.upper() in name_upper for keyword in self.EXCLUDE_CLUB_KEYWORDS)
     
     def _sport_needs_update(self, existing_sport, new_data) -> bool:
         """Check if sport needs updating"""

@@ -30,22 +30,23 @@ class GlobalDashboardView(TemplateView):
 
 
 def frontend_landing_view(request):
-    """Serve the frontend landing page with featured schools and clubs"""
-    # Get 6 retail schools with logos from TUS
-    retail_schools = TUSSchool.objects.filter(
-        is_active=True,
-        logo_url__isnull=False
-    ).exclude(
-        logo_url=''
-    )[:6]
+    """Serve the frontend landing page with featured clubs only"""
+    from django.db.models import Q
 
-    # Get 3 LOTTO clubs from LottoClub model
+    # Get 3 LOTTO clubs (exclude product/apparel names)
     lotto_clubs = LottoClub.objects.filter(
         is_active=True,
         logo__isnull=False
     ).exclude(
         logo=''
-    )[:3]
+    ).exclude(
+        Q(name__icontains='APPAREL') |
+        Q(name__icontains='GARMENT') |
+        Q(name__icontains='UNIFORM') |
+        Q(name__icontains='CLOTHING') |
+        Q(name__icontains='PRODUCT') |
+        Q(name__icontains='REFEREE')
+    ).order_by('?')[:3]  # Random 3 clubs
 
     # Get 3 SAS clubs from SASClub model
     sas_clubs = SASClub.objects.filter(
@@ -53,10 +54,9 @@ def frontend_landing_view(request):
         image_url__isnull=False
     ).exclude(
         image_url=''
-    )[:3]
+    ).order_by('?')[:3]  # Random 3 clubs
 
     context = {
-        'retail_schools': retail_schools,
         'lotto_clubs': lotto_clubs,
         'sas_clubs': sas_clubs,
     }
@@ -67,6 +67,49 @@ def frontend_landing_view(request):
 def products_view(request):
     """Serve the products listing page"""
     return render(request, 'frontend/products.html')
+
+
+def get_random_clubs_ajax(request):
+    """AJAX endpoint to get random clubs for rotation"""
+    from django.http import JsonResponse
+    from django.db.models import Q
+
+    # Get 3 random LOTTO clubs (exclude product/apparel names)
+    lotto_clubs = list(LottoClub.objects.filter(
+        is_active=True,
+        logo__isnull=False
+    ).exclude(
+        logo=''
+    ).exclude(
+        Q(name__icontains='APPAREL') |
+        Q(name__icontains='GARMENT') |
+        Q(name__icontains='UNIFORM') |
+        Q(name__icontains='CLOTHING') |
+        Q(name__icontains='PRODUCT') |
+        Q(name__icontains='REFEREE')
+    ).order_by('?')[:3].values('name', 'logo'))
+
+    # Rename logo field to logo_url for consistency
+    for club in lotto_clubs:
+        club['logo_url'] = club.pop('logo')
+
+    # Get 3 random SAS clubs
+    sas_clubs = list(SASClub.objects.filter(
+        is_active=True,
+        image_url__isnull=False
+    ).exclude(
+        image_url=''
+    ).order_by('?')[:3].values('name', 'image_url'))
+
+    # Rename image_url to logo_url for consistency
+    for club in sas_clubs:
+        club['logo_url'] = club.pop('image_url')
+
+    return JsonResponse({
+        'success': True,
+        'lotto_clubs': lotto_clubs,
+        'sas_clubs': sas_clubs
+    })
 
 
 def product_detail_view(request):

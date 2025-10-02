@@ -329,9 +329,9 @@ class TUSRetailSchoolsView(TUSAuditMixin, SearchAuditMixin, ListView):
         # Add statistics using utility function
         context.update(get_tus_dashboard_stats())
 
-        # Featured locations and categories using utility functions
+        # Featured locations using utility functions
         context['featured_locations'] = get_tus_featured_locations(limit=6)
-        context['featured_categories'] = get_tus_featured_categories(limit=6)
+        # Note: featured_categories removed - this is a schools page, not a products page
 
         # Add all locations for the filter dropdown
         context['all_locations'] = TUSLocation.objects.filter(is_active=True).order_by('name')

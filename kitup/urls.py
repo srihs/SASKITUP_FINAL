@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from .views import GlobalDashboardView, frontend_landing_view, products_view, product_detail_view, cart_view, user_choice_view
+from .views import GlobalDashboardView, frontend_landing_view, products_view, product_detail_view, cart_view, user_choice_view, get_random_clubs_ajax
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -33,6 +33,7 @@ urlpatterns = [
     path('products/', products_view, name='frontend-products'),  # Products listing page
     path('product-detail/', product_detail_view, name='frontend-product-detail'),  # Product detail page
     path('cart/', cart_view, name='frontend-cart'),  # Shopping cart page
+    path('ajax/random-clubs/', get_random_clubs_ajax, name='ajax-random-clubs'),  # AJAX endpoint for rotating clubs
 
     # =================================================================
     # API Documentation (accessible at root level)
