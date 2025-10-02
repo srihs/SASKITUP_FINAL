@@ -54,9 +54,32 @@
 <div class="row">
     <div class="col-12">
         <div class="page-title-box">
-            <h4 class="mb-4 font-size-18">NZ School Database</h4>
+            <div class="d-flex align-items-center justify-content-between">
+                <h4 class="mb-0 font-size-18">NZ School Database</h4>
+                <button type="button" id="syncButton" class="btn btn-primary" onclick="startNZSync()">
+                    <i id="syncIcon" class="uil-sync me-2" aria-hidden="true"></i>
+                    <span id="syncText">Sync NZ Schools</span>
+                </button>
+            </div>
         </div>
     </div>
+</div>
+
+<!-- Sync Status Alert -->
+<div id="syncAlert" class="alert alert-info alert-dismissible fade mb-4" role="alert" style="display: none;">
+    <div class="d-flex align-items-center">
+        <div class="spinner-border spinner-border-sm text-primary me-3" id="syncSpinner" role="status" style="display: none;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <div class="flex-grow-1">
+            <h6 class="alert-heading mb-1" id="syncAlertTitle">Sync Status</h6>
+            <div id="syncAlertMessage">Starting sync process...</div>
+            <div id="syncProgress" class="progress mt-2" style="height: 4px; display: none;">
+                <div class="progress-bar bg-primary" role="progressbar" style="width: 0%" id="syncProgressBar"></div>
+            </div>
+        </div>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 </div>
 
             <!-- Statistics Row -->
@@ -257,5 +280,169 @@
             document.getElementById('filterForm').submit();
         });
     });
+
+    // Helper function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Start NZ schools sync
+    function startNZSync() {
+        const syncButton = document.getElementById('syncButton');
+        const syncIcon = document.getElementById('syncIcon');
+        const syncText = document.getElementById('syncText');
+        const syncAlert = document.getElementById('syncAlert');
+        const syncSpinner = document.getElementById('syncSpinner');
+        const syncAlertTitle = document.getElementById('syncAlertTitle');
+        const syncAlertMessage = document.getElementById('syncAlertMessage');
+        const syncProgress = document.getElementById('syncProgress');
+        const syncProgressBar = document.getElementById('syncProgressBar');
+
+        // Disable button and show loading state
+        syncButton.disabled = true;
+        syncIcon.className = 'uil-spin uil-sync me-2';
+        syncText.textContent = 'Syncing...';
+
+        // Show sync alert with loading state
+        syncAlert.style.display = 'block';
+        syncAlert.className = 'alert alert-info alert-dismissible fade show mb-4';
+        syncSpinner.style.display = 'block';
+        syncAlertTitle.textContent = 'Sync in Progress';
+        syncAlertMessage.textContent = 'Synchronizing NZ schools data from Government API...';
+        syncProgress.style.display = 'block';
+        syncProgressBar.style.width = '25%';
+
+        // Make AJAX request to sync endpoint
+        fetch('{% url "schools:sync-nz-schools" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                syncProgressBar.style.width = '50%';
+                syncAlertMessage.textContent = 'NZ schools sync started successfully! Job ID: ' + data.job_id;
+
+                // Monitor sync progress
+                monitorNZSync(data.job_id);
+            } else {
+                syncAlert.className = 'alert alert-danger alert-dismissible fade show mb-4';
+                syncAlertTitle.textContent = 'Sync Failed';
+                syncAlertMessage.textContent = 'Error: ' + (data.error || 'Unknown error occurred');
+                syncSpinner.style.display = 'none';
+                resetSyncButton();
+            }
+        })
+        .catch(error => {
+            console.error('Sync request failed:', error);
+            syncAlert.className = 'alert alert-danger alert-dismissible fade show mb-4';
+            syncAlertTitle.textContent = 'Sync Failed';
+            syncAlertMessage.textContent = 'Network error: ' + error.message;
+            syncSpinner.style.display = 'none';
+            resetSyncButton();
+        });
+    }
+
+    // Monitor NZ sync progress
+    function monitorNZSync(jobId) {
+        const syncAlert = document.getElementById('syncAlert');
+        const syncAlertTitle = document.getElementById('syncAlertTitle');
+        const syncAlertMessage = document.getElementById('syncAlertMessage');
+        const syncProgressBar = document.getElementById('syncProgressBar');
+        const syncSpinner = document.getElementById('syncSpinner');
+
+        const checkStatus = () => {
+            fetch(`/schools/sync/nz-schools/status/${jobId}/`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    syncProgressBar.style.width = data.progress_percentage + '%';
+                    syncAlertMessage.textContent = data.current_step || 'Syncing in progress...';
+
+                    if (data.is_finished) {
+                        syncSpinner.style.display = 'none';
+                        if (data.status === 'completed') {
+                            syncAlert.className = 'alert alert-success alert-dismissible fade show mb-4';
+                            syncAlertTitle.textContent = 'Sync Completed';
+                            syncAlertMessage.textContent = 'NZ schools sync completed successfully!';
+                            syncProgressBar.style.width = '100%';
+
+                            // Show stats if available
+                            if (data.stats) {
+                                syncAlertMessage.innerHTML = `
+                                    NZ schools sync completed successfully!<br>
+                                    <small>
+                                        Schools: ${data.stats.total_created + data.stats.total_updated} processed
+                                    </small>
+                                `;
+                            }
+
+                            // Reload page after 3 seconds to show updated data
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 3000);
+                        } else if (data.status === 'failed') {
+                            syncAlert.className = 'alert alert-danger alert-dismissible fade show mb-4';
+                            syncAlertTitle.textContent = 'Sync Failed';
+                            syncAlertMessage.textContent = 'Error: ' + (data.error_message || 'Sync failed');
+                        }
+                        resetSyncButton();
+                    } else {
+                        // Continue polling
+                        setTimeout(checkStatus, 2000);
+                    }
+                } else {
+                    syncAlert.className = 'alert alert-danger alert-dismissible fade show mb-4';
+                    syncAlertTitle.textContent = 'Sync Status Error';
+                    syncAlertMessage.textContent = 'Error: ' + (data.error || 'Failed to get sync status');
+                    syncSpinner.style.display = 'none';
+                    resetSyncButton();
+                }
+            })
+            .catch(error => {
+                console.error('Status check failed:', error);
+                syncAlert.className = 'alert alert-danger alert-dismissible fade show mb-4';
+                syncAlertTitle.textContent = 'Sync Status Error';
+                syncAlertMessage.textContent = 'Network error: ' + error.message;
+                syncSpinner.style.display = 'none';
+                resetSyncButton();
+            });
+        };
+
+        // Start polling after initial delay
+        setTimeout(checkStatus, 2000);
+    }
+
+    // Reset sync button to initial state
+    function resetSyncButton() {
+        const syncButton = document.getElementById('syncButton');
+        const syncIcon = document.getElementById('syncIcon');
+        const syncText = document.getElementById('syncText');
+
+        syncButton.disabled = false;
+        syncIcon.className = 'uil-sync me-2';
+        syncText.textContent = 'Sync NZ Schools';
+    }
 </script>
 {% endblock %}

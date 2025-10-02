@@ -40,6 +40,7 @@ class SyncJob(models.Model):
         ('sas', 'SAS Clubs'),
         ('tus', 'TUS Schools'),
         ('wholesale', 'Wholesale Schools'),
+        ('nz', 'NZ Government Schools'),
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

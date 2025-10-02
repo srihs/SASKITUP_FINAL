@@ -1793,6 +1793,143 @@ def tus_sync_status(request, job_id):
         }, status=500)
 
 
+# ================================
+# NZ Schools Sync Management Views
+# ================================
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def sync_nz_schools(request):
+    """
+    Async endpoint to trigger NZ schools synchronization from NZ Government API
+    Returns immediate response with job ID for polling
+    """
+    logger = logging.getLogger(__name__)
+
+    try:
+        logger.info("Starting async sync request for NZ schools")
+
+        # Log sync start
+        from authentication.models import AuditLog
+        user = request.user if hasattr(request, 'user') and request.user.is_authenticated else None
+        AuditLog.log_action(
+            user=user,
+            action_type='nz_sync_started',
+            description="NZ schools sync initiated",
+            request=request,
+            sync_type='nz'
+        )
+
+        # Auto-cleanup stale jobs before checking for running jobs
+        cleaned_count = SyncJob.cleanup_stale_jobs(max_age_hours=2)
+        if cleaned_count > 0:
+            logger.info(f"Auto-cleaned {cleaned_count} stale sync jobs before starting new sync")
+
+        # Check if there's already a running sync job (after cleanup)
+        existing_job = SyncJob.objects.filter(
+            sync_type='nz',
+            status='running'
+        ).first()
+
+        if existing_job:
+            # Double-check if the existing job is actually stale
+            if existing_job.is_stale(max_age_hours=2):
+                logger.warning(f"Found stale job {existing_job.id}, cleaning it up")
+                existing_job.fail(
+                    'Job was stale and cleaned up to allow new sync',
+                    'AUTO_CLEANUP_ON_NEW_SYNC'
+                )
+                existing_job.add_log_message('Job was automatically cleaned up due to being stale when new sync was requested', 'warning')
+            else:
+                logger.info(f"Sync already in progress (job {existing_job.id})")
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Sync already in progress',
+                    'job_id': str(existing_job.id),
+                    'status': existing_job.status,
+                    'progress_percentage': existing_job.progress_percentage,
+                    'current_step': existing_job.current_step,
+                    'already_running': True
+                })
+
+        # Create a new sync job
+        sync_job = SyncJob.objects.create(
+            sync_type='nz',
+            status='running',
+            current_step='Initializing NZ schools sync...',
+            progress_percentage=0
+        )
+
+        def run_sync_command():
+            """Background thread function to run the sync command"""
+            logger = logging.getLogger(f'{__name__}.sync_thread')
+            try:
+                logger.info(f"Starting NZ schools sync job {sync_job.id}")
+                sync_job.start()
+                sync_job.add_log_message('NZ schools sync process started', 'info')
+
+                # Call the management command to sync ALL schools
+                # Note: --all-schools flag syncs both open and closed schools
+                # The Status:"Open" filter doesn't work with the API, so we sync all and filter in UI
+                call_command('sync_schools', all_schools=True, verbosity=2)
+
+                # Mark as completed
+                sync_job.complete()
+                sync_job.add_log_message('NZ schools sync completed successfully', 'success')
+                logger.info(f"NZ schools sync job {sync_job.id} completed successfully")
+
+            except Exception as e:
+                error_message = f"NZ schools sync failed: {str(e)}"
+                logger.error(error_message, exc_info=True)
+                sync_job.fail(error_message, 'SYNC_COMMAND_FAILED')
+                sync_job.add_log_message(error_message, 'error')
+
+        # Start the sync in a background thread
+        sync_thread = threading.Thread(target=run_sync_command, daemon=True)
+        sync_thread.start()
+
+        logger.info(f"NZ schools sync job {sync_job.id} started successfully")
+
+        return JsonResponse({
+            'success': True,
+            'message': 'NZ schools sync started successfully',
+            'job_id': str(sync_job.id),
+            'status': sync_job.status,
+            'progress_percentage': sync_job.progress_percentage,
+            'current_step': sync_job.current_step,
+            'sync_type': sync_job.sync_type,
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to start NZ schools sync: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': f'Failed to start NZ schools sync: {str(e)}',
+            'error_code': 'SYNC_START_FAILED'
+        }, status=500)
+
+
+def nz_schools_sync_status(request, job_id):
+    """
+    Get NZ schools sync status
+    Delegates to clubs app sync_status functionality
+    """
+    try:
+        # Import the clubs app sync status function
+        from clubs.views import sync_status
+
+        # Delegate to the clubs app function
+        return sync_status(request, job_id)
+
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error getting NZ schools sync status for job {job_id}: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'Failed to get sync status: {str(e)}'
+        }, status=500)
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def wholesale_price_preview(request):

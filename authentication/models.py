@@ -732,10 +732,17 @@ class AuditLog(models.Model):
         }
 
         if request:
+            session_key = ''
+            if hasattr(request, 'session') and request.session:
+                try:
+                    session_key = request.session.session_key or ''
+                except:
+                    session_key = ''
+
             audit_data.update({
                 'ip_address': cls._get_client_ip(request),
                 'user_agent': request.META.get('HTTP_USER_AGENT', ''),
-                'session_key': request.session.session_key if hasattr(request, 'session') else '',
+                'session_key': session_key,
             })
 
         return cls.objects.create(**audit_data)

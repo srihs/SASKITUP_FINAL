@@ -13,6 +13,10 @@ urlpatterns = [
     # AJAX search endpoint
     path('search/', views.school_search_ajax, name='school_search_ajax'),
 
+    # NZ Schools Sync endpoints
+    path('sync/nz-schools/execute/', views.sync_nz_schools, name='sync-nz-schools'),
+    path('sync/nz-schools/status/<uuid:job_id>/', views.nz_schools_sync_status, name='nz-schools-sync-status'),
+
     # TUS Retail Schools URLs - Main retail schools listing
     path('retail/', views.TUSRetailSchoolsView.as_view(), name='retail_schools'),
     path('retail/', views.TUSRetailSchoolsView.as_view(), name='tus_retail_schools'),  # Alternative name
