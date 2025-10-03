@@ -1171,17 +1171,21 @@ class BulkAssignmentCustomersAPIView(AdminRequiredMixin, View):
         retail_schools = TUSSchool.objects.all()
         for school in retail_schools:
             # Check if assigned to this or any sales rep
+            # SalesRepSchoolAssignment uses school_id field, not GenericForeignKey
             assignment = SalesRepSchoolAssignment.objects.filter(
-                content_type=ContentType.objects.get_for_model(TUSSchool),
-                object_id=school.id
+                school_id=school.id
             ).first()
 
+            # TUSSchool has location relationship, not direct city/country fields
+            location = school.location.name if hasattr(school, 'location') and school.location else 'Unknown'
+
             schools_data.append({
-                'id': school.id,
+                'id': f'tusschool_{school.id}',  # Composite ID to avoid duplicates
+                'numeric_id': school.id,
                 'name': school.name,
                 'type': 'regular',
                 'org_type': 'TUS School',
-                'location': f"{school.city}, {school.country}" if hasattr(school, 'city') else 'Unknown',
+                'location': location,
                 'is_assigned': assignment is not None,
                 'current_assignment': assignment.sales_rep.get_full_name() if assignment else None,
                 'customer_type': 'tusschool'
@@ -1190,17 +1194,21 @@ class BulkAssignmentCustomersAPIView(AdminRequiredMixin, View):
         # Wholesale schools
         wholesale_schools = WholesaleSchool.objects.all()
         for school in wholesale_schools:
+            # SalesRepSchoolAssignment uses wholesale_school field, not GenericForeignKey
             assignment = SalesRepSchoolAssignment.objects.filter(
-                content_type=ContentType.objects.get_for_model(WholesaleSchool),
-                object_id=school.id
+                wholesale_school=school
             ).first()
 
+            # WholesaleSchool doesn't have city/country fields
+            location = 'New Zealand'
+
             schools_data.append({
-                'id': school.id,
+                'id': f'wholesaleschool_{school.id}',  # Composite ID to avoid duplicates
+                'numeric_id': school.id,
                 'name': school.name,
                 'type': 'wholesale',
                 'org_type': 'Wholesale School',
-                'location': f"{school.city}, {school.country}" if hasattr(school, 'city') else 'Unknown',
+                'location': location,
                 'is_assigned': assignment is not None,
                 'current_assignment': assignment.sales_rep.get_full_name() if assignment else None,
                 'customer_type': 'wholesaleschool'
@@ -1208,18 +1216,25 @@ class BulkAssignmentCustomersAPIView(AdminRequiredMixin, View):
 
         # Lotto Clubs
         lotto_clubs = LottoClub.objects.all()
+        lotto_content_type = ContentType.objects.get_for_model(LottoClub)
+
         for club in lotto_clubs:
+            # SalesRepClubAssignment uses GenericForeignKey for clubs
             assignment = SalesRepClubAssignment.objects.filter(
-                content_type=ContentType.objects.get_for_model(LottoClub),
-                object_id=club.id
+                club_content_type=lotto_content_type,
+                club_object_id=club.id
             ).first()
 
+            # LottoClub doesn't have city/country fields
+            location = 'South Africa'
+
             schools_data.append({
-                'id': club.id,
+                'id': f'lottoclub_{club.id}',  # Composite ID to avoid duplicates
+                'numeric_id': club.id,
                 'name': club.name,
                 'type': 'club',
                 'org_type': 'Lotto Club',
-                'location': f"{club.city}, {club.country}" if hasattr(club, 'city') else 'Unknown',
+                'location': location,
                 'is_assigned': assignment is not None,
                 'current_assignment': assignment.sales_rep.get_full_name() if assignment else None,
                 'customer_type': 'lottoclub'
@@ -1227,18 +1242,25 @@ class BulkAssignmentCustomersAPIView(AdminRequiredMixin, View):
 
         # SAS Clubs
         sas_clubs = SASClub.objects.all()
+        sas_content_type = ContentType.objects.get_for_model(SASClub)
+
         for club in sas_clubs:
+            # SalesRepClubAssignment uses GenericForeignKey for clubs
             assignment = SalesRepClubAssignment.objects.filter(
-                content_type=ContentType.objects.get_for_model(SASClub),
-                object_id=club.id
+                club_content_type=sas_content_type,
+                club_object_id=club.id
             ).first()
 
+            # SASClub has province field, use it for location
+            location = club.province if hasattr(club, 'province') and club.province else 'South Africa'
+
             schools_data.append({
-                'id': club.id,
+                'id': f'sasclub_{club.id}',  # Composite ID to avoid duplicates
+                'numeric_id': club.id,
                 'name': club.name,
                 'type': 'club',
                 'org_type': 'SAS Club',
-                'location': f"{club.city}, {club.country}" if hasattr(club, 'city') else 'Unknown',
+                'location': location,
                 'is_assigned': assignment is not None,
                 'current_assignment': assignment.sales_rep.get_full_name() if assignment else None,
                 'customer_type': 'sasclub'
@@ -1304,19 +1326,28 @@ class ProcessBulkAssignmentView(AdminRequiredMixin, View):
 
             # Process assignments for each customer
             for customer in customers:
-                customer_id = customer.get('id')
-                customer_type = customer.get('type')
+                composite_id = customer.get('id')  # Format: 'tusschool_1', 'lottoclub_5', etc.
+                customer_type_from_data = customer.get('customer_type')  # From JSON: 'tusschool', 'lottoclub', etc.
                 customer_priority = customer.get('priority', 'medium')  # Get individual priority
 
-                print(f"\n--- Processing customer: ID={customer_id}, Type={customer_type}, Priority={customer_priority} ---", flush=True)
+                # Parse composite ID to extract type and numeric ID
+                if '_' in str(composite_id):
+                    customer_type_prefix, numeric_id = composite_id.split('_', 1)
+                    numeric_id = int(numeric_id)
+                else:
+                    # Fallback for old format (shouldn't happen with new code)
+                    customer_type_prefix = customer_type_from_data
+                    numeric_id = int(composite_id)
+
+                print(f"\n--- Processing customer: Composite ID={composite_id}, Type={customer_type_prefix}, Numeric ID={numeric_id}, Priority={customer_priority} ---", flush=True)
 
                 try:
                     # Process based on customer type
-                    if customer_type == 'wholesale_school':
+                    if customer_type_prefix == 'wholesaleschool':
                         # Get wholesale school
                         try:
-                            print(f"Querying WholesaleSchool with ID={customer_id} (type: {type(customer_id).__name__})", flush=True)
-                            wholesale_school = WholesaleSchool.objects.get(id=customer_id, is_active=True)
+                            print(f"Querying WholesaleSchool with ID={numeric_id} (type: {type(numeric_id).__name__})", flush=True)
+                            wholesale_school = WholesaleSchool.objects.get(id=numeric_id, is_active=True)
                             print(f"✓ Found wholesale school: {wholesale_school.name}", flush=True)
                         except WholesaleSchool.DoesNotExist:
                             print(f"✗ ERROR: Wholesale school {customer_id} not found or not active", flush=True)
@@ -1352,10 +1383,10 @@ class ProcessBulkAssignmentView(AdminRequiredMixin, View):
                         else:
                             print(f"⚠ Assignment already exists and is active for {wholesale_school.name}", flush=True)
 
-                    elif customer_type == 'tus_school':
+                    elif customer_type_prefix == 'tusschool':
                         # Get TUS retail school
                         try:
-                            tus_school = TUSSchool.objects.get(id=customer_id, is_active=True)
+                            tus_school = TUSSchool.objects.get(id=numeric_id, is_active=True)
                             print(f"✓ Found TUS school: {tus_school.name}")
                         except TUSSchool.DoesNotExist:
                             print(f"TUS school {customer_id} not found")
@@ -1386,10 +1417,10 @@ class ProcessBulkAssignmentView(AdminRequiredMixin, View):
                             assignments_created += 1
                             print(f"✓ Reactivated assignment for {tus_school.name}")
 
-                    elif customer_type == 'lotto_club':
+                    elif customer_type_prefix == 'lottoclub':
                         # Get LOTTO club
                         try:
-                            lotto_club = LottoClub.objects.get(id=customer_id, is_active=True)
+                            lotto_club = LottoClub.objects.get(id=numeric_id, is_active=True)
                             print(f"✓ Found LOTTO club: {lotto_club.name}", flush=True)
                         except LottoClub.DoesNotExist:
                             print(f"✗ ERROR: LOTTO club {customer_id} not found or not active", flush=True)
@@ -1429,10 +1460,10 @@ class ProcessBulkAssignmentView(AdminRequiredMixin, View):
                         else:
                             print(f"⚠ Assignment already exists and is active for {lotto_club.name}", flush=True)
 
-                    elif customer_type == 'sas_club':
+                    elif customer_type_prefix == 'sasclub':
                         # Get SAS club
                         try:
-                            sas_club = SASClub.objects.get(id=customer_id, is_active=True)
+                            sas_club = SASClub.objects.get(id=numeric_id, is_active=True)
                             print(f"✓ Found SAS club: {sas_club.name}", flush=True)
                         except SASClub.DoesNotExist:
                             print(f"✗ ERROR: SAS club {customer_id} not found or not active", flush=True)

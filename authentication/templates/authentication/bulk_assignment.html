@@ -4,6 +4,8 @@
 
 {% block extra_css %}
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="{% static 'assets/libs/datatables.net-bs4/css/dataTables.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+<link href="{% static 'assets/libs/datatables.net-responsive-bs4/css/responsive.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
 <style>
 /* Select2 Custom Styling */
 .select2-container--default .select2-selection--single {
@@ -38,33 +40,6 @@
 /* Bulk Assignment Page Specific Styles */
 .bulk-assignment-container {
     min-height: calc(100vh - 200px);
-}
-
-.school-selection-card {
-    border: 1px solid #e9ecef;
-    border-radius: 0.5rem;
-    transition: all 0.2s ease-in-out;
-    cursor: pointer;
-    position: relative;
-}
-
-.school-selection-card:hover {
-    border-color: #007bff;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    transform: translateY(-1px);
-}
-
-.school-selection-card.selected {
-    border-color: #007bff;
-    background-color: #f8f9fa;
-    box-shadow: 0 2px 12px rgba(0,123,255,0.15);
-}
-
-.school-checkbox {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 2;
 }
 
 .school-type-badge {
@@ -144,13 +119,6 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.school-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 1rem;
-    margin-top: 1rem;
-}
-
 .selected-count-badge {
     background: linear-gradient(45deg, #28a745, #20c997);
     color: white;
@@ -179,20 +147,13 @@
     padding: 2rem;
 }
 
-.no-results {
-    text-align: center;
-    padding: 3rem 1rem;
-    color: #6c757d;
-}
-
 /* DataTable customizations */
 .dataTables_wrapper {
     padding: 0;
 }
 
 .dataTables_filter {
-    float: none !important;
-    text-align: left;
+    float: right !important;
     margin-bottom: 1rem;
 }
 
@@ -201,28 +162,66 @@
     border-radius: 0.375rem;
     padding: 0.5rem 0.75rem;
     margin-left: 0.5rem;
-    width: 300px;
+    width: 250px;
 }
 
 .dataTables_length {
-    float: none !important;
+    float: left !important;
     margin-bottom: 1rem;
+}
+
+.dataTables_length select {
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    margin: 0 0.5rem;
 }
 
 .dataTables_info {
     padding-top: 1rem;
+    float: left;
 }
 
 .dataTables_paginate {
     padding-top: 1rem;
+    float: right;
+}
+
+.dataTables_wrapper .row {
+    margin: 0;
+}
+
+.dataTables_wrapper .row:after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
+table.dataTable thead th {
+    border-bottom: 2px solid #e9ecef;
+}
+
+table.dataTable tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+table.dataTable tbody tr.selected {
+    background-color: #e7f1ff !important;
+}
+
+/* Checkbox column styling */
+.dt-checkboxes-cell {
+    text-align: center;
+}
+
+/* Ensure proper spacing for DataTables controls */
+#schoolsTable_wrapper .dataTables_length,
+#schoolsTable_wrapper .dataTables_filter {
+    padding: 0.75rem 0;
 }
 
 /* Mobile responsiveness */
 @media (max-width: 768px) {
-    .school-grid {
-        grid-template-columns: 1fr;
-    }
-
     .sales-rep-selection {
         padding: 1rem;
     }
@@ -230,6 +229,20 @@
     .bulk-actions-toolbar {
         position: relative;
         top: auto;
+    }
+
+    .dataTables_filter input {
+        width: 100%;
+        margin-left: 0;
+        margin-top: 0.5rem;
+    }
+
+    .dataTables_length,
+    .dataTables_filter,
+    .dataTables_info,
+    .dataTables_paginate {
+        float: none !important;
+        text-align: center;
     }
 }
 
@@ -425,14 +438,6 @@
                             <i class="uil-building text-primary me-2"></i>
                             Available Schools
                         </h5>
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleView('grid')" id="gridViewBtn">
-                                <i class="uil-apps me-1"></i>Grid View
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleView('table')" id="tableViewBtn">
-                                <i class="uil-list-ul me-1"></i>Table View
-                            </button>
-                        </div>
                     </div>
                 </div>
                 <div class="card-body">
@@ -444,39 +449,24 @@
                         <p class="mt-2 text-muted">Loading schools...</p>
                     </div>
 
-                    <!-- Grid View -->
-                    <div id="gridView">
-                        <div class="school-grid" id="schoolsGrid">
-                            <!-- Schools will be loaded here via AJAX -->
-                        </div>
-                    </div>
-
-                    <!-- Table View -->
-                    <div id="tableView" class="d-none">
-                        <table class="table table-bordered table-striped" id="schoolsTable">
+                    <!-- Table View with DataTables -->
+                    <div id="tableView">
+                        <table class="table table-bordered table-hover table-sm dt-responsive nowrap w-100" id="schoolsTable">
                             <thead class="table-light">
                                 <tr>
-                                    <th width="50">
-                                        <input type="checkbox" class="form-check-input" id="selectAllCheckbox" onchange="toggleSelectAll()">
+                                    <th width="50" class="dt-checkboxes-cell">
+                                        <input type="checkbox" class="form-check-input" id="selectAllCheckbox">
                                     </th>
                                     <th>School Name</th>
                                     <th>Type</th>
-                                    <th>Location</th>
                                     <th>Current Assignment</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody id="schoolsTableBody">
-                                <!-- Schools will be loaded here via AJAX -->
+                                <!-- Schools will be populated by DataTables -->
                             </tbody>
                         </table>
-                    </div>
-
-                    <!-- No Results State -->
-                    <div class="no-results d-none" id="noResults">
-                        <i class="uil-search font-size-48 text-muted mb-3"></i>
-                        <h6 class="text-muted">No schools found</h6>
-                        <p class="text-muted">Try adjusting your search criteria or filters</p>
                     </div>
                 </div>
             </div>
@@ -562,13 +552,18 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<!-- DataTables -->
+<script src="{% static 'assets/libs/datatables.net/js/jquery.dataTables.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-bs4/js/dataTables.bootstrap4.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-responsive/js/dataTables.responsive.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-responsive-bs4/js/responsive.bootstrap4.min.js' %}"></script>
 <script>
 // Global variables
 let selectedSalesRep = null;
 let selectedSchools = new Set();
 let allSchools = [];
-let currentView = 'grid';
 let isLoading = false;
+let schoolsDataTable = null;
 
 // Initialize the page - wrap in jQuery ready to ensure jQuery and Select2 are loaded
 $(document).ready(function() {
@@ -607,8 +602,8 @@ function initializePage() {
         hideAllSections();
     });
 
-    // Set initial view button states
-    updateViewButtons();
+    // Initialize DataTables
+    initializeDataTable();
 
     // Check if there's a pre-selected sales rep from URL parameters
     const urlParams = new URLSearchParams(window.location.search);
@@ -649,6 +644,127 @@ function formatSalesRepSelection(salesRep) {
         return salesRep.text;
     }
     return $(salesRep.element).data('name') || salesRep.text;
+}
+
+function initializeDataTable() {
+    // Initialize DataTable with custom configuration
+    schoolsDataTable = $('#schoolsTable').DataTable({
+        data: [],
+        columns: [
+            { data: null, defaultContent: '' },  // Checkbox column
+            { data: 'name' },                     // School Name
+            { data: 'type' },                     // Type
+            { data: 'current_assignment' },       // Current Assignment
+            { data: 'is_assigned' }               // Status
+        ],
+        pageLength: 25,
+        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+        order: [[1, 'asc']], // Sort by school name
+        responsive: true,
+        searching: true,
+        paging: true,
+        info: true,
+        autoWidth: false,
+        language: {
+            search: "Search schools:",
+            lengthMenu: "Show _MENU_ schools per page",
+            info: "Showing _START_ to _END_ of _TOTAL_ schools",
+            infoEmpty: "No schools available",
+            infoFiltered: "(filtered from _MAX_ total schools)",
+            zeroRecords: "No matching schools found",
+            emptyTable: "No schools available. Please select a sales representative."
+        },
+        columnDefs: [
+            {
+                targets: 0,
+                orderable: false,
+                searchable: false,
+                className: 'dt-checkboxes-cell',
+                render: function (data, type, row, meta) {
+                    const isSelected = selectedSchools.has(row.id);
+                    return `<input type="checkbox" class="form-check-input school-checkbox"
+                                   data-school-id="${row.id}"
+                                   ${isSelected ? 'checked' : ''}>`;
+                }
+            },
+            {
+                targets: 1,
+                render: function (data, type, row, meta) {
+                    const statusColor = row.is_assigned ? 'status-assigned' : 'status-unassigned';
+                    let html = `<div class="d-flex align-items-center">
+                                    <div class="assignment-status-indicator ${statusColor} me-2"></div>
+                                    <div>
+                                        <strong>${row.name}</strong>`;
+                    if (row.total_students) {
+                        html += `<br><small class="text-muted"><i class="uil-graduation-cap me-1"></i>${row.total_students} students</small>`;
+                    }
+                    html += `</div></div>`;
+                    return html;
+                }
+            },
+            {
+                targets: 2,
+                render: function (data, type, row, meta) {
+                    const badgeClass = row.type === 'regular' ? 'bg-soft-primary text-primary' : 'bg-soft-info text-info';
+                    const badgeText = row.type === 'regular' ? 'Regular' : 'Wholesale';
+                    let html = `<span class="badge ${badgeClass}">${badgeText}</span>`;
+                    if (row.org_type) {
+                        html += `<br><small class="text-muted">${row.org_type}</small>`;
+                    }
+                    return html;
+                }
+            },
+            {
+                targets: 3,
+                render: function (data, type, row, meta) {
+                    if (row.current_assignment) {
+                        return `<span class="text-success"><i class="uil-user-check me-1"></i>${row.current_assignment}</span>`;
+                    }
+                    return '<span class="text-muted">Not assigned</span>';
+                }
+            },
+            {
+                targets: 4,
+                render: function (data, type, row, meta) {
+                    const badgeClass = row.is_assigned ? 'bg-soft-success text-success' : 'bg-soft-warning text-warning';
+                    const statusText = row.is_assigned ? 'Assigned' : 'Unassigned';
+                    return `<span class="badge ${badgeClass}">${statusText}</span>`;
+                }
+            }
+        ],
+        drawCallback: function(settings) {
+            // Re-attach event listeners after table redraw
+            attachCheckboxListeners();
+            // Update selection UI
+            updateSelectionUI();
+        }
+    });
+
+    // Handle "Select All" checkbox in header
+    $('#selectAllCheckbox').on('change', function() {
+        const isChecked = this.checked;
+        schoolsDataTable.rows({page: 'current'}).every(function() {
+            const data = this.data();
+            if (!data.is_assigned) { // Only select unassigned schools
+                if (isChecked) {
+                    selectedSchools.add(data.id);
+                } else {
+                    selectedSchools.delete(data.id);
+                }
+            }
+        });
+        schoolsDataTable.draw(false);
+        updateSelectedCount();
+    });
+}
+
+function attachCheckboxListeners() {
+    // Attach click handlers to checkboxes
+    $('.school-checkbox').off('click').on('click', function(e) {
+        e.stopPropagation();
+        const schoolId = $(this).data('school-id'); // Keep as string for composite IDs
+        toggleSchoolSelection(schoolId);
+    });
 }
 
 function onSalesRepChange() {
@@ -714,136 +830,15 @@ function loadSchools() {
 }
 
 function renderSchools() {
-    if (currentView === 'grid') {
-        renderGridView();
-    } else {
-        renderTableView();
-    }
-
-    updateNoResultsState();
-}
-
-function renderGridView() {
-    const container = document.getElementById('schoolsGrid');
-
-    if (allSchools.length === 0) {
-        container.innerHTML = '';
-        return;
-    }
-
+    // Apply filters
     const filteredSchools = getFilteredSchools();
-    let html = '';
 
-    filteredSchools.forEach(school => {
-        const isSelected = selectedSchools.has(school.id);
-        const selectedClass = isSelected ? 'selected' : '';
-        const assignmentStatus = school.is_assigned ? 'assigned' : 'unassigned';
-        const statusColor = school.is_assigned ? 'status-assigned' : 'status-unassigned';
-
-        html += `
-            <div class="school-selection-card ${selectedClass}" onclick="toggleSchoolSelection(${school.id})" data-school-id="${school.id}">
-                <div class="school-checkbox">
-                    <input type="checkbox" class="form-check-input" ${isSelected ? 'checked' : ''}
-                           onchange="toggleSchoolSelection(${school.id})" onclick="event.stopPropagation()">
-                </div>
-                <div class="p-3">
-                    <div class="d-flex align-items-start mb-2">
-                        <div class="assignment-status-indicator ${statusColor}"></div>
-                        <div class="flex-grow-1">
-                            <h6 class="mb-1">${school.name}</h6>
-                            <div class="school-info-detail">
-                                <i class="uil-map-marker me-1"></i>
-                                ${school.location || 'Location not specified'}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="d-flex gap-2 mb-2">
-                        <span class="badge ${school.type === 'regular' ? 'bg-soft-primary text-primary' : 'bg-soft-info text-info'} school-type-badge">
-                            ${school.type === 'regular' ? 'Regular School' : 'Wholesale School'}
-                        </span>
-                        ${school.org_type ? `<span class="badge bg-soft-secondary text-secondary school-type-badge">${school.org_type}</span>` : ''}
-                    </div>
-
-                    ${school.current_assignment ? `
-                        <div class="assignment-history">
-                            <i class="uil-user-check me-1"></i>
-                            Currently assigned to: <strong>${school.current_assignment}</strong>
-                        </div>
-                    ` : ''}
-
-                    ${school.total_students ? `
-                        <div class="school-info-detail mt-2">
-                            <i class="uil-graduation-cap me-1"></i>
-                            ${school.total_students} students
-                        </div>
-                    ` : ''}
-                </div>
-            </div>
-        `;
-    });
-
-    container.innerHTML = html;
-}
-
-function renderTableView() {
-    const tbody = document.getElementById('schoolsTableBody');
-
-    if (allSchools.length === 0) {
-        tbody.innerHTML = '';
-        return;
+    // Clear existing data and add new data
+    if (schoolsDataTable) {
+        schoolsDataTable.clear();
+        schoolsDataTable.rows.add(filteredSchools);
+        schoolsDataTable.draw();
     }
-
-    const filteredSchools = getFilteredSchools();
-    let html = '';
-
-    filteredSchools.forEach(school => {
-        const isSelected = selectedSchools.has(school.id);
-        const assignmentStatus = school.is_assigned ? 'assigned' : 'unassigned';
-        const statusColor = school.is_assigned ? 'status-assigned' : 'status-unassigned';
-        const statusText = school.is_assigned ? 'Assigned' : 'Unassigned';
-
-        html += `
-            <tr class="${isSelected ? 'table-primary' : ''}" data-school-id="${school.id}">
-                <td>
-                    <input type="checkbox" class="form-check-input" ${isSelected ? 'checked' : ''}
-                           onchange="toggleSchoolSelection(${school.id})">
-                </td>
-                <td>
-                    <div class="d-flex align-items-center">
-                        <div class="assignment-status-indicator ${statusColor} me-2"></div>
-                        <div>
-                            <strong>${school.name}</strong>
-                            ${school.total_students ? `<br><small class="text-muted">${school.total_students} students</small>` : ''}
-                        </div>
-                    </div>
-                </td>
-                <td>
-                    <span class="badge ${school.type === 'regular' ? 'bg-soft-primary text-primary' : 'bg-soft-info text-info'}">
-                        ${school.type === 'regular' ? 'Regular' : 'Wholesale'}
-                    </span>
-                </td>
-                <td>
-                    <i class="uil-map-marker me-1"></i>
-                    ${school.location || 'Not specified'}
-                    ${school.org_type ? `<br><small class="text-muted">${school.org_type}</small>` : ''}
-                </td>
-                <td>
-                    ${school.current_assignment ?
-                        `<span class="text-success"><i class="uil-user-check me-1"></i>${school.current_assignment}</span>` :
-                        '<span class="text-muted">Not assigned</span>'
-                    }
-                </td>
-                <td>
-                    <span class="badge bg-soft-${school.is_assigned ? 'success' : 'warning'} text-${school.is_assigned ? 'success' : 'warning'}">
-                        ${statusText}
-                    </span>
-                </td>
-            </tr>
-        `;
-    });
-
-    tbody.innerHTML = html;
 }
 
 function getFilteredSchools() {
@@ -896,33 +891,28 @@ function toggleSchoolSelection(schoolId) {
 }
 
 function updateSelectionUI() {
-    // Update grid view
-    document.querySelectorAll('.school-selection-card').forEach(card => {
-        const schoolId = parseInt(card.dataset.schoolId);
-        const checkbox = card.querySelector('input[type="checkbox"]');
+    // Update checkboxes in DataTable
+    $('.school-checkbox').each(function() {
+        const schoolId = $(this).data('school-id'); // Keep as string for composite IDs
+        const isSelected = selectedSchools.has(schoolId);
 
-        if (selectedSchools.has(schoolId)) {
-            card.classList.add('selected');
-            if (checkbox) checkbox.checked = true;
+        $(this).prop('checked', isSelected);
+
+        // Add/remove selected class to table row
+        const row = $(this).closest('tr');
+        if (isSelected) {
+            row.addClass('selected');
         } else {
-            card.classList.remove('selected');
-            if (checkbox) checkbox.checked = false;
+            row.removeClass('selected');
         }
     });
 
-    // Update table view
-    document.querySelectorAll('#schoolsTableBody tr').forEach(row => {
-        const schoolId = parseInt(row.dataset.schoolId);
-        const checkbox = row.querySelector('input[type="checkbox"]');
+    // Update select all checkbox state
+    const currentPageCheckboxes = $('.school-checkbox:visible');
+    const checkedCount = currentPageCheckboxes.filter(':checked').length;
+    const totalCount = currentPageCheckboxes.length;
 
-        if (selectedSchools.has(schoolId)) {
-            row.classList.add('table-primary');
-            if (checkbox) checkbox.checked = true;
-        } else {
-            row.classList.remove('table-primary');
-            if (checkbox) checkbox.checked = false;
-        }
-    });
+    $('#selectAllCheckbox').prop('checked', totalCount > 0 && checkedCount === totalCount);
 }
 
 function updateSelectedCount() {
@@ -940,31 +930,25 @@ function updateSelectedCount() {
 }
 
 function selectAllVisible() {
-    const filteredSchools = getFilteredSchools();
-    filteredSchools.forEach(school => {
-        if (!school.is_assigned) { // Only select unassigned schools
-            selectedSchools.add(school.id);
-        }
-    });
-
-    updateSelectionUI();
-    updateSelectedCount();
+    // Select all schools on the current page
+    if (schoolsDataTable) {
+        schoolsDataTable.rows({page: 'current', search: 'applied'}).every(function() {
+            const data = this.data();
+            if (!data.is_assigned) { // Only select unassigned schools
+                selectedSchools.add(data.id);
+            }
+        });
+        schoolsDataTable.draw(false);
+        updateSelectedCount();
+    }
 }
 
 function clearSelection() {
     selectedSchools.clear();
-    updateSelectionUI();
-    updateSelectedCount();
-}
-
-function toggleSelectAll() {
-    const checkbox = document.getElementById('selectAllCheckbox');
-
-    if (checkbox.checked) {
-        selectAllVisible();
-    } else {
-        clearSelection();
+    if (schoolsDataTable) {
+        schoolsDataTable.draw(false);
     }
+    updateSelectedCount();
 }
 
 function searchSchools() {
@@ -975,69 +959,18 @@ function filterSchools() {
     renderSchools();
 }
 
-function toggleView(view) {
-    currentView = view;
-
-    if (view === 'grid') {
-        document.getElementById('gridView').classList.remove('d-none');
-        document.getElementById('tableView').classList.add('d-none');
-    } else {
-        document.getElementById('gridView').classList.add('d-none');
-        document.getElementById('tableView').classList.remove('d-none');
-    }
-
-    updateViewButtons();
-    renderSchools();
-}
-
-function updateViewButtons() {
-    const gridBtn = document.getElementById('gridViewBtn');
-    const tableBtn = document.getElementById('tableViewBtn');
-
-    if (currentView === 'grid') {
-        gridBtn.classList.add('btn-primary');
-        gridBtn.classList.remove('btn-outline-secondary');
-        tableBtn.classList.add('btn-outline-secondary');
-        tableBtn.classList.remove('btn-primary');
-    } else {
-        tableBtn.classList.add('btn-primary');
-        tableBtn.classList.remove('btn-outline-secondary');
-        gridBtn.classList.add('btn-outline-secondary');
-        gridBtn.classList.remove('btn-primary');
-    }
-}
-
 function showLoading(show) {
     const spinner = document.getElementById('loadingSpinner');
-    const gridView = document.getElementById('gridView');
     const tableView = document.getElementById('tableView');
 
     isLoading = show;
 
     if (show) {
         spinner.classList.remove('d-none');
-        gridView.classList.add('d-none');
         tableView.classList.add('d-none');
     } else {
         spinner.classList.add('d-none');
-        if (currentView === 'grid') {
-            gridView.classList.remove('d-none');
-        } else {
-            tableView.classList.remove('d-none');
-        }
-    }
-}
-
-function updateNoResultsState() {
-    const filteredSchools = getFilteredSchools();
-    const noResults = document.getElementById('noResults');
-
-    if (filteredSchools.length === 0 && !isLoading) {
-        noResults.classList.remove('d-none');
-        document.getElementById('gridView').classList.add('d-none');
-        document.getElementById('tableView').classList.add('d-none');
-    } else {
-        noResults.classList.add('d-none');
+        tableView.classList.remove('d-none');
     }
 }
 
