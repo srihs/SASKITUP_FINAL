@@ -979,7 +979,7 @@ class AssignmentManagementView(AdminRequiredMixin, TemplateView):
 
 class BulkAssignmentView(AdminRequiredMixin, TemplateView):
     """Bulk assignment interface for customers"""
-    template_name = 'authentication/bulk_assignment_datatables.html'
+    template_name = 'authentication/bulk_assignment.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1149,6 +1149,105 @@ class BulkAssignmentView(AdminRequiredMixin, TemplateView):
         context['total_entities'] = total_customers
 
         return context
+
+
+class BulkAssignmentCustomersAPIView(AdminRequiredMixin, View):
+    """API endpoint to get customers for bulk assignment"""
+
+    def get(self, request, *args, **kwargs):
+        """Return all schools and clubs as JSON"""
+        from schools.models import WholesaleSchool
+        from clubs.models_lotto import LottoClub
+        from clubs.models_sas import SASClub
+        from clubs.models_tus import TUSSchool
+        from django.contrib.contenttypes.models import ContentType
+
+        sales_rep_id = request.GET.get('sales_rep')
+
+        # Get all customers
+        schools_data = []
+
+        # Regular schools (from TUSSchool for retail)
+        retail_schools = TUSSchool.objects.all()
+        for school in retail_schools:
+            # Check if assigned to this or any sales rep
+            assignment = SalesRepSchoolAssignment.objects.filter(
+                content_type=ContentType.objects.get_for_model(TUSSchool),
+                object_id=school.id
+            ).first()
+
+            schools_data.append({
+                'id': school.id,
+                'name': school.name,
+                'type': 'regular',
+                'org_type': 'TUS School',
+                'location': f"{school.city}, {school.country}" if hasattr(school, 'city') else 'Unknown',
+                'is_assigned': assignment is not None,
+                'current_assignment': assignment.sales_rep.get_full_name() if assignment else None,
+                'customer_type': 'tusschool'
+            })
+
+        # Wholesale schools
+        wholesale_schools = WholesaleSchool.objects.all()
+        for school in wholesale_schools:
+            assignment = SalesRepSchoolAssignment.objects.filter(
+                content_type=ContentType.objects.get_for_model(WholesaleSchool),
+                object_id=school.id
+            ).first()
+
+            schools_data.append({
+                'id': school.id,
+                'name': school.name,
+                'type': 'wholesale',
+                'org_type': 'Wholesale School',
+                'location': f"{school.city}, {school.country}" if hasattr(school, 'city') else 'Unknown',
+                'is_assigned': assignment is not None,
+                'current_assignment': assignment.sales_rep.get_full_name() if assignment else None,
+                'customer_type': 'wholesaleschool'
+            })
+
+        # Lotto Clubs
+        lotto_clubs = LottoClub.objects.all()
+        for club in lotto_clubs:
+            assignment = SalesRepClubAssignment.objects.filter(
+                content_type=ContentType.objects.get_for_model(LottoClub),
+                object_id=club.id
+            ).first()
+
+            schools_data.append({
+                'id': club.id,
+                'name': club.name,
+                'type': 'club',
+                'org_type': 'Lotto Club',
+                'location': f"{club.city}, {club.country}" if hasattr(club, 'city') else 'Unknown',
+                'is_assigned': assignment is not None,
+                'current_assignment': assignment.sales_rep.get_full_name() if assignment else None,
+                'customer_type': 'lottoclub'
+            })
+
+        # SAS Clubs
+        sas_clubs = SASClub.objects.all()
+        for club in sas_clubs:
+            assignment = SalesRepClubAssignment.objects.filter(
+                content_type=ContentType.objects.get_for_model(SASClub),
+                object_id=club.id
+            ).first()
+
+            schools_data.append({
+                'id': club.id,
+                'name': club.name,
+                'type': 'club',
+                'org_type': 'SAS Club',
+                'location': f"{club.city}, {club.country}" if hasattr(club, 'city') else 'Unknown',
+                'is_assigned': assignment is not None,
+                'current_assignment': assignment.sales_rep.get_full_name() if assignment else None,
+                'customer_type': 'sasclub'
+            })
+
+        return JsonResponse({
+            'success': True,
+            'schools': schools_data  # Template expects 'schools' key
+        })
 
 
 class ProcessBulkAssignmentView(AdminRequiredMixin, View):

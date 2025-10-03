@@ -49,6 +49,7 @@ urlpatterns = [
 
     # Assignment Management URLs
     path('assignments/', views.BulkAssignmentView.as_view(), name='bulk-assignment'),
+    path('assignments/customers/', views.BulkAssignmentCustomersAPIView.as_view(), name='bulk-assignment-customers'),
     path('assignments/process/', views.ProcessBulkAssignmentView.as_view(), name='process-bulk-assignment'),
     path('assignments/current/', views.get_current_assignments, name='get-current-assignments'),
 
