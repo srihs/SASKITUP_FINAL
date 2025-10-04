@@ -1,0 +1,581 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>My Profile - {{ user_obj.get_full_name }} | SASKITUP</title>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<!-- Favicon -->
+	<link rel="icon" type="image/png" href="{% static 'frontend/assets/images/icons/saskitup-favicon.png' %}"/>
+
+	<!-- Fonts -->
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/fonts.css' %}">
+
+	<!-- CSS Framework & Vendor Files -->
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/bootstrap/css/bootstrap.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/fonts/font-awesome-4.7.0/css/font-awesome.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/fonts/iconic/css/material-design-iconic-font.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/animate/animate.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/animsition/css/animsition.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/util.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/main.css' %}">
+	<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+
+	<style>
+		.profile-header {
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			color: white;
+			padding: 2.5rem;
+			border-radius: 15px;
+			margin-bottom: 2rem;
+			box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+		}
+		.profile-avatar {
+			width: 100px;
+			height: 100px;
+			border-radius: 50%;
+			background: white;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 3rem;
+			font-weight: bold;
+			color: #667eea;
+			box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+		}
+		.stats-card {
+			background: white;
+			border-radius: 15px;
+			padding: 1.5rem;
+			box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+			transition: all 0.3s ease;
+			border: 1px solid rgba(0,0,0,0.05);
+		}
+		.stats-card:hover {
+			transform: translateY(-5px);
+			box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+		}
+		.stats-card h6 {
+			color: #888;
+			font-size: 0.875rem;
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+		}
+		.stats-card h2 {
+			font-size: 2.5rem;
+			font-weight: 700;
+			margin-top: 0.5rem;
+		}
+		.assignment-badge {
+			padding: 0.35rem 0.85rem;
+			border-radius: 20px;
+			font-size: 0.8rem;
+			font-weight: 600;
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+		}
+		.priority-high {
+			background-color: #ffc107;
+			color: #000;
+		}
+		.priority-medium {
+			background-color: #28a745;
+			color: white;
+		}
+		.priority-low {
+			background-color: #6c757d;
+			color: white;
+		}
+		.card {
+			border-radius: 15px;
+			border: none;
+			box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+			margin-bottom: 2rem;
+		}
+		.card-header {
+			border-radius: 15px 15px 0 0 !important;
+			padding: 1.25rem 1.5rem;
+			border: none;
+		}
+		.card-body {
+			padding: 1.5rem;
+		}
+		.nav-tabs {
+			border-bottom: 2px solid #e9ecef;
+		}
+		.nav-tabs .nav-link {
+			border: none;
+			border-bottom: 3px solid transparent;
+			color: #666;
+			font-weight: 500;
+			padding: 0.75rem 1.5rem;
+		}
+		.nav-tabs .nav-link.active {
+			color: #667eea;
+			border-bottom-color: #667eea;
+			background: transparent;
+		}
+		.table {
+			font-size: 0.9rem;
+		}
+		.table th {
+			font-weight: 600;
+			text-transform: uppercase;
+			font-size: 0.75rem;
+			letter-spacing: 0.5px;
+			color: #888;
+		}
+		.btn-light {
+			background: white;
+			border: 2px solid rgba(255,255,255,0.3);
+			color: white;
+			font-weight: 500;
+			transition: all 0.3s ease;
+		}
+		.btn-light:hover {
+			background: rgba(255,255,255,0.2);
+			border-color: white;
+			color: white;
+		}
+		.page-container {
+			min-height: 100vh;
+			background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+			padding: 2rem 0;
+		}
+	</style>
+</head>
+
+<body class="animsition">
+	<!-- Header -->
+	<header>
+		<div class="container-menu-desktop">
+			<div class="top-bar">
+				<div class="content-topbar flex-sb-m h-full container">
+					<div class="left-top-bar">
+						<span class="stext-107 cl2">Welcome, {{ user_obj.get_full_name|default:user_obj.username }}</span>
+					</div>
+					<div class="right-top-bar flex-w h-full">
+						{% if user.user_type in 'admin' or user.is_superuser %}
+						<a href="/dashboard/" class="flex-c-m trans-04 p-lr-25">
+							<i class="fa fa-tachometer m-r-8"></i>Dashboard
+						</a>
+						{% endif %}
+						<a href="/auth/logout/" class="flex-c-m trans-04 p-lr-25">
+							<i class="fa fa-sign-out m-r-8"></i>Logout
+						</a>
+					</div>
+				</div>
+			</div>
+
+			<div class="wrap-menu-desktop">
+				<nav class="limiter-menu-desktop container">
+					<a href="/" class="logo">
+						<img src="{% static 'images/saskitup-logo.png' %}" alt="SASKITUP Logo" style="height: 60px;">
+					</a>
+					<div class="menu-desktop">
+						<ul class="main-menu">
+							<li><a href="/">Home</a></li>
+							<li class="active-menu"><a href="{% url 'profile' %}">My Profile</a></li>
+							{% if user.user_type in 'admin' or user.is_superuser %}
+							<li><a href="/dashboard/">Dashboard</a></li>
+							{% endif %}
+						</ul>
+					</div>
+				</nav>
+			</div>
+		</div>
+	</header>
+
+	<!-- Page Content -->
+<div class="container-fluid py-4">
+    <!-- Profile Header -->
+    <div class="profile-header">
+        <div class="row align-items-center">
+            <div class="col-md-auto">
+                <div class="profile-avatar">
+                    {{ user_obj.first_name.0|default:user_obj.username.0|upper }}{{ user_obj.last_name.0|default:""|upper }}
+                </div>
+            </div>
+            <div class="col-md">
+                <h2 class="mb-1">{{ user_obj.get_full_name|default:user_obj.username }}</h2>
+                <p class="mb-0 opacity-75">
+                    <i class="fas fa-user-tie me-2"></i>{{ user_obj.get_user_type_display }}
+                </p>
+                <p class="mb-0 opacity-75">
+                    <i class="fas fa-envelope me-2"></i>{{ user_obj.email }}
+                </p>
+                {% if user_obj.phone %}
+                <p class="mb-0 opacity-75">
+                    <i class="fas fa-phone me-2"></i>{{ user_obj.phone }}
+                </p>
+                {% endif %}
+            </div>
+            <div class="col-md-auto text-end">
+                <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
+                    <i class="fas fa-key me-2"></i>Change Password
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="stats-card">
+                <h6 class="text-muted mb-2">Total Assignments</h6>
+                <h2 class="mb-0 text-primary">{{ total_assignments }}</h2>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="stats-card">
+                <h6 class="text-muted mb-2">TUS Schools</h6>
+                <h2 class="mb-0 text-info">{{ tus_schools|length }}</h2>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="stats-card">
+                <h6 class="text-muted mb-2">Wholesale Schools</h6>
+                <h2 class="mb-0 text-success">{{ wholesale_schools|length }}</h2>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="stats-card">
+                <h6 class="text-muted mb-2">Total Clubs</h6>
+                <h2 class="mb-0 text-warning">{{ lotto_clubs|length|add:sas_clubs|length }}</h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assigned Schools Section -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-school me-2"></i>My Assigned Schools</h5>
+        </div>
+        <div class="card-body">
+            <ul class="nav nav-tabs mb-3" id="schoolTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="tus-tab" data-bs-toggle="tab" data-bs-target="#tus" type="button" role="tab">
+                        TUS Schools ({{ tus_schools|length }})
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="wholesale-tab" data-bs-toggle="tab" data-bs-target="#wholesale" type="button" role="tab">
+                        Wholesale Schools ({{ wholesale_schools|length }})
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="schoolTabsContent">
+                <!-- TUS Schools Tab -->
+                <div class="tab-pane fade show active" id="tus" role="tabpanel">
+                    {% if tus_schools %}
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="tusSchoolsTable">
+                            <thead>
+                                <tr>
+                                    <th>School Name</th>
+                                    <th>Location</th>
+                                    <th>Priority</th>
+                                    <th>Assigned Date</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in tus_schools %}
+                                <tr>
+                                    <td><strong>{{ item.school.name }}</strong></td>
+                                    <td>
+                                        {% if item.school.location %}
+                                            {{ item.school.location.name }}
+                                        {% else %}
+                                            Not specified
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="assignment-badge priority-{{ item.assignment.priority_level }}">
+                                            {{ item.assignment.get_priority_level_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ item.assignment.assigned_date|date:"M d, Y" }}</td>
+                                    <td>{{ item.assignment.notes|default:"No notes" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">No TUS schools assigned yet.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Wholesale Schools Tab -->
+                <div class="tab-pane fade" id="wholesale" role="tabpanel">
+                    {% if wholesale_schools %}
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="wholesaleSchoolsTable">
+                            <thead>
+                                <tr>
+                                    <th>School Name</th>
+                                    <th>Priority</th>
+                                    <th>Assigned Date</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in wholesale_schools %}
+                                <tr>
+                                    <td><strong>{{ item.school.name }}</strong></td>
+                                    <td>
+                                        <span class="assignment-badge priority-{{ item.assignment.priority_level }}">
+                                            {{ item.assignment.get_priority_level_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ item.assignment.assigned_date|date:"M d, Y" }}</td>
+                                    <td>{{ item.assignment.notes|default:"No notes" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">No wholesale schools assigned yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assigned Clubs Section -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="fas fa-users me-2"></i>My Assigned Clubs</h5>
+        </div>
+        <div class="card-body">
+            <ul class="nav nav-tabs mb-3" id="clubTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="lotto-tab" data-bs-toggle="tab" data-bs-target="#lotto" type="button" role="tab">
+                        LOTTO Clubs ({{ lotto_clubs|length }})
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="sas-tab" data-bs-toggle="tab" data-bs-target="#sas" type="button" role="tab">
+                        SAS Clubs ({{ sas_clubs|length }})
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="clubTabsContent">
+                <!-- LOTTO Clubs Tab -->
+                <div class="tab-pane fade show active" id="lotto" role="tabpanel">
+                    {% if lotto_clubs %}
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="lottoClubsTable">
+                            <thead>
+                                <tr>
+                                    <th>Club Name</th>
+                                    <th>Priority</th>
+                                    <th>Assigned Date</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in lotto_clubs %}
+                                <tr>
+                                    <td><strong>{{ item.club.name }}</strong></td>
+                                    <td>
+                                        <span class="assignment-badge priority-{{ item.assignment.priority_level }}">
+                                            {{ item.assignment.get_priority_level_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ item.assignment.assigned_date|date:"M d, Y" }}</td>
+                                    <td>{{ item.assignment.notes|default:"No notes" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">No LOTTO clubs assigned yet.</p>
+                    {% endif %}
+                </div>
+
+                <!-- SAS Clubs Tab -->
+                <div class="tab-pane fade" id="sas" role="tabpanel">
+                    {% if sas_clubs %}
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="sasClubsTable">
+                            <thead>
+                                <tr>
+                                    <th>Club Name</th>
+                                    <th>Priority</th>
+                                    <th>Assigned Date</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in sas_clubs %}
+                                <tr>
+                                    <td><strong>{{ item.club.name }}</strong></td>
+                                    <td>
+                                        <span class="assignment-badge priority-{{ item.assignment.priority_level }}">
+                                            {{ item.assignment.get_priority_level_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ item.assignment.assigned_date|date:"M d, Y" }}</td>
+                                    <td>{{ item.assignment.notes|default:"No notes" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">No SAS clubs assigned yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quotations Section (Placeholder for Phase 2) -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="fas fa-file-invoice me-2"></i>My Quotations</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted text-center py-3">
+                <i class="fas fa-hourglass-half fa-3x mb-3 d-block"></i>
+                Quotation management will be available in Phase 2.
+            </p>
+        </div>
+    </div>
+
+    <!-- Activity Log Section -->
+    <div class="card mb-4">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Activity</h5>
+        </div>
+        <div class="card-body">
+            {% if recent_activities %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover" id="activityTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Action</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for activity in recent_activities %}
+                        <tr>
+                            <td>{{ activity.timestamp|date:"M d, Y H:i" }}</td>
+                            <td>
+                                <span class="badge bg-primary">{{ activity.get_action_type_display }}</span>
+                            </td>
+                            <td>{{ activity.description }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center py-3">No recent activity.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Change Password Modal -->
+<div class="modal fade" id="changePasswordModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Change Password</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted">Please contact your administrator to change your password.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Footer -->
+<footer class="bg3 p-t-75 p-b-32">
+	<div class="container">
+		<div class="p-t-40">
+			<p class="stext-107 cl6 txt-center">
+				Copyright &copy;<script>document.write(new Date().getFullYear());</script> SASKITUP. All rights reserved.
+			</p>
+		</div>
+	</div>
+</footer>
+
+<!-- Back to top -->
+<div class="btn-back-to-top" id="myBtn">
+	<span class="symbol-btn-back-to-top">
+		<i class="zmdi zmdi-chevron-up"></i>
+	</span>
+</div>
+
+<!-- JavaScript Files -->
+<script src="{% static 'frontend/vendor/jquery/jquery-3.2.1.min.js' %}"></script>
+<script src="{% static 'frontend/vendor/animsition/js/animsition.min.js' %}"></script>
+<script src="{% static 'frontend/vendor/bootstrap/js/popper.js' %}"></script>
+<script src="{% static 'frontend/vendor/bootstrap/js/bootstrap.min.js' %}"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+<script src="{% static 'frontend/js/main.js' %}"></script>
+
+<script>
+	$(document).ready(function() {
+		// Initialize animsition
+		$('.animsition').animsition({
+			inClass: 'fade-in',
+			outClass: 'fade-out',
+			inDuration: 1500,
+			outDuration: 800,
+			linkElement: '.animsition-link',
+			loading: false,
+			loadingParentElement: 'body',
+			loadingClass: 'animsition-loading',
+			loadingInner: '',
+			timeout: false,
+			timeoutCountdown: 5000,
+			onLoadEvent: true,
+			browser: [ 'animation-duration', '-webkit-animation-duration'],
+			overlay : false,
+			overlayClass : 'animsition-overlay-slide',
+			overlayParentElement : 'body',
+			transition: function(url){ window.location.href = url; }
+		});
+
+		// Initialize DataTables for all tables
+		$('#tusSchoolsTable').DataTable({
+			pageLength: 10,
+			order: [[0, 'asc']]
+		});
+		$('#wholesaleSchoolsTable').DataTable({
+			pageLength: 10,
+			order: [[0, 'asc']]
+		});
+		$('#lottoClubsTable').DataTable({
+			pageLength: 10,
+			order: [[0, 'asc']]
+		});
+		$('#sasClubsTable').DataTable({
+			pageLength: 10,
+			order: [[0, 'asc']]
+		});
+		$('#activityTable').DataTable({
+			pageLength: 10,
+			order: [[0, 'desc']]
+		});
+	});
+</script>
+</body>
+</html>

@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from .views import GlobalDashboardView, frontend_landing_view, products_view, product_detail_view, cart_view, user_choice_view, get_random_clubs_ajax
+from .views import GlobalDashboardView, frontend_landing_view, products_view, product_detail_view, cart_view, user_choice_view, get_random_clubs_ajax, ProfileView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -33,7 +33,8 @@ urlpatterns = [
     path('dashboard/', GlobalDashboardView.as_view(), name='global-dashboard'),  # Global dashboard moved to /dashboard/
 
     # Frontend pages
-    path('', frontend_landing_view, name='frontend-home'),  # CozaStore home page at root
+    path('', frontend_landing_view, name='frontend-home'),  # CozaStore home page at root (with login)
+    path('profile/', ProfileView.as_view(), name='profile'),  # Unified profile page for sales/customers
     path('choose/', user_choice_view, name='user-choice'),  # Original user choice page (School/Club vs Customer)
     path('products/', products_view, name='frontend-products'),  # Products listing page
     path('product-detail/', product_detail_view, name='frontend-product-detail'),  # Product detail page

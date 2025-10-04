@@ -65,6 +65,10 @@ class AuthenticationMiddleware:
     def track_user_session(self, request):
         """Track or update user session"""
         try:
+            # Ensure session exists before getting the key
+            if not request.session.session_key:
+                request.session.create()
+
             session_key = request.session.session_key
             if not session_key:
                 return

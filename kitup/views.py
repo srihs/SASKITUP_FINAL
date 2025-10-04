@@ -1,5 +1,9 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.views.generic import TemplateView
+from django.contrib.auth import authenticate, login
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
+from django.contrib import messages
 from clubs.models_lotto import LottoClub, LottoClubCategory, LottoProduct
 from clubs.models_sas import SASClub, SASProduct
 from clubs.models_tus import TUSSchool
@@ -30,9 +34,69 @@ class GlobalDashboardView(TemplateView):
 
 
 def frontend_landing_view(request):
-    """Serve the frontend landing page with featured schools and clubs"""
+    """
+    Index page with role-based redirection and login handling
+    - Admin/Superadmin → /dashboard/
+    - Sales Rep/Account Manager → /profile/
+    - Customer → /profile/
+    - Not authenticated → landing page with login form
+    - POST: Process login
+    """
     from django.db.models import Q
+    from authentication.models import AuditLog
 
+    # Handle login POST request
+    if request.method == 'POST' and not request.user.is_authenticated:
+        username = request.POST.get('username')  # Email field
+        password = request.POST.get('password')
+
+        user = authenticate(request, username=username, password=password)
+
+        if user is not None:
+            login(request, user)
+
+            # Ensure session is saved
+            request.session.save()
+
+            # Log successful login
+            AuditLog.log_action(
+                user=user,
+                action_type='login',
+                description=f'User {user.username} logged in successfully from home page',
+                request=request
+            )
+
+            # Role-based redirection after successful login
+            if user.user_type in ['admin'] or user.is_superuser:
+                return redirect('global-dashboard')
+            else:
+                # Sales reps, account managers, and customers → Profile
+                return redirect('profile')
+        else:
+            # Log failed login attempt
+            AuditLog.log_action(
+                user=None,
+                action_type='login',
+                description=f'Failed login attempt for email: {username}',
+                request=request,
+                email=username
+            )
+            messages.error(request, 'Invalid email or password.')
+            # Continue to show the home page with error message
+
+    # If user is authenticated, redirect based on role
+    if request.user.is_authenticated:
+        user = request.user
+
+        # Admin and Superadmin users → Global Dashboard
+        if user.user_type in ['admin'] or user.is_superuser:
+            return redirect('global-dashboard')
+
+        # Sales Reps, Account Managers, and Customers → Profile
+        else:
+            return redirect('profile')
+
+    # Not authenticated → Show landing page with login form
     # Get ALL retail schools (TUS) with logos
     retail_schools = TUSSchool.objects.filter(
         is_active=True,
@@ -143,3 +207,142 @@ def cart_view(request):
 def user_choice_view(request):
     """Serve the original user choice page (School/Club Admin vs Customer)"""
     return render(request, 'frontend/index.html')
+
+
+@method_decorator(login_required, name='dispatch')
+class ProfileView(TemplateView):
+    """
+    Frontend profile view for sales reps, account managers, and customers
+    - Sales Reps/Account Managers → profile_sales.html
+    - Customers → profile_customer.html
+    """
+
+    def get_template_names(self):
+        """Return appropriate template based on user type"""
+        user = self.request.user
+
+        if user.user_type in ['sales_rep', 'account_manager']:
+            return ['frontend/profile_sales.html']
+        elif user.user_type == 'customer':
+            return ['frontend/profile_customer.html']
+        else:
+            # Fallback for other user types (shouldn't happen)
+            return redirect('global-dashboard')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        # Common context for all profiles
+        context['user_obj'] = user
+
+        # Import models needed for context
+        from authentication.models import AuditLog, SalesRepSchoolAssignment, SalesRepClubAssignment
+        from clubs.models_lotto import LottoClub
+        from clubs.models_sas import SASClub
+        from clubs.models_tus import TUSSchool
+        from schools.models import WholesaleSchool
+        from django.contrib.contenttypes.models import ContentType
+
+        # Get recent activities
+        context['recent_activities'] = AuditLog.objects.filter(
+            user=user
+        ).order_by('-timestamp')[:20]
+
+        # Sales Rep/Account Manager specific context
+        if user.user_type in ['sales_rep', 'account_manager']:
+            # Get assigned TUS schools
+            tus_assignments = SalesRepSchoolAssignment.objects.filter(
+                sales_rep=user,
+                is_active=True,
+                school_id__isnull=False
+            ).select_related('sales_rep')
+
+            tus_schools = []
+            for assignment in tus_assignments:
+                try:
+                    school = TUSSchool.objects.get(id=assignment.school_id, is_active=True)
+                    tus_schools.append({
+                        'school': school,
+                        'assignment': assignment,
+                        'type': 'TUS School'
+                    })
+                except TUSSchool.DoesNotExist:
+                    continue
+
+            # Get assigned wholesale schools
+            wholesale_assignments = SalesRepSchoolAssignment.objects.filter(
+                sales_rep=user,
+                is_active=True,
+                wholesale_school__isnull=False
+            ).select_related('sales_rep', 'wholesale_school')
+
+            wholesale_schools = [
+                {
+                    'school': assignment.wholesale_school,
+                    'assignment': assignment,
+                    'type': 'Wholesale School'
+                }
+                for assignment in wholesale_assignments
+            ]
+
+            # Get assigned LOTTO clubs
+            lotto_content_type = ContentType.objects.get_for_model(LottoClub)
+            lotto_assignments = SalesRepClubAssignment.objects.filter(
+                sales_rep=user,
+                is_active=True,
+                club_content_type=lotto_content_type
+            ).select_related('sales_rep', 'club_content_type')
+
+            lotto_clubs = []
+            for assignment in lotto_assignments:
+                try:
+                    club = LottoClub.objects.get(id=assignment.club_object_id, is_active=True)
+                    lotto_clubs.append({
+                        'club': club,
+                        'assignment': assignment,
+                        'type': 'LOTTO Club'
+                    })
+                except LottoClub.DoesNotExist:
+                    continue
+
+            # Get assigned SAS clubs
+            sas_content_type = ContentType.objects.get_for_model(SASClub)
+            sas_assignments = SalesRepClubAssignment.objects.filter(
+                sales_rep=user,
+                is_active=True,
+                club_content_type=sas_content_type
+            ).select_related('sales_rep', 'club_content_type')
+
+            sas_clubs = []
+            for assignment in sas_assignments:
+                try:
+                    club = SASClub.objects.get(id=assignment.club_object_id, is_active=True)
+                    sas_clubs.append({
+                        'club': club,
+                        'assignment': assignment,
+                        'type': 'SAS Club'
+                    })
+                except SASClub.DoesNotExist:
+                    continue
+
+            context.update({
+                'tus_schools': tus_schools,
+                'wholesale_schools': wholesale_schools,
+                'lotto_clubs': lotto_clubs,
+                'sas_clubs': sas_clubs,
+                'total_assignments': len(tus_schools) + len(wholesale_schools) + len(lotto_clubs) + len(sas_clubs),
+                # Placeholder for quotations - will be implemented in Phase 2
+                'quotations': [],
+            })
+
+        # Customer specific context
+        elif user.user_type == 'customer':
+            context.update({
+                'organization': None,  # Placeholder - will link to TUSSchool, WholesaleSchool, or Club
+                'assigned_sales_rep': None,  # Placeholder - will get from assignments
+                # Placeholder for quotations - will be implemented in Phase 2
+                'quotations': [],
+            })
+
+        return context

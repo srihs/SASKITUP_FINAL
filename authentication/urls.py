@@ -9,6 +9,9 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('signup/', views.SignupView.as_view(), name='signup'),
 
+    # Unified Profile URL (role-based routing)
+    path('profile/', views.ProfileView.as_view(), name='profile'),
+
     # Dashboard URLs
     path('admin-dashboard/', views.AdminDashboardView.as_view(), name='admin-dashboard'),
     path('sales-rep-dashboard/', views.SalesRepDashboardView.as_view(), name='sales-rep-dashboard'),

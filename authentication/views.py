@@ -34,11 +34,25 @@ class LoginView(FormView):
     """Custom login view with audit logging and email-based authentication"""
     template_name = 'authentication/login.html'
     form_class = EmailAuthenticationForm
-    success_url = reverse_lazy('global-dashboard')
+    success_url = None  # Role-based redirection
+
+    def get_redirect_url(self, user):
+        """Get redirect URL based on user role"""
+        # Admin and Superadmin → Global Dashboard
+        if user.user_type in ['admin'] or user.is_superuser:
+            return reverse_lazy('global-dashboard')
+
+        # Sales Reps, Account Managers, Customers → Profile
+        elif user.user_type in ['sales_rep', 'account_manager', 'customer']:
+            return reverse_lazy('authentication:profile')
+
+        # Default fallback
+        return reverse_lazy('global-dashboard')
 
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
-            return redirect(self.success_url)
+            redirect_url = self.get_redirect_url(request.user)
+            return redirect(redirect_url)
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
@@ -55,13 +69,14 @@ class LoginView(FormView):
 
         messages.success(self.request, f'Welcome back, {user.get_full_name() or user.username}!')
 
-        # Redirect to next URL if provided
-        next_url = self.request.GET.get('next')
+        # Redirect to next URL if provided (check POST and GET)
+        next_url = self.request.POST.get('next') or self.request.GET.get('next')
         if next_url:
             return redirect(next_url)
 
-        # Redirect all users to global dashboard
-        return redirect('global-dashboard')
+        # Role-based redirection
+        redirect_url = self.get_redirect_url(user)
+        return redirect(redirect_url)
 
     def form_invalid(self, form):
         # Log failed login attempt
@@ -101,7 +116,7 @@ def logout_view(request):
 
     logout(request)
     messages.success(request, 'You have been logged out successfully.')
-    return redirect('authentication:login')
+    return redirect('frontend-home')
 
 
 class SignupView(FormView):
@@ -513,6 +528,155 @@ class CustomerActivityView(CustomerRequiredMixin, ListView):
 class CustomerFAQView(TemplateView):
     """Customer FAQ view - publicly accessible"""
     template_name = 'authentication/customer_faq.html'
+
+
+# =====================================
+# UNIFIED PROFILE VIEW
+# =====================================
+
+@method_decorator(login_required, name='dispatch')
+class ProfileView(TemplateView):
+    """
+    Unified profile view that routes to different templates based on user type
+    - Sales Reps/Account Managers → Sales Rep Profile
+    - Customers → Customer Profile
+    """
+
+    def get_template_names(self):
+        """Return appropriate template based on user type"""
+        user = self.request.user
+
+        if user.user_type in ['sales_rep', 'account_manager']:
+            return ['authentication/profile_sales.html']
+        elif user.user_type == 'customer':
+            return ['authentication/profile_customer.html']
+        else:
+            # Fallback for other user types
+            return ['authentication/access_denied.html']
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        # Common context for all profiles
+        context['user_obj'] = user
+        context['recent_activities'] = AuditLog.objects.filter(
+            user=user
+        ).order_by('-timestamp')[:20]
+
+        # Sales Rep/Account Manager specific context
+        if user.user_type in ['sales_rep', 'account_manager']:
+            context.update(self._get_sales_rep_context(user))
+
+        # Customer specific context
+        elif user.user_type == 'customer':
+            context.update(self._get_customer_context(user))
+
+        return context
+
+    def _get_sales_rep_context(self, user):
+        """Get context data for sales rep profile"""
+        from clubs.models_lotto import LottoClub
+        from clubs.models_sas import SASClub
+        from clubs.models_tus import TUSSchool
+        from django.contrib.contenttypes.models import ContentType
+
+        # Get assigned TUS schools
+        tus_assignments = SalesRepSchoolAssignment.objects.filter(
+            sales_rep=user,
+            is_active=True,
+            school_id__isnull=False
+        ).select_related('sales_rep')
+
+        tus_schools = []
+        for assignment in tus_assignments:
+            try:
+                school = TUSSchool.objects.get(id=assignment.school_id, is_active=True)
+                tus_schools.append({
+                    'school': school,
+                    'assignment': assignment,
+                    'type': 'TUS School'
+                })
+            except TUSSchool.DoesNotExist:
+                continue
+
+        # Get assigned wholesale schools
+        wholesale_assignments = SalesRepSchoolAssignment.objects.filter(
+            sales_rep=user,
+            is_active=True,
+            wholesale_school__isnull=False
+        ).select_related('sales_rep', 'wholesale_school')
+
+        wholesale_schools = [
+            {
+                'school': assignment.wholesale_school,
+                'assignment': assignment,
+                'type': 'Wholesale School'
+            }
+            for assignment in wholesale_assignments
+        ]
+
+        # Get assigned LOTTO clubs
+        lotto_content_type = ContentType.objects.get_for_model(LottoClub)
+        lotto_assignments = SalesRepClubAssignment.objects.filter(
+            sales_rep=user,
+            is_active=True,
+            club_content_type=lotto_content_type
+        ).select_related('sales_rep', 'club_content_type')
+
+        lotto_clubs = []
+        for assignment in lotto_assignments:
+            try:
+                club = LottoClub.objects.get(id=assignment.club_object_id, is_active=True)
+                lotto_clubs.append({
+                    'club': club,
+                    'assignment': assignment,
+                    'type': 'LOTTO Club'
+                })
+            except LottoClub.DoesNotExist:
+                continue
+
+        # Get assigned SAS clubs
+        sas_content_type = ContentType.objects.get_for_model(SASClub)
+        sas_assignments = SalesRepClubAssignment.objects.filter(
+            sales_rep=user,
+            is_active=True,
+            club_content_type=sas_content_type
+        ).select_related('sales_rep', 'club_content_type')
+
+        sas_clubs = []
+        for assignment in sas_assignments:
+            try:
+                club = SASClub.objects.get(id=assignment.club_object_id, is_active=True)
+                sas_clubs.append({
+                    'club': club,
+                    'assignment': assignment,
+                    'type': 'SAS Club'
+                })
+            except SASClub.DoesNotExist:
+                continue
+
+        return {
+            'tus_schools': tus_schools,
+            'wholesale_schools': wholesale_schools,
+            'lotto_clubs': lotto_clubs,
+            'sas_clubs': sas_clubs,
+            'total_assignments': len(tus_schools) + len(wholesale_schools) + len(lotto_clubs) + len(sas_clubs),
+            # Placeholder for quotations - will be implemented in Phase 2
+            'quotations': [],
+        }
+
+    def _get_customer_context(self, user):
+        """Get context data for customer profile"""
+        # Placeholder for customer-specific data
+        # This will be expanded when customer organization linking is implemented
+
+        return {
+            'organization': None,  # Placeholder - will link to TUSSchool, WholesaleSchool, or Club
+            'assigned_sales_rep': None,  # Placeholder - will get from assignments
+            # Placeholder for quotations - will be implemented in Phase 2
+            'quotations': [],
+        }
 
 
 # =====================================

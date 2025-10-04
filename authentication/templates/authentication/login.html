@@ -220,8 +220,11 @@
                             {% endif %}
 
                             <div class="p-2 mt-4">
-                                <form method="post" action="{% url 'authentication:login' %}">
+                                <form method="post">
                                     {% csrf_token %}
+                                    {% if request.GET.next %}
+                                    <input type="hidden" name="next" value="{{ request.GET.next }}">
+                                    {% endif %}
 
                                     <!-- User Type Quick Select (Optional) -->
                                     <div class="user-type-selector">
