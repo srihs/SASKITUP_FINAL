@@ -1,17 +1,26 @@
 from django.shortcuts import render, redirect
+from django.http import HttpResponseRedirect
+from django.urls import reverse
 from django.views.generic import TemplateView
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from clubs.models_lotto import LottoClub, LottoClubCategory, LottoProduct
 from clubs.models_sas import SASClub, SASProduct
 from clubs.models_tus import TUSSchool
 
 
-class GlobalDashboardView(TemplateView):
+@method_decorator(login_required, name='dispatch')
+class GlobalDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     """Main global dashboard for the SASKITUP admin system"""
     template_name = 'dashboard/global_dashboard.html'
+    login_url = '/'
+
+    def test_func(self):
+        """Only allow admin and superuser access"""
+        return self.request.user.user_type in ['admin'] or self.request.user.is_superuser
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -54,9 +63,6 @@ def frontend_landing_view(request):
 
         if user is not None:
             login(request, user)
-
-            # Ensure session is saved
-            request.session.save()
 
             # Log successful login
             AuditLog.log_action(
@@ -209,13 +215,18 @@ def user_choice_view(request):
     return render(request, 'frontend/index.html')
 
 
-@method_decorator(login_required, name='dispatch')
 class ProfileView(TemplateView):
     """
     Frontend profile view for sales reps, account managers, and customers
     - Sales Reps/Account Managers → profile_sales.html
     - Customers → profile_customer.html
     """
+
+    def dispatch(self, request, *args, **kwargs):
+        """Check authentication and redirect to home if not authenticated"""
+        if not request.user.is_authenticated:
+            return redirect('frontend-home')
+        return super().dispatch(request, *args, **kwargs)
 
     def get_template_names(self):
         """Return appropriate template based on user type"""

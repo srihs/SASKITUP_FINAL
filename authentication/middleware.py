@@ -41,8 +41,7 @@ class AuthenticationMiddleware:
                 request.user.last_login_ip = current_ip
                 request.user.save(update_fields=['last_login_ip'])
 
-            # Track or update user session
-            self.track_user_session(request)
+            # Session tracking moved to process_response to ensure session is saved first
 
             # Check if user is still active
             if not request.user.is_active:
@@ -57,6 +56,9 @@ class AuthenticationMiddleware:
     def process_response(self, request, response):
         """Process outgoing response"""
         if request.user.is_authenticated:
+            # Track or update user session (moved here to ensure session exists)
+            self.track_user_session(request)
+
             # Update session activity
             self.update_session_activity(request)
 
@@ -65,13 +67,17 @@ class AuthenticationMiddleware:
     def track_user_session(self, request):
         """Track or update user session"""
         try:
-            # Ensure session exists before getting the key
-            if not request.session.session_key:
-                request.session.create()
-
+            # Get session key - this should exist in process_response after SessionMiddleware
             session_key = request.session.session_key
             if not session_key:
-                return
+                # Session not yet created - this can happen on first login
+                # Force session creation by accessing and modifying it
+                request.session.modified = True
+                # Try to get the key again after marking as modified
+                session_key = request.session.session_key
+                if not session_key:
+                    logger.warning(f"Session key still None for user {request.user.username}")
+                    return
 
             user_session, created = UserSession.objects.get_or_create(
                 session_key=session_key,
@@ -153,7 +159,8 @@ class RoleBasedAccessMiddleware:
 
         # Public paths that don't require authentication
         self.public_paths = [
-            '/',  # Frontend landing page
+            '/',  # Frontend landing page (also serves as login page)
+            '/profile/',  # Profile page handles its own auth redirect
             '/auth/login/',
             '/auth/logout/',
             '/auth/signup/',  # Customer signup

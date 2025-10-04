@@ -333,7 +333,7 @@
                                 <a class="dropdown-item" href="{% url 'clubs:sync-lotto-clubs-page' %}"><i class="uil uil-sync font-size-18 align-middle me-1 text-muted"></i> <span class="align-middle">LOTTO Sync</span></a>
                                 {% endif %}
                                 <div class="dropdown-divider"></div>
-                                <a class="dropdown-item" href="{% url 'admin:logout' %}"><i class="uil uil-sign-out-alt font-size-18 align-middle me-1 text-muted"></i> <span class="align-middle">Sign out</span></a>
+                                <a class="dropdown-item" href="{% url 'authentication:logout' %}"><i class="uil uil-sign-out-alt font-size-18 align-middle me-1 text-muted"></i> <span class="align-middle">Sign out</span></a>
                             </div>
                             {% else %}
                             <a href="{% url 'admin:login' %}?next={{ request.get_full_path }}" class="btn btn-primary">

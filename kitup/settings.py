@@ -70,11 +70,11 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'authentication.middleware.AuthenticationMiddleware',
     'authentication.middleware.RoleBasedAccessMiddleware',
     'authentication.middleware.SessionSecurityMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
 ROOT_URLCONF = 'kitup.urls'
@@ -297,11 +297,18 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 # Authentication Settings
-LOGIN_URL = '/auth/login/'
+LOGIN_URL = '/'  # Home page is the login page
 LOGIN_REDIRECT_URL = '/clubs/dashboard/'
 LOGOUT_REDIRECT_URL = '/'  # Redirect to home page with login form
 
 # Session Configuration
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Explicit database backend
 SESSION_COOKIE_AGE = 86400  # 24 hours
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-SESSION_SAVE_EVERY_REQUEST = True
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Set to False for testing - cookies persist
+SESSION_SAVE_EVERY_REQUEST = True  # Required for session persistence with custom middleware
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'  # Allow cookies on redirects
+SESSION_COOKIE_SECURE = False  # Allow cookies over HTTP for development
+SESSION_COOKIE_PATH = '/'  # Ensure cookie is valid for entire site
+SESSION_COOKIE_NAME = 'sessionid'  # Explicit session cookie name
+SESSION_COOKIE_DOMAIN = None  # Explicitly set to None for localhost
