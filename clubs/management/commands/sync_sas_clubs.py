@@ -18,15 +18,17 @@ Key Features:
 
 import json
 import logging
+import re
 import time
 from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Optional, Tuple
 
+from bs4 import BeautifulSoup
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils.text import slugify
 
-from clubs.models_sas import SASSport, SASClub, SASProduct
+from clubs.models_sas import SASSport, SASClub, SASProduct, SASProductVariation
 from clubs.services.woocommerce_service import WooCommerceService
 
 logger = logging.getLogger(__name__)
@@ -85,9 +87,80 @@ class Command(BaseCommand):
             'products_processed': 0,
             'products_created': 0,
             'products_updated': 0,
+            'variations_processed': 0,
+            'variations_created': 0,
+            'variations_updated': 0,
             'errors': 0,
         }
         
+    def extract_style_code(self, short_description: str) -> Optional[str]:
+        """
+        Extract Style Code from HTML short_description.
+
+        Pattern examples:
+        - <p>Style Code – JKT 1513 ROYAL AKA</p>
+        - <p><strong>Style Code:</strong> TRK 1234 BLUE</p>
+        - Style Code &#8211; CAP U15618 NAVY AKA
+
+        Args:
+            short_description: HTML content from WooCommerce short_description field
+
+        Returns:
+            Extracted style code string or None if not found
+        """
+        if not short_description:
+            return None
+
+        # Try BeautifulSoup first for proper HTML parsing
+        try:
+            soup = BeautifulSoup(short_description, 'html.parser')
+
+            # Get all text content
+            full_text = soup.get_text()
+
+            # Look for "Style Code" followed by separator and value
+            # Patterns: "Style Code:" "Style Code –" "Style Code &#8211;" "Style Code -"
+            match = re.search(
+                r'style\s+code\s*[:\-–—]\s*([^\n<]+?)(?:\s*(?:<br|</p|\n|$))',
+                full_text,
+                re.IGNORECASE
+            )
+
+            if match:
+                style_code = match.group(1).strip()
+                # Clean up any extra text after / separator (for multi-option products)
+                if '/' in style_code:
+                    # Take first option only
+                    style_code = style_code.split('/')[0].strip()
+                # Clean up whitespace
+                style_code = re.sub(r'\s+', ' ', style_code)
+                return style_code if style_code else None
+
+        except Exception as e:
+            # If BeautifulSoup fails, fall through to regex
+            logger.debug(f"BeautifulSoup parsing failed: {str(e)}")
+
+        # Fallback to regex pattern matching on raw HTML
+        # Handle various separators: : - – — &#8211; (en-dash HTML entity)
+        patterns = [
+            r'style\s+code\s*(?::|&#8211;|–|—|-)\s*([^\n<]+?)(?:<br|</p|\n|$)',  # Most common pattern
+            r'<strong>style\s+code\s*:\s*</strong>\s*([^<]+)',                    # With strong tags
+            r'style\s+code\s*:\s*([^<\n]+)',                                      # Simple colon
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, short_description, re.IGNORECASE)
+            if match:
+                style_code = match.group(1).strip()
+                # Clean up multi-option products (take first only)
+                if '/' in style_code:
+                    style_code = style_code.split('/')[0].strip()
+                # Clean up whitespace
+                style_code = re.sub(r'\s+', ' ', style_code)
+                return style_code if style_code else None
+
+        return None
+
     def add_arguments(self, parser):
         """Add command line arguments"""
         parser.add_argument(
@@ -524,13 +597,13 @@ class Command(BaseCommand):
             return SASClub.objects.create(**club_data_obj), True
     
     def _process_product(self, product_data, club_obj, dry_run, force_update):
-        """Process a single product"""
+        """Process a single product and its variations"""
         product_name = product_data['name']
         product_id = product_data['id']
-        
+
         if self.options['verbose']:
             self.stdout.write(f'        📦 Processing Product: {product_name} (ID: {product_id})')
-        
+
         if not dry_run:
             product_obj, product_created = self._process_sas_product(product_data, club_obj, force_update)
             if product_created:
@@ -541,10 +614,21 @@ class Command(BaseCommand):
                 self.stats['products_updated'] += 1
                 if self.options['verbose']:
                     self.stdout.write(f'          🔄 Updated product: {product_name}')
+
+            # Process variations for variable products
+            if self.woo_service.is_variable_product(product_data):
+                try:
+                    self._process_product_variations(product_obj, product_data)
+                except Exception as e:
+                    self.stats['errors'] += 1
+                    error_msg = f"Error processing variations for {product_name}: {str(e)}"
+                    logger.error(error_msg, exc_info=True)
+                    if self.options['verbose']:
+                        self.stdout.write(f'          ❌ {error_msg}')
         else:
             if self.options['verbose']:
                 self.stdout.write(f'          🔍 [DRY RUN] Would create/update product: {product_name}')
-        
+
         self.stats['products_processed'] += 1
     
     def _process_sas_product(self, product_data, club_obj, force_update) -> Tuple[SASProduct, bool]:
@@ -569,18 +653,27 @@ class Command(BaseCommand):
             logger.warning(f"Invalid price data for product {product_data['name']}: {str(e)}")
             regular_price = sale_price = price = Decimal('0')
         
+        # Extract style code from short_description
+        short_description = product_data.get('short_description', '')
+        style_code = self.extract_style_code(short_description)
+
+        if style_code and self.options.get('verbose'):
+            logger.debug(f"Extracted style code '{style_code}' for product {product_data['name']}")
+
         # Prepare product data
         product_data_obj = {
             'club': club_obj,
             'name': product_data['name'],
             'woo_product_id': woo_product_id,
             'slug': product_data.get('slug', slugify(product_data['name'])),
+            'product_type': product_data.get('type', 'simple'),  # Add product_type from WooCommerce
             'price': price,
             'regular_price': regular_price,
             'sale_price': sale_price,
             'description': product_data.get('description', ''),
-            'short_description': product_data.get('short_description', ''),
+            'short_description': short_description,
             'sku': product_data.get('sku', ''),
+            'style_code': style_code,
             'stock_status': product_data.get('stock_status', 'instock'),
             'weight': product_data.get('weight', ''),
             'dimensions': product_data.get('dimensions', {}),
@@ -610,7 +703,154 @@ class Command(BaseCommand):
                 return existing_product, False
         else:
             return SASProduct.objects.create(**product_data_obj), True
-    
+
+    def _process_product_variations(self, product, product_data):
+        """
+        Process variations for a variable product
+
+        Args:
+            product: SASProduct instance
+            product_data: Product data from WooCommerce API
+        """
+        try:
+            # Get variations from WooCommerce
+            variations_data = self.woo_service.get_product_variations(product_data['id'])
+
+            if not variations_data:
+                if self.options['verbose']:
+                    self.stdout.write(f'          ℹ️  No variations found for product: {product.name}')
+                return
+
+            if self.options['verbose']:
+                self.stdout.write(f'          🔀 Processing {len(variations_data)} variations for: {product.name}')
+
+            # Track processed variation IDs to avoid duplicates
+            processed_variation_ids = set()
+
+            for variation_data in variations_data:
+                try:
+                    # Skip if this WooCommerce variation ID has already been processed
+                    woo_variation_id = variation_data.get('id', 0)
+                    if woo_variation_id in processed_variation_ids:
+                        if self.options['verbose']:
+                            self.stdout.write(f'            ⏭️  Skipping duplicate variation ID: {woo_variation_id}')
+                        continue
+
+                    processed_variation_ids.add(woo_variation_id)
+
+                    # Extract variation data
+                    extracted_data = self.woo_service.extract_variation_data(variation_data, product_data)
+
+                    # Process individual variation
+                    self._process_individual_variation(product, extracted_data, product_data)
+
+                except Exception as e:
+                    logger.error(f"Error processing variation {variation_data.get('id', 'unknown')}: {str(e)}")
+                    if self.options['verbose']:
+                        self.stdout.write(f'            ❌ Error processing variation: {str(e)}')
+                    continue
+
+        except Exception as e:
+            logger.error(f"Error processing variations for product {product.name}: {str(e)}")
+            raise
+
+    def _process_individual_variation(self, product, extracted_data, product_data):
+        """
+        Process individual product variation
+
+        Args:
+            product: SASProduct instance
+            extracted_data: Extracted variation data from WooCommerceService
+            product_data: Parent product data
+        """
+        woo_variation_id = extracted_data['woo_variation_id']
+        variation_type = extracted_data['variation_type']
+        variation_value = extracted_data['variation_value']
+
+        # Check if variation already exists by WooCommerce ID
+        existing_variation = SASProductVariation.objects.filter(
+            woo_variation_id=woo_variation_id
+        ).first()
+
+        # If not found by WooCommerce ID, check by unique constraint
+        if not existing_variation:
+            existing_variation = SASProductVariation.objects.filter(
+                product=product,
+                variation_type=variation_type,
+                variation_value=variation_value
+            ).first()
+
+        # Get image data
+        image_data = extracted_data.get('image_data', {})
+        image_url = None
+
+        # Use intelligent image selection from WooCommerce service
+        if image_data.get('should_use_variation_image') and image_data.get('variation_image_url'):
+            image_url = image_data['variation_image_url']
+        elif image_data.get('fallback_image_url'):
+            image_url = image_data['fallback_image_url']
+
+        # Prepare variation data
+        variation_data_obj = {
+            'product': product,
+            'variation_type': variation_type,
+            'variation_value': variation_value,
+            'price_modifier': extracted_data['price_modifier'],
+            'stock_quantity': extracted_data['stock_quantity'],
+            'sku_suffix': extracted_data['sku_suffix'],
+            'woo_variation_id': woo_variation_id,
+            'is_active': extracted_data['is_active'],
+            'attributes': extracted_data['attributes'],
+            'weight': extracted_data['weight'],
+            'dimensions': extracted_data['dimensions'],
+        }
+
+        if image_url:
+            variation_data_obj['image_url'] = image_url
+
+        if existing_variation:
+            # Update existing variation
+            updated = False
+            for key, value in variation_data_obj.items():
+                if hasattr(existing_variation, key) and getattr(existing_variation, key) != value:
+                    setattr(existing_variation, key, value)
+                    updated = True
+
+            if updated:
+                existing_variation.save()
+                self.stats['variations_updated'] += 1
+                if self.options['verbose']:
+                    self.stdout.write(f'            🔄 Updated variation: {variation_value}')
+        else:
+            # Create new variation using get_or_create to avoid duplicates
+            try:
+                variation, created = SASProductVariation.objects.get_or_create(
+                    product=product,
+                    variation_type=variation_type,
+                    variation_value=variation_value,
+                    defaults=variation_data_obj
+                )
+
+                if created:
+                    self.stats['variations_created'] += 1
+                    if self.options['verbose']:
+                        self.stdout.write(f'            ✨ Created variation: {variation_value}')
+                else:
+                    # Found existing, update WooCommerce ID if different
+                    if variation.woo_variation_id != woo_variation_id:
+                        variation.woo_variation_id = woo_variation_id
+                        variation.save(update_fields=['woo_variation_id'])
+                        self.stats['variations_updated'] += 1
+                        if self.options['verbose']:
+                            self.stdout.write(f'            🔄 Updated WooCommerce ID for: {variation_value}')
+
+            except Exception as e:
+                logger.error(f"Error creating variation {variation_value}: {str(e)}")
+                if self.options['verbose']:
+                    self.stdout.write(f'            ❌ Error creating variation: {str(e)}')
+
+        self.stats['variations_processed'] += 1
+
     def _is_school_related(self, name: str) -> bool:
         """Check if a category/club name is school-related"""
         name_lower = name.lower()
@@ -690,11 +930,18 @@ class Command(BaseCommand):
         self.stdout.write(f'  • Processed: {self.stats["products_processed"]}')
         self.stdout.write(f'  • Created: {self.stats["products_created"]}')
         self.stdout.write(f'  • Updated: {self.stats["products_updated"]}')
-        
+
+        # Variations statistics
+        self.stdout.write(f'\n🔀 Variations:')
+        self.stdout.write(f'  • Processed: {self.stats["variations_processed"]}')
+        self.stdout.write(f'  • Created: {self.stats["variations_created"]}')
+        self.stdout.write(f'  • Updated: {self.stats["variations_updated"]}')
+
         # Summary
-        total_processed = (self.stats["sports_processed"] + 
-                          self.stats["clubs_processed"] + 
-                          self.stats["products_processed"])
+        total_processed = (self.stats["sports_processed"] +
+                          self.stats["clubs_processed"] +
+                          self.stats["products_processed"] +
+                          self.stats["variations_processed"])
         
         self.stdout.write(f'\n📈 Summary:')
         self.stdout.write(f'  • Total items processed: {total_processed}')

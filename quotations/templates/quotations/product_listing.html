@@ -339,7 +339,12 @@
 					{% endif %}
 
 					<h3 class="product-name">{{ product.name }}</h3>
-					<p class="product-sku">SKU: {% if institution_type == 'wholesaleschool' %}{{ product.cin7_sku|default:"N/A" }}{% else %}{{ product.sku|default:"N/A" }}{% endif %}</p>
+					<p class="product-sku">
+						SKU: {% if institution_type == 'wholesaleschool' %}{{ product.cin7_sku|default:"N/A" }}{% else %}{{ product.sku|default:"N/A" }}{% endif %}
+						{% if institution_type == 'sas' and product.style_code %}
+						<br>Style: {{ product.style_code }}
+						{% endif %}
+					</p>
 
 					<div class="product-price">
 						{% if institution_type == 'wholesaleschool' %}

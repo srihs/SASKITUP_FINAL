@@ -427,6 +427,7 @@ class SASProduct(models.Model):
     product_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='simple')
     stock_status = models.CharField(max_length=20, choices=STOCK_STATUS_CHOICES, default='instock')
     sku = models.CharField(max_length=100, blank=True, help_text="Stock Keeping Unit")
+    style_code = models.CharField(max_length=100, blank=True, null=True, help_text="Product style code")
     
     # Pricing
     price = models.DecimalField(
@@ -500,6 +501,7 @@ class SASProduct(models.Model):
             models.Index(fields=['club', 'stock_status']),
             models.Index(fields=['woo_product_id']),
             models.Index(fields=['sku']),
+            models.Index(fields=['style_code']),
             models.Index(fields=['price']),
             models.Index(fields=['stock_status']),
             models.Index(fields=['featured', 'stock_status']),
