@@ -211,6 +211,7 @@ class WholesaleSchool(models.Model):
             models.Index(fields=['cin7_id']),
             models.Index(fields=['is_active']),
             models.Index(fields=['last_synced_at']),
+            models.Index(fields=['slug']),
         ]
 
     def __str__(self):
@@ -218,7 +219,18 @@ class WholesaleSchool(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.name)
+            # Create unique slug
+            base_slug = slugify(self.name)
+            slug = base_slug
+            counter = 1
+
+            # Ensure uniqueness by appending numbers if needed
+            while WholesaleSchool.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+
+            self.slug = slug
+
         super().save(*args, **kwargs)
 
     def get_absolute_url(self):

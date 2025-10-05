@@ -339,15 +339,31 @@
 					{% endif %}
 
 					<h3 class="product-name">{{ product.name }}</h3>
-					<p class="product-sku">SKU: {{ product.sku }}</p>
+					<p class="product-sku">SKU: {% if institution_type == 'wholesaleschool' %}{{ product.cin7_sku|default:"N/A" }}{% else %}{{ product.sku|default:"N/A" }}{% endif %}</p>
 
 					<div class="product-price">
-						R {{ product.sale_price|default:product.regular_price }}
-						{% if product.sale_price and product.sale_price < product.regular_price %}
-						<span class="product-price-old">R {{ product.regular_price }}</span>
+						{% if institution_type == 'wholesaleschool' %}
+							${{ product.wholesale_price|default:product.retail_price }}
+							{% if product.wholesale_price and product.retail_price and product.wholesale_price < product.retail_price %}
+							<span class="product-price-old">${{ product.retail_price }}</span>
+							{% endif %}
+						{% else %}
+							${{ product.sale_price|default:product.regular_price }}
+							{% if product.sale_price and product.regular_price and product.sale_price < product.regular_price %}
+							<span class="product-price-old">${{ product.regular_price }}</span>
+							{% endif %}
 						{% endif %}
 					</div>
 
+					{% if institution_type == 'wholesaleschool' %}
+					<span class="stock-badge {% if product.quantity_available > 0 %}stock-in{% else %}stock-out{% endif %}">
+						{% if product.quantity_available > 0 %}
+							<i class="fa fa-check-circle"></i> In Stock ({{ product.quantity_available }})
+						{% else %}
+							<i class="fa fa-times-circle"></i> Out of Stock
+						{% endif %}
+					</span>
+					{% else %}
 					<span class="stock-badge {% if product.stock_quantity > 0 %}stock-in{% else %}stock-out{% endif %}">
 						{% if product.stock_quantity > 0 %}
 							<i class="fa fa-check-circle"></i> In Stock
@@ -355,6 +371,7 @@
 							<i class="fa fa-times-circle"></i> Out of Stock
 						{% endif %}
 					</span>
+					{% endif %}
 
 					<div class="quantity-controls">
 						<button type="button" class="quantity-btn" onclick="decreaseQuantity({{ product.id }})">-</button>

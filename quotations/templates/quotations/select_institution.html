@@ -127,7 +127,7 @@
 				<!-- TUS Schools -->
 				{% for school in tus_schools %}
 				<div class="col-12 col-sm-6 col-md-4 col-lg-3 p-b-35 isotope-item tus">
-					<a href="{% url 'quotations:product-listing' institution_type='tusschool' institution_id=school.id %}" class="institution-card-link" aria-label="Select {{ school.name }}">
+					<a href="{% url 'quotations:product-listing' institution_type='tusschool' institution_slug=school.slug %}" class="institution-card-link" aria-label="Select {{ school.name }}">
 						<div class="block2">
 							<div class="block2-pic hov-img0">
 								<span class="institution-badge badge-tus">TUS School</span>
@@ -156,7 +156,7 @@
 				<!-- Wholesale Schools -->
 				{% for item in wholesale_schools %}
 				<div class="col-12 col-sm-6 col-md-4 col-lg-3 p-b-35 isotope-item wholesale">
-					<a href="{% url 'quotations:product-listing' institution_type='wholesaleschool' institution_id=item.school.id %}" class="institution-card-link" aria-label="Select {{ item.school.name }}">
+					<a href="{% url 'quotations:product-listing' institution_type='wholesaleschool' institution_slug=item.school.slug %}" class="institution-card-link" aria-label="Select {{ item.school.name }}">
 						<div class="block2">
 							<div class="block2-pic hov-img0">
 								<span class="institution-badge badge-wholesale">Wholesale</span>
@@ -185,7 +185,7 @@
 				<!-- LOTTO Clubs -->
 				{% for item in lotto_clubs %}
 				<div class="col-12 col-sm-6 col-md-4 col-lg-3 p-b-35 isotope-item lotto">
-					<a href="{% url 'quotations:product-listing' institution_type='lottoclub' institution_id=item.club.id %}" class="institution-card-link" aria-label="Select {{ item.club.name }}">
+					<a href="{% url 'quotations:product-listing' institution_type='lottoclub' institution_slug=item.club.slug %}" class="institution-card-link" aria-label="Select {{ item.club.name }}">
 						<div class="block2">
 							<div class="block2-pic hov-img0">
 								<span class="institution-badge badge-lotto">LOTTO Club</span>
@@ -214,7 +214,7 @@
 				<!-- SAS Clubs -->
 				{% for item in sas_clubs %}
 				<div class="col-12 col-sm-6 col-md-4 col-lg-3 p-b-35 isotope-item sas">
-					<a href="{% url 'quotations:product-listing' institution_type='sasclub' institution_id=item.club.id %}" class="institution-card-link" aria-label="Select {{ item.club.name }}">
+					<a href="{% url 'quotations:product-listing' institution_type='sasclub' institution_slug=item.club.slug %}" class="institution-card-link" aria-label="Select {{ item.club.name }}">
 						<div class="block2">
 							<div class="block2-pic hov-img0">
 								<span class="institution-badge badge-sas">SAS Club</span>

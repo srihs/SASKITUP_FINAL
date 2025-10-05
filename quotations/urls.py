@@ -25,7 +25,7 @@ urlpatterns = [
 
     # Step 2: Product Listing (for selected institution)
     path(
-        'products/<str:institution_type>/<int:institution_id>/',
+        'products/<str:institution_type>/<slug:institution_slug>/',
         views.ProductListingView.as_view(),
         name='product-listing'
     ),

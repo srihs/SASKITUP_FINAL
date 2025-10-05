@@ -160,11 +160,23 @@ class TUSSchool(models.Model):
             models.Index(fields=['woo_category_id']),
             models.Index(fields=['school_type']),
             models.Index(fields=['created_at']),
+            models.Index(fields=['slug']),
         ]
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(f"{self.location.name}-{self.name}")
+            # Create unique slug
+            base_slug = slugify(f"{self.location.name}-{self.name}")
+            slug = base_slug
+            counter = 1
+
+            # Ensure uniqueness by appending numbers if needed
+            while TUSSchool.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+
+            self.slug = slug
+
         super().save(*args, **kwargs)
 
     def __str__(self):

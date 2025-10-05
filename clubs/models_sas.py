@@ -173,7 +173,7 @@ class SASClub(models.Model):
     
     # Core Fields
     name = models.CharField(max_length=255, help_text="Club name")
-    slug = models.SlugField(max_length=255, blank=True, help_text="URL-friendly version")
+    slug = models.SlugField(max_length=255, unique=True, blank=True, help_text="URL-friendly version")
     
     # WooCommerce Integration
     woo_category_id = models.PositiveIntegerField(
@@ -227,6 +227,7 @@ class SASClub(models.Model):
             models.Index(fields=['product_count']),
             models.Index(fields=['last_sync_at']),
             models.Index(fields=['sport', 'product_count']),
+            models.Index(fields=['slug']),
         ]
     
     def __str__(self):
@@ -235,18 +236,27 @@ class SASClub(models.Model):
     def save(self, *args, **kwargs):
         if not self.slug:
             # Create slug from club name only (matches existing data)
-            self.slug = slugify(self.name)
-        
+            base_slug = slugify(self.name)
+            slug = base_slug
+            counter = 1
+
+            # Ensure uniqueness by appending numbers if needed
+            while SASClub.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+
+            self.slug = slug
+
         # Auto-detect if this is a school
         if not hasattr(self, '_skip_school_detection'):
             self.is_school = self._detect_school()
-        
+
         # Auto-detect if this is a generic category
         if not hasattr(self, '_skip_generic_detection'):
             self.is_generic_category = self._detect_generic_category()
-        
+
         super().save(*args, **kwargs)
-        
+
         # Update parent sport counts
         if hasattr(self, '_update_parent_counts') and self._update_parent_counts:
             self.sport.update_counts()

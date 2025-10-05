@@ -62,11 +62,23 @@ class LottoClub(models.Model):
             models.Index(fields=['woo_category_id']),
             models.Index(fields=['sport_tag']),
             models.Index(fields=['created_at']),
+            models.Index(fields=['slug']),
         ]
     
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.name)
+            # Create unique slug
+            base_slug = slugify(self.name)
+            slug = base_slug
+            counter = 1
+
+            # Ensure uniqueness by appending numbers if needed
+            while LottoClub.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+
+            self.slug = slug
+
         # Ensure club_type is always LOTTO
         self.club_type = 'LOTTO'
         super().save(*args, **kwargs)

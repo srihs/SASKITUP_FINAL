@@ -1,264 +1,711 @@
-# Enhanced Stock Display Implementation Summary
+# Quotation System Implementation Summary
 
-## ✅ **COMPLETED IMPLEMENTATION**
+## Files Created/Modified
 
-### **Core Requirements Fulfilled:**
+### New Files Created
 
-1. **✅ Quantity-Based Stock Display**
-   - Shows "In Stock (X available)" when stock > 5
-   - Shows "Low Stock (X available)" when stock is 1-5 units  
-   - Shows "Out of Stock" when stock = 0
-   - Shows "Available on Backorder (X available)" for backorder items
+1. **`/Users/sas/Repos/SASKITUP/quotations/views.py`** (783 lines)
+   - Complete quotation workflow views
+   - 8 view classes and 4 helper functions
+   - Session management utilities
+   - AJAX endpoints for cart operations
 
-2. **✅ Context-Aware Stock Information**
-   - **No selection**: Shows total available across all variations
-   - **Size only**: Shows total for that size across all colors
-   - **Color only**: Shows total for that color across all sizes
-   - **Size + Color**: Shows exact stock for that combination
-   - **Multiple attributes**: Handles complex combinations
+2. **`/Users/sas/Repos/SASKITUP/quotations/urls.py`** (51 lines)
+   - URL pattern configuration
+   - 10 URL routes with proper namespacing
 
-3. **✅ Visual Enhancements**
-   - ✅ Green for high stock (> 5 units)
-   - ✅ Orange/Yellow for low stock (1-5 units) with pulsing animation
-   - ✅ Red for out of stock
-   - ✅ Blue for backorder items
-   - ✅ Smooth transitions between stock states
+3. **`/Users/sas/Repos/SASKITUP/quotations/QUOTATION_WORKFLOW.md`** (Comprehensive documentation)
+   - User workflow documentation
+   - Session management details
+   - AJAX API reference
+   - Security and performance notes
 
-4. **✅ Enhanced API Integration**
-   - ✅ Uses existing variation data with stock_quantity
-   - ✅ Calculates totals from API responses
-   - ✅ Handles edge cases (no stock data, API errors)
-   - ✅ Maintains backward compatibility
+### Modified Files
 
-## **Files Modified:**
+1. **`/Users/sas/Repos/SASKITUP/kitup/urls.py`**
+   - Added `path('quotations/', include('quotations.urls'))` to main URL configuration
 
-### `/static/assets/js/product-variations.js`
-- **✅ Enhanced Core Methods:**
-  - `updateStockStatus()` - New quantity-aware display logic
-  - `updateStockDisplay()` - Smart context-aware stock calculation
-  - `formatStockDisplay()` - New method for consistent formatting
-  - `updateLegacyStockDisplay()` - Backward compatibility with quantities
+---
 
-- **✅ New Specialized Methods:**
-  - `showSizeOnlyStock()` - Size-specific stock calculation
-  - `showColorOnlyStock()` - Color-specific stock calculation  
-  - `showSizeColorCombinationStock()` - Exact combination stock
-  - `showOverallStock()` - Public method for external use
-  - `getStockInfo()` - Programmatic stock data access
+## Views Implemented
 
-- **✅ Enhanced CSS Classes:**
-  - `.low-stock` - Orange styling with pulsing animation
-  - Updated `.in-stock`, `.out-of-stock`, `.on-backorder` styles
-  - Smooth transition animations and hover effects
+### 1. InstitutionSelectionView (Step 1)
+**URL**: `/quotations/select-institution/`
+**Method**: GET
+**Purpose**: Display institutions accessible by user
 
-## **Key Features Implemented:**
+**Features**:
+- Gets user's accessible institutions via `get_user_institutions()`
+- Groups by type: schools, wholesale_schools, lotto_clubs, sas_clubs
+- Audit logging
+- Permission-aware (sales reps see assigned, account managers see all)
 
-### **1. Smart Stock Calculation**
-```javascript
-// Before: Simple counting
-inStockCount = variations.filter(v => v.stock_status === 'instock').length;
+**Template**: `quotations/select_institution.html`
 
-// After: Actual quantity calculation  
-totalInStock = inStock.reduce((sum, v) => sum + (v.stock_quantity || 1), 0);
-```
+---
 
-### **2. Low Stock Warning System**
-```javascript
-if (stockQuantity <= 5 && stockQuantity > 0) {
-    cssClass = 'low-stock';
-    icon = 'uil-exclamation-triangle';
-    text = 'Low Stock';
-    displayText = `${text} (${stockQuantity} available)`;
-}
-```
+### 2. ProductListingView (Step 2)
+**URL**: `/quotations/products/<institution_type>/<institution_id>/`
+**Method**: GET
+**Purpose**: Display products for selected institution
 
-### **3. Context-Aware Display Logic**
-```javascript
-// No selections - show overall stock
-if (selectionCount === 0) {
-    this.showOverallProductStock();
-}
-// Single selection - show context-specific stock
-else if (selectionCount === 1) {
-    const [selectedType, selectedValue] = Object.entries(selections)[0];
-    if (selectedType === 'size') {
-        this.showSizeOnlyStock(selectedValue.value);
-    } else if (selectedType === 'color') {
-        this.showColorOnlyStock(selectedValue.value);
-    }
-}
-```
+**Features**:
+- Permission verification via `user_can_access_institution()`
+- Product mapping based on institution type:
+  - School/WholesaleSchool → WholesaleProduct
+  - LottoClub → LottoProduct
+  - SASClub → SASProduct
+- Search functionality (name, SKU, description)
+- Pagination (20 items per page)
+- Updates session with institution context
+- Shows current quotation item count
 
-### **4. Enhanced Visual Styling**
-```css
-.stock-status.low-stock {
-    background: rgba(255, 193, 7, 0.1);
-    color: #ff8c00;
-    border: 1px solid rgba(255, 140, 0, 0.3);
-    animation: lowStockPulse 2s ease-in-out infinite;
-}
+**Template**: `quotations/product_listing.html`
 
-@keyframes lowStockPulse {
-    0%, 100% { box-shadow: 0 0 5px rgba(255, 140, 0, 0.3); }
-    50% { box-shadow: 0 0 15px rgba(255, 140, 0, 0.6); }
-}
-```
+---
 
-## **Testing & Validation:**
+### 3. QuotationCartView (Step 3)
+**URL**: `/quotations/cart/`
+**Method**: GET
+**Purpose**: Display quotation cart
 
-### **✅ Test Page Created**
-- **File**: `/test_enhanced_stock.html`
-- **Server**: Available at `http://localhost:8086/test_enhanced_stock.html`
-- **Features**:
-  - Interactive controls for testing different stock levels
-  - Mock data with realistic scenarios
-  - Real-time visual feedback
-  - Debug information and console logging
+**Features**:
+- Reads from session storage
+- Enriches items with full product objects
+- Calculates totals (subtotal, tax, total)
+- Displays institution information
+- Provides UI for quantity adjustment and item removal
 
-### **✅ Test Scenarios Covered**
-1. **High Stock (15+ units)**: ✅ "In Stock (23 available)" - Green
-2. **Low Stock (1-5 units)**: ✅ "Low Stock (3 available)" - Orange with pulse
-3. **Out of Stock (0 units)**: ✅ "Out of Stock" - Red
-4. **Backorder**: ✅ "Available on Backorder (5 available)" - Blue
-5. **Selection Contexts**: ✅ No selection, size-only, color-only, combinations
+**Template**: `quotations/quotation_cart.html`
 
-### **✅ Browser Compatibility**
-- ✅ Chrome: Full support with animations
-- ✅ Firefox: Full support with animations  
-- ✅ Safari: Full support with animations
-- ✅ Edge: Full support with animations
-- ✅ Mobile: Responsive design with touch support
+---
 
-## **Example Output:**
+### 4. AddToQuotationView (AJAX)
+**URL**: `/quotations/add/`
+**Method**: POST
+**Purpose**: Add product to quotation
 
-### **Stock Display Examples**
-```html
-<!-- High Stock -->
-<div class="stock-status in-stock">
-    <i class="uil-check-circle"></i>
-    <span>In Stock (23 available)</span>
-</div>
+**Request Parameters**:
+- `product_type`: Model name (wholesaleproduct, lottoproduct, sasproduct)
+- `product_id`: Product primary key
+- `quantity`: Item quantity (default 1)
 
-<!-- Low Stock (with pulsing animation) -->
-<div class="stock-status low-stock">
-    <i class="uil-exclamation-triangle"></i>
-    <span>Low Stock (3 available)</span>
-</div>
-
-<!-- Out of Stock -->
-<div class="stock-status out-of-stock">
-    <i class="uil-times-circle"></i>
-    <span>Out of Stock</span>
-</div>
-
-<!-- Backorder -->
-<div class="stock-status on-backorder">
-    <i class="uil-clock"></i>
-    <span>Available on Backorder (5 available)</span>
-</div>
-```
-
-## **API Usage:**
-
-### **Public Methods Available**
-```javascript
-// Show overall product stock
-manager.showOverallStock();
-
-// Get current stock information
-const stockInfo = manager.getStockInfo();
-// Returns: { available: true, stock_status: 'instock', stock_quantity: 25, ... }
-
-// Refresh stock display
-manager.refreshStockDisplay();
-```
-
-### **Expected Data Format**
-```javascript
-// Variation data should include:
+**Response**:
+```json
 {
-    id: 1,
-    attributes: { size: 'M', color: 'red' },
-    stock_status: 'instock',
-    stock_quantity: 15,  // ← This drives the new quantity display
-    price_modifier: 0,
-    is_available: true
+    "success": true,
+    "item_count": 5,
+    "subtotal": "199.98",
+    "total": "229.97"
 }
 ```
 
-## **Performance & Optimization:**
+**Features**:
+- Updates existing item quantity if already in cart
+- Stores product snapshot
+- Audit logging
+- Error handling
 
-### **✅ Optimizations Implemented**
-- **Debounced Updates**: Prevents excessive API calls
-- **Efficient Calculations**: Uses reduce() for quantity aggregation
-- **Smart Caching**: Avoids redundant calculations
-- **Hardware Acceleration**: CSS animations use transforms
-- **Minimal DOM Changes**: Updates existing elements rather than recreating
+---
 
-### **✅ Memory Impact**
-- **Minimal Footprint**: Reuses existing data structures
-- **No Memory Leaks**: Proper event cleanup and reference management
-- **Efficient Rendering**: Updates only necessary DOM elements
+### 5. UpdateQuotationItemView (AJAX)
+**URL**: `/quotations/update/`
+**Method**: POST
+**Purpose**: Update item quantity
 
-## **Integration Ready:**
+**Request Parameters**:
+- `item_index`: Index in session items array
+- `quantity`: New quantity (minimum 1)
 
-### **✅ LOTTO System Integration**
-- Uses existing LOTTO brand colors (#C9485B)
-- Integrates with current WooCommerce data structure
-- Maintains existing API contracts
-- Progressive enhancement approach
+**Response**:
+```json
+{
+    "success": true,
+    "line_total": "299.97",
+    "subtotal": "299.97",
+    "tax_amount": "44.99",
+    "total": "344.96"
+}
+```
 
-### **✅ SAS System Integration**  
-- Uses SAS brand colors (#205295)
-- Ready for SAS product variations
-- Consistent behavior across both systems
-- Same API structure and methods
+---
 
-### **✅ Backward Compatibility**
-- `updateLegacyStockDisplay()` maintains existing functionality
-- Existing stock status elements continue to work
-- Graceful degradation if quantities are unavailable
-- No breaking changes to existing code
+### 6. RemoveQuotationItemView (AJAX)
+**URL**: `/quotations/remove/`
+**Method**: POST
+**Purpose**: Remove item from quotation
 
-## **Documentation Created:**
+**Request Parameters**:
+- `item_index`: Index in session items array
 
-1. **✅ Implementation Guide**: `/ENHANCED_STOCK_DISPLAY_GUIDE.md`
-   - Comprehensive usage instructions
-   - API documentation
-   - Integration examples
-   - Testing procedures
+**Response**:
+```json
+{
+    "success": true,
+    "item_count": 4,
+    "subtotal": "199.98",
+    "tax_amount": "29.99",
+    "total": "229.97"
+}
+```
 
-2. **✅ Test Page**: `/test_enhanced_stock.html`
-   - Interactive demonstration
-   - All features working
-   - Debug controls and information
+---
 
-3. **✅ Summary**: This file with complete implementation details
+### 7. ClearQuotationView (AJAX)
+**URL**: `/quotations/clear/`
+**Method**: POST
+**Purpose**: Clear all quotation items
 
-## **Next Steps:**
+**Response**:
+```json
+{
+    "success": true
+}
+```
 
-### **Immediate Deployment**
-1. **Review**: Test the enhanced functionality at `http://localhost:8086/test_enhanced_stock.html`
-2. **Integrate**: Apply to existing LOTTO and SAS product detail pages
-3. **Validate**: Ensure API endpoints return `stock_quantity` data
-4. **Deploy**: Push to production after testing
+---
 
-### **Future Enhancements (Optional)**
-1. **Inventory Alerts**: Email notifications for low stock
-2. **Restock Dates**: Expected restock information
-3. **Bulk Pricing**: Quantity-based pricing tiers
-4. **Real-time Updates**: WebSocket integration for live updates
+### 8. SaveQuotationView (Step 4)
+**URL**: `/quotations/save/`
+**Method**: POST
+**Purpose**: Save quotation to database
 
-## **🎉 IMPLEMENTATION COMPLETE**
+**Process**:
+1. Validates quotation has items
+2. Validates institution is set
+3. Creates `Quotation` record
+4. Creates `QuotationItem` records for each item
+5. Calculates quotation totals
+6. Clears session
+7. Logs action
+8. Returns JSON with redirect URL
 
-All requirements have been successfully implemented with enhanced features, comprehensive testing, and full documentation. The stock display now provides users with clear, informative quantity information that will improve their purchasing decisions and reduce cart abandonment.
+**Response**:
+```json
+{
+    "success": true,
+    "quotation_id": "uuid-string",
+    "quotation_number": "Q-20250105-0001",
+    "redirect_url": "/quotations/my-quotations/"
+}
+```
 
-**Key Benefits Delivered:**
-- ✅ **Transparency**: Users see exact quantities available
-- ✅ **Urgency**: Low stock warnings encourage faster decisions  
-- ✅ **Professional**: Consistent, branded visual presentation
-- ✅ **Accessible**: Clear icons and readable text
-- ✅ **Responsive**: Works perfectly on all devices
-- ✅ **Performant**: Fast, smooth, optimized implementation
+---
 
-The enhanced stock display is ready for production deployment! 🚀
+### 9. MyQuotationsListView (Step 5)
+**URL**: `/quotations/my-quotations/`
+**Method**: GET
+**Purpose**: List user's quotations
+
+**Features**:
+- Pagination (20 per page)
+- Filter by status (draft, pending, approved, etc.)
+- Filter by date range
+- Search by quotation number
+- Optimized queries with select_related and prefetch_related
+
+**Template**: `quotations/my_quotations.html`
+
+---
+
+### 10. QuotationDetailView
+**URL**: `/quotations/detail/<uuid:pk>/`
+**Method**: GET
+**Purpose**: View quotation details
+
+**Features**:
+- Permission check (user's own quotations or admin/account manager)
+- Full quotation details with items
+- Institution information
+- Status and approval tracking
+
+**Template**: `quotations/quotation_detail.html`
+
+---
+
+## Helper Functions
+
+### 1. get_quotation_session(request)
+**Purpose**: Get or create quotation session data
+**Returns**: Session dictionary
+
+**Session Structure**:
+```python
+{
+    'items': [],
+    'institution_type': None,
+    'institution_id': None,
+}
+```
+
+---
+
+### 2. save_quotation_session(request, quotation_data)
+**Purpose**: Save quotation data to session
+**Parameters**: request, quotation_data dict
+
+---
+
+### 3. clear_quotation_session(request)
+**Purpose**: Clear quotation session data
+**Parameters**: request
+
+---
+
+### 4. calculate_quotation_totals(quotation_data)
+**Purpose**: Calculate totals from session data
+**Returns**:
+```python
+{
+    'subtotal': Decimal,
+    'tax_percentage': Decimal('15.00'),
+    'tax_amount': Decimal,
+    'total': Decimal,
+    'item_count': int,
+}
+```
+
+**Logic**:
+- Subtotal = sum of (quantity × unit_price) for all items
+- Tax = subtotal × 15%
+- Total = subtotal + tax
+
+---
+
+### 5. get_product_by_type_and_id(product_type, product_id)
+**Purpose**: Get product object by type and ID
+**Parameters**: product_type (string), product_id (int)
+**Returns**: Product object or None
+
+**Supported Types**:
+- `wholesaleproduct` → `WholesaleProduct`
+- `lottoproduct` → `LottoProduct`
+- `sasproduct` → `SASProduct`
+
+---
+
+### 6. user_can_access_institution(user, institution_type, institution_id)
+**Purpose**: Check if user can access institution
+**Parameters**: user, institution_type (string), institution_id (int)
+**Returns**: Boolean
+
+**Logic**:
+1. Admin/Account Manager → Always True
+2. Sales Rep → Check `SalesRepSchoolAssignment` or `SalesRepClubAssignment`
+3. Customer → Check `CustomerInstitutionAssignment`
+
+---
+
+### 7. get_user_institutions(user)
+**Purpose**: Get all institutions accessible by user
+**Parameters**: user
+**Returns**:
+```python
+{
+    'schools': [...],
+    'wholesale_schools': [...],
+    'lotto_clubs': [...],
+    'sas_clubs': [...],
+}
+```
+
+**Logic**:
+- Admin/Account Manager → All active institutions
+- Sales Rep → Assigned institutions
+- Customer → Assigned institutions
+
+---
+
+## URL Patterns
+
+```python
+app_name = 'quotations'
+
+urlpatterns = [
+    # Step 1: Institution Selection
+    path('select-institution/', InstitutionSelectionView, name='select-institution'),
+
+    # Step 2: Product Listing
+    path('products/<str:institution_type>/<int:institution_id>/', ProductListingView, name='product-listing'),
+
+    # Step 3: Quotation Cart
+    path('cart/', QuotationCartView, name='cart'),
+
+    # AJAX Endpoints
+    path('add/', AddToQuotationView, name='add-item'),
+    path('update/', UpdateQuotationItemView, name='update-item'),
+    path('remove/', RemoveQuotationItemView, name='remove-item'),
+    path('clear/', ClearQuotationView, name='clear'),
+
+    # Step 4: Save Quotation
+    path('save/', SaveQuotationView, name='save'),
+
+    # Step 5: My Quotations
+    path('my-quotations/', MyQuotationsListView, name='my-quotations'),
+
+    # Quotation Detail
+    path('detail/<uuid:pk>/', QuotationDetailView, name='quotation-detail'),
+]
+```
+
+---
+
+## Session Management
+
+### Session Key: `request.session['quotation']`
+
+### Session Data Structure:
+```python
+{
+    'items': [
+        {
+            'product_type': 'wholesaleproduct',  # Model name
+            'product_id': 123,                   # Product PK
+            'product_name': 'Product Name',
+            'product_sku': 'SKU123',
+            'quantity': 2,
+            'unit_price': '99.99',               # String
+            'variations': {},                     # Product variations
+        },
+    ],
+    'institution_type': 'school',  # Institution model name
+    'institution_id': 123,         # Institution PK
+}
+```
+
+### Session Operations:
+- **Get**: `get_quotation_session(request)`
+- **Save**: `save_quotation_session(request, data)`
+- **Clear**: `clear_quotation_session(request)`
+
+---
+
+## Permission Model
+
+### User Type Matrix
+
+| User Type | Institution Access | Product Access | Quotation Access |
+|-----------|-------------------|----------------|------------------|
+| Sales Rep | Assigned only | All products for assigned institutions | Own quotations |
+| Account Manager | All institutions | All products | Own quotations |
+| Customer | Assigned only | All products for assigned institutions | Own quotations |
+| Admin | All institutions | All products | All quotations |
+
+### Assignment Models
+
+1. **SalesRepSchoolAssignment**
+   - Links sales reps to schools (regular or wholesale)
+   - `is_active` flag for active assignments
+
+2. **SalesRepClubAssignment**
+   - Links sales reps to clubs (LOTTO or SAS)
+   - Uses GenericForeignKey for club reference
+   - `is_active` flag for active assignments
+
+3. **CustomerInstitutionAssignment**
+   - Links customers to institutions (any type)
+   - Uses GenericForeignKey for institution reference
+   - `is_active` flag for active assignments
+
+---
+
+## Database Models
+
+### Quotation Model (from models.py)
+
+**Key Fields**:
+- `id`: UUID primary key
+- `quotation_number`: Auto-generated (Q-YYYYMMDD-XXXX)
+- `created_by`: User (ForeignKey)
+- `institution_content_type`: GenericForeignKey type
+- `institution_object_id`: GenericForeignKey ID
+- `status`: draft | pending | approved | rejected | expired | cancelled
+- `subtotal`, `tax_amount`, `total`: Decimal amounts
+- `expires_at`: DateTimeField (default 30 days)
+
+**Methods**:
+- `calculate_totals()`: Recalculate all totals from items
+- `approve(user, notes)`: Approve quotation
+- `reject(user, reason)`: Reject quotation
+
+---
+
+### QuotationItem Model (from models.py)
+
+**Key Fields**:
+- `id`: UUID primary key
+- `quotation`: ForeignKey to Quotation
+- `product_content_type`: GenericForeignKey type
+- `product_object_id`: GenericForeignKey ID
+- `product_name`, `product_sku`: Cached strings
+- `quantity`: Integer
+- `unit_price`: Decimal
+- `line_total`: Decimal (auto-calculated)
+- `variations`: JSONField
+
+**Auto-Calculation**:
+- `line_total` calculated on save
+- Triggers `quotation.calculate_totals()` on save/delete
+
+---
+
+## Security Features
+
+1. **Authentication**: All views require login (`LoginRequiredMixin`)
+2. **Permission Checks**: Institution access verified before operations
+3. **CSRF Protection**: All POST requests require CSRF token
+4. **User Isolation**: Users can only view their own data (except admin)
+5. **Audit Logging**: All actions logged via `AuditLog.log_action()`
+6. **Input Validation**: All user inputs validated
+7. **SQL Injection Prevention**: Django ORM used throughout
+8. **XSS Prevention**: Template auto-escaping enabled
+
+---
+
+## Audit Logging
+
+All operations logged with:
+- **User**: Who performed action
+- **Action Type**: `data_access`, `permission_denied`
+- **Description**: Human-readable description
+- **Request**: IP address, user agent, session key
+- **Metadata**: Additional context (product IDs, quotation numbers, etc.)
+
+**Logged Operations**:
+- Institution selection viewed
+- Product listing viewed
+- Product added to quotation
+- Product removed from quotation
+- Quotation cleared
+- Quotation saved
+- Permission denied attempts
+
+---
+
+## Error Handling
+
+### Permission Errors
+```python
+if not user_can_access_institution(...):
+    AuditLog.log_action(...)
+    raise PermissionDenied("You don't have permission...")
+```
+
+### AJAX Errors
+```json
+{
+    "success": false,
+    "error": "Error message"
+}
+```
+
+### Validation Errors
+- Empty quotation: 400 Bad Request
+- No institution: 400 Bad Request
+- Invalid quantity: 400 Bad Request
+- Product not found: 404 Not Found
+- Invalid item index: 400 Bad Request
+
+---
+
+## Performance Optimizations
+
+1. **Query Optimization**:
+   - `select_related()` for ForeignKey lookups
+   - `prefetch_related()` for reverse relationships
+   - Database indexes on frequently filtered fields
+
+2. **Session Storage**:
+   - Cart items stored in session (not database)
+   - Reduces database writes
+   - Faster cart operations
+
+3. **Pagination**:
+   - 20 items per page
+   - Reduces query size and page load time
+
+4. **AJAX Operations**:
+   - No full page reloads for cart operations
+   - Better user experience
+
+5. **Caching**:
+   - Product details cached in session items
+   - Reduces repeated database queries
+
+---
+
+## Frontend Integration Requirements
+
+### Templates to Create
+
+1. **`quotations/select_institution.html`**
+   - Display institution cards grouped by type
+   - "Select" buttons linking to product listing
+
+2. **`quotations/product_listing.html`**
+   - Product grid/list with pagination
+   - Search bar
+   - "Add to Quotation" buttons (AJAX)
+   - Quotation item count badge
+
+3. **`quotations/quotation_cart.html`**
+   - Cart items table
+   - Quantity adjustment controls (AJAX)
+   - Remove item buttons (AJAX)
+   - Totals display
+   - "Save Quotation" button (AJAX)
+   - "Clear All" button (AJAX)
+
+4. **`quotations/my_quotations.html`**
+   - Quotations table with pagination
+   - Status filter dropdown
+   - Date range filters
+   - Search bar
+   - Links to quotation details
+
+5. **`quotations/quotation_detail.html`**
+   - Full quotation details
+   - Items table
+   - Institution information
+   - Status and approval information
+
+### JavaScript Requirements
+
+```javascript
+// Add to quotation (AJAX)
+function addToQuotation(productType, productId, quantity) {
+    // POST to /quotations/add/
+    // Update badge on success
+}
+
+// Update quantity (AJAX)
+function updateQuantity(itemIndex, quantity) {
+    // POST to /quotations/update/
+    // Update line total and totals on success
+}
+
+// Remove item (AJAX)
+function removeItem(itemIndex) {
+    // POST to /quotations/remove/
+    // Remove row and update totals on success
+}
+
+// Clear cart (AJAX)
+function clearCart() {
+    // POST to /quotations/clear/
+    // Clear UI on success
+}
+
+// Save quotation (AJAX)
+function saveQuotation() {
+    // POST to /quotations/save/
+    // Redirect to my-quotations on success
+}
+```
+
+---
+
+## Testing Checklist
+
+### Unit Tests
+- [ ] Helper functions (session management, calculations)
+- [ ] Permission functions
+- [ ] Product type mapping
+
+### Integration Tests
+- [ ] Institution selection flow
+- [ ] Product listing with filters
+- [ ] Cart operations (add, update, remove, clear)
+- [ ] Save quotation process
+- [ ] Quotation list and detail views
+
+### Permission Tests
+- [ ] Sales rep can only see assigned institutions
+- [ ] Account manager can see all institutions
+- [ ] Customer can only see assigned institutions
+- [ ] Users can only view their own quotations
+- [ ] Admin can view all quotations
+
+### AJAX Tests
+- [ ] Add to quotation
+- [ ] Update quantity
+- [ ] Remove item
+- [ ] Clear cart
+- [ ] Save quotation
+
+### Edge Cases
+- [ ] Empty cart save attempt
+- [ ] No institution selected
+- [ ] Invalid product ID
+- [ ] Invalid item index
+- [ ] Quantity < 1
+- [ ] Permission denied scenarios
+
+---
+
+## Next Steps
+
+1. **Create Templates** (5 templates required)
+2. **Add JavaScript** (AJAX functionality)
+3. **Create Migrations** (if models modified)
+4. **Run Migrations** (`python manage.py migrate`)
+5. **Create Test Data** (institutions, products, assignments)
+6. **Test Workflow** (end-to-end testing)
+7. **Style Templates** (CSS/Bootstrap)
+8. **Add Validation** (client-side validation)
+9. **Add Loading Indicators** (for AJAX operations)
+10. **Add Success Messages** (Toast/alert notifications)
+
+---
+
+## Future Enhancements
+
+1. **PDF Generation**: Export quotations as PDF
+2. **Email Notifications**: Send quotations via email
+3. **Quotation Templates**: Save frequently used quotations
+4. **Bulk Add**: Add multiple products at once
+5. **Price Negotiation**: Back-and-forth pricing
+6. **Approval Workflow**: Multi-level approval process
+7. **Expiry Notifications**: Email alerts before expiry
+8. **Analytics**: Quotation metrics dashboard
+9. **Product Recommendations**: AI-based suggestions
+10. **Mobile App**: Dedicated mobile interface
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Session not persisting**:
+   - Ensure `request.session.modified = True` is set
+   - Check session middleware is enabled
+
+2. **Permission denied errors**:
+   - Verify user has proper assignments
+   - Check `is_active` flag on assignments
+   - Verify institution exists
+
+3. **Product not found**:
+   - Check product type matches institution type
+   - Verify product is active (`is_active=True`)
+   - Check product ID is correct
+
+4. **AJAX errors**:
+   - Verify CSRF token is included in POST requests
+   - Check request data format
+   - Verify URL patterns are correct
+
+5. **Quotation totals incorrect**:
+   - Verify `calculate_totals()` is called after item changes
+   - Check decimal precision (2 decimal places)
+   - Verify tax percentage (15%)
+
+---
+
+## Contact and Support
+
+For questions or issues:
+- Review `/Users/sas/Repos/SASKITUP/quotations/QUOTATION_WORKFLOW.md`
+- Check Django logs: `/Users/sas/Repos/SASKITUP/django.log`
+- Review audit logs: `AuditLog` model in database

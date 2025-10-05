@@ -295,24 +295,24 @@ class ProductListingView(LoginRequiredMixin, View):
     template_name = 'quotations/product_listing.html'
     items_per_page = 20
 
-    def get(self, request, institution_type, institution_id):
+    def get(self, request, institution_type, institution_slug):
+        # Get institution object first
+        institution = self.get_institution(institution_type, institution_slug)
+
         # Verify user has access to institution
-        if not user_can_access_institution(request.user, institution_type, institution_id):
+        if not user_can_access_institution(request.user, institution_type, institution.id):
             AuditLog.log_action(
                 user=request.user,
                 action_type='permission_denied',
-                description=f'Attempted to access institution {institution_type}/{institution_id} without permission',
+                description=f'Attempted to access institution {institution_type}/{institution_slug} without permission',
                 request=request,
                 institution_type=institution_type,
-                institution_id=institution_id
+                institution_slug=institution_slug
             )
             raise PermissionDenied("You don't have permission to access this institution")
 
-        # Get institution object
-        institution = self.get_institution(institution_type, institution_id)
-
         # Get products based on institution type
-        products = self.get_products_for_institution(institution_type, institution_id)
+        products = self.get_products_for_institution(institution_type, institution.id)
 
         # Apply search/filter
         search_query = request.GET.get('search', '')
@@ -340,24 +340,25 @@ class ProductListingView(LoginRequiredMixin, View):
 
         # Update quotation session with institution
         quotation_data['institution_type'] = institution_type
-        quotation_data['institution_id'] = institution_id
+        quotation_data['institution_id'] = institution.id
+        quotation_data['institution_slug'] = institution_slug
         save_quotation_session(request, quotation_data)
 
         # Log access
         AuditLog.log_action(
             user=request.user,
             action_type='data_access',
-            description=f'Viewed product listing for {institution_type} {institution_id}',
+            description=f'Viewed product listing for {institution_type} {institution_slug}',
             request=request,
             institution_type=institution_type,
-            institution_id=institution_id,
+            institution_slug=institution_slug,
             search_query=search_query
         )
 
         context = {
             'institution': institution,
             'institution_type': institution_type,
-            'institution_id': institution_id,
+            'institution_slug': institution_slug,
             'products': products_page,
             'search_query': search_query,
             'quotation_item_count': totals['item_count'],
@@ -365,8 +366,8 @@ class ProductListingView(LoginRequiredMixin, View):
 
         return render(request, self.template_name, context)
 
-    def get_institution(self, institution_type, institution_id):
-        """Get institution object by type and ID"""
+    def get_institution(self, institution_type, institution_slug):
+        """Get institution object by type and slug"""
         from clubs.models_tus import TUSSchool, TUSProduct
 
         institution_models = {
@@ -380,7 +381,7 @@ class ProductListingView(LoginRequiredMixin, View):
         if not model_class:
             raise PermissionDenied("Invalid institution type")
 
-        return get_object_or_404(model_class, pk=institution_id)
+        return get_object_or_404(model_class, slug=institution_slug)
 
     def get_products_for_institution(self, institution_type, institution_id):
         """Get products based on institution type"""
