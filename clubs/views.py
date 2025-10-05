@@ -1177,14 +1177,10 @@ def proxy_image_view(request):
             'Accept': 'image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.9',
             'Accept-Encoding': 'gzip, deflate, br',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache',
-            'Referer': f'https://{domain}/',
-            'Origin': f'https://{domain}',
+            'Referer': image_url,  # Use the image URL itself as referer
             'Sec-Fetch-Dest': 'image',
             'Sec-Fetch-Mode': 'no-cors',
-            'Sec-Fetch-Site': 'same-origin',
-            'DNT': '1',
+            'Sec-Fetch-Site': 'cross-site',  # Changed from 'same-origin'
         }
         
         # Make request to external image

@@ -342,9 +342,9 @@
 						<tr>
 							<td><strong>{{ item.product.name }}</strong></td>
 							<td>{{ item.product.sku }}</td>
-							<td>R {{ item.unit_price }}</td>
+							<td>${{ item.unit_price }}</td>
 							<td>{{ item.quantity }}</td>
-							<td style="font-weight: 600;">R {{ item.line_total }}</td>
+							<td style="font-weight: 600;">${{ item.line_total }}</td>
 						</tr>
 						{% endfor %}
 					</tbody>
@@ -361,21 +361,21 @@
 					</h3>
 					<div class="pricing-row">
 						<span>Subtotal:</span>
-						<span>R {{ quotation.subtotal }}</span>
+						<span>${{ quotation.subtotal }}</span>
 					</div>
 					{% if quotation.discount > 0 %}
 					<div class="pricing-row">
 						<span>Discount:</span>
-						<span class="text-success">-R {{ quotation.discount }}</span>
+						<span class="text-success">-${{ quotation.discount }}</span>
 					</div>
 					{% endif %}
 					<div class="pricing-row">
 						<span>Tax (15%):</span>
-						<span>R {{ quotation.tax }}</span>
+						<span>${{ quotation.tax }}</span>
 					</div>
 					<div class="pricing-row">
 						<span>Total:</span>
-						<span>R {{ quotation.total_amount }}</span>
+						<span>${{ quotation.total_amount }}</span>
 					</div>
 				</div>
 			</div>
@@ -424,7 +424,7 @@
 													{{ version.get_status_display }}
 												</span>
 											</td>
-											<td>R {{ version.total_amount }}</td>
+											<td>${{ version.total_amount }}</td>
 											<td>
 												<a href="{% url 'quotations:quotation_detail' version.id %}" class="btn btn-sm btn-primary">
 													<i class="fa fa-eye"></i> View

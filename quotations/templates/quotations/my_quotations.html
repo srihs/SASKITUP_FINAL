@@ -281,7 +281,7 @@
 								</span>
 							</td>
 							<td>{{ quotation.created_at|date:"M d, Y" }}</td>
-							<td style="font-weight: 600;">R {{ quotation.total_amount }}</td>
+							<td style="font-weight: 600;">${{ quotation.total_amount }}</td>
 							<td>
 								<span class="status-badge status-{{ quotation.status }}">
 									{{ quotation.get_status_display }}

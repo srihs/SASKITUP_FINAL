@@ -264,7 +264,7 @@
 									<p class="mb-0 text-muted" style="font-size: 0.875rem;">SKU: {{ item.product.sku }}</p>
 								</div>
 								<div class="col-md-2 col-4 mb-2 mb-md-0">
-									<p class="mb-0" style="font-weight: 600;">R {{ item.product.sale_price|default:item.product.regular_price }}</p>
+									<p class="mb-0" style="font-weight: 600;">${{ item.product.sale_price|default:item.product.regular_price }}</p>
 								</div>
 								<div class="col-md-3 col-6 mb-2 mb-md-0">
 									<div class="quantity-controls">
@@ -290,24 +290,24 @@
 
 					<div class="summary-row">
 						<span>Subtotal:</span>
-						<span id="subtotal">R {{ subtotal }}</span>
+						<span id="subtotal">${{ subtotal }}</span>
 					</div>
 
 					{% if discount > 0 %}
 					<div class="summary-row">
 						<span>Discount:</span>
-						<span class="text-success" id="discount">-R {{ discount }}</span>
+						<span class="text-success" id="discount">-${{ discount }}</span>
 					</div>
 					{% endif %}
 
 					<div class="summary-row">
 						<span>Tax (15%):</span>
-						<span id="tax">R {{ tax }}</span>
+						<span id="tax">${{ tax }}</span>
 					</div>
 
 					<div class="summary-row">
 						<span>Total:</span>
-						<span id="total">R {{ total }}</span>
+						<span id="total">${{ total }}</span>
 					</div>
 
 					<button type="button" class="btn-primary-custom" onclick="saveQuotation()">
