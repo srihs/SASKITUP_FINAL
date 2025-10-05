@@ -321,12 +321,12 @@ class SalesRepAssignmentForm(forms.ModelForm):
     class Meta:
         model = SalesRepSchoolAssignment
         fields = [
-            'sales_rep', 'school', 'wholesale_school', 'territory_name',
+            'sales_rep', 'tus_school', 'wholesale_school', 'territory_name',
             'priority_level', 'notes'
         ]
         widgets = {
             'sales_rep': forms.Select(attrs={'class': 'form-control'}),
-            'school': forms.Select(attrs={'class': 'form-control'}),
+            'tus_school': forms.Select(attrs={'class': 'form-control'}),
             'wholesale_school': forms.Select(attrs={'class': 'form-control'}),
             'territory_name': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -350,27 +350,27 @@ class SalesRepAssignmentForm(forms.ModelForm):
         )
 
         # Add help text
-        self.fields['school'].help_text = "Select regular school (leave wholesale school blank)"
-        self.fields['wholesale_school'].help_text = "Select wholesale school (leave regular school blank)"
+        self.fields['tus_school'].help_text = "Select TUS school (leave wholesale school blank)"
+        self.fields['wholesale_school'].help_text = "Select wholesale school (leave TUS school blank)"
 
         # Make fields optional for the clean method to handle validation
-        self.fields['school'].required = False
+        self.fields['tus_school'].required = False
         self.fields['wholesale_school'].required = False
 
     def clean(self):
         cleaned_data = super().clean()
-        school = cleaned_data.get('school')
+        tus_school = cleaned_data.get('tus_school')
         wholesale_school = cleaned_data.get('wholesale_school')
 
         # Ensure exactly one school type is selected
-        if not school and not wholesale_school:
+        if not tus_school and not wholesale_school:
             raise ValidationError(
-                "Please select either a regular school or wholesale school."
+                "Please select either a TUS school or wholesale school."
             )
 
-        if school and wholesale_school:
+        if tus_school and wholesale_school:
             raise ValidationError(
-                "Please select only one type of school (regular OR wholesale)."
+                "Please select only one type of school (TUS OR wholesale)."
             )
 
         return cleaned_data

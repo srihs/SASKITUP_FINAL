@@ -271,7 +271,7 @@ table.dataTable tbody tr.selected {
                             <i class="uil-user-circle me-2"></i>
                             Select Sales Representative
                         </h5>
-                        <p class="mb-0 mt-1 opacity-75">Choose a sales rep to assign multiple schools at once</p>
+                        <p class="mb-0 mt-1 opacity-75">Choose a sales rep to assign multiple schools/clubs at once</p>
                     </div>
                     <div class="col-md-6">
                         <div class="search-container">
@@ -310,7 +310,7 @@ table.dataTable tbody tr.selected {
                                     <p class="text-muted mb-1" id="selectedRepEmail">email@example.com</p>
                                     <div class="d-flex gap-2">
                                         <span class="badge bg-soft-info text-info" id="currentSchoolsCount">
-                                            <i class="uil-building me-1"></i>0 Schools
+                                            <i class="uil-building me-1"></i>0 Schools/Clubs
                                         </span>
                                         <span class="badge bg-soft-success text-success" id="currentClubsCount">
                                             <i class="uil-users-alt me-1"></i>0 Clubs
@@ -338,7 +338,7 @@ table.dataTable tbody tr.selected {
                     <div class="col-md-4">
                         <div class="selected-count-badge">
                             <i class="uil-check-circle me-1"></i>
-                            <span id="selectedCount">0</span> schools selected
+                            <span id="selectedCount">0</span> schools/clubs selected
                         </div>
                     </div>
                     <div class="col-md-4 text-center">
@@ -354,7 +354,7 @@ table.dataTable tbody tr.selected {
                     <div class="col-md-4 text-md-end">
                         <button type="button" class="btn btn-primary" onclick="processBulkAssignment()" id="assignButton" disabled>
                             <i class="uil-user-plus me-1"></i>
-                            Assign Selected Schools
+                            Assign Selected Schools/Clubs
                         </button>
                     </div>
                 </div>
@@ -368,10 +368,10 @@ table.dataTable tbody tr.selected {
             <div class="filter-section">
                 <div class="row g-3">
                     <div class="col-md-4">
-                        <label for="schoolSearch" class="form-label">Search Schools</label>
+                        <label for="schoolSearch" class="form-label">Search Schools/Clubs</label>
                         <div class="position-relative">
                             <input type="text" class="form-control" id="schoolSearch"
-                                   placeholder="Search by school name..."
+                                   placeholder="Search by name..."
                                    onkeyup="searchSchools()"
                                    autocomplete="off">
                             <i class="uil-search position-absolute" style="top: 50%; right: 12px; transform: translateY(-50%); color: #adb5bd;"></i>
@@ -388,7 +388,7 @@ table.dataTable tbody tr.selected {
                     <div class="col-md-3">
                         <label for="assignmentStatusFilter" class="form-label">Assignment Status</label>
                         <select class="form-select" id="assignmentStatusFilter" onchange="filterSchools()">
-                            <option value="">All Schools</option>
+                            <option value="">All Schools/Clubs</option>
                             <option value="unassigned">Unassigned Only</option>
                             <option value="assigned">Already Assigned</option>
                         </select>
@@ -417,7 +417,7 @@ table.dataTable tbody tr.selected {
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">
                             <i class="uil-building text-primary me-2"></i>
-                            Available Schools
+                            Available Schools/Clubs
                         </h5>
                     </div>
                 </div>
@@ -427,7 +427,7 @@ table.dataTable tbody tr.selected {
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Loading...</span>
                         </div>
-                        <p class="mt-2 text-muted">Loading schools...</p>
+                        <p class="mt-2 text-muted">Loading schools/clubs...</p>
                     </div>
 
                     <!-- Table View with DataTables -->
@@ -445,7 +445,7 @@ table.dataTable tbody tr.selected {
                                 </tr>
                             </thead>
                             <tbody id="schoolsTableBody">
-                                <!-- Schools will be populated by DataTables -->
+                                <!-- Schools/Clubs will be populated by DataTables -->
                             </tbody>
                         </table>
                     </div>
@@ -469,28 +469,18 @@ table.dataTable tbody tr.selected {
             <div class="modal-body">
                 <div class="alert alert-info">
                     <i class="uil-info-circle me-2"></i>
-                    You are about to assign <strong id="confirmSchoolCount">0</strong> schools to
+                    You are about to assign <strong id="confirmSchoolCount">0</strong> schools/clubs to
                     <strong id="confirmSalesRepName">Sales Rep</strong>.
                 </div>
 
-                <h6 class="mb-3">Schools to be assigned:</h6>
-                <div class="max-height-300 overflow-auto border rounded p-2" id="confirmSchoolsList">
-                    <!-- Selected schools list will be populated here -->
+                <h6 class="mb-3">Schools/Clubs to be assigned (Set individual priorities):</h6>
+                <div class="max-height-400 overflow-auto border rounded p-2" id="confirmSchoolsList">
+                    <!-- Selected schools/clubs list with individual priority selects will be populated here -->
                 </div>
 
-                <div class="row mt-3">
-                    <div class="col-md-6">
-                        <label for="assignmentPriority" class="form-label">Priority Level</label>
-                        <select class="form-select" id="assignmentPriority">
-                            <option value="medium">Medium Priority</option>
-                            <option value="high">High Priority</option>
-                            <option value="low">Low Priority</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="assignmentTerritory" class="form-label">Territory (Optional)</label>
-                        <input type="text" class="form-control" id="assignmentTerritory" placeholder="Enter territory name">
-                    </div>
+                <div class="mt-3">
+                    <label for="assignmentTerritory" class="form-label">Territory (Optional)</label>
+                    <input type="text" class="form-control" id="assignmentTerritory" placeholder="Enter territory name">
                 </div>
 
                 <div class="mt-3">
@@ -647,13 +637,13 @@ function initializeDataTable() {
         info: true,
         autoWidth: false,
         language: {
-            search: "Search schools:",
-            lengthMenu: "Show _MENU_ schools per page",
-            info: "Showing _START_ to _END_ of _TOTAL_ schools",
-            infoEmpty: "No schools available",
-            infoFiltered: "(filtered from _MAX_ total schools)",
-            zeroRecords: "No matching schools found",
-            emptyTable: "No schools available. Please select a sales representative."
+            search: "Search schools/clubs:",
+            lengthMenu: "Show _MENU_ schools/clubs per page",
+            info: "Showing _START_ to _END_ of _TOTAL_ schools/clubs",
+            infoEmpty: "No schools/clubs available",
+            infoFiltered: "(filtered from _MAX_ total schools/clubs)",
+            zeroRecords: "No matching schools/clubs found",
+            emptyTable: "No schools/clubs available. Please select a sales representative."
         },
         columnDefs: [
             {
@@ -804,8 +794,8 @@ function loadSchools() {
             showLoading(false);
         })
         .catch(error => {
-            console.error('Error loading schools:', error);
-            showToast('Error loading schools. Please try again.', 'error');
+            console.error('Error loading schools/clubs:', error);
+            showToast('Error loading schools/clubs. Please try again.', 'error');
             showLoading(false);
         });
 }
@@ -904,18 +894,18 @@ function updateSelectedCount() {
     assignButton.disabled = count === 0 || !selectedSalesRep;
 
     if (count > 0) {
-        assignButton.innerHTML = `<i class="uil-user-plus me-1"></i>Assign ${count} Selected School${count > 1 ? 's' : ''}`;
+        assignButton.innerHTML = `<i class="uil-user-plus me-1"></i>Assign ${count} Selected`;
     } else {
-        assignButton.innerHTML = '<i class="uil-user-plus me-1"></i>Assign Selected Schools';
+        assignButton.innerHTML = '<i class="uil-user-plus me-1"></i>Assign Selected Schools/Clubs';
     }
 }
 
 function selectAllVisible() {
-    // Select all schools on the current page
+    // Select all schools/clubs on the current page
     if (schoolsDataTable) {
         schoolsDataTable.rows({page: 'current', search: 'applied'}).every(function() {
             const data = this.data();
-            if (!data.is_assigned) { // Only select unassigned schools
+            if (!data.is_assigned) { // Only select unassigned schools/clubs
                 selectedSchools.add(data.id);
             }
         });
@@ -970,19 +960,31 @@ function processBulkAssignment() {
     document.getElementById('confirmSchoolCount').textContent = selectedSchools.size;
     document.getElementById('confirmSalesRepName').textContent = selectedSalesRep.name;
 
-    // Build schools list for confirmation
+    // Build schools/clubs list for confirmation with individual priorities
     const selectedSchoolsList = allSchools.filter(school => selectedSchools.has(school.id));
     let listHtml = '';
     selectedSchoolsList.forEach(school => {
+        // Display org_type if available, fallback to type label
+        const typeLabel = school.org_type || (school.type === 'regular' ? 'TUS School' :
+                         school.type === 'wholesale' ? 'Wholesale School' :
+                         school.type === 'club' ? 'Club' : school.type);
+
         listHtml += `
             <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
-                <div>
+                <div class="flex-grow-1">
                     <strong>${school.name}</strong>
-                    <br><small class="text-muted">${school.type === 'regular' ? 'Regular School' : 'Wholesale School'} • ${school.location}</small>
+                    <br><small class="text-muted">${typeLabel} • ${school.location}</small>
                 </div>
-                <span class="badge ${school.is_assigned ? 'bg-warning' : 'bg-success'}">
-                    ${school.is_assigned ? 'Reassign' : 'New'}
-                </span>
+                <div class="d-flex align-items-center gap-2">
+                    <select class="form-select form-select-sm priority-select" data-school-id="${school.id}" style="width: 140px;">
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                        <option value="low">Low</option>
+                    </select>
+                    <span class="badge ${school.is_assigned ? 'bg-warning' : 'bg-success'}">
+                        ${school.is_assigned ? 'Reassign' : 'New'}
+                    </span>
+                </div>
             </div>
         `;
     });
@@ -1001,11 +1003,28 @@ function confirmBulkAssignment() {
     button.innerHTML = '<i class="spinner-border spinner-border-sm me-2"></i>Processing...';
     button.disabled = true;
 
-    // Prepare assignment data
+    // Collect individual priorities for each school/club
+    const customerAssignments = [];
+    const allSchoolsMap = new Map(allSchools.map(s => [s.id, s]));
+
+    document.querySelectorAll('.priority-select').forEach(select => {
+        const compositeId = select.getAttribute('data-school-id');
+        const priority = select.value;
+        const school = allSchoolsMap.get(compositeId);
+
+        if (school) {
+            customerAssignments.push({
+                id: compositeId,  // e.g., 'tusschool_1', 'lottoclub_5'
+                customer_type: school.customer_type,  // e.g., 'tusschool', 'lottoclub'
+                priority: priority
+            });
+        }
+    });
+
+    // Prepare assignment data with individual priorities
     const assignmentData = {
         sales_rep_id: selectedSalesRep.id,
-        school_ids: Array.from(selectedSchools),
-        priority: document.getElementById('assignmentPriority').value,
+        customers: customerAssignments,  // Array of {id, customer_type, priority}
         territory: document.getElementById('assignmentTerritory').value,
         notes: document.getElementById('assignmentNotes').value
     };
@@ -1026,9 +1045,9 @@ function confirmBulkAssignment() {
             bootstrap.Modal.getInstance(document.getElementById('assignmentConfirmModal')).hide();
 
             // Show success message
-            showToast(`Successfully assigned ${data.assigned_count} schools to ${selectedSalesRep.name}`, 'success');
+            showToast(`Successfully assigned ${data.assigned_count} schools/clubs to ${selectedSalesRep.name}`, 'success');
 
-            // Clear selection and reload schools
+            // Clear selection and reload schools/clubs
             clearSelection();
             loadSchools();
 
@@ -1120,8 +1139,19 @@ function viewCurrentAssignments() {
 }
 
 function getCsrfToken() {
-    return document.querySelector('[name=csrfmiddlewaretoken]').value ||
-           document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (csrfInput) {
+        return csrfInput.value;
+    }
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    if (csrfMeta) {
+        return csrfMeta.getAttribute('content');
+    }
+    // Fallback to cookie
+    const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('csrftoken='));
+    return cookieValue ? cookieValue.split('=')[1] : '';
 }
 
 function showToast(message, type = 'info') {

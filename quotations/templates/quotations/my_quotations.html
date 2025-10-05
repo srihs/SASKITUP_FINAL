@@ -1,0 +1,426 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>My Quotations | SASKITUP</title>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<!-- Favicon -->
+	<link rel="icon" type="image/png" href="{% static 'frontend/assets/images/icons/saskitup-favicon.png' %}"/>
+
+	<!-- Fonts -->
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/fonts.css' %}">
+
+	<!-- CSS Framework & Vendor Files -->
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/bootstrap/css/bootstrap.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/fonts/font-awesome-4.7.0/css/font-awesome.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/fonts/iconic/css/material-design-iconic-font.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/animate/animate.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/animsition/css/animsition.min.css' %}">
+	<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/util.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/main.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/quotation.css' %}">
+
+	<style>
+		body {
+			padding-top: 0;
+			margin: 0;
+		}
+		.page-header {
+			background: linear-gradient(135deg, #222831 0%, #393E46 100%);
+			color: white;
+			padding: 2rem;
+			border-radius: 15px;
+			margin-bottom: 2rem;
+			box-shadow: 0 10px 40px rgba(34, 40, 49, 0.3);
+		}
+		.container-fluid.py-4 {
+			padding-top: 8rem !important;
+		}
+		.status-tabs {
+			background: white;
+			border-radius: 15px;
+			padding: 1rem 1.5rem;
+			box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+			margin-bottom: 2rem;
+		}
+		.status-tab {
+			display: inline-block;
+			padding: 0.5rem 1.5rem;
+			margin-right: 0.5rem;
+			border-radius: 25px;
+			cursor: pointer;
+			transition: all 0.3s ease;
+			border: 2px solid transparent;
+			font-weight: 600;
+		}
+		.status-tab:hover {
+			background: #f5f7fa;
+		}
+		.status-tab.active {
+			background: linear-gradient(135deg, #222831 0%, #393E46 100%);
+			color: white;
+			border-color: #222831;
+		}
+		.quotations-card {
+			background: white;
+			border-radius: 15px;
+			padding: 1.5rem;
+			box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+			margin-bottom: 2rem;
+		}
+		.status-badge {
+			padding: 0.35rem 0.85rem;
+			border-radius: 20px;
+			font-size: 0.8rem;
+			font-weight: 600;
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+		}
+		.status-draft {
+			background-color: #e3f2fd;
+			color: #1976d2;
+		}
+		.status-pending {
+			background-color: #fff3e0;
+			color: #f57c00;
+		}
+		.status-approved {
+			background-color: #e8f5e9;
+			color: #388e3c;
+		}
+		.status-rejected {
+			background-color: #ffebee;
+			color: #c62828;
+		}
+		.type-badge {
+			padding: 0.25rem 0.75rem;
+			border-radius: 15px;
+			font-size: 0.75rem;
+			font-weight: 600;
+			white-space: nowrap;
+		}
+		.type-tus {
+			background-color: #e3f2fd;
+			color: #1976d2;
+		}
+		.type-wholesale {
+			background-color: #e8f5e9;
+			color: #388e3c;
+		}
+		.type-lotto {
+			background-color: #fff3e0;
+			color: #f57c00;
+		}
+		.type-sas {
+			background-color: #f3e5f5;
+			color: #7b1fa2;
+		}
+		.btn-action {
+			padding: 0.25rem 0.75rem;
+			border-radius: 15px;
+			font-size: 0.875rem;
+			margin-right: 0.25rem;
+			margin-bottom: 0.25rem;
+		}
+		.btn-new-quotation {
+			background: linear-gradient(135deg, #222831 0%, #393E46 100%);
+			color: white;
+			border: none;
+			padding: 0.875rem 2rem;
+			border-radius: 25px;
+			font-weight: 600;
+			transition: all 0.3s ease;
+		}
+		.btn-new-quotation:hover {
+			background: linear-gradient(135deg, #393E46 0%, #222831 100%);
+			color: white;
+			transform: translateY(-2px);
+			box-shadow: 0 5px 15px rgba(34, 40, 49, 0.3);
+		}
+		.table {
+			font-size: 0.9rem;
+		}
+		.table th {
+			font-weight: 600;
+			text-transform: uppercase;
+			font-size: 0.75rem;
+			letter-spacing: 0.5px;
+			color: #888;
+		}
+		.empty-state {
+			text-align: center;
+			padding: 4rem 2rem;
+			color: #888;
+		}
+		.empty-state i {
+			font-size: 5rem;
+			color: #ccc;
+			margin-bottom: 1rem;
+		}
+		.page-container {
+			min-height: 100vh;
+			background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+			padding: 2rem 0;
+		}
+		header {
+			position: relative;
+			z-index: 1000;
+		}
+	</style>
+</head>
+
+<body class="animsition">
+	<!-- Header -->
+	<header>
+		<div class="container-menu-desktop">
+			<div class="top-bar">
+				<div class="content-topbar flex-sb-m h-full container">
+					<div class="left-top-bar">
+						<span class="stext-107 cl2">Welcome, {{ user.get_full_name|default:user.username }}</span>
+					</div>
+					<div class="right-top-bar flex-w h-full">
+						{% if user.user_type in 'admin' or user.is_superuser %}
+						<a href="/dashboard/" class="flex-c-m trans-04 p-lr-25">
+							Dashboard
+						</a>
+						{% endif %}
+						<a href="/auth/logout/" class="flex-c-m trans-04 p-lr-25">
+							Logout
+						</a>
+					</div>
+				</div>
+			</div>
+
+			<div class="wrap-menu-desktop">
+				<nav class="limiter-menu-desktop container">
+					<a href="/" class="logo">
+						<img src="{% static 'images/saskitup-logo.png' %}" alt="SASKITUP Logo" style="height: 60px;">
+					</a>
+					<div class="menu-desktop">
+						<ul class="main-menu">
+							<li><a href="{% url 'profile' %}">My Profile</a></li>
+							<li class="active-menu"><a href="{% url 'quotations:my-quotations' %}">Quotations</a></li>
+							<li><a href="#">Reports</a></li>
+							{% if user.user_type in 'admin' or user.is_superuser %}
+							<li><a href="/dashboard/">Dashboard</a></li>
+							{% endif %}
+						</ul>
+					</div>
+				</nav>
+			</div>
+		</div>
+	</header>
+
+	<!-- Page Content -->
+	<div class="container-fluid py-4">
+		<!-- Page Header -->
+		<div class="page-header">
+			<div class="d-flex justify-content-between align-items-center">
+				<div>
+					<h1 class="mb-2">My Quotations</h1>
+					<p class="mb-0 opacity-75">Manage and track all your quotations</p>
+				</div>
+				<div>
+					<a href="{% url 'quotations:select-institution' %}" class="btn btn-new-quotation">
+						<i class="fa fa-plus"></i> Create New Quotation
+					</a>
+				</div>
+			</div>
+		</div>
+
+		<!-- Status Filter Tabs -->
+		<div class="status-tabs">
+			<span class="status-tab active" data-status="all" onclick="filterByStatus('all')">
+				All Quotations
+			</span>
+			<span class="status-tab" data-status="draft" onclick="filterByStatus('draft')">
+				<i class="fa fa-file-text-o"></i> Draft
+			</span>
+			<span class="status-tab" data-status="pending" onclick="filterByStatus('pending')">
+				<i class="fa fa-clock-o"></i> Pending
+			</span>
+			<span class="status-tab" data-status="approved" onclick="filterByStatus('approved')">
+				<i class="fa fa-check-circle"></i> Approved
+			</span>
+			<span class="status-tab" data-status="rejected" onclick="filterByStatus('rejected')">
+				<i class="fa fa-times-circle"></i> Rejected
+			</span>
+		</div>
+
+		<!-- Quotations Table -->
+		<div class="quotations-card">
+			{% if quotations %}
+			<div class="table-responsive">
+				<table class="table table-hover" id="quotationsTable">
+					<thead>
+						<tr>
+							<th>Quotation #</th>
+							<th>Institution</th>
+							<th>Type</th>
+							<th>Created Date</th>
+							<th>Total Amount</th>
+							<th>Status</th>
+							<th>Actions</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% for quotation in quotations %}
+						<tr data-status="{{ quotation.status }}">
+							<td>
+								<a href="{% url 'quotations:quotation_detail' quotation.id %}" style="color: #222831; font-weight: 600;">
+									{{ quotation.quotation_number }}
+								</a>
+							</td>
+							<td><strong>{{ quotation.institution_name }}</strong></td>
+							<td>
+								<span class="type-badge type-{{ quotation.institution_type }}">
+									{{ quotation.institution_type|title }}
+								</span>
+							</td>
+							<td>{{ quotation.created_at|date:"M d, Y" }}</td>
+							<td style="font-weight: 600;">R {{ quotation.total_amount }}</td>
+							<td>
+								<span class="status-badge status-{{ quotation.status }}">
+									{{ quotation.get_status_display }}
+								</span>
+							</td>
+							<td>
+								<a href="{% url 'quotations:quotation_detail' quotation.id %}"
+								   class="btn btn-sm btn-primary btn-action"
+								   title="View Details">
+									<i class="fa fa-eye"></i>
+								</a>
+								{% if quotation.status == 'draft' %}
+								<a href="{% url 'quotations:edit_quotation' quotation.id %}"
+								   class="btn btn-sm btn-warning btn-action"
+								   title="Edit">
+									<i class="fa fa-edit"></i>
+								</a>
+								{% endif %}
+								{% if quotation.status in 'approved,rejected' %}
+								<button type="button"
+								        class="btn btn-sm btn-success btn-action"
+								        onclick="downloadPDF({{ quotation.id }})"
+								        title="Download PDF">
+									<i class="fa fa-download"></i>
+								</button>
+								{% endif %}
+							</td>
+						</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+			{% else %}
+			<!-- Empty State -->
+			<div class="empty-state">
+				<i class="zmdi zmdi-assignment"></i>
+				<h3>No Quotations Yet</h3>
+				<p>You haven't created any quotations yet. Start by selecting an institution.</p>
+				<a href="{% url 'quotations:select-institution' %}" class="btn btn-new-quotation" style="margin-top: 1rem;">
+					<i class="fa fa-plus"></i> Create Your First Quotation
+				</a>
+			</div>
+			{% endif %}
+		</div>
+	</div>
+
+	<!-- Footer -->
+	<footer class="bg3 p-t-75 p-b-32">
+		<div class="container">
+			<div class="p-t-40">
+				<p class="stext-107 cl6 txt-center">
+					Copyright &copy;<script>document.write(new Date().getFullYear());</script> SASKITUP. All rights reserved.
+				</p>
+			</div>
+		</div>
+	</footer>
+
+	<!-- Back to top -->
+	<div class="btn-back-to-top" id="myBtn">
+		<span class="symbol-btn-back-to-top">
+			<i class="zmdi zmdi-chevron-up"></i>
+		</span>
+	</div>
+
+	<!-- JavaScript Files -->
+	<script src="{% static 'frontend/vendor/jquery/jquery-3.2.1.min.js' %}"></script>
+	<script src="{% static 'frontend/vendor/animsition/js/animsition.min.js' %}"></script>
+	<script src="{% static 'frontend/vendor/bootstrap/js/popper.js' %}"></script>
+	<script src="{% static 'frontend/vendor/bootstrap/js/bootstrap.min.js' %}"></script>
+	<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+	<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+	<script src="{% static 'frontend/js/main.js' %}"></script>
+	<script src="{% static 'frontend/js/quotation.js' %}"></script>
+
+	<script>
+		let quotationsTable;
+
+		$(document).ready(function() {
+			// Initialize animsition
+			$('.animsition').animsition({
+				inClass: 'fade-in',
+				outClass: 'fade-out',
+				inDuration: 1500,
+				outDuration: 800,
+				linkElement: '.animsition-link',
+				loading: false,
+				loadingParentElement: 'body',
+				loadingClass: 'animsition-loading',
+				loadingInner: '',
+				timeout: false,
+				timeoutCountdown: 5000,
+				onLoadEvent: true,
+				browser: [ 'animation-duration', '-webkit-animation-duration'],
+				overlay : false,
+				overlayClass : 'animsition-overlay-slide',
+				overlayParentElement : 'body',
+				transition: function(url){ window.location.href = url; }
+			});
+
+			// Initialize DataTable
+			if ($('#quotationsTable').length) {
+				quotationsTable = $('#quotationsTable').DataTable({
+					pageLength: 10,
+					order: [[3, 'desc']], // Sort by created date descending
+					responsive: true,
+					language: {
+						search: "Search quotations:",
+						lengthMenu: "Show _MENU_ quotations per page",
+						info: "Showing _START_ to _END_ of _TOTAL_ quotations",
+						infoEmpty: "No quotations available",
+						infoFiltered: "(filtered from _MAX_ total quotations)",
+						zeroRecords: "No matching quotations found"
+					},
+					columnDefs: [
+						{ orderable: true, targets: [0, 1, 3, 4, 5] },
+						{ orderable: false, targets: [2, 6] }
+					]
+				});
+			}
+		});
+
+		function filterByStatus(status) {
+			// Update active tab
+			$('.status-tab').removeClass('active');
+			$(`.status-tab[data-status="${status}"]`).addClass('active');
+
+			// Filter table
+			if (quotationsTable) {
+				if (status === 'all') {
+					quotationsTable.search('').draw();
+				} else {
+					quotationsTable.column(5).search(status, true, false).draw();
+				}
+			}
+		}
+
+		function downloadPDF(quotationId) {
+			window.location.href = `/quotations/${quotationId}/pdf/`;
+		}
+	</script>
+</body>
+</html>

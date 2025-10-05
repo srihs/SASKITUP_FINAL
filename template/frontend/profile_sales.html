@@ -23,13 +23,21 @@
 	<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
 
 	<style>
+		body {
+			padding-top: 0;
+			margin: 0;
+		}
 		.profile-header {
-			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			background: linear-gradient(135deg, #222831 0%, #393E46 100%);
 			color: white;
 			padding: 2.5rem;
 			border-radius: 15px;
 			margin-bottom: 2rem;
-			box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+			margin-top: 0;
+			box-shadow: 0 10px 40px rgba(34, 40, 49, 0.3);
+		}
+		.container-fluid.py-4 {
+			padding-top: 8rem !important;
 		}
 		.profile-avatar {
 			width: 100px;
@@ -41,7 +49,7 @@
 			justify-content: center;
 			font-size: 3rem;
 			font-weight: bold;
-			color: #667eea;
+			color: #222831;
 			box-shadow: 0 5px 15px rgba(0,0,0,0.2);
 		}
 		.stats-card {
@@ -87,6 +95,29 @@
 			background-color: #6c757d;
 			color: white;
 		}
+		.type-badge {
+			padding: 0.25rem 0.75rem;
+			border-radius: 15px;
+			font-size: 0.75rem;
+			font-weight: 600;
+			white-space: nowrap;
+		}
+		.type-tus {
+			background-color: #e3f2fd;
+			color: #1976d2;
+		}
+		.type-wholesale {
+			background-color: #e8f5e9;
+			color: #388e3c;
+		}
+		.type-lotto {
+			background-color: #fff3e0;
+			color: #f57c00;
+		}
+		.type-sas {
+			background-color: #f3e5f5;
+			color: #7b1fa2;
+		}
 		.card {
 			border-radius: 15px;
 			border: none;
@@ -101,21 +132,6 @@
 		.card-body {
 			padding: 1.5rem;
 		}
-		.nav-tabs {
-			border-bottom: 2px solid #e9ecef;
-		}
-		.nav-tabs .nav-link {
-			border: none;
-			border-bottom: 3px solid transparent;
-			color: #666;
-			font-weight: 500;
-			padding: 0.75rem 1.5rem;
-		}
-		.nav-tabs .nav-link.active {
-			color: #667eea;
-			border-bottom-color: #667eea;
-			background: transparent;
-		}
 		.table {
 			font-size: 0.9rem;
 		}
@@ -129,19 +145,23 @@
 		.btn-light {
 			background: white;
 			border: 2px solid rgba(255,255,255,0.3);
-			color: white;
+			color: #222831;
 			font-weight: 500;
 			transition: all 0.3s ease;
 		}
 		.btn-light:hover {
-			background: rgba(255,255,255,0.2);
+			background: rgba(255,255,255,0.9);
 			border-color: white;
-			color: white;
+			color: #222831;
 		}
 		.page-container {
 			min-height: 100vh;
 			background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
 			padding: 2rem 0;
+		}
+		header {
+			position: relative;
+			z-index: 1000;
 		}
 	</style>
 </head>
@@ -158,11 +178,11 @@
 					<div class="right-top-bar flex-w h-full">
 						{% if user.user_type in 'admin' or user.is_superuser %}
 						<a href="/dashboard/" class="flex-c-m trans-04 p-lr-25">
-							<i class="fa fa-tachometer m-r-8"></i>Dashboard
+							Dashboard
 						</a>
 						{% endif %}
 						<a href="/auth/logout/" class="flex-c-m trans-04 p-lr-25">
-							<i class="fa fa-sign-out m-r-8"></i>Logout
+							Logout
 						</a>
 					</div>
 				</div>
@@ -175,12 +195,21 @@
 					</a>
 					<div class="menu-desktop">
 						<ul class="main-menu">
-							<li><a href="/">Home</a></li>
 							<li class="active-menu"><a href="{% url 'profile' %}">My Profile</a></li>
+							<li><a href="{% url 'quotations:select-institution' %}">Quotations</a></li>
+							<li><a href="#">Reports</a></li>
 							{% if user.user_type in 'admin' or user.is_superuser %}
 							<li><a href="/dashboard/">Dashboard</a></li>
 							{% endif %}
 						</ul>
+					</div>
+					<div class="wrap-icon-header flex-w flex-r-m">
+						<a href="{% url 'quotations:cart' %}" class="icon-header-item cl2 hov-cl1 trans-04 p-l-22 p-r-11" style="position: relative;">
+							<i class="zmdi zmdi-shopping-cart"></i>
+							<span class="badge badge-pill badge-danger" id="quotationBadge" style="position: absolute; top: -5px; right: 0; display: none; background: #c62828; color: white; font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 10px;">
+								<span id="cartCount">0</span>
+							</span>
+						</a>
 					</div>
 				</nav>
 			</div>
@@ -200,20 +229,20 @@
             <div class="col-md">
                 <h2 class="mb-1">{{ user_obj.get_full_name|default:user_obj.username }}</h2>
                 <p class="mb-0 opacity-75">
-                    <i class="fas fa-user-tie me-2"></i>{{ user_obj.get_user_type_display }}
+                    {{ user_obj.get_user_type_display }}
                 </p>
                 <p class="mb-0 opacity-75">
-                    <i class="fas fa-envelope me-2"></i>{{ user_obj.email }}
+                    {{ user_obj.email }}
                 </p>
                 {% if user_obj.phone %}
                 <p class="mb-0 opacity-75">
-                    <i class="fas fa-phone me-2"></i>{{ user_obj.phone }}
+                    {{ user_obj.phone }}
                 </p>
                 {% endif %}
             </div>
             <div class="col-md-auto text-end">
-                <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
-                    <i class="fas fa-key me-2"></i>Change Password
+                <button class="btn btn-light" data-toggle="modal" data-target="#changePasswordModal">
+                    Change Password
                 </button>
             </div>
         </div>
@@ -221,230 +250,137 @@
 
     <!-- Statistics Cards -->
     <div class="row mb-4">
-        <div class="col-md-3 mb-3">
+        <div class="col mb-3">
             <div class="stats-card">
                 <h6 class="text-muted mb-2">Total Assignments</h6>
-                <h2 class="mb-0 text-primary">{{ total_assignments }}</h2>
+                <h2 class="mb-0" style="color: #222831;">{{ total_assignments }}</h2>
             </div>
         </div>
-        <div class="col-md-3 mb-3">
+        <div class="col mb-3">
             <div class="stats-card">
                 <h6 class="text-muted mb-2">TUS Schools</h6>
-                <h2 class="mb-0 text-info">{{ tus_schools|length }}</h2>
+                <h2 class="mb-0" style="color: #393E46;">{{ tus_schools|length }}</h2>
             </div>
         </div>
-        <div class="col-md-3 mb-3">
+        <div class="col mb-3">
             <div class="stats-card">
                 <h6 class="text-muted mb-2">Wholesale Schools</h6>
-                <h2 class="mb-0 text-success">{{ wholesale_schools|length }}</h2>
+                <h2 class="mb-0" style="color: #222831;">{{ wholesale_schools|length }}</h2>
             </div>
         </div>
-        <div class="col-md-3 mb-3">
+        <div class="col mb-3">
             <div class="stats-card">
-                <h6 class="text-muted mb-2">Total Clubs</h6>
-                <h2 class="mb-0 text-warning">{{ lotto_clubs|length|add:sas_clubs|length }}</h2>
+                <h6 class="text-muted mb-2">LOTTO Clubs</h6>
+                <h2 class="mb-0" style="color: #393E46;">{{ lotto_clubs|length }}</h2>
+            </div>
+        </div>
+        <div class="col mb-3">
+            <div class="stats-card">
+                <h6 class="text-muted mb-2">SAS Clubs</h6>
+                <h2 class="mb-0" style="color: #222831;">{{ sas_clubs|length }}</h2>
             </div>
         </div>
     </div>
 
-    <!-- Assigned Schools Section -->
+    <!-- My Assignments Section - Combined Table -->
     <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0"><i class="fas fa-school me-2"></i>My Assigned Schools</h5>
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0">My Assignments</h5>
         </div>
         <div class="card-body">
-            <ul class="nav nav-tabs mb-3" id="schoolTabs" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="tus-tab" data-bs-toggle="tab" data-bs-target="#tus" type="button" role="tab">
-                        TUS Schools ({{ tus_schools|length }})
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="wholesale-tab" data-bs-toggle="tab" data-bs-target="#wholesale" type="button" role="tab">
-                        Wholesale Schools ({{ wholesale_schools|length }})
-                    </button>
-                </li>
-            </ul>
-
-            <div class="tab-content" id="schoolTabsContent">
-                <!-- TUS Schools Tab -->
-                <div class="tab-pane fade show active" id="tus" role="tabpanel">
-                    {% if tus_schools %}
-                    <div class="table-responsive">
-                        <table class="table table-hover" id="tusSchoolsTable">
-                            <thead>
-                                <tr>
-                                    <th>School Name</th>
-                                    <th>Location</th>
-                                    <th>Priority</th>
-                                    <th>Assigned Date</th>
-                                    <th>Notes</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in tus_schools %}
-                                <tr>
-                                    <td><strong>{{ item.school.name }}</strong></td>
-                                    <td>
-                                        {% if item.school.location %}
-                                            {{ item.school.location.name }}
-                                        {% else %}
-                                            Not specified
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <span class="assignment-badge priority-{{ item.assignment.priority_level }}">
-                                            {{ item.assignment.get_priority_level_display }}
-                                        </span>
-                                    </td>
-                                    <td>{{ item.assignment.assigned_date|date:"M d, Y" }}</td>
-                                    <td>{{ item.assignment.notes|default:"No notes" }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <p class="text-muted text-center py-3">No TUS schools assigned yet.</p>
-                    {% endif %}
-                </div>
-
-                <!-- Wholesale Schools Tab -->
-                <div class="tab-pane fade" id="wholesale" role="tabpanel">
-                    {% if wholesale_schools %}
-                    <div class="table-responsive">
-                        <table class="table table-hover" id="wholesaleSchoolsTable">
-                            <thead>
-                                <tr>
-                                    <th>School Name</th>
-                                    <th>Priority</th>
-                                    <th>Assigned Date</th>
-                                    <th>Notes</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in wholesale_schools %}
-                                <tr>
-                                    <td><strong>{{ item.school.name }}</strong></td>
-                                    <td>
-                                        <span class="assignment-badge priority-{{ item.assignment.priority_level }}">
-                                            {{ item.assignment.get_priority_level_display }}
-                                        </span>
-                                    </td>
-                                    <td>{{ item.assignment.assigned_date|date:"M d, Y" }}</td>
-                                    <td>{{ item.assignment.notes|default:"No notes" }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <p class="text-muted text-center py-3">No wholesale schools assigned yet.</p>
-                    {% endif %}
-                </div>
+            {% if tus_schools or wholesale_schools or lotto_clubs or sas_clubs %}
+            <div class="table-responsive">
+                <table class="table table-hover" id="allAssignmentsTable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Priority</th>
+                            <th>Assigned Date</th>
+                            <th>Number of Quotes</th>
+                            <th>No of Approved Quotes</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in tus_schools %}
+                        <tr>
+                            <td><strong>{{ item.school.name }}</strong></td>
+                            <td><span class="type-badge type-tus">TUS School</span></td>
+                            <td>
+                                <span class="assignment-badge priority-{{ item.assignment.priority_level }}">
+                                    {{ item.assignment.get_priority_level_display }}
+                                </span>
+                            </td>
+                            <td>{{ item.assignment.assigned_date|date:"M d, Y" }}</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td>{{ item.assignment.notes|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% for item in wholesale_schools %}
+                        <tr>
+                            <td><strong>{{ item.school.name }}</strong></td>
+                            <td><span class="type-badge type-wholesale">Wholesale School</span></td>
+                            <td>
+                                <span class="assignment-badge priority-{{ item.assignment.priority_level }}">
+                                    {{ item.assignment.get_priority_level_display }}
+                                </span>
+                            </td>
+                            <td>{{ item.assignment.assigned_date|date:"M d, Y" }}</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td>{{ item.assignment.notes|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% for item in lotto_clubs %}
+                        <tr>
+                            <td><strong>{{ item.club.name }}</strong></td>
+                            <td><span class="type-badge type-lotto">LOTTO Club</span></td>
+                            <td>
+                                <span class="assignment-badge priority-{{ item.assignment.priority_level }}">
+                                    {{ item.assignment.get_priority_level_display }}
+                                </span>
+                            </td>
+                            <td>{{ item.assignment.assigned_date|date:"M d, Y" }}</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td>{{ item.assignment.notes|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% for item in sas_clubs %}
+                        <tr>
+                            <td><strong>{{ item.club.name }}</strong></td>
+                            <td><span class="type-badge type-sas">SAS Club</span></td>
+                            <td>
+                                <span class="assignment-badge priority-{{ item.assignment.priority_level }}">
+                                    {{ item.assignment.get_priority_level_display }}
+                                </span>
+                            </td>
+                            <td>{{ item.assignment.assigned_date|date:"M d, Y" }}</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td>{{ item.assignment.notes|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-        </div>
-    </div>
-
-    <!-- Assigned Clubs Section -->
-    <div class="card mb-4">
-        <div class="card-header bg-success text-white">
-            <h5 class="mb-0"><i class="fas fa-users me-2"></i>My Assigned Clubs</h5>
-        </div>
-        <div class="card-body">
-            <ul class="nav nav-tabs mb-3" id="clubTabs" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="lotto-tab" data-bs-toggle="tab" data-bs-target="#lotto" type="button" role="tab">
-                        LOTTO Clubs ({{ lotto_clubs|length }})
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="sas-tab" data-bs-toggle="tab" data-bs-target="#sas" type="button" role="tab">
-                        SAS Clubs ({{ sas_clubs|length }})
-                    </button>
-                </li>
-            </ul>
-
-            <div class="tab-content" id="clubTabsContent">
-                <!-- LOTTO Clubs Tab -->
-                <div class="tab-pane fade show active" id="lotto" role="tabpanel">
-                    {% if lotto_clubs %}
-                    <div class="table-responsive">
-                        <table class="table table-hover" id="lottoClubsTable">
-                            <thead>
-                                <tr>
-                                    <th>Club Name</th>
-                                    <th>Priority</th>
-                                    <th>Assigned Date</th>
-                                    <th>Notes</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in lotto_clubs %}
-                                <tr>
-                                    <td><strong>{{ item.club.name }}</strong></td>
-                                    <td>
-                                        <span class="assignment-badge priority-{{ item.assignment.priority_level }}">
-                                            {{ item.assignment.get_priority_level_display }}
-                                        </span>
-                                    </td>
-                                    <td>{{ item.assignment.assigned_date|date:"M d, Y" }}</td>
-                                    <td>{{ item.assignment.notes|default:"No notes" }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <p class="text-muted text-center py-3">No LOTTO clubs assigned yet.</p>
-                    {% endif %}
-                </div>
-
-                <!-- SAS Clubs Tab -->
-                <div class="tab-pane fade" id="sas" role="tabpanel">
-                    {% if sas_clubs %}
-                    <div class="table-responsive">
-                        <table class="table table-hover" id="sasClubsTable">
-                            <thead>
-                                <tr>
-                                    <th>Club Name</th>
-                                    <th>Priority</th>
-                                    <th>Assigned Date</th>
-                                    <th>Notes</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in sas_clubs %}
-                                <tr>
-                                    <td><strong>{{ item.club.name }}</strong></td>
-                                    <td>
-                                        <span class="assignment-badge priority-{{ item.assignment.priority_level }}">
-                                            {{ item.assignment.get_priority_level_display }}
-                                        </span>
-                                    </td>
-                                    <td>{{ item.assignment.assigned_date|date:"M d, Y" }}</td>
-                                    <td>{{ item.assignment.notes|default:"No notes" }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <p class="text-muted text-center py-3">No SAS clubs assigned yet.</p>
-                    {% endif %}
-                </div>
+            {% else %}
+            <div class="text-center py-5">
+                <p class="text-muted">No assignments yet.</p>
             </div>
+            {% endif %}
         </div>
     </div>
 
     <!-- Quotations Section (Placeholder for Phase 2) -->
     <div class="card mb-4">
-        <div class="card-header bg-info text-white">
-            <h5 class="mb-0"><i class="fas fa-file-invoice me-2"></i>My Quotations</h5>
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0">My Quotations</h5>
         </div>
         <div class="card-body">
             <p class="text-muted text-center py-3">
-                <i class="fas fa-hourglass-half fa-3x mb-3 d-block"></i>
                 Quotation management will be available in Phase 2.
             </p>
         </div>
@@ -453,7 +389,7 @@
     <!-- Activity Log Section -->
     <div class="card mb-4">
         <div class="card-header bg-secondary text-white">
-            <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Activity</h5>
+            <h5 class="mb-0">Recent Activity</h5>
         </div>
         <div class="card-body">
             {% if recent_activities %}
@@ -492,14 +428,34 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Change Password</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <p class="text-muted">Please contact your administrator to change your password.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
+            <form id="changePasswordForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div id="passwordMessage" class="alert" style="display: none;"></div>
+
+                    <div class="mb-3">
+                        <label for="currentPassword" class="form-label">Current Password</label>
+                        <input type="password" class="form-control" id="currentPassword" name="current_password" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="newPassword" class="form-label">New Password</label>
+                        <input type="password" class="form-control" id="newPassword" name="new_password" required>
+                        <small class="text-muted">Password must be at least 8 characters long</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                        <input type="password" class="form-control" id="confirmPassword" name="confirm_password" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Change Password</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -530,6 +486,7 @@
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script src="{% static 'frontend/js/main.js' %}"></script>
+<script src="{% static 'frontend/js/quotation.js' %}"></script>
 
 <script>
 	$(document).ready(function() {
@@ -554,26 +511,85 @@
 			transition: function(url){ window.location.href = url; }
 		});
 
-		// Initialize DataTables for all tables
-		$('#tusSchoolsTable').DataTable({
-			pageLength: 10,
-			order: [[0, 'asc']]
-		});
-		$('#wholesaleSchoolsTable').DataTable({
-			pageLength: 10,
-			order: [[0, 'asc']]
-		});
-		$('#lottoClubsTable').DataTable({
-			pageLength: 10,
-			order: [[0, 'asc']]
-		});
-		$('#sasClubsTable').DataTable({
-			pageLength: 10,
-			order: [[0, 'asc']]
-		});
-		$('#activityTable').DataTable({
-			pageLength: 10,
-			order: [[0, 'desc']]
+		// Initialize DataTable for combined assignments table
+		if ($('#allAssignmentsTable').length) {
+			$('#allAssignmentsTable').DataTable({
+				pageLength: 10,
+				order: [[0, 'asc']],
+				responsive: true,
+				language: {
+					search: "Search assignments:",
+					lengthMenu: "Show _MENU_ assignments per page",
+					info: "Showing _START_ to _END_ of _TOTAL_ assignments",
+					infoEmpty: "No assignments available",
+					infoFiltered: "(filtered from _MAX_ total assignments)",
+					zeroRecords: "No matching assignments found"
+				},
+				columnDefs: [
+					{ orderable: true, targets: [0, 1, 2, 3, 4] },
+					{ orderable: false, targets: [5] }
+				]
+			});
+		}
+
+		// Initialize DataTable for activity table
+		if ($('#activityTable').length) {
+			$('#activityTable').DataTable({
+				pageLength: 10,
+				order: [[0, 'desc']],
+				responsive: true
+			});
+		}
+
+		// Handle change password form submission
+		$('#changePasswordForm').on('submit', function(e) {
+			e.preventDefault();
+
+			const currentPassword = $('#currentPassword').val();
+			const newPassword = $('#newPassword').val();
+			const confirmPassword = $('#confirmPassword').val();
+			const messageDiv = $('#passwordMessage');
+
+			// Client-side validation
+			if (newPassword !== confirmPassword) {
+				messageDiv.removeClass('alert-success').addClass('alert-danger');
+				messageDiv.text('New passwords do not match.').show();
+				return;
+			}
+
+			if (newPassword.length < 8) {
+				messageDiv.removeClass('alert-success').addClass('alert-danger');
+				messageDiv.text('Password must be at least 8 characters long.').show();
+				return;
+			}
+
+			// Submit via AJAX
+			$.ajax({
+				url: '/auth/change-password/',
+				method: 'POST',
+				data: {
+					current_password: currentPassword,
+					new_password: newPassword,
+					confirm_password: confirmPassword,
+					csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val()
+				},
+				success: function(response) {
+					messageDiv.removeClass('alert-danger').addClass('alert-success');
+					messageDiv.text(response.message).show();
+					$('#changePasswordForm')[0].reset();
+
+					// Close modal after 2 seconds
+					setTimeout(function() {
+						$('#changePasswordModal').modal('hide');
+						messageDiv.hide();
+					}, 2000);
+				},
+				error: function(xhr) {
+					const error = xhr.responseJSON ? xhr.responseJSON.error : 'An error occurred';
+					messageDiv.removeClass('alert-success').addClass('alert-danger');
+					messageDiv.text(error).show();
+				}
+			});
 		});
 	});
 </script>

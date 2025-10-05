@@ -167,22 +167,23 @@ class User(AbstractUser):
         if self.is_sales_rep:
             school_assignments = self.school_assignments.filter(is_active=True)
 
-            # Get both regular and wholesale schools
-            regular_school_ids = school_assignments.filter(
-                school__isnull=False
-            ).values_list('school_id', flat=True)
+            # Get both TUS schools and wholesale schools
+            tus_school_ids = school_assignments.filter(
+                tus_school__isnull=False
+            ).values_list('tus_school_id', flat=True)
 
             wholesale_school_ids = school_assignments.filter(
                 wholesale_school__isnull=False
             ).values_list('wholesale_school_id', flat=True)
 
-            regular_schools = School.objects.filter(id__in=regular_school_ids)
+            from clubs.models_tus import TUSSchool
+            tus_schools = TUSSchool.objects.filter(id__in=tus_school_ids)
             wholesale_schools = WholesaleSchool.objects.filter(id__in=wholesale_school_ids)
 
             return {
-                'regular': regular_schools,
+                'regular': tus_schools,  # Changed from School to TUSSchool
                 'wholesale': wholesale_schools,
-                'total_count': len(regular_school_ids) + len(wholesale_school_ids)
+                'total_count': len(tus_school_ids) + len(wholesale_school_ids)
             }
         return {'regular': [], 'wholesale': [], 'total_count': 0}
 
@@ -290,13 +291,13 @@ class SalesRepSchoolAssignment(models.Model):
     )
 
     # School relationships (one of these should be set, not both)
-    school = models.ForeignKey(
-        'schools.School',
+    tus_school = models.ForeignKey(
+        'clubs.TUSSchool',
         on_delete=models.CASCADE,
         related_name='sales_rep_assignments',
         null=True,
         blank=True,
-        help_text="Regular school assignment"
+        help_text="TUS school assignment (active business schools with products)"
     )
 
     wholesale_school = models.ForeignKey(
@@ -345,17 +346,17 @@ class SalesRepSchoolAssignment(models.Model):
         ordering = ['-assigned_date']
         indexes = [
             models.Index(fields=['sales_rep', 'is_active']),
-            models.Index(fields=['school', 'is_active']),
+            models.Index(fields=['tus_school', 'is_active']),
             models.Index(fields=['wholesale_school', 'is_active']),
             models.Index(fields=['assigned_date']),
             models.Index(fields=['territory_name']),
         ]
         constraints = [
-            # Ensure each regular school has only one active assignment
+            # Ensure each TUS school has only one active assignment
             models.UniqueConstraint(
-                fields=['school'],
-                condition=models.Q(is_active=True, school__isnull=False),
-                name='unique_active_school_assignment'
+                fields=['tus_school'],
+                condition=models.Q(is_active=True, tus_school__isnull=False),
+                name='unique_active_tus_school_assignment'
             ),
             # Ensure each wholesale school has only one active assignment
             models.UniqueConstraint(
@@ -370,14 +371,14 @@ class SalesRepSchoolAssignment(models.Model):
         super().clean()
 
         # Ensure exactly one school type is assigned
-        if self.school and self.wholesale_school:
+        if self.tus_school and self.wholesale_school:
             raise ValidationError(
-                "Assignment cannot have both regular school and wholesale school. Choose one."
+                "Assignment cannot have both TUS school and wholesale school. Choose one."
             )
 
-        if not self.school and not self.wholesale_school:
+        if not self.tus_school and not self.wholesale_school:
             raise ValidationError(
-                "Assignment must have either a regular school or wholesale school."
+                "Assignment must have either a TUS school or wholesale school."
             )
 
         # Ensure sales rep is actually a sales rep or account manager
@@ -392,10 +393,10 @@ class SalesRepSchoolAssignment(models.Model):
                 is_active=True
             ).exclude(pk=self.pk)
 
-            if self.school:
-                if existing_assignments.filter(school=self.school).exists():
+            if self.tus_school:
+                if existing_assignments.filter(tus_school=self.tus_school).exists():
                     raise ValidationError({
-                        'school': 'This school already has an active sales representative assigned'
+                        'tus_school': 'This TUS school already has an active sales representative assigned'
                     })
 
             if self.wholesale_school:
@@ -409,20 +410,20 @@ class SalesRepSchoolAssignment(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        school_name = self.school.org_name if self.school else self.wholesale_school.name
+        school_name = self.tus_school.name if self.tus_school else self.wholesale_school.name
         status = "Active" if self.is_active else "Inactive"
         return f"{self.sales_rep.get_full_name()} → {school_name} ({status})"
 
     @property
     def assigned_school(self):
-        """Get the assigned school (regular or wholesale)"""
-        return self.school or self.wholesale_school
+        """Get the assigned school (TUS or wholesale)"""
+        return self.tus_school or self.wholesale_school
 
     @property
     def school_type(self):
         """Get the type of school assigned"""
-        if self.school:
-            return 'regular'
+        if self.tus_school:
+            return 'tus'
         elif self.wholesale_school:
             return 'wholesale'
         return None
@@ -430,8 +431,8 @@ class SalesRepSchoolAssignment(models.Model):
     @property
     def school_name(self):
         """Get the name of the assigned school"""
-        if self.school:
-            return self.school.org_name
+        if self.tus_school:
+            return self.tus_school.name
         elif self.wholesale_school:
             return self.wholesale_school.name
         return "No school assigned"

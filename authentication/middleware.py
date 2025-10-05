@@ -46,12 +46,12 @@ class AuthenticationMiddleware:
             # Check if user is still active
             if not request.user.is_active:
                 logout(request)
-                return redirect('authentication:login')
+                return redirect('frontend-home')
 
             # Check if sales rep or account manager is still active
             if (request.user.is_sales_rep or request.user.is_account_manager) and not request.user.is_active_sales_rep:
                 logout(request)
-                return redirect('authentication:login')
+                return redirect('frontend-home')
 
     def process_response(self, request, response):
         """Process outgoing response"""
@@ -161,7 +161,6 @@ class RoleBasedAccessMiddleware:
         self.public_paths = [
             '/',  # Frontend landing page (also serves as login page)
             '/profile/',  # Profile page handles its own auth redirect
-            '/auth/login/',
             '/auth/logout/',
             '/auth/signup/',  # Customer signup
             '/accounts/',  # Django built-in auth URLs (password reset, etc.)
@@ -429,7 +428,7 @@ class AutoLogoutMiddleware:
                     request=request
                 )
                 logout(request)
-                return redirect('authentication:login')
+                return redirect('frontend-home')
 
         response = self.get_response(request)
         return response

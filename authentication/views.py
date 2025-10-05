@@ -123,7 +123,7 @@ class SignupView(FormView):
     """Customer signup view"""
     template_name = 'authentication/signup.html'
     form_class = UserCreationForm
-    success_url = reverse_lazy('authentication:login')
+    success_url = reverse_lazy('frontend-home')
 
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
@@ -585,13 +585,13 @@ class ProfileView(TemplateView):
         tus_assignments = SalesRepSchoolAssignment.objects.filter(
             sales_rep=user,
             is_active=True,
-            school_id__isnull=False
-        ).select_related('sales_rep')
+            tus_school_id__isnull=False
+        ).select_related('sales_rep', 'tus_school')
 
         tus_schools = []
         for assignment in tus_assignments:
             try:
-                school = TUSSchool.objects.get(id=assignment.school_id, is_active=True)
+                school = assignment.tus_school
                 tus_schools.append({
                     'school': school,
                     'assignment': assignment,
@@ -1274,7 +1274,7 @@ class BulkAssignmentView(AdminRequiredMixin, TemplateView):
         for school in retail_schools:
             # Check if school is assigned
             current_assignment = SalesRepSchoolAssignment.objects.filter(
-                school_id=school.id,
+                tus_school_id=school.id,
                 is_active=True
             ).select_related('sales_rep').first()
 
@@ -1319,7 +1319,7 @@ class BulkAssignmentCustomersAPIView(AdminRequiredMixin, View):
     """API endpoint to get customers for bulk assignment"""
 
     def get(self, request, *args, **kwargs):
-        """Return all schools and clubs as JSON"""
+        """Return all TUS schools, wholesale schools, lotto clubs, and SAS clubs as JSON"""
         from schools.models import WholesaleSchool
         from clubs.models_lotto import LottoClub
         from clubs.models_sas import SASClub
@@ -1335,9 +1335,9 @@ class BulkAssignmentCustomersAPIView(AdminRequiredMixin, View):
         retail_schools = TUSSchool.objects.all()
         for school in retail_schools:
             # Check if assigned to this or any sales rep
-            # SalesRepSchoolAssignment uses school_id field, not GenericForeignKey
+            # SalesRepSchoolAssignment uses tus_school_id field
             assignment = SalesRepSchoolAssignment.objects.filter(
-                school_id=school.id
+                tus_school_id=school.id
             ).first()
 
             # TUSSchool has location relationship, not direct city/country fields
@@ -1560,7 +1560,7 @@ class ProcessBulkAssignmentView(AdminRequiredMixin, View):
                         print(f"Creating/getting assignment for sales_rep={sales_rep.id}, tus_school={tus_school.id}, priority={customer_priority}")
                         assignment, created = SalesRepSchoolAssignment.objects.get_or_create(
                             sales_rep=sales_rep,
-                            school_id=tus_school.id,
+                            tus_school_id=tus_school.id,
                             defaults={
                                 'priority_level': customer_priority,
                                 'notes': notes,
@@ -1909,17 +1909,9 @@ def get_current_assignments(request):
             if assignment.wholesale_school:
                 entity_name = assignment.wholesale_school.name
                 entity_type = 'Wholesale School'
-            elif assignment.school:
-                entity_name = assignment.school.org_name
-                entity_type = 'Retail School'
-            elif assignment.school_id:
-                # Try to get TUS school using school_id
-                try:
-                    tus_school = TUSSchool.objects.get(id=assignment.school_id, is_active=True)
-                    entity_name = tus_school.name
-                    entity_type = 'TUS School'
-                except TUSSchool.DoesNotExist:
-                    continue  # Skip if TUS school not found
+            elif assignment.tus_school:
+                entity_name = assignment.tus_school.name
+                entity_type = 'TUS School'
             else:
                 continue  # Skip invalid assignments
 
@@ -1957,3 +1949,48 @@ def get_current_assignments(request):
         return JsonResponse({'error': 'Sales rep not found'}, status=404)
     except Exception as e:
         return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
+
+
+@login_required
+def change_password_view(request):
+    """AJAX endpoint for users to change their own password"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        current_password = request.POST.get('current_password')
+        new_password = request.POST.get('new_password')
+        confirm_password = request.POST.get('confirm_password')
+        
+        # Validation
+        if not all([current_password, new_password, confirm_password]):
+            return JsonResponse({'error': 'All fields are required'}, status=400)
+        
+        # Check if current password is correct
+        if not request.user.check_password(current_password):
+            return JsonResponse({'error': 'Current password is incorrect'}, status=400)
+        
+        # Check if new passwords match
+        if new_password != confirm_password:
+            return JsonResponse({'error': 'New passwords do not match'}, status=400)
+        
+        # Check password length
+        if len(new_password) < 8:
+            return JsonResponse({'error': 'Password must be at least 8 characters long'}, status=400)
+        
+        # Change password
+        request.user.set_password(new_password)
+        request.user.save()
+        
+        # Log the action
+        AuditLog.log_action(
+            user=request.user,
+            action_type='password_change',
+            description=f'User {request.user.email} changed their password',
+            ip_address=request.META.get('REMOTE_ADDR')
+        )
+        
+        return JsonResponse({'message': 'Password changed successfully'})
+        
+    except Exception as e:
+        return JsonResponse({'error': f'An error occurred: {str(e)}'}, status=500)

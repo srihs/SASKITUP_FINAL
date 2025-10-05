@@ -88,6 +88,9 @@ class School(models.Model):
     status = models.CharField(max_length=20, blank=True)
     date_school_opened = models.DateTimeField(null=True, blank=True)
 
+    # Images
+    logo = models.URLField(max_length=500, blank=True, null=True, help_text="School logo image URL")
+
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -184,6 +187,9 @@ class WholesaleSchool(models.Model):
     cin7_brand = models.CharField(max_length=100, blank=True, help_text="CIN7 Brand")
     cin7_supplier = models.CharField(max_length=100, blank=True, help_text="CIN7 Supplier")
     cin7_category_path = models.TextField(blank=True, help_text="Full category path from CIN7")
+
+    # Images
+    logo = models.URLField(max_length=500, blank=True, null=True, help_text="School logo image URL")
 
     # Status and metadata
     is_active = models.BooleanField(default=True, help_text="Whether school is active")

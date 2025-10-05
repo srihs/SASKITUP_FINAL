@@ -1,0 +1,356 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>Select Institution | SASKITUP</title>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<!-- Favicon -->
+	<link rel="icon" type="image/png" href="{% static 'frontend/assets/images/icons/saskitup-favicon.png' %}"/>
+
+	<!-- Fonts -->
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/fonts.css' %}">
+
+	<!-- CSS Framework & Vendor Files -->
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/bootstrap/css/bootstrap.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/fonts/font-awesome-4.7.0/css/font-awesome.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/fonts/iconic/css/material-design-iconic-font.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/animate/animate.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/animsition/css/animsition.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/util.css' %}?v=6">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/main.css' %}?v=6">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/quotation.css' %}?v=6">
+</head>
+
+<body class="animsition quotation-select">
+	<!-- Header -->
+	<header class="quotation-header">
+		<div class="container-menu-desktop">
+			<div class="top-bar">
+				<div class="content-topbar flex-sb-m h-full container">
+					<div class="left-top-bar">
+						<span class="stext-107 cl2">Welcome, {{ user.get_full_name|default:user.username }}</span>
+					</div>
+					<div class="right-top-bar flex-w h-full">
+						{% if user.user_type in 'admin' or user.is_superuser %}
+						<a href="/dashboard/" class="flex-c-m trans-04 p-lr-25">
+							Dashboard
+						</a>
+						{% endif %}
+						<a href="/auth/logout/" class="flex-c-m trans-04 p-lr-25">
+							Logout
+						</a>
+					</div>
+				</div>
+			</div>
+
+			<div class="wrap-menu-desktop">
+				<nav class="limiter-menu-desktop container">
+					<a href="/" class="logo">
+						<img src="{% static 'images/saskitup-logo.png' %}" alt="SASKITUP Logo" class="quotation-logo">
+					</a>
+					<div class="menu-desktop">
+						<ul class="main-menu">
+							<li><a href="{% url 'profile' %}">My Profile</a></li>
+							<li class="active-menu"><a href="{% url 'quotations:select-institution' %}">Quotations</a></li>
+							<li><a href="#">Reports</a></li>
+							{% if user.user_type in 'admin' or user.is_superuser %}
+							<li><a href="/dashboard/">Dashboard</a></li>
+							{% endif %}
+						</ul>
+					</div>
+				</nav>
+			</div>
+		</div>
+	</header>
+
+	<!-- Institutions -->
+	<div class="bg0 m-t-23 p-b-140">
+		<div class="container">
+			<div class="flex-w flex-sb-m p-b-52">
+				<div class="flex-w flex-l-m filter-tope-group m-tb-10">
+					<button class="stext-106 cl6 hov1 bor3 trans-04 m-r-32 m-tb-5 how-active1" data-filter="*">
+						All Institutions
+					</button>
+
+					<button class="stext-106 cl6 hov1 bor3 trans-04 m-r-32 m-tb-5" data-filter=".tus">
+						TUS Schools
+					</button>
+
+					<button class="stext-106 cl6 hov1 bor3 trans-04 m-r-32 m-tb-5" data-filter=".wholesale">
+						Wholesale Schools
+					</button>
+
+					<button class="stext-106 cl6 hov1 bor3 trans-04 m-r-32 m-tb-5" data-filter=".lotto">
+						LOTTO Clubs
+					</button>
+
+					<button class="stext-106 cl6 hov1 bor3 trans-04 m-r-32 m-tb-5" data-filter=".sas">
+						SAS Clubs
+					</button>
+				</div>
+
+				<div class="flex-w flex-c-m m-tb-10">
+					<div class="flex-c-m stext-106 cl6 size-105 bor4 pointer hov-btn3 trans-04 m-tb-4 js-show-search">
+						<i class="icon-search cl2 m-r-6 fs-15 trans-04 zmdi zmdi-search"></i>
+						<i class="icon-close-search cl2 m-r-6 fs-15 trans-04 zmdi zmdi-close dis-none"></i>
+						Search
+					</div>
+				</div>
+
+				<!-- Search institution -->
+				<div class="dis-none panel-search w-full p-t-10 p-b-15">
+					<div class="bor8 dis-flex p-l-15">
+						<button class="size-113 flex-c-m fs-16 cl2 hov-cl1 trans-04">
+							<i class="zmdi zmdi-search"></i>
+						</button>
+
+						<input class="mtext-107 cl2 size-114 plh2 p-r-15" type="text" name="search-institution" id="search-institution" placeholder="Search institutions...">
+					</div>
+				</div>
+			</div>
+
+			{% if not tus_schools and not wholesale_schools and not lotto_clubs and not sas_clubs %}
+			<!-- Empty State -->
+			<div class="empty-state">
+				<i class="zmdi zmdi-assignment-alert"></i>
+				<h3>No Institutions Assigned</h3>
+				<p>You don't have any institutions assigned yet. Please contact your administrator.</p>
+				<a href="{% url 'profile' %}" class="flex-c-m stext-101 cl0 size-103 bg3 bor1 hov-btn1 p-lr-15 trans-04 back-to-profile-btn">
+					Back to Profile
+				</a>
+			</div>
+			{% else %}
+
+			<div class="row isotope-grid">
+				<!-- TUS Schools -->
+				{% for school in tus_schools %}
+				<div class="col-12 col-sm-6 col-md-4 col-lg-3 p-b-35 isotope-item tus">
+					<a href="{% url 'quotations:product-listing' institution_type='tusschool' institution_id=school.id %}" class="institution-card-link" aria-label="Select {{ school.name }}">
+						<div class="block2">
+							<div class="block2-pic hov-img0">
+								<span class="institution-badge badge-tus">TUS School</span>
+								{% if school.logo_url %}
+									<img src="{{ school.logo_url }}" alt="{{ school.name }} logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+									<div class="institution-icon-wrapper" style="display: none;">
+										<i class="zmdi zmdi-balance institution-icon icon-color-tus" aria-hidden="true"></i>
+									</div>
+								{% else %}
+									<div class="institution-icon-wrapper">
+										<i class="zmdi zmdi-balance institution-icon icon-color-tus" aria-hidden="true"></i>
+									</div>
+								{% endif %}
+							</div>
+
+							<div class="block2-txt p-t-14">
+								<h3 class="institution-name-text">
+									{{ school.name }}
+								</h3>
+							</div>
+						</div>
+					</a>
+				</div>
+				{% endfor %}
+
+				<!-- Wholesale Schools -->
+				{% for item in wholesale_schools %}
+				<div class="col-12 col-sm-6 col-md-4 col-lg-3 p-b-35 isotope-item wholesale">
+					<a href="{% url 'quotations:product-listing' institution_type='wholesaleschool' institution_id=item.school.id %}" class="institution-card-link" aria-label="Select {{ item.school.name }}">
+						<div class="block2">
+							<div class="block2-pic hov-img0">
+								<span class="institution-badge badge-wholesale">Wholesale</span>
+								{% if item.school.logo %}
+									<img src="{{ item.school.logo }}" alt="{{ item.school.name }} logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+									<div class="institution-icon-wrapper" style="display: none;">
+										<i class="zmdi zmdi-store institution-icon icon-color-wholesale" aria-hidden="true"></i>
+									</div>
+								{% else %}
+									<div class="institution-icon-wrapper">
+										<i class="zmdi zmdi-store institution-icon icon-color-wholesale" aria-hidden="true"></i>
+									</div>
+								{% endif %}
+							</div>
+
+							<div class="block2-txt p-t-14">
+								<h3 class="institution-name-text">
+									{{ item.school.name }}
+								</h3>
+							</div>
+						</div>
+					</a>
+				</div>
+				{% endfor %}
+
+				<!-- LOTTO Clubs -->
+				{% for item in lotto_clubs %}
+				<div class="col-12 col-sm-6 col-md-4 col-lg-3 p-b-35 isotope-item lotto">
+					<a href="{% url 'quotations:product-listing' institution_type='lottoclub' institution_id=item.club.id %}" class="institution-card-link" aria-label="Select {{ item.club.name }}">
+						<div class="block2">
+							<div class="block2-pic hov-img0">
+								<span class="institution-badge badge-lotto">LOTTO Club</span>
+								{% if item.club.logo %}
+									<img src="{{ item.club.logo }}" alt="{{ item.club.name }} logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+									<div class="institution-icon-wrapper" style="display: none;">
+										<i class="zmdi zmdi-star institution-icon icon-color-lotto" aria-hidden="true"></i>
+									</div>
+								{% else %}
+									<div class="institution-icon-wrapper">
+										<i class="zmdi zmdi-star institution-icon icon-color-lotto" aria-hidden="true"></i>
+									</div>
+								{% endif %}
+							</div>
+
+							<div class="block2-txt p-t-14">
+								<h3 class="institution-name-text">
+									{{ item.club.name }}
+								</h3>
+							</div>
+						</div>
+					</a>
+				</div>
+				{% endfor %}
+
+				<!-- SAS Clubs -->
+				{% for item in sas_clubs %}
+				<div class="col-12 col-sm-6 col-md-4 col-lg-3 p-b-35 isotope-item sas">
+					<a href="{% url 'quotations:product-listing' institution_type='sasclub' institution_id=item.club.id %}" class="institution-card-link" aria-label="Select {{ item.club.name }}">
+						<div class="block2">
+							<div class="block2-pic hov-img0">
+								<span class="institution-badge badge-sas">SAS Club</span>
+								{% if item.club.image_url %}
+									<img src="{{ item.club.image_url }}" alt="{{ item.club.name }} logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+									<div class="institution-icon-wrapper" style="display: none;">
+										<i class="zmdi zmdi-flag institution-icon icon-color-sas" aria-hidden="true"></i>
+									</div>
+								{% else %}
+									<div class="institution-icon-wrapper">
+										<i class="zmdi zmdi-flag institution-icon icon-color-sas" aria-hidden="true"></i>
+									</div>
+								{% endif %}
+							</div>
+
+							<div class="block2-txt p-t-14">
+								<h3 class="institution-name-text">
+									{{ item.club.name }}
+								</h3>
+							</div>
+						</div>
+					</a>
+				</div>
+				{% endfor %}
+			</div>
+
+			{% endif %}
+		</div>
+	</div>
+
+	<!-- Footer -->
+	<footer class="bg3 p-t-75 p-b-32">
+		<div class="container">
+			<div class="p-t-40">
+				<p class="stext-107 cl6 txt-center">
+					Copyright &copy;<script>document.write(new Date().getFullYear());</script> SASKITUP. All rights reserved.
+				</p>
+			</div>
+		</div>
+	</footer>
+
+	<!-- Back to top -->
+	<div class="btn-back-to-top" id="myBtn">
+		<span class="symbol-btn-back-to-top">
+			<i class="zmdi zmdi-chevron-up"></i>
+		</span>
+	</div>
+
+	<!-- JavaScript Files -->
+	<script src="{% static 'frontend/vendor/jquery/jquery-3.2.1.min.js' %}"></script>
+	<script src="{% static 'frontend/vendor/animsition/js/animsition.min.js' %}"></script>
+	<script src="{% static 'frontend/vendor/bootstrap/js/popper.js' %}"></script>
+	<script src="{% static 'frontend/vendor/bootstrap/js/bootstrap.min.js' %}"></script>
+	<script src="{% static 'frontend/vendor/isotope/isotope.pkgd.min.js' %}"></script>
+	<script src="{% static 'frontend/js/main.js' %}"></script>
+
+	<script>
+		$(document).ready(function() {
+			// Initialize animsition
+			$('.animsition').animsition({
+				inClass: 'fade-in',
+				outClass: 'fade-out',
+				inDuration: 1500,
+				outDuration: 800,
+				linkElement: '.animsition-link',
+				loading: false,
+				loadingParentElement: 'body',
+				loadingClass: 'animsition-loading',
+				loadingInner: '',
+				timeout: false,
+				timeoutCountdown: 5000,
+				onLoadEvent: true,
+				browser: [ 'animation-duration', '-webkit-animation-duration'],
+				overlay : false,
+				overlayClass : 'animsition-overlay-slide',
+				overlayParentElement : 'body',
+				transition: function(url){ window.location.href = url; }
+			});
+
+			// Initialize Isotope
+			var $grid = $('.isotope-grid').isotope({
+				itemSelector: '.isotope-item',
+				layoutMode: 'fitRows',
+				percentPosition: true,
+				animationOptions: {
+					duration: 750,
+					easing: 'linear',
+					queue: false
+				}
+			});
+
+			// Filter buttons
+			$('.filter-tope-group button').each(function(){
+				$(this).on('click', function(){
+					$('.filter-tope-group button').removeClass('how-active1');
+					$(this).addClass('how-active1');
+
+					var filterValue = $(this).attr('data-filter');
+					$grid.isotope({ filter: filterValue });
+				});
+			});
+
+			// Show/hide search
+			var showSearch = false;
+			$('.js-show-search').on('click', function(){
+				showSearch = !showSearch;
+
+				if(showSearch) {
+					$(this).find('.icon-search').addClass('dis-none');
+					$(this).find('.icon-close-search').removeClass('dis-none');
+					$('.panel-search').slideDown(300);
+				} else {
+					$(this).find('.icon-search').removeClass('dis-none');
+					$(this).find('.icon-close-search').addClass('dis-none');
+					$('.panel-search').slideUp(300);
+				}
+			});
+
+			// Search functionality
+			$('#search-institution').on('keyup', function(){
+				var searchText = $(this).val().toLowerCase();
+
+				$('.isotope-item').each(function(){
+					var institutionName = $(this).find('.institution-name-text').text().toLowerCase();
+
+					if(institutionName.indexOf(searchText) > -1) {
+						$(this).show();
+					} else {
+						$(this).hide();
+					}
+				});
+
+				// Re-layout isotope after search
+				$grid.isotope('layout');
+			});
+		});
+	</script>
+</body>
+</html>

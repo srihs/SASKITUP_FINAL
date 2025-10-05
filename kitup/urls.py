@@ -30,6 +30,7 @@ urlpatterns = [
     # Core app URLs
     path('clubs/', include('clubs.urls')),
     path('schools/', include('schools.urls')),
+    path('quotations/', include('quotations.urls')),  # Quotation workflow
     path('dashboard/', GlobalDashboardView.as_view(), name='global-dashboard'),  # Global dashboard moved to /dashboard/
 
     # Frontend pages

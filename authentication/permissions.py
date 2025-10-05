@@ -11,7 +11,7 @@ class RoleRequiredMixin(UserPassesTestMixin):
     Mixin to require specific user roles for class-based views
     """
     required_roles = []  # List of roles required to access this view
-    login_url = '/auth/login/'
+    login_url = '/'
     permission_denied_message = "You don't have permission to access this page."
 
     def test_func(self):
@@ -177,7 +177,7 @@ def admin_required(view_func):
     def check_admin(user):
         return user.is_authenticated and user.is_admin
 
-    actual_decorator = user_passes_test(check_admin, login_url='/auth/login/')
+    actual_decorator = user_passes_test(check_admin, login_url='/')
     return actual_decorator(view_func)
 
 
@@ -186,7 +186,7 @@ def sales_rep_required(view_func):
     def check_sales_rep(user):
         return user.is_authenticated and (user.is_admin or user.is_sales_rep)
 
-    actual_decorator = user_passes_test(check_sales_rep, login_url='/auth/login/')
+    actual_decorator = user_passes_test(check_sales_rep, login_url='/')
     return actual_decorator(view_func)
 
 
@@ -195,7 +195,7 @@ def account_manager_required(view_func):
     def check_account_manager(user):
         return user.is_authenticated and (user.is_admin or user.is_account_manager)
 
-    actual_decorator = user_passes_test(check_account_manager, login_url='/auth/login/')
+    actual_decorator = user_passes_test(check_account_manager, login_url='/')
     return actual_decorator(view_func)
 
 
@@ -204,7 +204,7 @@ def sales_rep_or_account_manager_required(view_func):
     def check_sales_rep_or_account_manager(user):
         return user.is_authenticated and (user.is_admin or user.is_sales_rep or user.is_account_manager)
 
-    actual_decorator = user_passes_test(check_sales_rep_or_account_manager, login_url='/auth/login/')
+    actual_decorator = user_passes_test(check_sales_rep_or_account_manager, login_url='/')
     return actual_decorator(view_func)
 
 
@@ -213,7 +213,7 @@ def customer_required(view_func):
     def check_customer(user):
         return user.is_authenticated and (user.is_admin or user.is_customer)
 
-    actual_decorator = user_passes_test(check_customer, login_url='/auth/login/')
+    actual_decorator = user_passes_test(check_customer, login_url='/')
     return actual_decorator(view_func)
 
 
@@ -368,19 +368,20 @@ def filter_schools_for_user(user, queryset):
         # Get assigned school IDs
         school_assignments = user.school_assignments.filter(is_active=True)
 
-        regular_school_ids = school_assignments.filter(
-            school__isnull=False
-        ).values_list('school_id', flat=True)
+        tus_school_ids = school_assignments.filter(
+            tus_school__isnull=False
+        ).values_list('tus_school_id', flat=True)
 
         wholesale_school_ids = school_assignments.filter(
             wholesale_school__isnull=False
         ).values_list('wholesale_school_id', flat=True)
 
         # Filter queryset based on school type
-        from schools.models import School, WholesaleSchool
+        from schools.models import WholesaleSchool
+        from clubs.models_tus import TUSSchool
 
-        if hasattr(queryset.model, '_meta') and queryset.model == School:
-            return queryset.filter(id__in=regular_school_ids)
+        if hasattr(queryset.model, '_meta') and queryset.model == TUSSchool:
+            return queryset.filter(id__in=tus_school_ids)
         elif hasattr(queryset.model, '_meta') and queryset.model == WholesaleSchool:
             return queryset.filter(id__in=wholesale_school_ids)
 

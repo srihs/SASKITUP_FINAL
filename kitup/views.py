@@ -266,20 +266,17 @@ class ProfileView(TemplateView):
             tus_assignments = SalesRepSchoolAssignment.objects.filter(
                 sales_rep=user,
                 is_active=True,
-                school_id__isnull=False
-            ).select_related('sales_rep')
+                tus_school_id__isnull=False
+            ).select_related('sales_rep', 'tus_school')
 
             tus_schools = []
             for assignment in tus_assignments:
-                try:
-                    school = TUSSchool.objects.get(id=assignment.school_id, is_active=True)
+                if assignment.tus_school and assignment.tus_school.is_active:
                     tus_schools.append({
-                        'school': school,
+                        'school': assignment.tus_school,
                         'assignment': assignment,
                         'type': 'TUS School'
                     })
-                except TUSSchool.DoesNotExist:
-                    continue
 
             # Get assigned wholesale schools
             wholesale_assignments = SalesRepSchoolAssignment.objects.filter(

@@ -1,0 +1,423 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>Quotation Cart | SASKITUP</title>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<!-- Favicon -->
+	<link rel="icon" type="image/png" href="{% static 'frontend/assets/images/icons/saskitup-favicon.png' %}"/>
+
+	<!-- Fonts -->
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/fonts.css' %}">
+
+	<!-- CSS Framework & Vendor Files -->
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/bootstrap/css/bootstrap.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/fonts/font-awesome-4.7.0/css/font-awesome.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/fonts/iconic/css/material-design-iconic-font.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/animate/animate.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/vendor/animsition/css/animsition.min.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/util.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/main.css' %}">
+	<link rel="stylesheet" type="text/css" href="{% static 'frontend/css/quotation.css' %}">
+
+	<style>
+		body {
+			padding-top: 0;
+			margin: 0;
+		}
+		.page-header {
+			background: linear-gradient(135deg, #222831 0%, #393E46 100%);
+			color: white;
+			padding: 2rem;
+			border-radius: 15px;
+			margin-bottom: 2rem;
+			box-shadow: 0 10px 40px rgba(34, 40, 49, 0.3);
+		}
+		.container-fluid.py-4 {
+			padding-top: 8rem !important;
+		}
+		.cart-table {
+			background: white;
+			border-radius: 15px;
+			padding: 1.5rem;
+			box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+			margin-bottom: 2rem;
+		}
+		.cart-item {
+			border-bottom: 1px solid #e0e0e0;
+			padding: 1.5rem 0;
+		}
+		.cart-item:last-child {
+			border-bottom: none;
+		}
+		.product-thumbnail {
+			width: 80px;
+			height: 80px;
+			object-fit: cover;
+			border-radius: 10px;
+			background: #f5f7fa;
+		}
+		.cart-summary {
+			background: white;
+			border-radius: 15px;
+			padding: 1.5rem;
+			box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+			position: sticky;
+			top: 100px;
+		}
+		.summary-row {
+			display: flex;
+			justify-content: space-between;
+			padding: 0.75rem 0;
+			border-bottom: 1px solid #e0e0e0;
+		}
+		.summary-row:last-child {
+			border-bottom: none;
+			padding-top: 1rem;
+			margin-top: 0.5rem;
+			border-top: 2px solid #222831;
+			font-size: 1.25rem;
+			font-weight: 700;
+		}
+		.btn-primary-custom {
+			background: linear-gradient(135deg, #222831 0%, #393E46 100%);
+			color: white;
+			border: none;
+			padding: 0.875rem 2rem;
+			border-radius: 25px;
+			font-weight: 600;
+			transition: all 0.3s ease;
+			width: 100%;
+			margin-top: 1rem;
+		}
+		.btn-primary-custom:hover {
+			background: linear-gradient(135deg, #393E46 0%, #222831 100%);
+			color: white;
+			transform: translateY(-2px);
+			box-shadow: 0 5px 15px rgba(34, 40, 49, 0.3);
+		}
+		.btn-secondary-custom {
+			background: white;
+			color: #222831;
+			border: 2px solid #222831;
+			padding: 0.875rem 2rem;
+			border-radius: 25px;
+			font-weight: 600;
+			transition: all 0.3s ease;
+			width: 100%;
+			margin-top: 0.5rem;
+		}
+		.btn-secondary-custom:hover {
+			background: #222831;
+			color: white;
+			border-color: #222831;
+		}
+		.quantity-controls {
+			display: flex;
+			align-items: center;
+		}
+		.quantity-btn {
+			width: 30px;
+			height: 30px;
+			border: 2px solid #222831;
+			background: white;
+			color: #222831;
+			border-radius: 50%;
+			font-weight: 700;
+			cursor: pointer;
+			transition: all 0.3s ease;
+			padding: 0;
+		}
+		.quantity-btn:hover {
+			background: #222831;
+			color: white;
+		}
+		.quantity-display {
+			width: 50px;
+			text-align: center;
+			font-weight: 600;
+			margin: 0 0.5rem;
+		}
+		.btn-remove {
+			color: #c62828;
+			cursor: pointer;
+			transition: all 0.3s ease;
+		}
+		.btn-remove:hover {
+			color: #8b0000;
+			transform: scale(1.2);
+		}
+		.empty-cart {
+			text-align: center;
+			padding: 4rem 2rem;
+		}
+		.empty-cart i {
+			font-size: 5rem;
+			color: #ccc;
+			margin-bottom: 1rem;
+		}
+		.page-container {
+			min-height: 100vh;
+			background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+			padding: 2rem 0;
+		}
+		header {
+			position: relative;
+			z-index: 1000;
+		}
+		.type-badge {
+			padding: 0.25rem 0.75rem;
+			border-radius: 15px;
+			font-size: 0.75rem;
+			font-weight: 600;
+			white-space: nowrap;
+		}
+		@media (max-width: 768px) {
+			.cart-summary {
+				position: static;
+				margin-top: 2rem;
+			}
+		}
+	</style>
+</head>
+
+<body class="animsition">
+	<!-- Header -->
+	<header>
+		<div class="container-menu-desktop">
+			<div class="top-bar">
+				<div class="content-topbar flex-sb-m h-full container">
+					<div class="left-top-bar">
+						<span class="stext-107 cl2">Welcome, {{ user.get_full_name|default:user.username }}</span>
+					</div>
+					<div class="right-top-bar flex-w h-full">
+						{% if user.user_type in 'admin' or user.is_superuser %}
+						<a href="/dashboard/" class="flex-c-m trans-04 p-lr-25">
+							Dashboard
+						</a>
+						{% endif %}
+						<a href="/auth/logout/" class="flex-c-m trans-04 p-lr-25">
+							Logout
+						</a>
+					</div>
+				</div>
+			</div>
+
+			<div class="wrap-menu-desktop">
+				<nav class="limiter-menu-desktop container">
+					<a href="/" class="logo">
+						<img src="{% static 'images/saskitup-logo.png' %}" alt="SASKITUP Logo" style="height: 60px;">
+					</a>
+					<div class="menu-desktop">
+						<ul class="main-menu">
+							<li><a href="{% url 'profile' %}">My Profile</a></li>
+							<li class="active-menu"><a href="{% url 'quotations:select-institution' %}">Quotations</a></li>
+							<li><a href="#">Reports</a></li>
+							{% if user.user_type in 'admin' or user.is_superuser %}
+							<li><a href="/dashboard/">Dashboard</a></li>
+							{% endif %}
+						</ul>
+					</div>
+				</nav>
+			</div>
+		</div>
+	</header>
+
+	<!-- Page Content -->
+	<div class="container-fluid py-4">
+		<!-- Page Header -->
+		<div class="page-header">
+			<h1 class="mb-2">Quotation Cart</h1>
+			<p class="mb-0 opacity-75">
+				{% if cart_items %}
+					{{ institution.name }} - {{ cart_items|length }} item{{ cart_items|length|pluralize }}
+				{% else %}
+					Your cart is empty
+				{% endif %}
+			</p>
+		</div>
+
+		{% if cart_items %}
+		<div class="row">
+			<!-- Cart Items -->
+			<div class="col-lg-8">
+				<div class="cart-table">
+					<div id="cartItemsContainer">
+						{% for item in cart_items %}
+						<div class="cart-item" id="cart-item-{{ item.product.id }}">
+							<div class="row align-items-center">
+								<div class="col-md-2 col-3 mb-3 mb-md-0">
+									{% if item.product.images.first %}
+									<img src="{{ item.product.images.first.image.url }}"
+									     alt="{{ item.product.name }}"
+									     class="product-thumbnail w-100">
+									{% else %}
+									<div class="product-thumbnail w-100 d-flex align-items-center justify-content-center">
+										<i class="zmdi zmdi-image" style="font-size: 2rem; color: #ccc;"></i>
+									</div>
+									{% endif %}
+								</div>
+								<div class="col-md-4 col-9 mb-3 mb-md-0">
+									<h5 class="mb-1" style="font-weight: 700; color: #222831;">{{ item.product.name }}</h5>
+									<p class="mb-0 text-muted" style="font-size: 0.875rem;">SKU: {{ item.product.sku }}</p>
+								</div>
+								<div class="col-md-2 col-4 mb-2 mb-md-0">
+									<p class="mb-0" style="font-weight: 600;">R {{ item.product.sale_price|default:item.product.regular_price }}</p>
+								</div>
+								<div class="col-md-3 col-6 mb-2 mb-md-0">
+									<div class="quantity-controls">
+										<button type="button" class="quantity-btn" onclick="updateCartQuantity({{ item.product.id }}, -1)">-</button>
+										<span class="quantity-display" id="qty-display-{{ item.product.id }}">{{ item.quantity }}</span>
+										<button type="button" class="quantity-btn" onclick="updateCartQuantity({{ item.product.id }}, 1)">+</button>
+									</div>
+								</div>
+								<div class="col-md-1 col-2 text-end">
+									<i class="zmdi zmdi-delete btn-remove" onclick="removeFromCart({{ item.product.id }})" title="Remove"></i>
+								</div>
+							</div>
+						</div>
+						{% endfor %}
+					</div>
+				</div>
+			</div>
+
+			<!-- Cart Summary -->
+			<div class="col-lg-4">
+				<div class="cart-summary">
+					<h3 style="font-weight: 700; color: #222831; margin-bottom: 1.5rem;">Order Summary</h3>
+
+					<div class="summary-row">
+						<span>Subtotal:</span>
+						<span id="subtotal">R {{ subtotal }}</span>
+					</div>
+
+					{% if discount > 0 %}
+					<div class="summary-row">
+						<span>Discount:</span>
+						<span class="text-success" id="discount">-R {{ discount }}</span>
+					</div>
+					{% endif %}
+
+					<div class="summary-row">
+						<span>Tax (15%):</span>
+						<span id="tax">R {{ tax }}</span>
+					</div>
+
+					<div class="summary-row">
+						<span>Total:</span>
+						<span id="total">R {{ total }}</span>
+					</div>
+
+					<button type="button" class="btn-primary-custom" onclick="saveQuotation()">
+						<i class="fa fa-save"></i> Save Quotation
+					</button>
+
+					<a href="{% url 'quotations:product-listing' institution_type=institution_type institution_id=institution.id %}"
+					   class="btn btn-secondary-custom">
+						<i class="fa fa-arrow-left"></i> Continue Shopping
+					</a>
+
+					<button type="button" class="btn btn-secondary-custom" onclick="clearCart()" style="margin-top: 0.5rem;">
+						<i class="fa fa-trash"></i> Clear Cart
+					</button>
+				</div>
+			</div>
+		</div>
+
+		{% else %}
+		<!-- Empty Cart -->
+		<div class="cart-table">
+			<div class="empty-cart">
+				<i class="zmdi zmdi-shopping-cart"></i>
+				<h3 style="color: #888;">Your cart is empty</h3>
+				<p class="text-muted">Add products to your quotation to get started.</p>
+				<a href="{% url 'quotations:select-institution' %}" class="btn btn-primary-custom" style="max-width: 300px; margin: 1rem auto;">
+					<i class="fa fa-plus"></i> Start Shopping
+				</a>
+			</div>
+		</div>
+		{% endif %}
+	</div>
+
+	<!-- Clear Cart Confirmation Modal -->
+	<div class="modal fade" id="clearCartModal" tabindex="-1">
+		<div class="modal-dialog">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">Clear Cart?</h5>
+					<button type="button" class="btn-close" data-dismiss="modal"></button>
+				</div>
+				<div class="modal-body">
+					<p>Are you sure you want to clear all items from your cart? This action cannot be undone.</p>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+					<button type="button" class="btn btn-danger" onclick="confirmClearCart()">Clear Cart</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Footer -->
+	<footer class="bg3 p-t-75 p-b-32">
+		<div class="container">
+			<div class="p-t-40">
+				<p class="stext-107 cl6 txt-center">
+					Copyright &copy;<script>document.write(new Date().getFullYear());</script> SASKITUP. All rights reserved.
+				</p>
+			</div>
+		</div>
+	</footer>
+
+	<!-- Back to top -->
+	<div class="btn-back-to-top" id="myBtn">
+		<span class="symbol-btn-back-to-top">
+			<i class="zmdi zmdi-chevron-up"></i>
+		</span>
+	</div>
+
+	<!-- JavaScript Files -->
+	<script src="{% static 'frontend/vendor/jquery/jquery-3.2.1.min.js' %}"></script>
+	<script src="{% static 'frontend/vendor/animsition/js/animsition.min.js' %}"></script>
+	<script src="{% static 'frontend/vendor/bootstrap/js/popper.js' %}"></script>
+	<script src="{% static 'frontend/vendor/bootstrap/js/bootstrap.min.js' %}"></script>
+	<script src="{% static 'frontend/js/main.js' %}"></script>
+	<script src="{% static 'frontend/js/quotation.js' %}"></script>
+
+	<script>
+		$(document).ready(function() {
+			// Initialize animsition
+			$('.animsition').animsition({
+				inClass: 'fade-in',
+				outClass: 'fade-out',
+				inDuration: 1500,
+				outDuration: 800,
+				linkElement: '.animsition-link',
+				loading: false,
+				loadingParentElement: 'body',
+				loadingClass: 'animsition-loading',
+				loadingInner: '',
+				timeout: false,
+				timeoutCountdown: 5000,
+				onLoadEvent: true,
+				browser: [ 'animation-duration', '-webkit-animation-duration'],
+				overlay : false,
+				overlayClass : 'animsition-overlay-slide',
+				overlayParentElement : 'body',
+				transition: function(url){ window.location.href = url; }
+			});
+		});
+
+		function clearCart() {
+			$('#clearCartModal').modal('show');
+		}
+
+		function confirmClearCart() {
+			clearQuotationCart();
+			$('#clearCartModal').modal('hide');
+		}
+	</script>
+</body>
+</html>

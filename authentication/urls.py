@@ -5,7 +5,6 @@ app_name = 'authentication'
 
 urlpatterns = [
     # Authentication URLs
-    path('login/', views.LoginView.as_view(), name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('signup/', views.SignupView.as_view(), name='signup'),
 
@@ -60,4 +59,7 @@ urlpatterns = [
     path('ajax/users/search/', views.user_search_ajax, name='user-search-ajax'),
     path('ajax/users/bulk-action/', views.bulk_user_action, name='bulk-user-action'),
     path('ajax/assignments/', views.assignment_ajax_handler, name='assignment-ajax'),
+
+    # Password Change
+    path('change-password/', views.change_password_view, name='change-password'),
 ]

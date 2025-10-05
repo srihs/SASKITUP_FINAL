@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'authentication',
     'clubs',
     'schools',
+    'quotations',
 ]
 
 MIDDLEWARE = [
