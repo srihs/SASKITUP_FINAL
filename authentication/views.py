@@ -37,16 +37,12 @@ class LoginView(FormView):
     success_url = None  # Role-based redirection
 
     def get_redirect_url(self, user):
-        """Get redirect URL based on user role"""
-        # Admin and Superadmin → Global Dashboard
-        if user.user_type in ['admin'] or user.is_superuser:
-            return reverse_lazy('global-dashboard')
-
-        # Sales Reps, Account Managers, Customers → Profile
-        elif user.user_type in ['sales_rep', 'account_manager', 'customer']:
-            return reverse_lazy('authentication:profile')
-
-        # Default fallback
+        """
+        Get redirect URL based on user role.
+        ALL users now redirect to unified dashboard with role-based content filtering.
+        """
+        # All authenticated users redirect to unified dashboard
+        # Dashboard view handles role-based content filtering
         return reverse_lazy('global-dashboard')
 
     def dispatch(self, request, *args, **kwargs):

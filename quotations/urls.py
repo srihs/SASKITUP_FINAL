@@ -20,6 +20,9 @@ from . import views
 app_name = 'quotations'
 
 urlpatterns = [
+    # NEW: Tab-based product selection (simplified workflow)
+    path('new/', views.NewQuotationView.as_view(), name='new-quotation'),
+
     # Step 1: Institution Selection
     path('select-institution/', views.InstitutionSelectionView.as_view(), name='select-institution'),
 

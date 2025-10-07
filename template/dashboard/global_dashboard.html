@@ -38,13 +38,15 @@
 
 <!-- Stats Cards -->
 <div class="row">
+    {% if user.is_admin or user.is_account_manager %}
+    <!-- Admin & Account Manager: Show All Clubs -->
     <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
         <div class="card h-100">
             <div class="card-body">
                 <div class="d-flex align-items-center">
                     <div class="flex-grow-1">
                         <span class="text-muted fw-medium">Total Clubs</span>
-                        <h4 class="mb-0">{{ total_clubs }}</h4>
+                        <h4 class="mb-0">{{ total_clubs|default:0 }}</h4>
                     </div>
                     <div class="flex-shrink-0">
                         <div class="avatar-sm rounded-circle bg-primary-subtle">
@@ -57,14 +59,14 @@
             </div>
         </div>
     </div>
-    
+
     <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
         <div class="card h-100">
             <div class="card-body">
                 <div class="d-flex align-items-center">
                     <div class="flex-grow-1">
                         <span class="text-muted fw-medium">LOTTO Clubs</span>
-                        <h4 class="mb-0">{{ total_lotto_clubs }}</h4>
+                        <h4 class="mb-0">{{ total_lotto_clubs|default:0 }}</h4>
                     </div>
                     <div class="flex-shrink-0">
                         <div class="avatar-sm rounded-circle bg-info-subtle">
@@ -77,14 +79,14 @@
             </div>
         </div>
     </div>
-    
+
     <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
         <div class="card h-100">
             <div class="card-body">
                 <div class="d-flex align-items-center">
                     <div class="flex-grow-1">
                         <span class="text-muted fw-medium">SAS Clubs</span>
-                        <h4 class="mb-0">{{ total_sas_clubs }}</h4>
+                        <h4 class="mb-0">{{ total_sas_clubs|default:0 }}</h4>
                     </div>
                     <div class="flex-shrink-0">
                         <div class="avatar-sm rounded-circle bg-warning-subtle">
@@ -97,14 +99,14 @@
             </div>
         </div>
     </div>
-    
+
     <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
         <div class="card h-100">
             <div class="card-body">
                 <div class="d-flex align-items-center">
                     <div class="flex-grow-1">
                         <span class="text-muted fw-medium">Total Products</span>
-                        <h4 class="mb-0">{{ total_products }}</h4>
+                        <h4 class="mb-0">{{ total_products|default:0 }}</h4>
                     </div>
                     <div class="flex-shrink-0">
                         <div class="avatar-sm rounded-circle bg-success-subtle">
@@ -117,6 +119,152 @@
             </div>
         </div>
     </div>
+
+    {% elif user.is_sales_rep %}
+    <!-- Sales Rep: Show Only Assigned Clubs and Schools -->
+    <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <span class="text-muted fw-medium">My Assigned LOTTO Clubs</span>
+                        <h4 class="mb-0">{{ my_lotto_clubs|default:0 }}</h4>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="avatar-sm rounded-circle bg-info-subtle">
+                            <span class="avatar-title bg-info-subtle text-info rounded-circle font-size-16">
+                                <i class="uil-lottery" aria-hidden="true"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <span class="text-muted fw-medium">My Assigned SAS Clubs</span>
+                        <h4 class="mb-0">{{ my_sas_clubs|default:0 }}</h4>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="avatar-sm rounded-circle bg-warning-subtle">
+                            <span class="avatar-title bg-warning-subtle text-warning rounded-circle font-size-16">
+                                <i class="uil-trophy" aria-hidden="true"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <span class="text-muted fw-medium">My Assigned Schools</span>
+                        <h4 class="mb-0">{{ my_schools|default:0 }}</h4>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="avatar-sm rounded-circle bg-success-subtle">
+                            <span class="avatar-title bg-success-subtle text-success rounded-circle font-size-16">
+                                <i class="uil-building" aria-hidden="true"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <span class="text-muted fw-medium">My Quotations</span>
+                        <h4 class="mb-0">{{ my_quotations|default:0 }}</h4>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="avatar-sm rounded-circle bg-primary-subtle">
+                            <span class="avatar-title bg-primary-subtle text-primary rounded-circle font-size-16">
+                                <i class="uil-file-alt" aria-hidden="true"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% elif user.is_customer %}
+    <!-- Customer: Show Personal Stats -->
+    <div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <span class="text-muted fw-medium">My Orders</span>
+                        <h4 class="mb-0">{{ my_orders|default:0 }}</h4>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="avatar-sm rounded-circle bg-primary-subtle">
+                            <span class="avatar-title bg-primary-subtle text-primary rounded-circle font-size-16">
+                                <i class="uil-shopping-cart" aria-hidden="true"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <span class="text-muted fw-medium">Pending Orders</span>
+                        <h4 class="mb-0">{{ pending_orders|default:0 }}</h4>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="avatar-sm rounded-circle bg-warning-subtle">
+                            <span class="avatar-title bg-warning-subtle text-warning rounded-circle font-size-16">
+                                <i class="uil-hourglass" aria-hidden="true"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <span class="text-muted fw-medium">My Quotations</span>
+                        <h4 class="mb-0">{{ my_quotations|default:0 }}</h4>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="avatar-sm rounded-circle bg-success-subtle">
+                            <span class="avatar-title bg-success-subtle text-success rounded-circle font-size-16">
+                                <i class="uil-file-alt" aria-hidden="true"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% endif %}
 </div>
 
 <!-- Quick Actions -->

@@ -815,3 +815,180 @@ class QuotationDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context['items'] = self.object.items.all().select_related('product_content_type')
         return context
+
+
+# =====================================
+# NEW QUOTATION PAGE - TAB-BASED PRODUCT SELECTION
+# =====================================
+
+class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
+    """
+    New quotation page with tab-based product selection.
+    Shows Schools and Clubs tabs with products from assigned institutions.
+    Only accessible to sales reps and account managers.
+    """
+    template_name = 'quotations/new_quotation.html'
+
+    def get(self, request):
+        from clubs.models_tus import TUSProduct, TUSSchool
+
+        # Get search query
+        search_query = request.GET.get('search', '')
+
+        # Get current tab (default to 'schools')
+        active_tab = request.GET.get('tab', 'schools')
+
+        # Initialize product collections
+        tus_products = []
+        wholesale_products = []
+        sas_products = []
+        lotto_products = []
+
+        # Get user's assigned institutions
+        assigned_schools = request.user.get_assigned_schools()
+
+        # ========================================
+        # SCHOOLS TAB - TUS Schools and Wholesale Schools
+        # ========================================
+        if active_tab == 'schools':
+            # Get TUS School Products
+            if assigned_schools.get('regular'):
+                tus_school_ids = [school.id for school in assigned_schools['regular']]
+                tus_products_qs = TUSProduct.objects.filter(
+                    category_assignments__school_category__school_id__in=tus_school_ids,
+                    stock_status__in=['instock', 'onbackorder']
+                ).prefetch_related(
+                    'category_assignments__school_category__school'
+                ).distinct()
+
+                # Apply search filter
+                if search_query:
+                    tus_products_qs = tus_products_qs.filter(
+                        Q(name__icontains=search_query) |
+                        Q(sku__icontains=search_query) |
+                        Q(barcode__icontains=search_query) |
+                        Q(description__icontains=search_query)
+                    )
+
+                tus_products = list(tus_products_qs[:50])  # Limit to 50 products
+
+            # Get Wholesale School Products
+            if assigned_schools.get('wholesale'):
+                wholesale_school_ids = [school.id for school in assigned_schools['wholesale']]
+                wholesale_products_qs = WholesaleProduct.objects.filter(
+                    school_id__in=wholesale_school_ids,
+                    is_active=True
+                ).select_related('school')
+
+                # Apply search filter
+                if search_query:
+                    wholesale_products_qs = wholesale_products_qs.filter(
+                        Q(name__icontains=search_query) |
+                        Q(cin7_sku__icontains=search_query) |
+                        Q(description__icontains=search_query)
+                    )
+
+                wholesale_products = list(wholesale_products_qs[:50])  # Limit to 50 products
+
+        # ========================================
+        # CLUBS TAB - SAS Clubs and LOTTO Clubs
+        # ========================================
+        elif active_tab == 'clubs':
+            # Get assigned clubs
+            if request.user.is_account_manager:
+                # Account managers have access to all clubs
+                sas_clubs = SASClub.objects.filter(is_active=True)
+                lotto_clubs = LottoClub.objects.filter(is_active=True)
+            elif request.user.is_sales_rep:
+                # Get club assignments (GenericForeignKey)
+                club_assignments = SalesRepClubAssignment.objects.filter(
+                    sales_rep=request.user,
+                    is_active=True
+                ).select_related('club_content_type')
+
+                sas_club_ids = []
+                lotto_club_ids = []
+
+                for assignment in club_assignments:
+                    if assignment.club:
+                        if isinstance(assignment.club, SASClub):
+                            sas_club_ids.append(assignment.club.id)
+                        elif isinstance(assignment.club, LottoClub):
+                            lotto_club_ids.append(assignment.club.id)
+
+                sas_clubs = SASClub.objects.filter(id__in=sas_club_ids)
+                lotto_clubs = LottoClub.objects.filter(id__in=lotto_club_ids)
+            else:
+                sas_clubs = SASClub.objects.none()
+                lotto_clubs = LottoClub.objects.none()
+
+            # Get SAS Products
+            sas_products_qs = SASProduct.objects.filter(
+                club__in=sas_clubs,
+                is_active=True
+            ).select_related('club')
+
+            # Apply search filter
+            if search_query:
+                sas_products_qs = sas_products_qs.filter(
+                    Q(name__icontains=search_query) |
+                    Q(sku__icontains=search_query) |
+                    Q(description__icontains=search_query)
+                )
+
+            sas_products = list(sas_products_qs[:50])  # Limit to 50 products
+
+            # Get LOTTO Products
+            lotto_products_qs = LottoProduct.objects.filter(
+                category__club__in=lotto_clubs,
+                stock_status__in=['instock', 'onbackorder']
+            ).select_related('category__club')
+
+            # Apply search filter
+            if search_query:
+                lotto_products_qs = lotto_products_qs.filter(
+                    Q(name__icontains=search_query) |
+                    Q(sku__icontains=search_query) |
+                    Q(description__icontains=search_query)
+                )
+
+            lotto_products = list(lotto_products_qs[:50])  # Limit to 50 products
+
+        # Get current quotation count from session
+        quotation_data = get_quotation_session(request)
+        totals = calculate_quotation_totals(quotation_data)
+
+        # Log access
+        AuditLog.log_action(
+            user=request.user,
+            action_type='data_access',
+            description='Viewed new quotation page',
+            request=request,
+            active_tab=active_tab,
+            search_query=search_query
+        )
+
+        context = {
+            'active_tab': active_tab,
+            'search_query': search_query,
+
+            # Schools tab products
+            'tus_products': tus_products,
+            'wholesale_products': wholesale_products,
+
+            # Clubs tab products
+            'sas_products': sas_products,
+            'lotto_products': lotto_products,
+
+            # Quotation summary
+            'quotation_item_count': totals['item_count'],
+            'quotation_total': totals['total'],
+
+            # Product counts for display
+            'tus_product_count': len(tus_products),
+            'wholesale_product_count': len(wholesale_products),
+            'sas_product_count': len(sas_products),
+            'lotto_product_count': len(lotto_products),
+        }
+
+        return render(request, self.template_name, context)

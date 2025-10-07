@@ -199,8 +199,30 @@ class WholesaleSchoolsView(WholesaleAuditMixin, SearchAuditMixin, ListView):
         try:
             # Import wholesale models from schools app
             from .models import WholesaleSchool
+            from authentication.models import SalesRepSchoolAssignment
 
             queryset = WholesaleSchool.objects.filter(is_active=True)
+
+            user = self.request.user
+
+            # Admin and Account Manager: See ALL schools
+            if user.is_admin or user.is_account_manager:
+                pass  # No filtering needed, show all
+
+            # Sales Rep: See ONLY assigned schools
+            elif user.is_sales_rep:
+                # Get assigned wholesale school IDs
+                assigned_ids = SalesRepSchoolAssignment.objects.filter(
+                    sales_rep=user,
+                    is_active=True,
+                    wholesale_school__isnull=False
+                ).values_list('wholesale_school_id', flat=True)
+
+                queryset = queryset.filter(id__in=assigned_ids)
+
+            # Customer or other user types: No access
+            else:
+                return queryset.none()
 
             # Search functionality
             search_query = self.request.GET.get('search')
@@ -220,8 +242,11 @@ class WholesaleSchoolsView(WholesaleAuditMixin, SearchAuditMixin, ListView):
             return models.QuerySet().none()
 
     def get_context_data(self, **kwargs):
+        from authentication.models import SalesRepSchoolAssignment
+
         context = super().get_context_data(**kwargs)
         context['page_title'] = 'Wholesale Schools'
+        user = self.request.user
 
         try:
             # Import wholesale models
@@ -229,15 +254,31 @@ class WholesaleSchoolsView(WholesaleAuditMixin, SearchAuditMixin, ListView):
 
             context['wholesale_available'] = True
 
-            # Add wholesale statistics
-            context['total_schools'] = WholesaleSchool.objects.filter(is_active=True).count()
-            context['total_categories'] = WholesaleCategory.objects.filter(is_active=True).count()
-            context['total_products'] = WholesaleProduct.objects.filter(is_active=True).count()
+            # Get filtered schools queryset
+            schools_queryset = WholesaleSchool.objects.filter(is_active=True)
 
-            # Get schools by region for display
-            context['schools_by_region'] = WholesaleSchool.objects.filter(
-                is_active=True
-            ).values('region').annotate(
+            if user.is_sales_rep:
+                # Filter to assigned wholesale schools only
+                assigned_school_ids = SalesRepSchoolAssignment.objects.filter(
+                    sales_rep=user,
+                    is_active=True,
+                    wholesale_school__isnull=False
+                ).values_list('wholesale_school_id', flat=True)
+                schools_queryset = schools_queryset.filter(id__in=assigned_school_ids)
+
+            # Add wholesale statistics (filtered by user access)
+            context['total_schools'] = schools_queryset.count()
+            context['total_categories'] = WholesaleCategory.objects.filter(
+                is_active=True,
+                products__school__in=schools_queryset
+            ).distinct().count() if user.is_sales_rep else WholesaleCategory.objects.filter(is_active=True).count()
+            context['total_products'] = WholesaleProduct.objects.filter(
+                is_active=True,
+                school__in=schools_queryset
+            ).count()
+
+            # Get schools by region for display (filtered)
+            context['schools_by_region'] = schools_queryset.values('region').annotate(
                 count=Count('id')
             ).order_by('-count')[:5]
 
@@ -300,8 +341,51 @@ class TUSRetailSchoolsView(TUSAuditMixin, SearchAuditMixin, ListView):
     paginate_by = 12
 
     def get_queryset(self):
+        from authentication.models import SalesRepSchoolAssignment
+        from django.db.models import Count, Q
+
         # Use utility function to get locations with stats
         queryset = get_tus_locations_with_stats()
+
+        user = self.request.user
+
+        # Admin and Account Manager: See ALL locations
+        if user.is_admin or user.is_account_manager:
+            pass  # No filtering needed, show all
+
+        # Sales Rep: See ONLY locations that contain assigned schools
+        elif user.is_sales_rep:
+            # Get assigned TUS school IDs
+            assigned_school_ids = SalesRepSchoolAssignment.objects.filter(
+                sales_rep=user,
+                is_active=True,
+                tus_school__isnull=False
+            ).values_list('tus_school_id', flat=True)
+
+            # Filter locations that contain these schools
+            queryset = queryset.filter(schools__id__in=assigned_school_ids).distinct()
+
+            # Override the school count and product count to show only assigned schools
+            queryset = queryset.annotate(
+                assigned_schools_count=Count(
+                    'schools',
+                    filter=Q(schools__id__in=assigned_school_ids, schools__is_active=True),
+                    distinct=True
+                ),
+                assigned_products_count=Count(
+                    'schools__categories__product_assignments__product',
+                    filter=Q(
+                        schools__id__in=assigned_school_ids,
+                        schools__is_active=True,
+                        schools__categories__product_assignments__product__stock_status__in=['instock', 'onbackorder']
+                    ),
+                    distinct=True
+                )
+            )
+
+        # Customer or other user types: No access
+        else:
+            return queryset.none()
 
         # Search functionality
         search_query = self.request.GET.get('search')
@@ -324,14 +408,53 @@ class TUSRetailSchoolsView(TUSAuditMixin, SearchAuditMixin, ListView):
         return queryset
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
+        from authentication.models import SalesRepSchoolAssignment
 
-        # Add statistics using utility function
-        context.update(get_tus_dashboard_stats())
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        # Get filtered schools queryset for sales reps
+        if user.is_sales_rep:
+            assigned_school_ids = SalesRepSchoolAssignment.objects.filter(
+                sales_rep=user,
+                is_active=True,
+                tus_school__isnull=False
+            ).values_list('tus_school_id', flat=True)
+
+            # Override stats with filtered counts
+            context['total_locations'] = TUSLocation.objects.filter(
+                is_active=True,
+                schools__id__in=assigned_school_ids
+            ).distinct().count()
+            context['total_schools'] = TUSSchool.objects.filter(
+                is_active=True,
+                id__in=assigned_school_ids
+            ).count()
+            context['total_general_categories'] = TUSGeneralCategory.objects.filter(is_active=True).count()
+            context['total_school_categories'] = TUSSchoolCategory.objects.filter(
+                school__id__in=assigned_school_ids
+            ).count()
+            context['total_products'] = TUSProduct.objects.filter(
+                category_assignments__school_category__school__id__in=assigned_school_ids
+            ).distinct().count()
+            context['total_variations'] = TUSProductVariation.objects.filter(
+                is_active=True,
+                product__category_assignments__school_category__school__id__in=assigned_school_ids
+            ).distinct().count()
+            context['featured_products_count'] = TUSProduct.objects.filter(
+                featured=True,
+                category_assignments__school_category__school__id__in=assigned_school_ids
+            ).distinct().count()
+            context['on_sale_products_count'] = TUSProduct.objects.filter(
+                on_sale=True,
+                category_assignments__school_category__school__id__in=assigned_school_ids
+            ).distinct().count()
+        else:
+            # Admin/Account Manager: Use utility function for all stats
+            context.update(get_tus_dashboard_stats())
 
         # Featured locations using utility functions
         context['featured_locations'] = get_tus_featured_locations(limit=6)
-        # Note: featured_categories removed - this is a schools page, not a products page
 
         # Add all locations for the filter dropdown
         context['all_locations'] = TUSLocation.objects.filter(is_active=True).order_by('name')
@@ -356,8 +479,12 @@ class TUSLocationDetailView(TUSAuditMixin, DetailView):
         return location
 
     def get_context_data(self, **kwargs):
+        from authentication.models import SalesRepSchoolAssignment
+        from django.db.models import Count, Q
+
         context = super().get_context_data(**kwargs)
         location = self.object
+        user = self.request.user
 
         # Get schools using utility function
         search_query = self.request.GET.get('search')
@@ -369,6 +496,16 @@ class TUSLocationDetailView(TUSAuditMixin, DetailView):
             school_type=school_type
         )
 
+        # Sales Rep: Filter to only assigned schools
+        if user.is_sales_rep:
+            assigned_school_ids = SalesRepSchoolAssignment.objects.filter(
+                sales_rep=user,
+                is_active=True,
+                tus_school__isnull=False
+            ).values_list('tus_school_id', flat=True)
+
+            schools = schools.filter(id__in=assigned_school_ids)
+
         # Pagination for schools
         paginator = Paginator(schools, 12)
         page = self.request.GET.get('page')
@@ -378,11 +515,18 @@ class TUSLocationDetailView(TUSAuditMixin, DetailView):
         from .tus_utils import get_tus_school_types
         context['school_types'] = get_tus_school_types()
 
-        # Get recent products for this location
-        context['recent_products'] = TUSProduct.objects.filter(
+        # Get recent products for this location (filtered by assigned schools for sales reps)
+        recent_products_queryset = TUSProduct.objects.filter(
             category_assignments__school_category__school__location=location,
             stock_status__in=['instock', 'onbackorder']
-        ).distinct().order_by('-created_at')[:6]
+        )
+
+        if user.is_sales_rep:
+            recent_products_queryset = recent_products_queryset.filter(
+                category_assignments__school_category__school__id__in=assigned_school_ids
+            )
+
+        context['recent_products'] = recent_products_queryset.distinct().order_by('-created_at')[:6]
 
         return context
 

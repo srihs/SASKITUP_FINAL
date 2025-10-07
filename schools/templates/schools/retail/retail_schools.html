@@ -245,13 +245,25 @@
                     <div class="row g-0">
                         <div class="col-4">
                             <div class="p-3 border-end border-tus-primary bg-soft-tus-primary text-center">
-                                <h5 class="mb-1 text-tus-primary">{{ location.active_schools_count }}</h5>
+                                <h5 class="mb-1 text-tus-primary">
+                                    {% if user.is_sales_rep and location.assigned_schools_count is not None %}
+                                        {{ location.assigned_schools_count }}
+                                    {% else %}
+                                        {{ location.active_schools_count }}
+                                    {% endif %}
+                                </h5>
                                 <p class="text-tus-primary font-size-13 mb-0">Schools</p>
                             </div>
                         </div>
                         <div class="col-4">
                             <div class="p-3 border-end border-tus-primary bg-soft-tus-primary text-center">
-                                <h5 class="mb-1 text-tus-primary">{{ location.total_products|default:0 }}</h5>
+                                <h5 class="mb-1 text-tus-primary">
+                                    {% if user.is_sales_rep and location.assigned_products_count is not None %}
+                                        {{ location.assigned_products_count }}
+                                    {% else %}
+                                        {{ location.total_products|default:0 }}
+                                    {% endif %}
+                                </h5>
                                 <p class="text-tus-primary font-size-13 mb-0">Products</p>
                             </div>
                         </div>

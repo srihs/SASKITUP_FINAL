@@ -13,41 +13,244 @@ from clubs.models_tus import TUSSchool
 
 
 @method_decorator(login_required, name='dispatch')
-class GlobalDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
-    """Main global dashboard for the SASKITUP admin system"""
+class GlobalDashboardView(LoginRequiredMixin, TemplateView):
+    """
+    Unified dashboard for all user roles.
+    Content and stats filtered based on user.user_type:
+    - Admins: See ALL system data
+    - Account Managers: See ALL schools/clubs, own quotations
+    - Sales Reps: See ONLY assigned schools/clubs, own quotations
+    - Customers: See ONLY own data
+    """
     template_name = 'dashboard/global_dashboard.html'
     login_url = '/'
 
-    def test_func(self):
-        """Only allow admin and superuser access"""
-        return self.request.user.user_type in ['admin'] or self.request.user.is_superuser
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        user = self.request.user
 
-        # Basic statistics for the dashboard using separate models
-        context['total_lotto_clubs'] = LottoClub.objects.filter(is_active=True).count()
-        context['total_sas_clubs'] = SASClub.objects.filter(is_active=True).count()
+        # Add user info to context
+        context['user_role'] = user.get_user_type_display()
+        context['user_full_name'] = user.get_full_name() or user.username
+
+        # Get role-specific stats and data
+        if user.is_admin:
+            context.update(self._get_admin_context())
+        elif user.is_account_manager:
+            context.update(self._get_account_manager_context(user))
+        elif user.is_sales_rep:
+            context.update(self._get_sales_rep_context(user))
+        elif user.is_customer:
+            context.update(self._get_customer_context(user))
+
+        return context
+
+    def _get_admin_context(self):
+        """Admin sees ALL system data"""
+        from schools.models import WholesaleSchool
+        from authentication.models import User
+
+        # Try to import Quotation model, handle if not available
+        try:
+            from quotations.models import Quotation
+            has_quotations = True
+        except ImportError:
+            has_quotations = False
+
+        context = {
+            # Schools
+            'total_tus_schools': TUSSchool.objects.filter(is_active=True).count(),
+            'total_wholesale_schools': WholesaleSchool.objects.filter(is_active=True).count(),
+
+            # Clubs
+            'total_lotto_clubs': LottoClub.objects.filter(is_active=True).count(),
+            'total_sas_clubs': SASClub.objects.filter(is_active=True).count(),
+
+            # Users
+            'total_users': User.objects.filter(is_active=True).count(),
+            'total_sales_reps': User.objects.filter(user_type='sales_rep', is_active=True).count(),
+            'total_account_managers': User.objects.filter(user_type='account_manager', is_active=True).count(),
+            'total_customers': User.objects.filter(user_type='customer', is_active=True).count(),
+        }
+
+        # Calculate totals
+        context['total_schools'] = context['total_tus_schools'] + context['total_wholesale_schools']
         context['total_clubs'] = context['total_lotto_clubs'] + context['total_sas_clubs']
 
-        # Category counts from separate models
-        lotto_categories = LottoClubCategory.objects.filter(product_count__gt=0).count()
-        context['total_categories'] = lotto_categories
+        # Add quotation stats if available
+        if has_quotations:
+            context.update({
+                'total_quotations': Quotation.objects.count(),
+                'pending_quotations': Quotation.objects.filter(status='pending').count(),
+                'approved_quotations': Quotation.objects.filter(status='approved').count(),
+                'draft_quotations': Quotation.objects.filter(status='draft').count(),
+                'recent_quotations': Quotation.objects.select_related('created_by').order_by('-created_at')[:5],
+            })
+        else:
+            context.update({
+                'total_quotations': 0,
+                'pending_quotations': 0,
+                'approved_quotations': 0,
+                'draft_quotations': 0,
+                'recent_quotations': [],
+            })
 
-        # Product counts from separate models
-        lotto_products = LottoProduct.objects.filter(stock_status__in=['instock', 'onbackorder']).count()
-        sas_products = SASProduct.objects.filter(stock_status__in=['instock', 'onbackorder']).count()
-        context['total_products'] = lotto_products + sas_products
+        return context
+
+    def _get_account_manager_context(self, user):
+        """Account Managers see ALL schools and clubs (same as admin for clients)"""
+        from schools.models import WholesaleSchool
+
+        # Try to import Quotation model
+        try:
+            from quotations.models import Quotation
+            has_quotations = True
+        except ImportError:
+            has_quotations = False
+
+        context = {
+            # Schools (ALL - Account Manager Access)
+            'total_tus_schools': TUSSchool.objects.filter(is_active=True).count(),
+            'total_wholesale_schools': WholesaleSchool.objects.filter(is_active=True).count(),
+
+            # Clubs (ALL)
+            'total_lotto_clubs': LottoClub.objects.filter(is_active=True).count(),
+            'total_sas_clubs': SASClub.objects.filter(is_active=True).count(),
+        }
+
+        # Calculate totals
+        context['total_schools'] = context['total_tus_schools'] + context['total_wholesale_schools']
+        context['total_clubs'] = context['total_lotto_clubs'] + context['total_sas_clubs']
+
+        # Add quotation stats (own only)
+        if has_quotations:
+            context.update({
+                'my_quotations': Quotation.objects.filter(created_by=user).count(),
+                'my_pending_quotations': Quotation.objects.filter(created_by=user, status='pending').count(),
+                'my_approved_quotations': Quotation.objects.filter(created_by=user, status='approved').count(),
+                'my_draft_quotations': Quotation.objects.filter(created_by=user, status='draft').count(),
+                'recent_quotations': Quotation.objects.filter(created_by=user).order_by('-created_at')[:5],
+            })
+        else:
+            context.update({
+                'my_quotations': 0,
+                'my_pending_quotations': 0,
+                'my_approved_quotations': 0,
+                'my_draft_quotations': 0,
+                'recent_quotations': [],
+            })
+
+        return context
+
+    def _get_sales_rep_context(self, user):
+        """Sales Reps see ONLY assigned schools and clubs"""
+        from authentication.models import SalesRepSchoolAssignment, SalesRepClubAssignment
+        from django.contrib.contenttypes.models import ContentType
+
+        # Try to import Quotation model
+        try:
+            from quotations.models import Quotation
+            has_quotations = True
+        except ImportError:
+            has_quotations = False
+
+        # Get assignments
+        school_assignments = SalesRepSchoolAssignment.objects.filter(
+            sales_rep=user,
+            is_active=True
+        ).select_related('tus_school', 'wholesale_school')
+
+        club_assignments = SalesRepClubAssignment.objects.filter(
+            sales_rep=user,
+            is_active=True
+        ).select_related('club_content_type')
+
+        # Count by type
+        tus_count = school_assignments.filter(tus_school__isnull=False).count()
+        wholesale_count = school_assignments.filter(wholesale_school__isnull=False).count()
+
+        lotto_ct = ContentType.objects.get_for_model(LottoClub)
+        sas_ct = ContentType.objects.get_for_model(SASClub)
+
+        lotto_count = club_assignments.filter(club_content_type=lotto_ct).count()
+        sas_count = club_assignments.filter(club_content_type=sas_ct).count()
+
+        context = {
+            # Assigned Schools
+            'my_tus_schools': tus_count,
+            'my_wholesale_schools': wholesale_count,
+            'my_schools': school_assignments.count(),
+
+            # Assigned Clubs
+            'my_lotto_clubs': lotto_count,
+            'my_sas_clubs': sas_count,
+            'my_clubs': club_assignments.count(),
+
+            # Detailed assignments for display
+            'assigned_schools': school_assignments[:10],  # Limit for dashboard
+            'assigned_clubs': club_assignments[:10],
+        }
+
+        # Add quotation stats (own only)
+        if has_quotations:
+            context.update({
+                'my_quotations': Quotation.objects.filter(created_by=user).count(),
+                'my_pending_quotations': Quotation.objects.filter(created_by=user, status='pending').count(),
+                'my_approved_quotations': Quotation.objects.filter(created_by=user, status='approved').count(),
+                'my_draft_quotations': Quotation.objects.filter(created_by=user, status='draft').count(),
+                'recent_quotations': Quotation.objects.filter(created_by=user).order_by('-created_at')[:5],
+            })
+        else:
+            context.update({
+                'my_quotations': 0,
+                'my_pending_quotations': 0,
+                'my_approved_quotations': 0,
+                'my_draft_quotations': 0,
+                'recent_quotations': [],
+            })
+
+        return context
+
+    def _get_customer_context(self, user):
+        """Customers see ONLY their own data"""
+        # Try to import Quotation model
+        try:
+            from quotations.models import Quotation
+            has_quotations = True
+        except ImportError:
+            has_quotations = False
+
+        context = {
+            # Placeholder for future customer features
+            'my_orders': 0,
+            'pending_orders': 0,
+        }
+
+        # Add quotation stats (own only)
+        if has_quotations:
+            context.update({
+                'my_quotations': Quotation.objects.filter(created_by=user).count(),
+                'my_pending_quotations': Quotation.objects.filter(created_by=user, status='pending').count(),
+                'my_approved_quotations': Quotation.objects.filter(created_by=user, status='approved').count(),
+                'my_draft_quotations': Quotation.objects.filter(created_by=user, status='draft').count(),
+                'recent_quotations': Quotation.objects.filter(created_by=user).order_by('-created_at')[:5],
+            })
+        else:
+            context.update({
+                'my_quotations': 0,
+                'my_pending_quotations': 0,
+                'my_approved_quotations': 0,
+                'my_draft_quotations': 0,
+                'recent_quotations': [],
+            })
 
         return context
 
 
 def frontend_landing_view(request):
     """
-    Index page with role-based redirection and login handling
-    - Admin/Superadmin → /dashboard/
-    - Sales Rep/Account Manager → /profile/
-    - Customer → /profile/
+    Index page with unified dashboard redirection and login handling
+    - All authenticated users → /dashboard/ (with role-based content)
     - Not authenticated → landing page with login form
     - POST: Process login
     """
@@ -73,11 +276,8 @@ def frontend_landing_view(request):
             )
 
             # Role-based redirection after successful login
-            if user.user_type in ['admin'] or user.is_superuser:
-                return redirect('global-dashboard')
-            else:
-                # Sales reps, account managers, and customers → Profile
-                return redirect('profile')
+            # All users now redirect to unified dashboard
+            return redirect('global-dashboard')
         else:
             # Log failed login attempt
             AuditLog.log_action(
@@ -90,17 +290,10 @@ def frontend_landing_view(request):
             messages.error(request, 'Invalid email or password.')
             # Continue to show the home page with error message
 
-    # If user is authenticated, redirect based on role
+    # If user is authenticated, redirect to unified dashboard
     if request.user.is_authenticated:
-        user = request.user
-
-        # Admin and Superadmin users → Global Dashboard
-        if user.user_type in ['admin'] or user.is_superuser:
-            return redirect('global-dashboard')
-
-        # Sales Reps, Account Managers, and Customers → Profile
-        else:
-            return redirect('profile')
+        # All authenticated users redirect to unified dashboard
+        return redirect('global-dashboard')
 
     # Not authenticated → Show landing page with login form
     # Get ALL retail schools (TUS) with logos

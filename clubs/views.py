@@ -171,7 +171,32 @@ class LottoClubsView(ListView):
 
     def get_queryset(self):
         from .models_lotto import LottoClub
+        from authentication.models import SalesRepClubAssignment
+        from django.contrib.contenttypes.models import ContentType
+
         queryset = LottoClub.objects.filter(is_active=True).prefetch_related('categories')
+
+        user = self.request.user
+
+        # Admin and Account Manager: See ALL clubs
+        if user.is_admin or user.is_account_manager:
+            pass  # No filtering needed, show all
+
+        # Sales Rep: See ONLY assigned clubs
+        elif user.is_sales_rep:
+            # Get assigned LOTTO club IDs
+            lotto_content_type = ContentType.objects.get_for_model(LottoClub)
+            assigned_ids = SalesRepClubAssignment.objects.filter(
+                sales_rep=user,
+                is_active=True,
+                club_content_type=lotto_content_type
+            ).values_list('club_object_id', flat=True)
+
+            queryset = queryset.filter(id__in=assigned_ids)
+
+        # Customer or other user types: No access
+        else:
+            return queryset.none()
 
         # Search functionality
         search_query = self.request.GET.get('search')
@@ -191,29 +216,49 @@ class LottoClubsView(ListView):
 
     def get_context_data(self, **kwargs):
         from .models_lotto import LottoClub, LottoClubCategory, LottoProduct
+        from authentication.models import SalesRepClubAssignment
+        from django.contrib.contenttypes.models import ContentType
+
         context = super().get_context_data(**kwargs)
         context['sport_tags'] = LottoClub.SPORT_TAGS
         context['current_search'] = self.request.GET.get('search', '')
         context['current_sport'] = self.request.GET.get('sport', '')
         context['club_type'] = 'LOTTO'
 
-        # LOTTO Statistics for dashboard tiles
+        user = self.request.user
+
+        # Get filtered club queryset based on user role
+        clubs_queryset = LottoClub.objects.filter(is_active=True)
+
+        if user.is_sales_rep:
+            # Filter to assigned clubs only
+            lotto_content_type = ContentType.objects.get_for_model(LottoClub)
+            assigned_ids = SalesRepClubAssignment.objects.filter(
+                sales_rep=user,
+                is_active=True,
+                club_content_type=lotto_content_type
+            ).values_list('club_object_id', flat=True)
+            clubs_queryset = clubs_queryset.filter(id__in=assigned_ids)
+
+        # LOTTO Statistics for dashboard tiles (filtered by user access)
         context['stats'] = {
-            'total_clubs': LottoClub.objects.filter(is_active=True).count(),
-            'total_categories': LottoClubCategory.objects.filter(product_count__gt=0).count(),
+            'total_clubs': clubs_queryset.count(),
+            'total_categories': LottoClubCategory.objects.filter(
+                product_count__gt=0,
+                club__in=clubs_queryset
+            ).count() if user.is_sales_rep else LottoClubCategory.objects.filter(product_count__gt=0).count(),
             'total_products': LottoProduct.objects.filter(
+                stock_status__in=['instock', 'onbackorder'],
+                category__club__in=clubs_queryset
+            ).count() if user.is_sales_rep else LottoProduct.objects.filter(
                 stock_status__in=['instock', 'onbackorder']
             ).count(),
-            'active_clubs': LottoClub.objects.filter(
-                is_active=True
-            ).annotate(
+            'active_clubs': clubs_queryset.annotate(
                 active_products=Count('categories__products', filter=Q(
                     categories__products__stock_status__in=['instock', 'onbackorder']
                 ))
             ).filter(active_products__gt=0).count(),
-            'sports_count': LottoClub.objects.filter(
-                is_active=True
-            ).values('sport_tag').distinct().count(),
+            'sports_count': clubs_queryset.values('sport_tag').distinct().count(),
         }
 
         return context
@@ -1283,20 +1328,45 @@ class SASClubListView(ListView):
     paginate_by = 12
 
     def get_queryset(self):
+        from authentication.models import SalesRepClubAssignment
+        from django.contrib.contenttypes.models import ContentType
+
         # Use clubs_only() manager to automatically exclude schools and generic categories
         queryset = SASClub.objects.clubs_only().select_related('sport')
-        
+
         # Toggle for showing/hiding schools (optional override)
         include_schools = self.request.GET.get('include_schools', 'false').lower() == 'true'
         if include_schools:
             # If schools are requested, use broader filter but still exclude generic categories
             queryset = SASClub.objects.filter(is_active=True, is_generic_category=False).select_related('sport')
-        
+
+        user = self.request.user
+
+        # Admin and Account Manager: See ALL clubs
+        if user.is_admin or user.is_account_manager:
+            pass  # No filtering needed, show all
+
+        # Sales Rep: See ONLY assigned clubs
+        elif user.is_sales_rep:
+            # Get assigned SAS club IDs
+            sas_content_type = ContentType.objects.get_for_model(SASClub)
+            assigned_ids = SalesRepClubAssignment.objects.filter(
+                sales_rep=user,
+                is_active=True,
+                club_content_type=sas_content_type
+            ).values_list('club_object_id', flat=True)
+
+            queryset = queryset.filter(id__in=assigned_ids)
+
+        # Customer or other user types: No access
+        else:
+            return queryset.none()
+
         # Filter by sport
         sport_slug = self.request.GET.get('sport')
         if sport_slug:
             queryset = queryset.filter(sport__slug=sport_slug)
-        
+
         # Search functionality
         search_query = self.request.GET.get('search')
         if search_query:
@@ -1324,7 +1394,7 @@ class SASClubListView(ListView):
         # Statistics based on FILTERED results (what's actually shown)
         total_filtered_clubs = base_queryset.count()
         
-        # Get accurate statistics for SAS clubs only
+        # Get accurate statistics for SAS clubs only (filtered by user access)
         context['stats'] = {
             'total_clubs': total_filtered_clubs,  # Use filtered count for display
             'total_categories': SASProduct.objects.filter(
@@ -1336,9 +1406,10 @@ class SASClubListView(ListView):
                 stock_status__in=['instock', 'onbackorder']
             ).count(),
             'active_clubs': base_queryset.filter(product_count__gt=0).count(),
-            'clubs_only': SASClub.objects.clubs_only().count(),  # Overall system stats
-            'schools_only': SASClub.objects.filter(is_active=True, is_school=True).count(),
-            'with_products': SASClub.objects.with_products().count(),
+            # These stats also respect filtering
+            'clubs_only': base_queryset.filter(is_school=False).count(),
+            'schools_only': base_queryset.filter(is_school=True).count(),
+            'with_products': base_queryset.filter(product_count__gt=0).count(),
         }
         
         return context

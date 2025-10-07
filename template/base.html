@@ -394,7 +394,13 @@
                                 </a>
                             </li>
 
+                            {% if user.is_admin %}
                             <li class="menu-title">CLIENTS</li>
+                            {% elif user.is_sales_rep or user.is_account_manager %}
+                            <li class="menu-title">MY CLIENTS</li>
+                            {% else %}
+                            <li class="menu-title">CLIENTS</li>
+                            {% endif %}
 
                             <li>
                                 <a href="javascript: void(0);" class="has-arrow waves-effect">
@@ -421,9 +427,24 @@
                                     <span>Schools</span>
                                 </a>
                                 <ul class="sub-menu" aria-expanded="false">
+                                    {% if user.is_admin %}
                                     <li><a href="{% url 'schools:school_list' %}">School Database</a></li>
+                                    {% endif %}
                                     <li><a href="{% url 'schools:retail_schools' %}">Retail Schools</a></li>
                                     <li><a href="{% url 'schools:wholesale_schools' %}">Wholesale Schools</a></li>
+                                </ul>
+                            </li>
+
+                            <li class="menu-title">QUOTATIONS</li>
+
+                            <li>
+                                <a href="javascript: void(0);" class="has-arrow waves-effect">
+                                    <i class="uil-file-alt"></i>
+                                    <span>Quotations</span>
+                                </a>
+                                <ul class="sub-menu" aria-expanded="false">
+                                    <li><a href="{% url 'quotations:new-quotation' %}">New Quotation</a></li>
+                                    <li><a href="{% url 'quotations:my-quotations' %}">My Quotations</a></li>
                                 </ul>
                             </li>
 
@@ -444,6 +465,16 @@
                             </li>
                             {% endif %}
 
+                            {% if user.is_sales_rep or user.is_account_manager %}
+                            <!-- Sales Rep & Account Manager: Only My Profile -->
+                            <li>
+                                <a href="{% url 'authentication:user-detail' user.id %}">
+                                    <i class="uil-user"></i>
+                                    <span>My Profile</span>
+                                </a>
+                            </li>
+                            {% else %}
+                            <!-- Admin & Other Users: Full Settings Menu -->
                             <li>
                                 <a href="javascript: void(0);" class="has-arrow waves-effect">
                                     <i class="uil-setting"></i>
@@ -459,6 +490,7 @@
                                     {% endif %}
                                 </ul>
                             </li>
+                            {% endif %}
 
                         </ul>
                     </div>

@@ -1,0 +1,521 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+/* Product Card Styling */
+.product-box {
+    border: 1px solid #e9ecef;
+    border-radius: 0.375rem;
+    transition: all 0.3s ease;
+    height: 100%;
+}
+
+.product-box:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.product-img {
+    position: relative;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8f9fa;
+}
+
+.product-img img {
+    max-height: 180px;
+    object-fit: contain;
+}
+
+.product-content {
+    border-top: 1px solid #e9ecef;
+}
+
+.product-stock {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    border-radius: 0.25rem;
+}
+
+.stock-in {
+    background-color: #d1f2eb;
+    color: #0f5132;
+}
+
+.stock-out {
+    background-color: #f8d7da;
+    color: #842029;
+}
+
+.stock-backorder {
+    background-color: #fff3cd;
+    color: #664d03;
+}
+
+/* Floating Quote Summary */
+.quote-summary {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #556ee6;
+    color: white;
+    padding: 15px 20px;
+    border-radius: 50px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.quote-summary:hover {
+    background: #4c63d2;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.quote-summary .badge {
+    background: white;
+    color: #556ee6;
+    font-size: 0.9rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 50%;
+    min-width: 30px;
+}
+
+/* Tab Styling */
+.nav-tabs-custom .nav-link {
+    border: none;
+    color: #495057;
+    font-weight: 500;
+}
+
+.nav-tabs-custom .nav-link.active {
+    color: #556ee6;
+    border-bottom: 2px solid #556ee6;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #6c757d;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    color: #dee2e6;
+    margin-bottom: 1rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-content">
+    <div class="container-fluid" style="padding-top: 0;">
+
+        <!-- Search and Tabs Row -->
+        <div class="row" style="margin-top: -24px;">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <h5 class="mb-3 mb-md-0">Select Products for Quotation</h5>
+                            </div>
+                            <div class="col-md-6">
+                                <form method="get" action="{% url 'quotations:new-quotation' %}" class="float-md-end" id="searchForm">
+                                    <input type="hidden" name="tab" value="{{ active_tab }}">
+                                    <div class="input-group">
+                                        <input type="text"
+                                               name="search"
+                                               class="form-control bg-light border-light"
+                                               placeholder="Search products by name or SKU..."
+                                               value="{{ search_query }}"
+                                               id="searchInput"
+                                               autocomplete="off">
+                                        <button class="btn btn-primary" type="button" id="searchButton">
+                                            <i class="mdi mdi-{% if search_query %}close{% else %}magnify{% endif %}" id="searchIcon"></i>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Tabs -->
+                        <ul class="nav nav-tabs nav-tabs-custom mt-3 mb-0">
+                            <li class="nav-item">
+                                <a class="nav-link {% if active_tab == 'schools' %}active{% endif %}"
+                                   href="?tab=schools{% if search_query %}&search={{ search_query }}{% endif %}">
+                                    <i class="mdi mdi-school me-1"></i> Schools
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if active_tab == 'clubs' %}active{% endif %}"
+                                   href="?tab=clubs{% if search_query %}&search={{ search_query }}{% endif %}">
+                                    <i class="mdi mdi-soccer me-1"></i> Clubs
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Products Grid -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <!-- Schools Tab Content -->
+                        {% if active_tab == 'schools' %}
+                            {% if tus_products or wholesale_products %}
+                                <div class="row">
+                                    {% for product in tus_products %}
+                                    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+                                        <div class="product-box">
+                                            <div class="product-img pt-4 px-4">
+                                                {% if product.image_url %}
+                                                    <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-fluid mx-auto d-block">
+                                                {% else %}
+                                                    <img src="{% static 'assets/images/product-placeholder.png' %}" alt="{{ product.name }}" class="img-fluid mx-auto d-block">
+                                                {% endif %}
+                                            </div>
+
+                                            <div class="text-center product-content p-4">
+                                                <h5 class="mb-1">
+                                                    <a href="#" class="text-reset">{{ product.name }}</a>
+                                                </h5>
+                                                <p class="text-muted font-size-13 mb-2">
+                                                    {% if product.style_code %}{{ product.style_code }}{% else %}{{ product.sku }}{% endif %}
+                                                </p>
+
+                                                <p class="text-muted font-size-12 mb-2">
+                                                    {% if product.primary_category_assignment.school_category.school %}
+                                                        {{ product.primary_category_assignment.school_category.school.name }}
+                                                    {% endif %}
+                                                </p>
+
+                                                <h5 class="mt-2 mb-2">${{ product.price }}</h5>
+
+                                                <span class="product-stock {% if product.stock_status == 'instock' %}stock-in{% elif product.stock_status == 'outofstock' %}stock-out{% else %}stock-backorder{% endif %}">
+                                                    {{ product.get_stock_status_display }}
+                                                </span>
+
+                                                <div class="mt-3">
+                                                    <button type="button"
+                                                            class="btn btn-primary btn-sm w-100 add-to-quote-btn"
+                                                            data-product-type="tusproduct"
+                                                            data-product-id="{{ product.id }}"
+                                                            data-product-name="{{ product.name }}"
+                                                            data-product-price="{{ product.price }}">
+                                                        <i class="mdi mdi-cart-plus me-1"></i> Add to Quote
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+
+                                    {% for product in wholesale_products %}
+                                    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+                                        <div class="product-box">
+                                            <div class="product-img pt-4 px-4">
+                                                {% if product.image_url %}
+                                                    <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-fluid mx-auto d-block">
+                                                {% else %}
+                                                    <img src="{% static 'assets/images/product-placeholder.png' %}" alt="{{ product.name }}" class="img-fluid mx-auto d-block">
+                                                {% endif %}
+                                            </div>
+
+                                            <div class="text-center product-content p-4">
+                                                <h5 class="mb-1">
+                                                    <a href="#" class="text-reset">{{ product.name }}</a>
+                                                </h5>
+                                                <p class="text-muted font-size-13 mb-2">{{ product.cin7_sku }}</p>
+
+                                                <p class="text-muted font-size-12 mb-2">
+                                                    {{ product.school.name }}
+                                                </p>
+
+                                                <h5 class="mt-2 mb-2">${{ product.wholesale_price }}</h5>
+
+                                                <div class="mt-3">
+                                                    <button type="button"
+                                                            class="btn btn-primary btn-sm w-100 add-to-quote-btn"
+                                                            data-product-type="wholesaleproduct"
+                                                            data-product-id="{{ product.id }}"
+                                                            data-product-name="{{ product.name }}"
+                                                            data-product-price="{{ product.wholesale_price }}">
+                                                        <i class="mdi mdi-cart-plus me-1"></i> Add to Quote
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="empty-state">
+                                    <i class="mdi mdi-package-variant"></i>
+                                    <h4>No Products Found</h4>
+                                    <p>{% if search_query %}No products match your search query.{% else %}No products available for your assigned schools.{% endif %}</p>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+
+                        <!-- Clubs Tab Content -->
+                        {% if active_tab == 'clubs' %}
+                            {% if sas_products or lotto_products %}
+                                <div class="row">
+                                    {% for product in sas_products %}
+                                    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+                                        <div class="product-box">
+                                            <div class="product-img pt-4 px-4">
+                                                {% if product.image %}
+                                                    <img src="{{ product.image }}" alt="{{ product.name }}" class="img-fluid mx-auto d-block">
+                                                {% else %}
+                                                    <img src="{% static 'assets/images/product-placeholder.png' %}" alt="{{ product.name }}" class="img-fluid mx-auto d-block">
+                                                {% endif %}
+                                            </div>
+
+                                            <div class="text-center product-content p-4">
+                                                <h5 class="mb-1">
+                                                    <a href="#" class="text-reset">{{ product.name }}</a>
+                                                </h5>
+                                                <p class="text-muted font-size-13 mb-2">{{ product.sku }}</p>
+
+                                                <p class="text-muted font-size-12 mb-2">
+                                                    SAS - {{ product.club.name }}
+                                                </p>
+
+                                                <h5 class="mt-2 mb-2">${{ product.price }}</h5>
+
+                                                <div class="mt-3">
+                                                    <button type="button"
+                                                            class="btn btn-primary btn-sm w-100 add-to-quote-btn"
+                                                            data-product-type="sasproduct"
+                                                            data-product-id="{{ product.id }}"
+                                                            data-product-name="{{ product.name }}"
+                                                            data-product-price="{{ product.price }}">
+                                                        <i class="mdi mdi-cart-plus me-1"></i> Add to Quote
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+
+                                    {% for product in lotto_products %}
+                                    <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+                                        <div class="product-box">
+                                            <div class="product-img pt-4 px-4">
+                                                {% if product.image %}
+                                                    <img src="{{ product.image }}" alt="{{ product.name }}" class="img-fluid mx-auto d-block">
+                                                {% else %}
+                                                    <img src="{% static 'assets/images/product-placeholder.png' %}" alt="{{ product.name }}" class="img-fluid mx-auto d-block">
+                                                {% endif %}
+                                            </div>
+
+                                            <div class="text-center product-content p-4">
+                                                <h5 class="mb-1">
+                                                    <a href="#" class="text-reset">{{ product.name }}</a>
+                                                </h5>
+                                                <p class="text-muted font-size-13 mb-2">{{ product.sku }}</p>
+
+                                                <p class="text-muted font-size-12 mb-2">
+                                                    LOTTO - {{ product.category.club.name }}
+                                                </p>
+
+                                                <h5 class="mt-2 mb-2">${{ product.price }}</h5>
+
+                                                <div class="mt-3">
+                                                    <button type="button"
+                                                            class="btn btn-primary btn-sm w-100 add-to-quote-btn"
+                                                            data-product-type="lottoproduct"
+                                                            data-product-id="{{ product.id }}"
+                                                            data-product-name="{{ product.name }}"
+                                                            data-product-price="{{ product.price }}">
+                                                        <i class="mdi mdi-cart-plus me-1"></i> Add to Quote
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="empty-state">
+                                    <i class="mdi mdi-soccer"></i>
+                                    <h4>No Products Found</h4>
+                                    <p>{% if search_query %}No products match your search query.{% else %}No products available for your assigned clubs.{% endif %}</p>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Floating Quote Summary -->
+{% if quotation_item_count > 0 %}
+<div class="quote-summary" onclick="window.location.href='{% url 'quotations:cart' %}'">
+    <div class="d-flex align-items-center">
+        <div class="me-3">
+            <span class="badge">{{ quotation_item_count }}</span>
+        </div>
+        <div>
+            <div class="fw-bold">View Quote</div>
+            <div class="font-size-12">${{ quotation_total }}</div>
+        </div>
+        <div class="ms-3">
+            <i class="mdi mdi-chevron-right font-size-20"></i>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// CSRF Token Setup
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+const csrftoken = getCookie('csrftoken');
+
+// Add to Quote functionality
+document.querySelectorAll('.add-to-quote-btn').forEach(button => {
+    button.addEventListener('click', function() {
+        const productType = this.dataset.productType;
+        const productId = this.dataset.productId;
+        const productName = this.dataset.productName;
+        const productPrice = this.dataset.productPrice;
+
+        // Disable button during request
+        this.disabled = true;
+        const originalText = this.innerHTML;
+        this.innerHTML = '<i class="mdi mdi-loading mdi-spin me-1"></i> Adding...';
+
+        // Send AJAX request
+        fetch('{% url "quotations:add-item" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': csrftoken
+            },
+            body: `product_type=${productType}&product_id=${productId}&quantity=1`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                this.innerHTML = '<i class="mdi mdi-check me-1"></i> Added!';
+                this.classList.remove('btn-primary');
+                this.classList.add('btn-success');
+
+                // Reset button after 2 seconds
+                setTimeout(() => {
+                    this.innerHTML = originalText;
+                    this.classList.remove('btn-success');
+                    this.classList.add('btn-primary');
+                    this.disabled = false;
+                }, 2000);
+
+                // Reload page to update quote summary
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                alert('Error adding product: ' + (data.error || 'Unknown error'));
+                this.innerHTML = originalText;
+                this.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error adding product to quotation');
+            this.innerHTML = originalText;
+            this.disabled = false;
+        });
+    });
+});
+
+// Live search functionality - search as you type
+const searchInput = document.getElementById('searchInput');
+const searchForm = document.getElementById('searchForm');
+const searchButton = document.getElementById('searchButton');
+const searchIcon = document.getElementById('searchIcon');
+let searchTimeout;
+
+// Toggle search icon based on input value
+function updateSearchIcon() {
+    if (searchInput.value.trim().length > 0) {
+        searchIcon.className = 'mdi mdi-close';
+    } else {
+        searchIcon.className = 'mdi mdi-magnify';
+    }
+}
+
+if (searchInput && searchButton) {
+    // Update icon on input
+    searchInput.addEventListener('input', function() {
+        updateSearchIcon();
+
+        // Clear previous timeout
+        clearTimeout(searchTimeout);
+
+        // Set new timeout to submit form after 500ms of no typing
+        searchTimeout = setTimeout(function() {
+            if (searchInput.value.trim().length > 0) {
+                searchForm.submit();
+            }
+        }, 500);
+    });
+
+    // Handle search button click
+    searchButton.addEventListener('click', function() {
+        if (searchInput.value.trim().length > 0) {
+            // Clear search
+            searchInput.value = '';
+            updateSearchIcon();
+            // Redirect to page without search query
+            window.location.href = '?tab={{ active_tab }}';
+        } else {
+            // Submit search
+            searchForm.submit();
+        }
+    });
+
+    // Also submit on Enter key
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            clearTimeout(searchTimeout);
+            if (searchInput.value.trim().length > 0) {
+                searchForm.submit();
+            }
+        }
+    });
+
+    // Initialize icon on page load
+    updateSearchIcon();
+}
+</script>
+{% endblock %}
