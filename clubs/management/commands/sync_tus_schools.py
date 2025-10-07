@@ -21,6 +21,11 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
+            '--job-id',
+            type=str,
+            help='UUID of existing SyncJob to use (passed from view)',
+        )
+        parser.add_argument(
             '--dry-run',
             action='store_true',
             help='Preview changes without saving to database',
@@ -82,8 +87,22 @@ class Command(BaseCommand):
             self.analyze_category_structure()
             return
 
-        # Create sync job
-        if not self.dry_run:
+        # Use existing sync job if provided (from view), otherwise create new one
+        job_id = options.get('job_id')
+        if job_id and not self.dry_run:
+            try:
+                self.sync_job = SyncJob.objects.get(id=job_id)
+                logger.info(f"Using existing sync job {job_id}")
+            except SyncJob.DoesNotExist:
+                logger.warning(f"Sync job {job_id} not found, creating new one")
+                self.sync_job = SyncJob.objects.create(
+                    sync_type='tus',
+                    status='pending',
+                    current_step='Initializing sync'
+                )
+                self.sync_job.start()
+        elif not self.dry_run:
+            # Create new job only if running standalone (no job_id provided)
             self.sync_job = SyncJob.objects.create(
                 sync_type='tus',
                 status='pending',
@@ -140,8 +159,8 @@ class Command(BaseCommand):
                 self.stdout.write(f"  - {school['name']} (ID: {school['id']}, Products: {school['count']})")
 
     def run_sync(self):
-        """Run the main sync process"""
-        self.stdout.write("Starting TUS schools sync...")
+        """Run the main sync process with Phase 1 optimizations"""
+        self.stdout.write("Starting TUS schools sync with bulk operations...")
 
         # Statistics
         self.stats = {
@@ -153,13 +172,68 @@ class Command(BaseCommand):
             'variations': {'created': 0, 'updated': 0, 'skipped': 0},
         }
 
+        # PHASE 1: PRE-LOAD EXISTING DATA FOR FAST LOOKUPS
+        self.stdout.write("Pre-loading existing data for optimization...")
+
+        # Pre-load all existing products by WooCommerce ID
+        self.existing_products = {
+            p.woo_product_id: p
+            for p in TUSProduct.objects.all()
+        }
+        self.stdout.write(f"Loaded {len(self.existing_products)} existing products")
+
+        # Pre-load all existing variations
+        # Key must match the database unique constraint: (product_id, variation_type, variation_value)
+        self.existing_variations = {}
+        for v in TUSProductVariation.objects.select_related('product').all():
+            key = (v.product.woo_product_id, v.variation_type, v.variation_value)
+            self.existing_variations[key] = v
+        self.stdout.write(f"Loaded {len(self.existing_variations)} existing variations")
+
+        # Pre-load existing SKUs for fast duplicate checking
+        self.existing_skus = set(
+            TUSProduct.objects.exclude(sku='').exclude(sku__isnull=True)
+            .values_list('sku', flat=True)
+        )
+        self.stdout.write(f"Loaded {len(self.existing_skus)} existing SKUs")
+
+        # Initialize batches for bulk operations
+        self.products_to_create = []
+        self.products_to_update = []
+        self.variations_to_create = []
+        self.variations_to_update = []
+        self.assignments_to_create = []
+
+        # Track products being created in this batch (by woo_product_id)
+        self.products_being_created = {}
+
         # Get all categories
         all_categories = self.woo_service.get_all_categories()
         category_map = {cat['id']: cat for cat in all_categories}
 
-        # Process categories hierarchically
-        self.process_locations(all_categories, category_map)
-        self.process_general_categories(all_categories, category_map)
+        # Wrap in transaction
+        try:
+            with transaction.atomic():
+                # Process categories hierarchically
+                self.process_locations(all_categories, category_map)
+                self.process_general_categories(all_categories, category_map)
+
+                # FINAL BATCH SAVE - Save any remaining items
+                self.stdout.write("\nSaving final batch...")
+                self.save_batches(force=True)
+
+                # Update product counts for all categories
+                self.stdout.write("Updating category product counts...")
+                self.update_all_category_counts()
+
+                # Rollback if dry run
+                if self.dry_run:
+                    self.stdout.write(self.style.WARNING("DRY RUN - Rolling back transaction"))
+                    transaction.set_rollback(True)
+
+        except Exception as e:
+            logger.error(f"Sync failed: {e}", exc_info=True)
+            raise
 
         # Display statistics
         self.display_statistics()
@@ -325,13 +399,37 @@ class Command(BaseCommand):
             return 'Secondary'  # Default to secondary
 
     def process_school_categories(self, school: TUSSchool, categories: List[Dict], category_map: Dict):
-        """Process categories under a school"""
+        """Process categories under a school with parallel product fetching"""
+
+        # Collect all category IDs for this school
+        school_category_ids = []
+        school_categories_map = {}
+
         for category in categories:
             if category['parent'] == school.woo_category_id:
                 school_category = self.process_school_category(category, school)
                 if school_category:
-                    # Process products in this category
-                    self.process_products_for_category(school_category, is_school_category=True)
+                    school_category_ids.append(category['id'])
+                    school_categories_map[category['id']] = school_category
+
+        # Fetch products for all categories in parallel
+        if school_category_ids:
+            self.stdout.write(f"Fetching products for {len(school_category_ids)} categories in parallel...")
+            products_by_category = self.woo_service.get_products_by_categories_parallel(
+                school_category_ids,
+                max_workers=5
+            )
+
+            # Process products for each category
+            for cat_id, products in products_by_category.items():
+                school_category = school_categories_map[cat_id]
+                self.stdout.write(f"Processing {len(products)} products for {school_category.name}")
+
+                for product_data in products:
+                    self.process_product(product_data, school_category, is_school_category=True)
+
+                # Save batch after each category
+                self.save_batches(force=False)
 
     def process_products_directly_in_school(self, school: TUSSchool, school_category_data: Dict):
         """
@@ -497,122 +595,116 @@ class Command(BaseCommand):
                 self.process_general_category(category, parent=parent)
 
     def process_products_for_category(self, category, is_school_category: bool):
-        """Process products in a category"""
+        """Process products in a category with batch operations"""
         try:
             woo_category_id = category.woo_category_id
             products = self.woo_service.get_products_by_category(woo_category_id)
 
+            self.stdout.write(f"Processing {len(products)} products for category {category.name}")
+
             for product_data in products:
                 self.process_product(product_data, category, is_school_category)
+
+            # Save batch after each category
+            self.save_batches(force=False)  # Will save if batch size reached
 
         except Exception as e:
             logger.error(f"Error processing products for category {category.name}: {e}")
 
     def process_product(self, product_data: Dict, category, is_school_category: bool) -> Optional[TUSProduct]:
-        """Process a single product"""
+        """Process a single product - prepare for batch save"""
         try:
             if self.dry_run:
                 self.stdout.write(f"[DRY RUN] Would process product: {product_data['name']}")
                 return None
 
-            with transaction.atomic():
-                # Parse prices
-                price = self.woo_service.parse_price(product_data.get('price', '0'))
-                regular_price = self.woo_service.parse_price(product_data.get('regular_price'))
-                sale_price = self.woo_service.parse_price(product_data.get('sale_price'))
+            woo_product_id = product_data['id']
 
-                # Validate stock quantity to prevent database errors
-                stock_quantity = product_data.get('stock_quantity')
+            # Parse prices
+            price = self.woo_service.parse_price(product_data.get('price', '0'))
+            regular_price = self.woo_service.parse_price(product_data.get('regular_price'))
+            sale_price = self.woo_service.parse_price(product_data.get('sale_price'))
+
+            # Validate stock quantity to prevent database errors
+            stock_quantity = product_data.get('stock_quantity')
+            if stock_quantity is not None:
+                if isinstance(stock_quantity, str):
+                    try:
+                        stock_quantity = int(stock_quantity)
+                    except (ValueError, TypeError):
+                        stock_quantity = None
+                # Ensure stock quantity is within valid range
                 if stock_quantity is not None:
-                    if isinstance(stock_quantity, str):
-                        try:
-                            stock_quantity = int(stock_quantity)
-                        except (ValueError, TypeError):
-                            stock_quantity = None
-                    # Ensure stock quantity is within valid range
-                    if stock_quantity is not None:
-                        if stock_quantity < 0:
-                            stock_quantity = 0
-                        elif stock_quantity > 2147483647:
-                            stock_quantity = 2147483647
+                    if stock_quantity < 0:
+                        stock_quantity = 0
+                    elif stock_quantity > 2147483647:
+                        stock_quantity = 2147483647
 
-                defaults = {
-                    'name': product_data['name'],
-                    'type': product_data.get('type', 'simple'),
-                    'featured': product_data.get('featured', False),
-                    'price': price,
-                    'regular_price': regular_price,
-                    'sale_price': sale_price,
-                    'on_sale': product_data.get('on_sale', False),
-                    'description': product_data.get('description', ''),
-                    'short_description': product_data.get('short_description', ''),
-                    'sku': product_data.get('sku', ''),
-                    'stock_status': product_data.get('stock_status', 'instock'),
-                    'manage_stock': product_data.get('manage_stock', False),
-                    'stock_quantity': stock_quantity,
-                    'weight': product_data.get('weight', ''),
-                    'dimensions': product_data.get('dimensions'),
-                    'image_url': product_data['images'][0]['src'] if product_data.get('images') else '',
-                    'gallery_urls': [img['src'] for img in product_data.get('images', [])[1:]],
-                    'tags': product_data.get('tags', []),
-                    'attributes': product_data.get('attributes', []),
-                    'woo_categories': product_data.get('categories', []),
-                    'meta_data': product_data.get('meta_data', []),
-                }
+            # Prepare product data
+            product_defaults = {
+                'name': product_data['name'],
+                'slug': product_data.get('slug', ''),
+                'type': product_data.get('type', 'simple'),
+                'featured': product_data.get('featured', False),
+                'price': price,
+                'regular_price': regular_price,
+                'sale_price': sale_price,
+                'on_sale': product_data.get('on_sale', False),
+                'description': product_data.get('description', ''),
+                'short_description': product_data.get('short_description', ''),
+                'sku': product_data.get('sku', ''),
+                'stock_status': product_data.get('stock_status', 'instock'),
+                'manage_stock': product_data.get('manage_stock', False),
+                'stock_quantity': stock_quantity,
+                'weight': product_data.get('weight', ''),
+                'dimensions': product_data.get('dimensions'),
+                'image_url': product_data['images'][0]['src'] if product_data.get('images') else '',
+                'gallery_urls': [img['src'] for img in product_data.get('images', [])[1:]],
+                'tags': product_data.get('tags', []),
+                'attributes': product_data.get('attributes', []),
+                'woo_categories': product_data.get('categories', []),
+                'meta_data': product_data.get('meta_data', []),
+            }
 
-                product, created = TUSProduct.objects.update_or_create(
-                    woo_product_id=product_data['id'],
-                    defaults=defaults
-                )
+            # Check if product exists in database (pre-loaded) or already queued for creation
+            existing_product = self.existing_products.get(woo_product_id)
+            queued_product = self.products_being_created.get(woo_product_id)
 
-                # Create or update category assignment
-                if is_school_category:
-                    # Check if product already has a primary school category assignment
-                    existing_primary = TUSProductCategoryAssignment.objects.filter(
-                        product=product,
-                        school_category__isnull=False,
-                        is_primary=True
-                    ).first()
-
-                    assignment, assignment_created = TUSProductCategoryAssignment.objects.update_or_create(
-                        product=product,
-                        school_category=category,
-                        defaults={
-                            'woo_category_id': category.woo_category_id,
-                            'is_primary': existing_primary is None,  # Only set as primary if no other primary exists
-                        }
-                    )
-                else:
-                    # Check if product already has a primary general category assignment
-                    existing_primary = TUSProductCategoryAssignment.objects.filter(
-                        product=product,
-                        general_category__isnull=False,
-                        is_primary=True
-                    ).first()
-
-                    assignment, assignment_created = TUSProductCategoryAssignment.objects.update_or_create(
-                        product=product,
-                        general_category=category,
-                        defaults={
-                            'woo_category_id': category.woo_category_id,
-                            'is_primary': existing_primary is None,
-                        }
-                    )
-
-                if created:
-                    self.stats['products']['created'] += 1
-                    logger.debug(f"Created product: {product.name}")
-                else:
+            if existing_product and existing_product.pk:
+                # Update existing product (has PK from database)
+                product = existing_product
+                for field, value in product_defaults.items():
+                    setattr(product, field, value)
+                if product not in self.products_to_update:
+                    self.products_to_update.append(product)
                     self.stats['products']['updated'] += 1
+            elif queued_product:
+                # Product already queued for creation, reuse it
+                product = queued_product
+            else:
+                # Create new product
+                product = TUSProduct(
+                    woo_product_id=woo_product_id,
+                    **product_defaults
+                )
+                self.products_to_create.append(product)
+                self.products_being_created[woo_product_id] = product
+                self.stats['products']['created'] += 1
 
-                # Process variations if it's a variable product
-                if product_data.get('type') == 'variable':
-                    self.process_product_variations(product, product_data['id'])
+            # Prepare category assignment (will be processed in batch)
+            self.assignments_to_create.append({
+                'product': product,
+                'category': category,
+                'is_school_category': is_school_category
+            })
 
-                return product
+            # Note: Variations will be processed in parallel batch later
+            # No longer processing variations individually here
+
+            return product
 
         except Exception as e:
-            logger.error(f"Error processing product {product_data['name']}: {e}")
+            logger.error(f"Error processing product {product_data.get('name', 'Unknown')}: {e}")
             self.stats['products']['skipped'] += 1
             return None
 
@@ -742,6 +834,308 @@ class Command(BaseCommand):
         variation_value = ' - '.join(variation_parts) if variation_parts else 'Standard'
 
         return main_type, variation_value
+
+    def process_product_variations_batch(self, product: TUSProduct, woo_product_id: int):
+        """Process variations for a product - prepare for batch save (sequential)"""
+        try:
+            variations_data = self.woo_service.get_product_variations(woo_product_id)
+
+            for var_data in variations_data:
+                woo_variation_id = var_data['id']
+                variation_sku = var_data.get('sku', '')
+
+                # Prepare variation data
+                variation_defaults = {
+                    'sku': variation_sku,
+                    'price': self.woo_service.parse_price(var_data.get('price', '0')),
+                    'regular_price': self.woo_service.parse_price(var_data.get('regular_price', '0')),
+                    'sale_price': self.woo_service.parse_price(var_data.get('sale_price', '')),
+                    'stock_status': var_data.get('stock_status', 'instock'),
+                    'stock_quantity': var_data.get('stock_quantity', 0),
+                }
+
+                # Extract variation attributes
+                attributes = var_data.get('attributes', [])
+                if attributes:
+                    variation_defaults['variation_type'] = attributes[0].get('name', '')
+                    variation_defaults['variation_value'] = attributes[0].get('option', '')
+
+                # Check if variation exists using the same key as the database unique constraint
+                key = (woo_product_id, variation_defaults.get('variation_type', ''), variation_defaults.get('variation_value', ''))
+                existing_variation = self.existing_variations.get(key)
+
+                if existing_variation and existing_variation.pk:
+                    # Update existing variation (has PK from database)
+                    variation = existing_variation
+                    for field, value in variation_defaults.items():
+                        setattr(variation, field, value)
+                    if variation not in self.variations_to_update:
+                        self.variations_to_update.append(variation)
+                        self.stats['variations']['updated'] += 1
+                elif existing_variation:
+                    # Variation already queued for creation, skip it
+                    continue
+                else:
+                    # Create new variation
+                    variation = TUSProductVariation(
+                        product=product,
+                        woo_variation_id=woo_variation_id,
+                        **variation_defaults
+                    )
+                    self.variations_to_create.append(variation)
+                    self.existing_variations[key] = variation
+                    self.stats['variations']['created'] += 1
+
+        except Exception as e:
+            logger.error(f"Error processing variations for product {woo_product_id}: {str(e)}")
+
+    def batch_process_all_variations(self):
+        """Process variations for all variable products in parallel"""
+
+        # Collect all variable products that need variation fetching
+        variable_product_ids = [
+            p.woo_product_id for p in (self.products_to_create + self.products_to_update)
+            if p.type == 'variable'
+        ]
+
+        if not variable_product_ids:
+            return
+
+        self.stdout.write(f"Fetching variations for {len(variable_product_ids)} variable products in parallel...")
+
+        # Fetch all variations in parallel
+        variations_by_product = self.woo_service.get_variations_parallel(
+            variable_product_ids,
+            max_workers=5
+        )
+
+        # Process variations
+        for woo_product_id, variations_data in variations_by_product.items():
+            product = self.existing_products.get(woo_product_id)
+            if not product:
+                continue
+
+            for var_data in variations_data:
+                woo_variation_id = var_data['id']
+                variation_sku = var_data.get('sku', '')
+
+                # Validate stock quantity to prevent database errors
+                stock_quantity = var_data.get('stock_quantity', 0)
+
+                # Handle None values
+                if stock_quantity is None:
+                    stock_quantity = 0
+                elif isinstance(stock_quantity, str):
+                    try:
+                        stock_quantity = int(stock_quantity)
+                    except (ValueError, TypeError):
+                        stock_quantity = 0
+
+                # Ensure stock quantity is within valid range (0 to 2147483647 for MySQL INT)
+                if stock_quantity < 0:
+                    stock_quantity = 0
+                elif stock_quantity > 2147483647:
+                    stock_quantity = 2147483647
+
+                # Prepare variation data (same logic as before)
+                variation_defaults = {
+                    'sku': variation_sku,
+                    'price': self.woo_service.parse_price(var_data.get('price', '0')),
+                    'regular_price': self.woo_service.parse_price(var_data.get('regular_price', '0')),
+                    'sale_price': self.woo_service.parse_price(var_data.get('sale_price', '')),
+                    'stock_status': var_data.get('stock_status', 'instock'),
+                    'stock_quantity': stock_quantity,
+                    'weight': var_data.get('weight', ''),
+                    'dimensions': var_data.get('dimensions'),
+                    'image_url': var_data.get('image', {}).get('src', '') if var_data.get('image') else '',
+                    'menu_order': var_data.get('menu_order', 0),
+                }
+
+                # Extract variation attributes
+                attributes = var_data.get('attributes', [])
+                if attributes:
+                    # Store full attributes JSON for frontend access
+                    variation_defaults['attributes'] = attributes
+                    # Also store first attribute for backward compatibility
+                    variation_defaults['variation_type'] = attributes[0].get('name', '')
+                    variation_defaults['variation_value'] = attributes[0].get('option', '')
+
+                # Check if variation exists using the same key as the database unique constraint
+                key = (woo_product_id, variation_defaults.get('variation_type', ''), variation_defaults.get('variation_value', ''))
+                existing_variation = self.existing_variations.get(key)
+
+                if existing_variation and existing_variation.pk:
+                    # Update existing variation (has PK from database)
+                    variation = existing_variation
+                    for field, value in variation_defaults.items():
+                        setattr(variation, field, value)
+                    if variation not in self.variations_to_update:
+                        self.variations_to_update.append(variation)
+                        self.stats['variations']['updated'] += 1
+                elif existing_variation:
+                    # Variation already queued for creation, skip it
+                    continue
+                else:
+                    # Create new variation
+                    variation = TUSProductVariation(
+                        product=product,
+                        woo_variation_id=woo_variation_id,
+                        **variation_defaults
+                    )
+                    self.variations_to_create.append(variation)
+                    self.existing_variations[key] = variation
+                    self.stats['variations']['created'] += 1
+
+        self.stdout.write(f"✓ Processed {len(variations_by_product)} product variations")
+
+    def save_batches(self, force=False):
+        """Save accumulated batches to database"""
+        batch_size = 500
+
+        # Only save if we have enough items or force is True
+        total_items = (len(self.products_to_create) + len(self.products_to_update) +
+                       len(self.variations_to_create) + len(self.variations_to_update))
+
+        if not force and total_items < batch_size:
+            return
+
+        self.stdout.write(f"Saving batch: {len(self.products_to_create)} new products, "
+                        f"{len(self.products_to_update)} updates, "
+                        f"{len(self.variations_to_create)} new variations, "
+                        f"{len(self.variations_to_update)} variation updates")
+
+        # Bulk create new products
+        if self.products_to_create:
+            # Bulk create with PKs returned (Django 4.2+ supports this)
+            created_products = TUSProduct.objects.bulk_create(
+                self.products_to_create,
+                batch_size=batch_size
+            )
+            self.stdout.write(f"✓ Created {len(created_products)} products")
+
+            # Refresh products from DB to get their PKs
+            woo_ids = [p.woo_product_id for p in created_products]
+            refreshed_products = {
+                p.woo_product_id: p
+                for p in TUSProduct.objects.filter(woo_product_id__in=woo_ids)
+            }
+
+            # Update existing_products with refreshed versions that have PKs
+            self.existing_products.update(refreshed_products)
+
+            # Update product references in assignments to use refreshed products with PKs
+            for assignment in self.assignments_to_create:
+                woo_id = assignment['product'].woo_product_id
+                if woo_id in refreshed_products:
+                    assignment['product'] = refreshed_products[woo_id]
+
+        # Bulk update existing products
+        if self.products_to_update:
+            TUSProduct.objects.bulk_update(
+                self.products_to_update,
+                fields=['name', 'slug', 'type', 'featured', 'price', 'regular_price', 'sale_price',
+                        'on_sale', 'description', 'short_description', 'sku', 'stock_status',
+                        'manage_stock', 'stock_quantity', 'weight', 'dimensions', 'image_url',
+                        'gallery_urls', 'tags', 'attributes', 'woo_categories', 'meta_data'],
+                batch_size=batch_size
+            )
+            self.stdout.write(f"✓ Updated {len(self.products_to_update)} products")
+
+        # Process variations for both created and updated products
+        # IMPORTANT: Process variations for ALL batches, not just force=True
+        # to ensure all variable products get their variations synced
+        if self.products_to_create or self.products_to_update:
+            self.batch_process_all_variations()
+
+        # NOW clear the lists after variation processing
+        if self.products_to_create:
+            self.products_to_create = []
+            self.products_being_created = {}
+
+        if self.products_to_update:
+            self.products_to_update = []
+
+        # Bulk create variations
+        if self.variations_to_create:
+            TUSProductVariation.objects.bulk_create(self.variations_to_create, batch_size=batch_size)
+            self.stdout.write(f"✓ Created {len(self.variations_to_create)} variations")
+            self.variations_to_create = []
+
+        # Bulk update variations
+        if self.variations_to_update:
+            TUSProductVariation.objects.bulk_update(
+                self.variations_to_update,
+                fields=['sku', 'price', 'regular_price', 'sale_price', 'stock_status',
+                        'stock_quantity', 'variation_type', 'variation_value', 'attributes',
+                        'weight', 'dimensions', 'image_url', 'menu_order'],
+                batch_size=batch_size
+            )
+            self.stdout.write(f"✓ Updated {len(self.variations_to_update)} variations")
+            self.variations_to_update = []
+
+        # Process category assignments
+        if self.assignments_to_create:
+            self.batch_create_assignments()
+
+    def batch_create_assignments(self):
+        """Batch create category assignments"""
+        for assignment_data in self.assignments_to_create:
+            product = assignment_data['product']
+            category = assignment_data['category']
+            is_school_category = assignment_data['is_school_category']
+
+            try:
+                # Create or update category assignment
+                if is_school_category:
+                    # Check if product already has a primary school category assignment
+                    existing_primary = TUSProductCategoryAssignment.objects.filter(
+                        product=product,
+                        school_category__isnull=False,
+                        is_primary=True
+                    ).first()
+
+                    TUSProductCategoryAssignment.objects.update_or_create(
+                        product=product,
+                        school_category=category,
+                        defaults={
+                            'woo_category_id': category.woo_category_id,
+                            'is_primary': existing_primary is None,
+                        }
+                    )
+                else:
+                    # Check if product already has a primary general category assignment
+                    existing_primary = TUSProductCategoryAssignment.objects.filter(
+                        product=product,
+                        general_category__isnull=False,
+                        is_primary=True
+                    ).first()
+
+                    TUSProductCategoryAssignment.objects.update_or_create(
+                        product=product,
+                        general_category=category,
+                        defaults={
+                            'woo_category_id': category.woo_category_id,
+                            'is_primary': existing_primary is None,
+                        }
+                    )
+            except Exception as e:
+                logger.error(f"Error creating assignment for product {product.name}: {e}")
+
+        self.assignments_to_create = []
+
+    def update_all_category_counts(self):
+        """Update product counts for all categories at once"""
+        from django.db.models import Count
+
+        # Update school categories
+        for category in TUSSchoolCategory.objects.all():
+            category.update_product_count()
+
+        # Update general categories
+        for category in TUSGeneralCategory.objects.all():
+            category.update_product_count()
+
+        self.stdout.write("✓ Category counts updated")
 
     def display_statistics(self):
         """Display sync statistics"""

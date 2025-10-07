@@ -205,7 +205,10 @@
                         <button id="export-preview-btn" class="btn btn-sm btn-outline-primary">
                             <i class="uil-export me-1"></i>Export Preview
                         </button>
-                        <button id="apply-changes-btn" class="btn btn-sm btn-success">
+                        <button id="apply-changes-btn" class="btn btn-sm btn-success"
+                                data-bs-toggle="tooltip"
+                                data-bs-placement="top"
+                                title="Automatically applies updates to all valid items">
                             <i class="uil-check me-1"></i>Apply Changes
                         </button>
                         <button id="reject-changes-btn" class="btn btn-sm btn-outline-danger">
@@ -240,7 +243,20 @@
                                 </div>
                                 <div class="text-start">
                                     <h5 class="mb-0 text-warning" id="preview-warning-count">0</h5>
-                                    <small class="text-muted">Warnings</small>
+                                    <small class="text-muted">Above 75% Margin</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center justify-content-center">
+                                <div class="avatar-xs me-2">
+                                    <span class="avatar-title bg-soft-info text-info rounded-circle">
+                                        <i class="uil-info-circle"></i>
+                                    </span>
+                                </div>
+                                <div class="text-start">
+                                    <h5 class="mb-0 text-info" id="preview-no-cost-count">0</h5>
+                                    <small class="text-muted">No Cost Data</small>
                                 </div>
                             </div>
                         </div>
@@ -294,12 +310,10 @@
                                     </div>
                                 </th>
                                 <th class="border-0 fw-semibold text-dark">Status</th>
-                                <th class="border-0 fw-semibold text-dark">School</th>
                                 <th class="border-0 fw-semibold text-dark">Product</th>
                                 <th class="border-0 fw-semibold text-dark">Cost</th>
-                                <th class="border-0 fw-semibold text-dark">Current Retail NZD Incl</th>
                                 <th class="border-0 fw-semibold text-dark">75% Margin Price</th>
-                                <th class="border-0 fw-semibold text-dark">RRP</th>
+                                <th class="border-0 fw-semibold text-dark">Current Retail NZD Incl</th>
                                 <th class="border-0 fw-semibold text-dark">Discount</th>
                                 <th class="border-0 fw-semibold text-dark">Notes</th>
                             </tr>
@@ -1299,7 +1313,8 @@ function processSelectedFiles() {
     console.log('[DEBUG] Update mode:', updateMode);
 
     if (updateMode === 'preview') {
-        console.log('[DEBUG] Starting preview processing...');
+        console.log('[DEBUG] ⭐⭐⭐ Starting preview processing...');
+        console.log('[DEBUG] ⭐⭐⭐ About to call processFilesForPreview with', files.length, 'files');
         processFilesForPreview(files);
     } else {
         console.log('[DEBUG] Starting immediate update processing...');
@@ -1342,17 +1357,23 @@ function validateFile(file) {
 
 
 function processFilesForPreview(files) {
+    console.log('[DEBUG] ==================== processFilesForPreview STARTED ====================');
     console.log('[DEBUG] processFilesForPreview called with', files.length, 'files');
 
     try {
         addLogEntry('Starting preview mode - analyzing price changes...', 'info');
+        console.log('[DEBUG] 📊 Calling showProgressSection()...');
         showProgressSection();
+        console.log('[DEBUG] ✓ showProgressSection() completed');
 
         // Use the actual API to process files for preview
         const totalFiles = files.length;
         let processedFiles = 0;
         let allPreviewData = [];
+        let currentCategoryFilter = null; // Store category from preview response
         let isProcessing = false; // Flag to prevent infinite loops
+        let totalRecordsProcessed = 0;
+        let totalRecordsExpected = 0;
 
         const processFile = (file, index) => {
             console.log(`[DEBUG] Processing file ${index + 1}/${totalFiles}:`, file.name);
@@ -1365,7 +1386,15 @@ function processFilesForPreview(files) {
             isProcessing = true;
 
             try {
-                updateProgress(processedFiles, totalFiles, `Processing ${file.name}...`);
+                // Update progress BEFORE processing (show current file number, not completed count)
+                console.log('[DEBUG] ⭐ ABOUT TO CALL updateProgress with:', {
+                    currentFile: processedFiles + 1,
+                    totalFiles: totalFiles,
+                    currentRecord: totalRecordsProcessed,
+                    totalRecords: totalRecordsExpected,
+                    message: `Processing ${file.name}...`
+                });
+                updateProgress(processedFiles + 1, totalFiles, totalRecordsProcessed, totalRecordsExpected, `Processing ${file.name}...`);
 
                 // Create FormData for the API call
                 const formData = new FormData();
@@ -1381,6 +1410,15 @@ function processFilesForPreview(files) {
 
                 // Call the preview API
                 console.log('[DEBUG] Making API call to /schools/wholesale/api/price-preview/');
+                console.log('[DEBUG] ⏳ File size:', file.size, 'bytes - this may take a while...');
+                const startTime = Date.now();
+
+                // Add timeout warning
+                const timeoutWarning = setTimeout(() => {
+                    console.warn('[DEBUG] ⚠️ API call is taking longer than 30 seconds...');
+                    addLogEntry('Processing large file - this may take several minutes...', 'warning');
+                }, 30000);
+
                 fetch('/schools/wholesale/api/price-preview/', {
                     method: 'POST',
                     headers: {
@@ -1389,20 +1427,53 @@ function processFilesForPreview(files) {
                     body: formData
                 })
                 .then(response => {
-                    console.log('[DEBUG] API response received, status:', response.status);
+                    clearTimeout(timeoutWarning);
+                    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+                    console.log('[DEBUG] ✅ API response received in', duration, 'seconds, status:', response.status);
+
+                    // For error responses, try to parse JSON to get detailed error
                     if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        return response.json().then(errorData => {
+                            console.error('[ERROR] Detailed error response:', errorData);
+                            if (errorData.traceback) {
+                                console.error('[ERROR] Traceback:', errorData.traceback);
+                            }
+                            if (errorData.context) {
+                                console.error('[ERROR] Context:', errorData.context);
+                            }
+                            if (errorData.row_number) {
+                                console.error('[ERROR] Failed at row:', errorData.row_number);
+                            }
+                            throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
+                        }).catch(jsonError => {
+                            // If JSON parsing fails, throw original error
+                            if (jsonError.message.startsWith('HTTP')) {
+                                throw jsonError;
+                            }
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        });
                     }
                     return response.json();
                 })
                 .then(data => {
                     console.log('[DEBUG] API response data:', data);
+                    console.log('[DEBUG] Preview data items:', data.preview_data?.length || 0);
                     processedFiles++;
                     isProcessing = false;
 
                     if (data.success) {
-                        console.log(`[DEBUG] Successfully processed ${file.name}, items:`, data.preview_data?.length || 0);
-                        addLogEntry(`Processed ${file.name} for preview - ${data.preview_data?.length || 0} items found`, 'success');
+                        const recordsInFile = data.preview_data?.length || 0;
+                        const totalRows = data.summary?.total_rows || 0;
+                        const unmatchedRows = data.summary?.invalid_products || 0;
+
+                        console.log(`[DEBUG] Successfully processed ${file.name}, matched: ${recordsInFile}, unmatched: ${unmatchedRows}, total: ${totalRows}`);
+                        addLogEntry(`Processed ${file.name}: ${recordsInFile} matched, ${unmatchedRows} unmatched (${totalRows} total rows)`, 'success');
+
+                        // Store category filter from preview response
+                        if (data.category_filter) {
+                            currentCategoryFilter = data.category_filter;
+                            console.log('[DEBUG] Stored category filter from preview:', currentCategoryFilter);
+                        }
 
                         // Store preview data for this file
                         if (data.preview_data && Array.isArray(data.preview_data)) {
@@ -1411,7 +1482,13 @@ function processFilesForPreview(files) {
                                 filename: file.name
                             }));
                             allPreviewData = allPreviewData.concat(fileData);
+                            totalRecordsProcessed += recordsInFile;
+                            totalRecordsExpected = totalRecordsProcessed; // Update expected based on processed
                             console.log('[DEBUG] Total preview data items:', allPreviewData.length);
+
+                            // Update progress after processing file
+                            updateProgress(processedFiles, totalFiles, totalRecordsProcessed, totalRecordsExpected,
+                                `Processed ${recordsInFile} records from ${file.name}`);
                         }
 
                         // Show errors and warnings in alerts
@@ -1442,10 +1519,22 @@ function processFilesForPreview(files) {
                         // All files processed, show preview
                         console.log('[DEBUG] All files processed, showing preview with', allPreviewData.length, 'items');
                         addLogEntry('All files processed - displaying preview', 'success');
-                        hideProgressSection();
+
+                        // Final progress update
+                        updateProgress(totalFiles, totalFiles, totalRecordsProcessed, totalRecordsProcessed,
+                            'Preview complete!');
+
+                        // Small delay before hiding to show 100% completion
+                        setTimeout(() => {
+                            hideProgressSection();
+                        }, 1000);
+
 
                         if (allPreviewData.length > 0) {
                             showPreviewSection();
+                            // Store category globally for apply stage
+                            window.currentCategoryFilter = currentCategoryFilter;
+                            console.log('[DEBUG] Stored category filter globally:', window.currentCategoryFilter);
                             populatePreviewDataFromAPI(allPreviewData);
                         } else {
                             addLogEntry('No preview data to display', 'warning');
@@ -1470,9 +1559,20 @@ function processFilesForPreview(files) {
 
                     if (processedFiles >= totalFiles) {
                         console.log('[DEBUG] All files processed (with errors), total preview data:', allPreviewData.length);
-                        hideProgressSection();
+
+                        // Final progress update (even with errors)
+                        updateProgress(totalFiles, totalFiles, totalRecordsProcessed, totalRecordsProcessed,
+                            allPreviewData.length > 0 ? 'Processing complete with some errors' : 'Processing failed');
+
+                        setTimeout(() => {
+                            hideProgressSection();
+                        }, 1000);
+
                         if (allPreviewData.length > 0) {
                             showPreviewSection();
+                            // Store category globally for apply stage
+                            window.currentCategoryFilter = currentCategoryFilter;
+                            console.log('[DEBUG] Stored category filter globally (error path):', window.currentCategoryFilter);
                             populatePreviewDataFromAPI(allPreviewData);
                         } else {
                             addLogEntry('No valid preview data to display', 'warning');
@@ -1569,6 +1669,8 @@ function showProgressSection() {
     if (progressSection) {
         progressSection.style.display = 'block';
         console.log('[DEBUG] Progress section shown');
+        console.log('[DEBUG] Progress section display style:', progressSection.style.display);
+        console.log('[DEBUG] Progress section computed display:', window.getComputedStyle(progressSection).display);
     } else {
         console.warn('[DEBUG] Progress section element not found');
     }
@@ -1618,23 +1720,149 @@ function hideResultsSection() {
     document.getElementById('results-section').style.display = 'none';
 }
 
-function updateProgress(current, total, message) {
-    const percentage = Math.round((current / total) * 100);
+function updateProgress(currentFile, totalFiles, currentRecord, totalRecords, message) {
+    console.log('[PROGRESS] ==================== UPDATE PROGRESS CALLED ====================');
+    console.log('[PROGRESS] Parameters:', {currentFile, totalFiles, currentRecord, totalRecords, message});
+    console.log('[PROGRESS] Parameter types:', {
+        currentFile: typeof currentFile,
+        totalFiles: typeof totalFiles,
+        currentRecord: typeof currentRecord,
+        totalRecords: typeof totalRecords,
+        message: typeof message
+    });
 
-    document.getElementById('overall-percentage').textContent = percentage + '%';
-    document.getElementById('overall-progress-bar').style.width = percentage + '%';
-    document.getElementById('current-operation-text').textContent = message;
-    document.getElementById('current-step').textContent = `Step ${current + 1}`;
+    // Support backward compatibility: if called with 3 parameters (old signature)
+    if (typeof currentRecord === 'string') {
+        console.log('[PROGRESS] ⚠️ Backward compatibility mode - 3 parameters detected');
+        message = currentRecord;
+        currentRecord = 0;
+        totalRecords = 0;
+    }
 
-    // Update sub-progress
-    document.getElementById('files-progress').textContent = `${current} / ${total}`;
-    document.getElementById('files-progress-bar').style.width = percentage + '%';
+    console.log('[PROGRESS] Final values:', {currentFile, totalFiles, currentRecord, totalRecords, message});
+
+    // Update file progress
+    const filePercentage = totalFiles > 0 ? Math.round((currentFile / totalFiles) * 100) : 0;
+    console.log('[PROGRESS] 📊 File percentage:', filePercentage + '%');
+
+    const filesProgressEl = document.getElementById('files-progress');
+    const filesProgressBarEl = document.getElementById('files-progress-bar');
+
+    if (filesProgressEl) {
+        filesProgressEl.textContent = `${currentFile} / ${totalFiles}`;
+        console.log('[PROGRESS] ✓ Updated files-progress to:', filesProgressEl.textContent);
+    } else {
+        console.error('[PROGRESS] ❌ files-progress element NOT FOUND');
+    }
+
+    if (filesProgressBarEl) {
+        filesProgressBarEl.style.width = filePercentage + '%';
+        console.log('[PROGRESS] ✓ Updated files-progress-bar width to:', filesProgressBarEl.style.width);
+        console.log('[PROGRESS] 🔍 files-progress-bar visibility:', {
+            display: window.getComputedStyle(filesProgressBarEl).display,
+            visibility: window.getComputedStyle(filesProgressBarEl).visibility,
+            opacity: window.getComputedStyle(filesProgressBarEl).opacity,
+            height: window.getComputedStyle(filesProgressBarEl).height,
+            width: window.getComputedStyle(filesProgressBarEl).width,
+            backgroundColor: window.getComputedStyle(filesProgressBarEl).backgroundColor
+        });
+    } else {
+        console.error('[PROGRESS] ❌ files-progress-bar element NOT FOUND');
+    }
+
+    // Update record progress
+    const recordsProgressEl = document.getElementById('records-progress');
+    const recordsProgressBarEl = document.getElementById('records-progress-bar');
+
+    if (totalRecords > 0) {
+        const recordPercentage = Math.round((currentRecord / totalRecords) * 100);
+        console.log('[PROGRESS] 📊 Record percentage:', recordPercentage + '%');
+
+        if (recordsProgressEl) {
+            recordsProgressEl.textContent = `${currentRecord} / ${totalRecords}`;
+            console.log('[PROGRESS] ✓ Updated records-progress to:', recordsProgressEl.textContent);
+        }
+        if (recordsProgressBarEl) {
+            recordsProgressBarEl.style.width = recordPercentage + '%';
+            console.log('[PROGRESS] ✓ Updated records-progress-bar width to:', recordsProgressBarEl.style.width);
+        }
+    } else {
+        if (recordsProgressEl) {
+            recordsProgressEl.textContent = `0 / 0`;
+            console.log('[PROGRESS] ✓ Set records-progress to: 0 / 0');
+        }
+        if (recordsProgressBarEl) {
+            recordsProgressBarEl.style.width = '0%';
+            console.log('[PROGRESS] ✓ Set records-progress-bar width to: 0%');
+        }
+    }
+
+    // Update overall progress (weighted: 30% files, 70% records)
+    let overallPercentage;
+    if (totalRecords > 0) {
+        const recordPercentage = Math.round((currentRecord / totalRecords) * 100);
+        overallPercentage = Math.round((filePercentage * 0.3) + (recordPercentage * 0.7));
+    } else {
+        overallPercentage = filePercentage;
+    }
+    console.log('[PROGRESS] 📊 Overall percentage:', overallPercentage + '%');
+
+    const overallPercentageEl = document.getElementById('overall-percentage');
+    const overallProgressBarEl = document.getElementById('overall-progress-bar');
+
+    if (overallPercentageEl) {
+        overallPercentageEl.textContent = overallPercentage + '%';
+        console.log('[PROGRESS] ✓ Updated overall-percentage to:', overallPercentageEl.textContent);
+    } else {
+        console.error('[PROGRESS] ❌ overall-percentage element NOT FOUND');
+    }
+
+    if (overallProgressBarEl) {
+        overallProgressBarEl.style.width = overallPercentage + '%';
+        console.log('[PROGRESS] ✓ Updated overall-progress-bar width to:', overallProgressBarEl.style.width);
+    } else {
+        console.error('[PROGRESS] ❌ overall-progress-bar element NOT FOUND');
+    }
+
+    // Update status
+    const operationTextEl = document.getElementById('current-operation-text');
+    const currentStepEl = document.getElementById('current-step');
+
+    if (operationTextEl) {
+        operationTextEl.textContent = message || 'Processing...';
+        console.log('[PROGRESS] ✓ Updated current-operation-text to:', operationTextEl.textContent);
+    } else {
+        console.error('[PROGRESS] ❌ current-operation-text element NOT FOUND');
+    }
+
+    if (currentStepEl) {
+        const stepText = totalFiles > 0 ? `File ${currentFile} of ${totalFiles}` : 'Processing';
+        currentStepEl.textContent = stepText;
+        console.log('[PROGRESS] ✓ Updated current-step to:', currentStepEl.textContent);
+    } else {
+        console.error('[PROGRESS] ❌ current-step element NOT FOUND');
+    }
+
+    console.log('[PROGRESS] ==================== UPDATE COMPLETE ====================');
 }
 
 let previewDataTable = null;
 
 function populatePreviewDataFromAPI(previewData) {
     console.log('[DEBUG] populatePreviewDataFromAPI called with', previewData?.length || 0, 'items');
+
+    // Helper function to safely format price values
+    const formatPrice = (value, decimals = 2) => {
+        if (value === null || value === undefined || value === '') return 'N/A';
+        const num = typeof value === 'string' ? parseFloat(value) : value;
+        return !isNaN(num) ? `$${num.toFixed(decimals)}` : 'N/A';
+    };
+
+    const formatPercentage = (value, decimals = 1) => {
+        if (value === null || value === undefined || value === '') return 'N/A';
+        const num = typeof value === 'string' ? parseFloat(value) : value;
+        return !isNaN(num) ? `${num.toFixed(decimals)}%` : 'N/A';
+    };
 
     try {
         // Store preview data globally for later use
@@ -1664,38 +1892,45 @@ function populatePreviewDataFromAPI(previewData) {
             return;
         }
 
-    // Sort data by status (valid first, then warning, then error)
+    // Sort data by status (valid first, then above_margin, then no_cost, then error)
     const sortedData = previewData.sort((a, b) => {
-        const statusOrder = { 'valid': 0, 'warning': 1, 'error': 2 };
+        const statusOrder = { 'valid': 0, 'above_margin': 1, 'no_cost': 2, 'error': 3 };
         return statusOrder[a.status] - statusOrder[b.status];
     });
 
-    sortedData.forEach((item, index) => {
+    console.log('[DEBUG] Building table rows for', sortedData.length, 'items...');
+
+    // For large datasets, only render first 1000 rows initially for performance
+    const initialRenderLimit = 1000;
+    const itemsToRender = sortedData.slice(0, initialRenderLimit);
+
+    console.log('[DEBUG] Rendering', itemsToRender.length, 'of', sortedData.length, 'items initially');
+
+    itemsToRender.forEach((item, index) => {
         const statusConfig = {
             'valid': { class: 'success', icon: 'check-circle', text: 'Valid' },
-            'warning': { class: 'warning', icon: 'exclamation-triangle', text: 'Warning' },
-            'error': { class: 'danger', icon: 'times-circle', text: 'Error' }
+            'above_margin': { class: 'warning', icon: 'exclamation-triangle', text: 'Above 75% Margin' },
+            'no_cost': { class: 'info', icon: 'info-circle', text: 'No Cost Data' },
+            'error': { class: 'danger', icon: 'times-circle', text: 'Not Found' }
         }[item.status];
 
-        // Format prices safely using new structure
-        const cost = item.cost !== null ? `$${item.cost.toFixed(2)}` : 'N/A';
-        const currentRetail = item.current_retail_nzd_incl !== null ? `$${item.current_retail_nzd_incl.toFixed(2)}` : 'N/A';
-        const marginPrice = item.margin_75_price !== null ? `$${item.margin_75_price.toFixed(2)}` : 'N/A';
-        const rrp = item.rrp !== null ? `$${item.rrp.toFixed(2)}` : 'N/A';
-        const discount = item.discount_percentage !== null ? `${item.discount_percentage.toFixed(1)}%` : 'N/A';
+        // Format prices safely using helper functions
+        const cost = formatPrice(item.cost);
+        const currentRetail = formatPrice(item.current_retail_nzd_incl);
+        const marginPrice = formatPrice(item.margin_75_price);
+        const discount = formatPercentage(item.discount_percentage);
 
         const rowData = [
             `<div class="form-check">
                 <input class="form-check-input preview-item-checkbox" type="checkbox"
                        ${item.action_recommended ? 'checked' : ''}
-                       ${item.status === 'error' ? 'disabled' : ''}
+                       ${item.status === 'error' || item.status === 'no_cost' ? 'disabled' : ''}
                        data-index="${index}">
             </div>`,
             `<span class="badge bg-soft-${statusConfig.class} text-${statusConfig.class}"
-                   ${item.notes ? `data-bs-toggle="tooltip" data-bs-placement="right" title="${item.notes.replace(/"/g, '&quot;')}"` : ''}>
+                   ${item.status_message ? `data-bs-toggle="tooltip" data-bs-placement="right" title="${item.status_message.replace(/"/g, '&quot;')}"` : ''}>
                 <i class="uil-${statusConfig.icon} me-1"></i>${statusConfig.text}
             </span>`,
-            `<span class="fw-medium">${item.school_name || 'Unknown'}</span>`,
             `<div>
                 <div class="fw-medium">${item.product_name || 'Unknown Product'}</div>
                 <small class="text-muted">
@@ -1704,9 +1939,8 @@ function populatePreviewDataFromAPI(previewData) {
                 </small>
             </div>`,
             `<span class="fw-medium">${cost}</span>`,
-            `<span class="fw-medium">${currentRetail}</span>`,
             `<span class="fw-medium text-primary">${marginPrice}</span>`,
-            `<span class="fw-medium text-success">${rrp}</span>`,
+            `<span class="fw-medium">${currentRetail}</span>`,
             `<span class="fw-medium ${item.discount_percentage && item.discount_percentage > 60 ? 'text-warning' : 'text-info'}">${discount}</span>`,
             `<div>
                 <small class="text-muted">${item.notes}</small>
@@ -1742,7 +1976,7 @@ function populatePreviewDataFromAPI(previewData) {
                 columnDefs: [
                     { orderable: false, targets: [0] }, // Checkbox column
                     { className: "text-center", targets: [0, 1] },
-                    { className: "text-end", targets: [4, 5, 6, 7, 8] } // Price columns
+                    { className: "text-end", targets: [3, 4, 5, 6] } // Price columns (Cost, 75% Margin, Current Retail, Discount)
                 ],
                 language: {
                     search: "Search:",
@@ -1772,16 +2006,34 @@ function populatePreviewDataFromAPI(previewData) {
         console.log('[DEBUG] Initialized', tooltipList.length, 'tooltips');
     }
 
-    // Update preview statistics
+    // Update preview statistics with status counts
     const validCount = previewData.filter(item => item.status === 'valid').length;
-    const warningCount = previewData.filter(item => item.status === 'warning').length;
+    const aboveMarginCount = previewData.filter(item => item.status === 'above_margin').length;
+    const noCostCount = previewData.filter(item => item.status === 'no_cost').length;
     const errorCount = previewData.filter(item => item.status === 'error').length;
 
     document.getElementById('preview-valid-count').textContent = validCount;
-    document.getElementById('preview-warning-count').textContent = warningCount;
+    document.getElementById('preview-warning-count').textContent = aboveMarginCount;
     document.getElementById('preview-error-count').textContent = errorCount;
 
-    addLogEntry(`Preview loaded: ${validCount} valid, ${warningCount} warnings, ${errorCount} errors`, 'info');
+    // Add no-cost count display if element exists
+    const noCostElement = document.getElementById('preview-no-cost-count');
+    if (noCostElement) {
+        noCostElement.textContent = noCostCount;
+    }
+
+    // Add notice if data was limited for performance
+    if (previewData.length > initialRenderLimit) {
+        addLogEntry(`Preview loaded: ${validCount} matched products (showing first ${initialRenderLimit} of ${previewData.length} items)`, 'warning');
+    } else {
+        addLogEntry(`Preview loaded: ${validCount} matched products ready for price update`, 'success');
+    }
+
+    // Add helpful message about automatic processing
+    const nonValidCount = aboveMarginCount + noCostCount + errorCount;
+    if (validCount > 0) {
+        addLogEntry(`Ready to update ${validCount} valid items. ${nonValidCount > 0 ? `${nonValidCount} items will be skipped automatically.` : ''}`, 'info');
+    }
 
     } catch (error) {
         console.error('[DEBUG] Error in populatePreviewDataFromAPI:', error);
@@ -1985,41 +2237,53 @@ function downloadTemplate() {
 function applyPreviewChanges() {
     addLogEntry('Applying approved price changes...', 'info');
 
-    // Get selected items from the preview data
-    const selectedCheckboxes = document.querySelectorAll('.preview-item-checkbox:checked');
-
-    if (selectedCheckboxes.length === 0) {
-        addLogEntry('No changes selected for application', 'warning');
+    // Get ALL preview items (no checkbox selection required)
+    if (!window.currentPreviewData || window.currentPreviewData.length === 0) {
+        addLogEntry('No preview data available', 'error');
         return;
     }
 
-    // Get the selected preview items
-    const selectedItems = [];
-    selectedCheckboxes.forEach(checkbox => {
-        const index = parseInt(checkbox.dataset.index);
-        if (window.currentPreviewData && window.currentPreviewData[index]) {
-            selectedItems.push(window.currentPreviewData[index]);
-        }
-    });
+    // Filter for only valid items automatically
+    const validItems = window.currentPreviewData.filter(item => item.status === 'valid');
+    const totalItems = window.currentPreviewData.length;
 
-    if (selectedItems.length === 0) {
-        addLogEntry('No valid items found for application', 'error');
+    if (validItems.length === 0) {
+        addLogEntry('No valid items found for application. Only items with status="valid" can be updated.', 'warning');
         return;
     }
 
-    addLogEntry(`Applying ${selectedItems.length} price changes...`, 'info');
+    const totalRecords = validItems.length;
+    const skippedRecords = totalItems - validItems.length;
+
+    addLogEntry(`Applying ${totalRecords} valid price changes (${skippedRecords} items skipped)...`, 'info');
 
     // Show progress
     showProgressSection();
-    updateProgress(0, 1, 'Applying price changes...');
+
+    // Simulated progress for apply operation
+    let simulatedCurrent = 0;
+    const progressInterval = setInterval(() => {
+        if (simulatedCurrent < totalRecords * 0.9) { // Stop at 90%
+            simulatedCurrent += Math.max(1, Math.floor(totalRecords / 20)); // 5% increments
+            updateProgress(1, 1, simulatedCurrent, totalRecords,
+                `Applying changes... ${Math.round((simulatedCurrent/totalRecords)*100)}%`);
+        }
+    }, 200); // Update every 200ms
 
     // Get backup setting
     const backupPrices = document.getElementById('backup-prices').checked;
 
-    // Prepare request data
+    // Get category filter from preview (fallback to dropdown if not set)
+    const categoryFilter = window.currentCategoryFilter ||
+                          document.getElementById('category-filter')?.value ||
+                          'wholesale-schools';
+    console.log('[DEBUG] Using category filter for apply:', categoryFilter);
+
+    // Prepare request data with ALL preview items (backend will filter for valid)
     const requestData = {
-        selected_items: selectedItems,
-        backup_prices: backupPrices
+        preview_items: window.currentPreviewData,  // Send all items, backend filters for valid
+        backup_prices: backupPrices,
+        category_filter: categoryFilter  // Include category from preview
     };
 
     // Call the apply API
@@ -2033,9 +2297,18 @@ function applyPreviewChanges() {
     })
     .then(response => response.json())
     .then(data => {
-        hideProgressSection();
+        clearInterval(progressInterval); // Stop simulation
 
         if (data.success) {
+            // Show 100% completion
+            updateProgress(1, 1, totalRecords, totalRecords,
+                `Complete! Updated ${data.results.successful_updates} products`);
+
+            // Delay before hiding progress to show completion
+            setTimeout(() => {
+                hideProgressSection();
+            }, 2000);
+
             addLogEntry('Price changes applied successfully', 'success');
             hidePreviewSection();
             showResultsSection();
@@ -2045,13 +2318,13 @@ function applyPreviewChanges() {
                 stats: {
                     successful: data.results.successful_updates,
                     failed: data.results.failed_updates,
-                    skipped: 0,
+                    skipped: data.summary ? data.summary.skipped_items : skippedRecords,
                     duration: '2.3s'
                 },
                 files: [{
                     name: 'applied_changes.csv',
                     status: 'completed',
-                    total: selectedItems.length,
+                    total: totalItems,
                     successful: data.results.successful_updates,
                     duration: '2.3s',
                     id: 'apply_001'
@@ -2077,11 +2350,17 @@ function applyPreviewChanges() {
             updateStatistics();
         } else {
             addLogEntry(`Failed to apply changes: ${data.error}`, 'error');
+            setTimeout(() => {
+                hideProgressSection();
+            }, 1000);
         }
     })
     .catch(error => {
-        hideProgressSection();
+        clearInterval(progressInterval); // Stop simulation on error
         addLogEntry(`Network error while applying changes: ${error.message}`, 'error');
+        setTimeout(() => {
+            hideProgressSection();
+        }, 1000);
     });
 }
 
@@ -2099,21 +2378,26 @@ function exportPreviewData() {
         return;
     }
 
+    // Helper to safely format numbers for export
+    const toNumber = (val) => {
+        if (val === null || val === undefined || val === '') return '';
+        const num = typeof val === 'string' ? parseFloat(val) : val;
+        return !isNaN(num) ? num.toFixed(2) : '';
+    };
+
     // Generate CSV from current preview data
-    let csvContent = 'Status,School Name,Product Name,Product Code,Barcode,Cost,Current Retail NZD Incl,75% Margin Price,RRP,Discount %,Price Change,Notes,Source File\n';
+    let csvContent = 'Status,Product Name,Product Code,Barcode,Cost,75% Margin Price,Current Retail NZD Incl,Discount %,Price Change,Notes,Source File\n';
 
     window.currentPreviewData.forEach(item => {
         const row = [
             item.status || '',
-            item.school_name || '',
             item.product_name || '',
             item.product_code || '',
             item.barcode || '',
-            item.cost !== null ? `$${item.cost.toFixed(2)}` : '',
-            item.current_retail_nzd_incl !== null ? `$${item.current_retail_nzd_incl.toFixed(2)}` : '',
-            item.margin_75_price !== null ? `$${item.margin_75_price.toFixed(2)}` : '',
-            item.rrp !== null ? `$${item.rrp.toFixed(2)}` : '',
-            item.discount_percentage !== null ? `${item.discount_percentage.toFixed(1)}%` : '',
+            toNumber(item.cost) ? `$${toNumber(item.cost)}` : '',
+            toNumber(item.margin_75_price) ? `$${toNumber(item.margin_75_price)}` : '',
+            toNumber(item.current_retail_nzd_incl) ? `$${toNumber(item.current_retail_nzd_incl)}` : '',
+            toNumber(item.discount_percentage) ? `${toNumber(item.discount_percentage)}%` : '',
             item.price_change || '',
             item.notes || '',
             item.filename || ''

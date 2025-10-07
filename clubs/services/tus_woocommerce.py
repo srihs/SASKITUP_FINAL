@@ -1,6 +1,6 @@
 import logging
 import requests
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 from decimal import Decimal
 from django.conf import settings
 from requests.exceptions import RequestException
@@ -8,6 +8,7 @@ import time
 import os
 from woocommerce import API
 from decouple import config
+import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +37,9 @@ class TUSWooCommerceService:
             timeout=30
         )
 
-        # Rate limiting
+        # Rate limiting (reduced for parallel requests)
         self.last_request_time = 0
-        self.min_request_interval = 0.5  # Minimum seconds between requests
+        self.min_request_interval = 0.2  # Reduced from 0.5s to 0.2s for parallel requests
 
         # Retry configuration
         self.max_retries = 3
@@ -451,3 +452,127 @@ class TUSWooCommerceService:
         except:
             logger.warning(f"Could not parse price: {price_value}")
             return Decimal('0.00')
+
+    def get_products_by_categories_parallel(self, category_ids: List[int], max_workers: int = 5) -> Dict[int, List[Dict]]:
+        """
+        Fetch products for multiple categories in parallel.
+
+        Args:
+            category_ids: List of WooCommerce category IDs
+            max_workers: Number of concurrent API requests (default: 5)
+
+        Returns:
+            Dictionary mapping category_id to list of products
+        """
+        all_products = {}
+
+        def fetch_category_products(cat_id: int) -> tuple:
+            """Fetch products for a single category"""
+            try:
+                products = self.get_products_by_category(cat_id)
+                return (cat_id, products)
+            except Exception as e:
+                logger.error(f"Failed to fetch products for category {cat_id}: {e}")
+                return (cat_id, [])
+
+        # Use ThreadPoolExecutor for parallel requests
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all category fetch tasks
+            future_to_category = {
+                executor.submit(fetch_category_products, cat_id): cat_id
+                for cat_id in category_ids
+            }
+
+            # Collect results as they complete
+            for future in concurrent.futures.as_completed(future_to_category):
+                cat_id, products = future.result()
+                all_products[cat_id] = products
+                logger.info(f"✓ Fetched {len(products)} products for category {cat_id}")
+
+        return all_products
+
+    def get_variations_parallel(self, product_ids: List[int], max_workers: int = 5) -> Dict[int, List[Dict]]:
+        """
+        Fetch variations for multiple products in parallel.
+
+        Args:
+            product_ids: List of WooCommerce product IDs
+            max_workers: Number of concurrent API requests (default: 5)
+
+        Returns:
+            Dictionary mapping product_id to list of variations
+        """
+        all_variations = {}
+
+        def fetch_product_variations(prod_id: int) -> tuple:
+            """Fetch variations for a single product"""
+            try:
+                variations = self.get_product_variations(prod_id)
+                return (prod_id, variations)
+            except Exception as e:
+                logger.error(f"Failed to fetch variations for product {prod_id}: {e}")
+                return (prod_id, [])
+
+        # Use ThreadPoolExecutor for parallel requests
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all variation fetch tasks
+            future_to_product = {
+                executor.submit(fetch_product_variations, prod_id): prod_id
+                for prod_id in product_ids
+            }
+
+            # Collect results as they complete
+            for future in concurrent.futures.as_completed(future_to_product):
+                prod_id, variations = future.result()
+                all_variations[prod_id] = variations
+
+        return all_variations
+
+    def get_all_products_parallel(self, per_page: int = 100, max_workers: int = 5) -> List[Dict]:
+        """
+        Fetch all products using parallel pagination.
+
+        Args:
+            per_page: Items per page
+            max_workers: Number of concurrent requests
+
+        Returns:
+            List of all products
+        """
+        # First request to get total pages
+        params = {'per_page': per_page, 'page': 1}
+        first_page = self._make_request('products', params)
+
+        if not first_page:
+            return []
+
+        # Get total pages from headers (WooCommerce returns this)
+        total_pages = 1  # Default to 1 if header not available
+
+        all_products = first_page.copy()
+
+        if total_pages > 1:
+            # Fetch remaining pages in parallel
+            page_numbers = range(2, total_pages + 1)
+
+            def fetch_page(page_num: int) -> List[Dict]:
+                """Fetch a single page"""
+                try:
+                    params = {'per_page': per_page, 'page': page_num}
+                    return self._make_request('products', params)
+                except Exception as e:
+                    logger.error(f"Failed to fetch page {page_num}: {e}")
+                    return []
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_to_page = {
+                    executor.submit(fetch_page, page_num): page_num
+                    for page_num in page_numbers
+                }
+
+                for future in concurrent.futures.as_completed(future_to_page):
+                    page_products = future.result()
+                    all_products.extend(page_products)
+
+        logger.info(f"✓ Fetched total of {len(all_products)} products across {total_pages} pages")
+        return all_products

@@ -104,8 +104,8 @@ class User(AbstractUser):
 
     @property
     def is_admin(self):
-        """Check if user is admin"""
-        return self.user_type == 'admin'
+        """Check if user is admin or superuser"""
+        return self.user_type == 'admin' or self.is_superuser
 
     @property
     def is_sales_rep(self):

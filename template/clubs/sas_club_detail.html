@@ -243,7 +243,7 @@
                                         {% if product.is_on_sale %}
                                         <span class="text-muted text-decoration-line-through me-2">${{ product.regular_price }}</span>
                                         <span class="h5 text-success mb-0">${{ product.sale_price }}</span>
-                                        <span class="badge bg-danger ms-2">{{ product.discount_percentage }}% OFF</span>
+                                        <span class="badge bg-danger ms-2">{{ product.sale_discount_percentage }}% OFF</span>
                                         {% else %}
                                         <span class="h5 mb-0">${{ product.effective_price }}</span>
                                         {% endif %}

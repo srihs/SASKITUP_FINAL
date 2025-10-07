@@ -1,19 +1,20 @@
 /**
  * Product Variations Manager
- * 
+ *
  * A comprehensive JavaScript library for managing dynamic product variations
  * with real-time stock checking and brand-specific styling.
- * 
- * Supports both LOTTO and SAS product systems with:
+ *
+ * Supports LOTTO, SAS, and TUS product systems with:
  * - Color swatches (clickable color boxes)
- * - Size buttons (clickable size options)  
+ * - Size buttons (clickable size options)
  * - Age group buttons (Adult/Kids toggle)
+ * - Gender selection for TUS products
  * - Stock status indicators
  * - Loading states during API calls
  * - Responsive design for mobile/desktop
- * 
+ *
  * @author Claude Code
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 class ProductVariationManager {
@@ -54,9 +55,17 @@ class ProductVariationManager {
                 success: '#28a745',
                 warning: '#ffc107',
                 danger: '#dc3545'
+            },
+            tus: {
+                primary: '#387ADF',
+                secondary: '#5A8FE8',
+                disabled: '#6c757d',
+                success: '#28a745',
+                warning: '#ffc107',
+                danger: '#dc3545'
             }
         };
-        
+
         this.theme = this.themes[this.productType] || this.themes.lotto;
         
         // DOM elements cache
@@ -90,7 +99,7 @@ class ProductVariationManager {
                 console.log('[STOCK DEBUG] Single variant LOTTO product detected, showing stock immediately');
                 await this.displaySingleVariantStockTile();
             }
-        } 
+        }
         // For SAS products, check what kind of display is needed
         else if (this.productType.toLowerCase() === 'sas') {
             // Check if this is a size-only product (has sizes but no colors or other variations)
@@ -102,6 +111,20 @@ class ProductVariationManager {
             else if ((!this.variations || this.variations.length === 0) &&
                      (!this.groupedVariations || Object.keys(this.groupedVariations).length === 0)) {
                 console.log('[STOCK DEBUG] Single variant SAS product detected, showing SAS stock tile');
+                await this.displaySASSingleVariantStockTile();
+            }
+        }
+        // For TUS products, use similar handling to SAS
+        else if (this.productType.toLowerCase() === 'tus') {
+            // Check if this is a size-only product (has sizes but no colors or other variations)
+            if (this.isSizeOnlyProduct()) {
+                console.log('[STOCK DEBUG] Size-only TUS product detected, showing TUS size inventory tiles');
+                await this.displaySASSizeOnlyStockInfo(document.querySelector('.stock-grid-container'));
+            }
+            // Single variant product (no variations at all)
+            else if ((!this.variations || this.variations.length === 0) &&
+                     (!this.groupedVariations || Object.keys(this.groupedVariations).length === 0)) {
+                console.log('[STOCK DEBUG] Single variant TUS product detected, showing TUS stock tile');
                 await this.displaySASSingleVariantStockTile();
             }
         }
@@ -162,24 +185,32 @@ class ProductVariationManager {
     async loadVariations() {
         try {
             this.showLoading();
-            
-            const response = await fetch(`/clubs/api/${this.productType}/product/${this.productId}/variations/`);
-            
+
+            // Determine API endpoint based on product type
+            let apiUrl;
+            if (this.productType === 'tus') {
+                apiUrl = `/schools/retail/api/products/${this.productId}/variations/`;
+            } else {
+                apiUrl = `/clubs/api/${this.productType}/product/${this.productId}/variations/`;
+            }
+
+            const response = await fetch(apiUrl);
+
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-            
+
             const data = await response.json();
-            
+
             if (data.success) {
                 this.variations = data.variations || [];
                 this.groupedVariations = data.grouped_variations || {};
                 this.basePrice = data.base_price || 0;
                 this.currentPrice = this.basePrice;
-                
+
                 // Store additional product data for single-variant products
                 this.productData = data.data || data;
-                
+
                 this.renderVariations();
             } else {
                 console.error('API returned error:', data.error);

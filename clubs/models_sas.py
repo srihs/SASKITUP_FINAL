@@ -428,31 +428,38 @@ class SASProduct(models.Model):
     stock_status = models.CharField(max_length=20, choices=STOCK_STATUS_CHOICES, default='instock')
     sku = models.CharField(max_length=100, blank=True, help_text="Stock Keeping Unit")
     style_code = models.CharField(max_length=100, blank=True, null=True, help_text="Product style code")
-    
+
     # Pricing
     price = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
+        max_digits=10,
+        decimal_places=2,
         default=Decimal('0.00'),
         validators=[MinValueValidator(Decimal('0.00'))],
         help_text="Current selling price"
     )
     regular_price = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        null=True, 
+        max_digits=10,
+        decimal_places=2,
+        null=True,
         blank=True,
         validators=[MinValueValidator(Decimal('0.00'))],
         help_text="Regular price"
     )
     sale_price = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        null=True, 
+        max_digits=10,
+        decimal_places=2,
+        null=True,
         blank=True,
         validators=[MinValueValidator(Decimal('0.00'))],
         help_text="Sale price (if on sale)"
     )
+
+    # Pricing management fields (for price update system)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Cost price from supplier")
+    margin_75_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Price with 75% margin")
+    discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Discount percentage applied")
+    last_price_update = models.DateTimeField(null=True, blank=True, help_text="Last price update timestamp")
+    barcode = models.CharField(max_length=100, blank=True, db_index=True, help_text="Product barcode")
     
     # Product Details
     description = models.TextField(blank=True, help_text="Full product description")
@@ -548,11 +555,11 @@ class SASProduct(models.Model):
         )
     
     @property
-    def discount_percentage(self):
-        """Calculate discount percentage if on sale."""
+    def sale_discount_percentage(self):
+        """Calculate sale discount percentage if on sale (WooCommerce sale price)."""
         if not self.is_on_sale:
             return 0
-        
+
         discount = self.regular_price - self.sale_price
         percentage = (discount / self.regular_price) * 100
         return round(percentage, 1)

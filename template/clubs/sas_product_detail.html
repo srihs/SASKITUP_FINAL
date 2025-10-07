@@ -1196,7 +1196,7 @@
                         {% if product.is_on_sale %}
                             <div class="original-price">${{ product.regular_price|floatformat:2 }}</div>
                             <span class="discount-badge">
-                                {{ product.discount_percentage|floatformat:0 }}% OFF
+                                {{ product.sale_discount_percentage|floatformat:0 }}% OFF
                             </span>
                         {% endif %}
                     </div>

@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 from django.utils import timezone
 from django.conf import settings
-from .models import School
+from schools.models import School
 
 logger = logging.getLogger(__name__)
 

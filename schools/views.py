@@ -614,8 +614,80 @@ class TUSProductDetailView(TUSAuditMixin, DetailView):
         context = super().get_context_data(**kwargs)
         product = self.object
 
-        # Get product variations
+        # Get product variations with stock information
         context['variations'] = product.variations.filter(is_active=True).order_by('menu_order')
+
+        # Add stock quantity information for single-variant products
+        stock_quantity = 0
+        manage_stock = False
+
+        # For TUS products, provide stock management similar to SAS
+        effective_stock_status = product.stock_status
+
+        if not product.has_variations and effective_stock_status == 'instock':
+            # For single-variant products without specific stock data
+            stock_quantity = 25  # Default stock for simple products
+            manage_stock = True
+        elif hasattr(product, 'stock_quantity') and product.stock_quantity is not None:
+            stock_quantity = product.stock_quantity
+            manage_stock = True
+
+        context['stock_quantity'] = stock_quantity
+        context['manage_stock'] = manage_stock
+        context['effective_stock_status'] = effective_stock_status
+
+        # Add available sizes and colors from variations
+        variations = product.variations.filter(is_active=True)
+        context['available_sizes'] = list(set(
+            var.variation_value.split(' - ')[0] if ' - ' in var.variation_value
+            else var.variation_value for var in variations
+            if var.variation_type in ['size', 'Size']
+        ))
+        context['available_colors'] = list(set(
+            var.variation_value.split(' - ')[-1] if ' - ' in var.variation_value
+            else var.variation_value for var in variations
+            if var.variation_type in ['color', 'Color', 'colour', 'Colour']
+        ))
+        context['available_genders'] = list(set(
+            var.variation_value for var in variations
+            if var.variation_type in ['gender', 'Gender']
+        ))
+
+        # Determine variation patterns
+        variation_types = set(var.variation_type.lower() for var in variations)
+        has_size_variations = any(vtype in ['size', 'sizing'] for vtype in variation_types)
+        has_color_variations = any(vtype in ['color', 'colour'] for vtype in variation_types)
+        has_gender_variations = any(vtype in ['gender'] for vtype in variation_types)
+        has_other_variations = any(
+            vtype not in ['size', 'sizing', 'color', 'colour', 'gender']
+            for vtype in variation_types
+        )
+
+        is_size_only_product = has_size_variations and not has_color_variations and not has_other_variations
+        context['is_size_only_product'] = is_size_only_product
+
+        # For size-only products, get size-specific stock information
+        if is_size_only_product:
+            size_stock_info = []
+
+            for size in context['available_sizes']:
+                size_variation = variations.filter(
+                    variation_type__iexact='size',
+                    variation_value__icontains=size
+                ).first()
+
+                if size_variation and hasattr(size_variation, 'stock_quantity'):
+                    stock_quantity_size = size_variation.stock_quantity or 0
+                else:
+                    stock_quantity_size = 25  # Default stock
+
+                size_stock_info.append({
+                    'size': size,
+                    'stock_quantity': stock_quantity_size,
+                    'is_available': stock_quantity_size > 0
+                })
+
+            context['size_stock_info'] = size_stock_info
 
         # Get categories
         context['categories'] = product.all_categories
@@ -635,6 +707,9 @@ class TUSProductDetailView(TUSAuditMixin, DetailView):
         ).first()
         if school_category:
             context['school'] = school_category.school_category.school
+
+        # Get primary category for display
+        context['primary_category'] = product.primary_category
 
         return context
 
@@ -779,40 +854,151 @@ def tus_school_search_ajax(request):
 # ================================
 
 def tus_product_variations_api(request, product_id):
-    """API endpoint to get product variations"""
+    """
+    API endpoint to get product variations with stock information for TUS products
+    Enhanced with proper ordering and filtering support (based on SAS implementation)
+    """
+    logger = logging.getLogger(__name__)
+
     try:
         product = get_object_or_404(TUSProduct, id=product_id)
-        variations = product.variations.filter(is_active=True)
 
-        # Group variations by type
-        variation_data = {}
-        for variation in variations:
-            var_type = variation.variation_type
-            if var_type not in variation_data:
-                variation_data[var_type] = []
+        # Use the new variation methods for TUS products
+        if product.has_variations:
+            variation_data = product.get_variation_data_for_frontend()
+            variations_data = variation_data.get('variations', [])
+            grouped_variations = {}
 
-            variation_data[var_type].append({
-                'id': variation.id,
-                'value': variation.variation_value,
-                'price': str(variation.price),
-                'stock_status': variation.stock_status,
-                'stock_quantity': variation.stock_quantity,
-                'sku': variation.sku,
-                'image_url': variation.effective_image_url,
-                'in_stock': variation.is_in_stock
-            })
+            # Group variations by type for easier frontend handling
+            for variation in variations_data:
+                var_type = variation['type']
+                if var_type not in grouped_variations:
+                    grouped_variations[var_type] = []
+
+                # Enhanced variation data with proper structure for frontend
+                stock_quantity = variation.get('stock', 0) or 0
+                is_in_stock = variation.get('is_in_stock', stock_quantity > 0)
+
+                # Calculate stock_status
+                if not variation.get('is_active', True):
+                    stock_status = 'discontinued'
+                elif stock_quantity > 0:
+                    stock_status = 'instock'
+                else:
+                    stock_status = 'outofstock'
+
+                # For TUS products, genders and colors should always be selectable
+                is_available = is_in_stock
+                if var_type in ['color', 'colour', 'gender', 'style']:
+                    is_available = True  # Always allow selection for TUS
+
+                enhanced_variation = {
+                    'id': variation['id'],
+                    'type': var_type,
+                    'value': variation['value'],
+                    'is_available': is_available,
+                    'stock_quantity': stock_quantity,
+                    'stock_status': stock_status,
+                    'price_modifier': variation.get('price_modifier', 0.0),
+                    'final_price': variation.get('final_price', float(product.price)),
+                    'sku_suffix': variation.get('sku_suffix', ''),
+                    'image': variation.get('image', product.image_url),
+                    'attributes': variation.get('attributes', {})
+                }
+
+                grouped_variations[var_type].append(enhanced_variation)
+
+            # Sort variations in TUS-specific order: gender -> size -> color -> others
+            tus_order = ['gender', 'size', 'color', 'colour', 'style', 'length', 'fit']
+            ordered_grouped_variations = {}
+
+            # Add variations in the preferred order
+            for var_type in tus_order:
+                if var_type in grouped_variations:
+                    ordered_grouped_variations[var_type] = _sort_variation_values_tus(
+                        grouped_variations[var_type], var_type
+                    )
+
+            # Add any remaining variations not in the preferred order
+            for var_type, variations in grouped_variations.items():
+                if var_type not in ordered_grouped_variations:
+                    ordered_grouped_variations[var_type] = _sort_variation_values_tus(
+                        variations, var_type
+                    )
+
+            grouped_variations = ordered_grouped_variations
+        else:
+            # No variations
+            variations_data = []
+            grouped_variations = {}
 
         return JsonResponse({
             'success': True,
-            'variations': variation_data,
-            'base_price': str(product.price)
+            'product_id': product_id,
+            'product_name': product.name,
+            'base_price': float(product.price),
+            'variations': variations_data,
+            'grouped_variations': grouped_variations,
+            'total_variations': len(variations_data),
+            'variation_order': list(grouped_variations.keys())
         })
 
     except Exception as e:
+        logger.error(f"Error fetching TUS product variations: {str(e)}")
         return JsonResponse({
             'success': False,
-            'error': str(e)
-        }, status=400)
+            'error': 'Failed to fetch product variations',
+            'message': str(e)
+        }, status=500)
+
+
+def _sort_variation_values_tus(variations, var_type):
+    """
+    Helper function to sort variation values in logical order for TUS products
+    """
+    def sort_key(variation):
+        value = variation['value'].lower()
+
+        if var_type == 'size':
+            # Standard sizes order
+            size_order = ['4', '6', '8', '10', '12', '14', '16', '18',
+                         'xs', 's', 'm', 'l', 'xl', '2xl', '3xl', '4xl', '5xl']
+
+            # Try numeric first
+            try:
+                numeric_value = int(value)
+                return (0, numeric_value)
+            except ValueError:
+                pass
+
+            # Try standard size names
+            if value in size_order:
+                return (1, size_order.index(value))
+            else:
+                return (2, value)  # Unknown sizes last
+
+        elif var_type == 'gender':
+            # Gender order: Boys/Girls -> Mens/Womens -> Unisex
+            gender_order = ['boys', 'girls', 'mens', 'womens', 'men', 'women', 'unisex']
+            if value in gender_order:
+                return (0, gender_order.index(value))
+            else:
+                return (1, value)
+
+        elif var_type in ['color', 'colour']:
+            # Color order: common colors first
+            common_colors = ['black', 'white', 'navy', 'red', 'blue', 'green',
+                           'yellow', 'grey', 'gray', 'maroon']
+            if value in common_colors:
+                return (0, common_colors.index(value))
+            else:
+                return (1, value)
+
+        else:
+            # Default alphabetical sorting
+            return (0, value)
+
+    return sorted(variations, key=sort_key)
 
 
 def tus_check_variation_availability(request, product_id):
@@ -1023,8 +1209,8 @@ def sync_tus_schools(request):
                 sync_job.start()
                 sync_job.add_log_message('TUS sync process started', 'info')
 
-                # Call the management command
-                call_command('sync_tus_schools', verbosity=2)
+                # Call the management command, passing the job ID
+                call_command('sync_tus_schools', job_id=str(sync_job.id), verbosity=2)
 
                 # Mark as completed
                 sync_job.complete()
@@ -1936,6 +2122,7 @@ def wholesale_price_preview(request):
     """
     Generate preview of wholesale price updates from CSV upload.
     Returns detailed preview data for user review before applying changes.
+    Supports multiple product categories via ProductMatcherService.
     """
     import os
     import tempfile
@@ -1946,6 +2133,9 @@ def wholesale_price_preview(request):
     from django.core.files.storage import default_storage
     from django.core.files.base import ContentFile
     from .models import WholesaleProduct, WholesaleSchool
+    from .services import ProductMatcherService
+
+    import traceback
 
     logger = logging.getLogger(__name__)
     logger.info("=== WHOLESALE PRICE PREVIEW STARTED ===")
@@ -1972,6 +2162,24 @@ def wholesale_price_preview(request):
                 'error': 'No CSV file provided'
             })
 
+        # Get category filter (default to wholesale-schools for backward compatibility)
+        category = request.POST.get('category_filter', 'wholesale-schools')
+        logger.info(f"Category filter: {category}")
+
+        # Initialize product matcher service
+        try:
+            matcher = ProductMatcherService()
+            category_info = matcher.get_category_info(category)
+            logger.info(f"Category info: {category_info}")
+        except Exception as e:
+            logger.error(f"Error initializing ProductMatcherService: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'success': False,
+                'error': f'Failed to initialize product matcher: {str(e)}',
+                'traceback': traceback.format_exc(),
+                'category': category
+            }, status=500)
+
         csv_file = request.FILES['csv_file']
         logger.info(f"Processing CSV file: {csv_file.name} ({csv_file.size} bytes)")
 
@@ -1994,72 +2202,380 @@ def wholesale_price_preview(request):
             row_count = 0
             valid_rows = 0
 
+            # PRE-LOAD all products into memory for faster lookup
+            logger.info(f"Pre-loading {category} products for faster matching...")
+            try:
+                model_class = matcher._get_model_class(category)
+                if not model_class:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Invalid category: {category}'
+                    })
+
+                # Get field names
+                sku_field = matcher.SKU_FIELDS.get(category)
+                barcode_field = matcher.BARCODE_FIELDS.get(category)
+
+                # Create lookup dictionaries for O(1) access
+                products_by_sku = {}
+                products_by_barcode = {}
+                products_by_variation = {}
+
+                # Load all products at once
+                all_products = model_class.objects.all()
+                for product in all_products:
+                    # Index by SKU
+                    if sku_field and hasattr(product, sku_field):
+                        sku_value = getattr(product, sku_field)
+                        if sku_value:
+                            products_by_sku[str(sku_value).strip().upper()] = product
+
+                    # Index by barcode
+                    if barcode_field and hasattr(product, barcode_field):
+                        barcode_value = getattr(product, barcode_field)
+                        if barcode_value:
+                            products_by_barcode[str(barcode_value).strip().upper()] = product
+
+                # Load variations based on category
+                if category == 'retail-schools':
+                    from clubs.models_tus import TUSProductVariation
+                    variations = TUSProductVariation.objects.select_related('product').all()
+                    for variation in variations:
+                        if variation.sku:
+                            # TUS uses 'sku' field
+                            products_by_variation[str(variation.sku).strip().upper()] = variation.product
+
+                elif category == 'sas-clubs':
+                    from clubs.models_sas import SASProductVariation
+                    variations = SASProductVariation.objects.select_related('product').all()
+                    for variation in variations:
+                        if variation.sku_suffix:
+                            # SAS uses 'sku_suffix' field
+                            products_by_variation[str(variation.sku_suffix).strip().upper()] = variation.product
+
+                elif category == 'lotto-clubs':
+                    from clubs.models_lotto import LottoProductVariation
+                    variations = LottoProductVariation.objects.select_related('product').all()
+                    for variation in variations:
+                        if variation.sku_suffix:
+                            # LOTTO uses 'sku_suffix' field
+                            products_by_variation[str(variation.sku_suffix).strip().upper()] = variation.product
+
+                logger.info(f"Pre-loaded {len(all_products)} products: "
+                           f"{len(products_by_sku)} indexed by SKU, "
+                           f"{len(products_by_barcode)} indexed by barcode, "
+                           f"{len(products_by_variation)} indexed by variation")
+            except Exception as e:
+                logger.error(f"Error pre-loading products: {str(e)}", exc_info=True)
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Failed to load products from database: {str(e)}',
+                    'traceback': traceback.format_exc(),
+                    'category': category
+                }, status=500)
+
             with open(temp_file_path, 'r', encoding='utf-8-sig') as file:
-                # Detect dialect
-                sample = file.read(1024)
-                file.seek(0)
-                sniffer = csv.Sniffer()
-                dialect = sniffer.sniff(sample)
+                try:
+                    # Detect dialect
+                    sample = file.read(1024)
+                    file.seek(0)
+                    sniffer = csv.Sniffer()
+                    dialect = sniffer.sniff(sample)
 
-                # Increase CSV field size limit to handle large fields
-                csv.field_size_limit(1048576)  # 1MB limit instead of default 128KB
+                    # Increase CSV field size limit to handle large fields
+                    csv.field_size_limit(1048576)  # 1MB limit instead of default 128KB
 
-                reader = csv.DictReader(file, dialect=dialect)
-                logger.info(f"CSV headers detected: {reader.fieldnames}")
+                    reader = csv.DictReader(file, dialect=dialect)
+                    logger.info(f"CSV headers detected: {reader.fieldnames}")
+                except Exception as e:
+                    logger.error(f"Error parsing CSV file: {str(e)}", exc_info=True)
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Failed to parse CSV file: {str(e)}',
+                        'traceback': traceback.format_exc(),
+                        'file_name': csv_file.name
+                    }, status=500)
 
                 for row_num, row in enumerate(reader, 1):
                     row_count += 1
-                    logger.debug(f"Processing row {row_num}: {dict(row)}")
+
+                    # Log progress every 1000 rows instead of every row
+                    if row_count % 1000 == 0:
+                        logger.info(f"Processing row {row_count}...")
 
                     try:
                         # Extract data from row - handle multiple possible field names
-                        product_code = str(row.get('product_code', '') or row.get('Code', '') or row.get('Style Code', '')).strip()
-                        barcode = str(row.get('barcode', '') or row.get('Barcode', '')).strip()
-                        product_name = str(row.get('product_name', '') or row.get('Product Name', '')).strip()
+                        # Support common variations of column names (case-insensitive)
+                        product_code = str(
+                            row.get('product_code', '') or
+                            row.get('Code', '') or
+                            row.get('Style Code', '') or
+                            row.get('SKU', '') or
+                            row.get('sku', '') or
+                            row.get('Product Code', '') or
+                            row.get('Item Code', '') or
+                            row.get('Style', '') or
+                            row.get('code', '') or
+                            row.get('style_code', '') or
+                            row.get('item_code', '')
+                        ).strip()
+
+                        barcode = str(
+                            row.get('barcode', '') or
+                            row.get('Barcode', '') or
+                            row.get('UPC', '') or
+                            row.get('EAN', '') or
+                            row.get('GTIN', '') or
+                            row.get('upc', '') or
+                            row.get('ean', '')
+                        ).strip()
+
+                        product_name = str(
+                            row.get('product_name', '') or
+                            row.get('Product Name', '') or
+                            row.get('Name', '') or
+                            row.get('Description', '') or
+                            row.get('Product', '') or
+                            row.get('name', '') or
+                            row.get('product', '')
+                        ).strip()
 
                         if not product_code and not barcode:
-                            errors.append(f"Row {row_num}: Missing product code and barcode")
+                            error_msg = f"Row {row_num}: Missing product code and barcode. Available columns: {', '.join(row.keys())}"
+                            errors.append(error_msg)
+                            logger.warning(error_msg)
                             continue
 
-                        # Try to find the product
+                        # Fast lookup using pre-loaded dictionaries with proper priority per category
                         product = None
-                        if product_code:
-                            product = WholesaleProduct.objects.filter(cin7_sku=product_code).first()
+                        match_method = None
 
-                        if not product and barcode:
-                            product = WholesaleProduct.objects.filter(cin7_barcode=barcode).first()
+                        # TUS (retail-schools): Variation SKU → Product SKU → Barcode
+                        # Note: Excel "barcode" column contains variation SKU values for TUS products
+                        if category == 'retail-schools':
+                            # DEBUG: Log to verify new code is running
+                            logger.debug(f"[TUS MATCHING v2.0] Row {row_num}: barcode={barcode}, product_code={product_code}, variations_dict_size={len(products_by_variation)}")
 
-                        preview_item = {
-                            'row_number': row_num,
-                            'product_code': product_code,
-                            'barcode': barcode,
-                            'product_name': product_name,
-                            'product_found': product is not None,
-                            'database_product_name': product.name if product else None,
-                            'school_name': product.school.name if product else None,
-                            'cost': row.get('cost', '') or row.get('Cost NZD Excl', ''),
-                            'margin_75_price': row.get('margin_75_price', '') or row.get('WholesaleExGST NZD Excl', ''),
-                            'discount_percentage': row.get('discount_percentage', ''),
-                            'current_retail_nzd_incl': row.get('current_retail_nzd_incl', '') or row.get('Retail NZD Incl', ''),
-                            'current_cost_price': float(product.cost_price) if product and product.cost_price else None,
-                            'current_margin_75_price': float(product.margin_75_price) if product and product.margin_75_price else None,
-                            'current_retail_price': float(product.retail_price) if product and product.retail_price else None,
-                        }
+                            # Priority 1: Try barcode value against variation SKU first (Excel barcode = TUS variation.sku)
+                            if barcode:
+                                product = products_by_variation.get(barcode.upper())
+                                if product:
+                                    match_method = 'variation_sku_from_barcode'
+                                    logger.debug(f"[TUS MATCHING v2.0] ✅ Matched barcode {barcode} to product {product.id}: {product.name}")
+                                else:
+                                    logger.debug(f"[TUS MATCHING v2.0] ❌ Barcode {barcode} not in variation dict")
 
-                        preview_data.append(preview_item)
+                            # Priority 2: Try product_code against variation SKU
+                            if not product and product_code:
+                                product = products_by_variation.get(product_code.upper())
+                                if product:
+                                    match_method = 'variation_sku_exact'
+
+                            # Priority 3: Try product_code against product SKU
+                            if not product and product_code:
+                                product = products_by_sku.get(product_code.upper())
+                                if product:
+                                    match_method = 'sku_exact'
+
+                            # Priority 4: Fallback to product barcode (rarely used for TUS)
+                            if not product and barcode:
+                                product = products_by_barcode.get(barcode.upper())
+                                if product:
+                                    match_method = 'barcode_exact'
+
+                        # SAS (sas-clubs): Barcode as sku_suffix → Variation → Product SKU → Product Barcode
+                        elif category == 'sas-clubs':
+                            # Priority 1: Try barcode value against variation sku_suffix first
+                            if barcode:
+                                product = products_by_variation.get(barcode.upper())
+                                if product:
+                                    match_method = 'variation_sku_suffix_from_barcode'
+
+                            # Priority 2: Try product_code against variation sku_suffix
+                            if not product and product_code:
+                                product = products_by_variation.get(product_code.upper())
+                                if product:
+                                    match_method = 'variation_sku_suffix_exact'
+
+                            # Priority 3: Try product_code against product SKU
+                            if not product and product_code:
+                                product = products_by_sku.get(product_code.upper())
+                                if product:
+                                    match_method = 'sku_exact'
+
+                            # Priority 4: Try barcode against product barcode field (fallback)
+                            if not product and barcode:
+                                product = products_by_barcode.get(barcode.upper())
+                                if product:
+                                    match_method = 'barcode_exact'
+
+                        # LOTTO (lotto-clubs): Variation → Product SKU → Barcode
+                        elif category == 'lotto-clubs':
+                            if product_code:
+                                product = products_by_variation.get(product_code.upper())
+                                if product:
+                                    match_method = 'variation_sku_suffix_exact'
+
+                            if not product and product_code:
+                                product = products_by_sku.get(product_code.upper())
+                                if product:
+                                    match_method = 'sku_exact'
+
+                            if not product and barcode:
+                                product = products_by_barcode.get(barcode.upper())
+                                if product:
+                                    match_method = 'barcode_exact'
+
+                        # Wholesale (default): SKU → Barcode
+                        else:
+                            if product_code:
+                                product = products_by_sku.get(product_code.upper())
+                                if product:
+                                    match_method = 'sku_exact'
+
+                            if not product and barcode:
+                                product = products_by_barcode.get(barcode.upper())
+                                if product:
+                                    match_method = 'barcode_exact'
+
+                        # Get price field name for this category
+                        price_field = matcher.get_price_field(category)
+
+                        # Get cost from CSV - support multiple column name variations
+                        cost_raw = (
+                            row.get('cost', '') or
+                            row.get('Cost NZD Excl', '') or
+                            row.get('Cost', '') or
+                            row.get('Price', '') or
+                            row.get('Unit Cost', '') or
+                            row.get('cost_nzd_excl', '') or
+                            row.get('unit_cost', '') or
+                            row.get('price', '')
+                        )
+
+                        # Calculate prices when cost > 0
+                        margin_75_price = None
+                        rrp = None
+                        discount_percentage = None
+                        cost_value = Decimal('0')
+
+                        if cost_raw:
+                            try:
+                                cost_value = Decimal(str(cost_raw))
+                                if cost_value > 0:
+                                    # Calculate 75% margin price: Cost ÷ 0.25
+                                    margin_75_price = float(cost_value / Decimal('0.25'))
+
+                                    # Get current retail price using the correct field name for this category
+                                    price_field = matcher.get_price_field(category)
+                                    current_price = None
+
+                                    if product and price_field and hasattr(product, price_field):
+                                        current_price = getattr(product, price_field)
+                                        if current_price:
+                                            rrp = float(current_price)
+
+                                            # Calculate discount percentage: ((margin_75 - retail) / margin_75) × 100
+                                            # Negative values indicate RRP is higher than 75% margin price
+                                            if margin_75_price > 0:
+                                                discount_calc = ((Decimal(str(margin_75_price)) - Decimal(str(current_price))) / Decimal(str(margin_75_price))) * 100
+                                                discount_percentage = float(discount_calc)  # Allow negative discounts
+                            except (ValueError, InvalidOperation, ZeroDivisionError) as e:
+                                logger.warning(f"Row {row_num}: Price calculation error - {str(e)}")
+
+                        # Get stock quantity from product (field name varies by model)
+                        stock_quantity = 0
                         if product:
-                            valid_rows += 1
+                            # WholesaleProduct uses 'quantity_available', others use 'stock_quantity'
+                            if hasattr(product, 'quantity_available'):
+                                stock_quantity = product.quantity_available or 0
+                            elif hasattr(product, 'stock_quantity'):
+                                stock_quantity = product.stock_quantity or 0
+
+                        # Determine status based on product match, cost data, and pricing
+                        status = 'error'  # Default to error
+                        status_message = ''
+
+                        if not product:
+                            status = 'error'
+                            status_message = 'Product not found in database'
+                        elif cost_value == 0 or not cost_raw:
+                            status = 'no_cost'
+                            status_message = 'Missing cost data - cannot calculate prices'
+                        elif discount_percentage is not None and discount_percentage < 0:
+                            # Negative discount means Current Retail > 75% Margin Price
+                            status = 'above_margin'
+                            status_message = f'Current RRP (${rrp:.2f}) exceeds 75% margin price (${margin_75_price:.2f}) - Discount: {discount_percentage:.1f}%'
+                        else:
+                            status = 'valid'
+                            status_message = 'Ready for price update'
+
+                        # Build preview item with category-aware field access
+                        try:
+                            preview_item = {
+                                'row_number': row_num,
+                                'product_code': product_code,
+                                'barcode': barcode,
+                                'product_name': product_name,
+                                'product_found': product is not None,
+                                'match_method': match_method,
+                                'status': status,
+                                'status_message': status_message,
+                                'database_product_name': product.name if product else None,
+                                'cost': cost_raw,
+                                'margin_75_price': margin_75_price,
+                                'rrp': rrp,
+                                'discount_percentage': discount_percentage,
+                                'current_retail_nzd_incl': row.get('current_retail_nzd_incl', '') or row.get('Retail NZD Incl', ''),
+                                'current_cost_price': float(product.cost_price) if product and hasattr(product, 'cost_price') and product.cost_price else None,
+                                'current_margin_75_price': float(product.margin_75_price) if product and hasattr(product, 'margin_75_price') and product.margin_75_price else None,
+                                'stock_quantity': stock_quantity,  # Add stock info for display/debugging
+                            }
+
+                            # Add school_name for wholesale products
+                            if category == 'wholesale-schools' and product:
+                                preview_item['school_name'] = product.school.name if hasattr(product, 'school') else None
+
+                            # Add current retail price using the correct field name
+                            if product and price_field:
+                                current_price = getattr(product, price_field, None)
+                                preview_item['current_retail_price'] = float(current_price) if current_price else None
+                            else:
+                                preview_item['current_retail_price'] = None
+                        except AttributeError as attr_e:
+                            logger.error(f"Row {row_num}: AttributeError building preview_item - {str(attr_e)}", exc_info=True)
+                            logger.error(f"Row {row_num}: product type: {type(product).__name__ if product else 'None'}")
+                            logger.error(f"Row {row_num}: product attributes: {dir(product) if product else 'N/A'}")
+                            raise  # Re-raise to be caught by outer exception handler
+
+                        # Filter logic: Ignore products with BOTH stock=0 AND cost=0
+                        # Include products if:
+                        # - Product was found AND
+                        # - NOT (stock=0 AND cost=0) - i.e., at least one is > 0
+                        if product and not (stock_quantity == 0 and cost_value == 0):
+                            preview_data.append(preview_item)
+                            if status == 'valid':
+                                valid_rows += 1
 
                     except Exception as e:
                         error_msg = f"Row {row_num}: Error processing - {str(e)}"
-                        logger.error(error_msg)
+                        logger.error(f"{error_msg}\nTraceback: {traceback.format_exc()}", exc_info=True)
+                        logger.error(f"Row {row_num} data: product_code='{product_code}', barcode='{barcode}', product_name='{product_name}'")
+                        logger.error(f"Row {row_num} cost_raw='{cost_raw}', category='{category}'")
+                        if product:
+                            logger.error(f"Row {row_num} product found: {product.__class__.__name__}, id={product.id}, name='{product.name}'")
+                            logger.error(f"Row {row_num} product attributes: {dir(product)}")
                         errors.append(error_msg)
 
-            logger.info(f"CSV processing complete: {row_count} rows processed, {valid_rows} valid products found")
+            filtered_count = row_count - len(preview_data)
+            logger.info(f"CSV processing complete: {row_count} rows processed, "
+                       f"{valid_rows} valid products found, "
+                       f"{filtered_count} filtered out (stock=0 & cost=0, or not found)")
 
             return JsonResponse({
                 'success': True,
                 'preview_data': preview_data,
+                'category_filter': category,  # Include category so frontend can send it back in apply
                 'summary': {
                     'total_rows': row_count,
                     'valid_products': valid_rows,
@@ -2076,9 +2592,24 @@ def wholesale_price_preview(request):
 
     except Exception as e:
         logger.error(f"Price preview operation failed: {str(e)}", exc_info=True)
+        logger.error(f"Full traceback:\n{traceback.format_exc()}")
+
+        # Get context information
+        context_info = {}
+        try:
+            context_info['category'] = category if 'category' in locals() else 'unknown'
+            context_info['csv_file_name'] = csv_file.name if 'csv_file' in locals() else 'unknown'
+            context_info['row_count'] = row_count if 'row_count' in locals() else 0
+            context_info['valid_rows'] = valid_rows if 'valid_rows' in locals() else 0
+        except:
+            pass
+
         return JsonResponse({
             'success': False,
-            'error': f'Preview operation failed: {str(e)}'
+            'error': f'Preview operation failed: {str(e)}',
+            'error_type': type(e).__name__,
+            'traceback': traceback.format_exc(),
+            'context': context_info
         }, status=500)
 
 
@@ -2086,7 +2617,10 @@ def wholesale_price_preview(request):
 @require_http_methods(["POST"])
 def wholesale_price_apply(request):
     """
-    Apply selected price changes from preview data.
+    Apply price changes to ALL valid items from preview data.
+    Automatically processes items with status='valid', skipping items with
+    status='above_margin', 'no_cost', or 'error'.
+    Supports multiple product categories via ProductMatcherService.
     Enhanced with comprehensive logging to debug the 25/1701 update issue.
     """
     import json
@@ -2094,35 +2628,51 @@ def wholesale_price_apply(request):
     from django.db import transaction
     from django.utils import timezone
     from .models import WholesaleProduct
+    from .services import ProductMatcherService
 
     logger = logging.getLogger(__name__)
 
     try:
         # Parse request data
         data = json.loads(request.body)
-        selected_items = data.get('selected_items', [])
+        all_items = data.get('preview_items', [])  # Changed from selected_items to preview_items
         backup_prices = data.get('backup_prices', True)
+        category = data.get('category_filter', 'wholesale-schools')
 
         logger.info(f"=== WHOLESALE PRICE APPLY STARTED ===")
-        logger.info(f"Total items received: {len(selected_items)}")
+        logger.info(f"Category: {category}")
+        logger.info(f"Total items received: {len(all_items)}")
         logger.info(f"Backup prices enabled: {backup_prices}")
 
-        if not selected_items:
-            logger.warning("No items selected for update")
+        # Filter for only valid items
+        valid_items = [item for item in all_items if item.get('status') == 'valid']
+
+        logger.info(f"Valid items to process: {len(valid_items)} out of {len(all_items)} total items")
+        logger.info(f"Skipped items: {len(all_items) - len(valid_items)}")
+
+        # Initialize product matcher service
+        matcher = ProductMatcherService()
+        category_info = matcher.get_category_info(category)
+        price_field = matcher.get_price_field(category)
+        logger.info(f"Category info: {category_info}")
+        logger.info(f"Price field for updates: {price_field}")
+
+        if not valid_items:
+            logger.warning("No valid items found for update")
             return JsonResponse({
                 'success': False,
-                'error': 'No items selected for update'
+                'error': 'No valid items found for update. Only items with status="valid" are processed.'
             })
 
         # Log first few items for structure verification
         logger.info("=== SAMPLE DATA STRUCTURE ===")
-        for i, item in enumerate(selected_items[:3]):
+        for i, item in enumerate(valid_items[:3]):
             logger.info(f"Item {i+1} structure: {json.dumps(item, indent=2)}")
 
         # Log expected vs actual field mappings
         logger.info("=== FIELD MAPPING ANALYSIS ===")
-        if selected_items:
-            first_item = selected_items[0]
+        if valid_items:
+            first_item = valid_items[0]
             expected_fields = ['product_code', 'barcode', 'cost', 'margin_75_price', 'discount_percentage', 'current_retail_nzd_incl']
             available_fields = list(first_item.keys())
 
@@ -2170,20 +2720,29 @@ def wholesale_price_apply(request):
 
         # Add database diagnostics before processing
         logger.info("=== DATABASE DIAGNOSTICS ===")
-        total_wholesale_products = WholesaleProduct.objects.count()
-        products_with_sku = WholesaleProduct.objects.exclude(cin7_sku='').exclude(cin7_sku__isnull=True).count()
-        products_with_barcode = WholesaleProduct.objects.exclude(cin7_barcode='').exclude(cin7_barcode__isnull=True).count()
 
-        logger.info(f"Total WholesaleProduct records: {total_wholesale_products}")
-        logger.info(f"Products with SKU: {products_with_sku}")
-        logger.info(f"Products with barcode: {products_with_barcode}")
+        # Get model class for diagnostics
+        model_class = matcher._get_model_class(category)
+        if model_class:
+            sku_field = matcher.get_sku_field(category)
+            barcode_field = matcher.get_barcode_field(category)
 
-        # Sample some SKUs and barcodes for comparison
-        sample_skus = list(WholesaleProduct.objects.exclude(cin7_sku='').exclude(cin7_sku__isnull=True).values_list('cin7_sku', flat=True)[:5])
-        sample_barcodes = list(WholesaleProduct.objects.exclude(cin7_barcode='').exclude(cin7_barcode__isnull=True).values_list('cin7_barcode', flat=True)[:5])
+            total_products = model_class.objects.count()
+            products_with_sku = model_class.objects.exclude(**{f"{sku_field}": ''}).exclude(**{f"{sku_field}__isnull": True}).count() if sku_field else 0
+            products_with_barcode = model_class.objects.exclude(**{f"{barcode_field}": ''}).exclude(**{f"{barcode_field}__isnull": True}).count() if barcode_field else 0
 
-        logger.info(f"Sample SKUs in database: {sample_skus}")
-        logger.info(f"Sample barcodes in database: {sample_barcodes}")
+            logger.info(f"Total {model_class.__name__} records: {total_products}")
+            logger.info(f"Products with SKU: {products_with_sku}")
+            logger.info(f"Products with barcode: {products_with_barcode}")
+
+            # Sample some SKUs and barcodes for comparison
+            if sku_field:
+                sample_skus = list(model_class.objects.exclude(**{f"{sku_field}": ''}).exclude(**{f"{sku_field}__isnull": True}).values_list(sku_field, flat=True)[:5])
+                logger.info(f"Sample SKUs in database: {sample_skus}")
+
+            if barcode_field:
+                sample_barcodes = list(model_class.objects.exclude(**{f"{barcode_field}": ''}).exclude(**{f"{barcode_field}__isnull": True}).values_list(barcode_field, flat=True)[:5])
+                logger.info(f"Sample barcodes in database: {sample_barcodes}")
 
         # Process each selected item
         logger.info("=== PROCESSING ITEMS ===")
@@ -2191,68 +2750,35 @@ def wholesale_price_apply(request):
 
         try:
             with transaction.atomic():
-                for index, item in enumerate(selected_items, 1):
+                for index, item in enumerate(valid_items, 1):
                     processed_count += 1
                     product_name = item.get('product_name', 'Unknown')
                     product_code = item.get('product_code', '')
                     barcode = item.get('barcode', '')
 
-                    logger.info(f"Processing item {index}/{len(selected_items)}: {product_name}")
+                    logger.info(f"Processing item {index}/{len(valid_items)}: {product_name}")
                     logger.info(f"  - Product code: {product_code}")
                     logger.info(f"  - Barcode: {barcode}")
 
                     try:
-                        # Find product by code or barcode
-                        product = None
-                        search_method = None
+                        # Use ProductMatcherService to find the product
+                        product_code_clean = str(product_code).strip() if product_code else ''
+                        barcode_clean = str(barcode).strip() if barcode else ''
 
-                        # Try to find by SKU first with multiple search strategies
-                        if product_code:
-                            product_code_clean = str(product_code).strip()
-                            logger.debug(f"  - Searching by SKU: '{product_code_clean}'")
+                        logger.debug(f"  - Searching for product: SKU='{product_code_clean}', Barcode='{barcode_clean}'")
 
-                            # Try exact match first
-                            product = WholesaleProduct.objects.filter(cin7_sku=product_code_clean).first()
-                            if product:
-                                search_method = "SKU (exact)"
+                        product, search_method = matcher.find_product(category, product_code_clean, barcode_clean)
+
+                        # Update statistics based on match method
+                        if product:
+                            if 'sku' in search_method:
                                 found_by_sku_count += 1
-                                logger.info(f"  ✅ Product found by SKU (exact): {product.name} (ID: {product.id})")
-                            else:
-                                # Try case-insensitive match
-                                product = WholesaleProduct.objects.filter(cin7_sku__iexact=product_code_clean).first()
-                                if product:
-                                    search_method = "SKU (case-insensitive)"
-                                    found_by_sku_count += 1
-                                    logger.info(f"  ✅ Product found by SKU (case-insensitive): {product.name} (ID: {product.id})")
-                                else:
-                                    # Log potential matches for debugging
-                                    similar_skus = WholesaleProduct.objects.filter(cin7_sku__icontains=product_code_clean[:5] if len(product_code_clean) >= 5 else product_code_clean)[:3]
-                                    if similar_skus:
-                                        logger.debug(f"  - Similar SKUs found: {[p.cin7_sku for p in similar_skus]}")
-
-                        # Try barcode if not found by SKU
-                        if not product and barcode:
-                            barcode_clean = str(barcode).strip()
-                            logger.debug(f"  - Searching by barcode: '{barcode_clean}'")
-
-                            # Try exact match first
-                            product = WholesaleProduct.objects.filter(cin7_barcode=barcode_clean).first()
-                            if product:
-                                search_method = "Barcode (exact)"
+                            elif 'barcode' in search_method:
                                 found_by_barcode_count += 1
-                                logger.info(f"  ✅ Product found by barcode (exact): {product.name} (ID: {product.id})")
-                            else:
-                                # Try case-insensitive match
-                                product = WholesaleProduct.objects.filter(cin7_barcode__iexact=barcode_clean).first()
-                                if product:
-                                    search_method = "Barcode (case-insensitive)"
-                                    found_by_barcode_count += 1
-                                    logger.info(f"  ✅ Product found by barcode (case-insensitive): {product.name} (ID: {product.id})")
-                                else:
-                                    # Log potential matches for debugging
-                                    similar_barcodes = WholesaleProduct.objects.filter(cin7_barcode__icontains=barcode_clean[:5] if len(barcode_clean) >= 5 else barcode_clean)[:3]
-                                    if similar_barcodes:
-                                        logger.debug(f"  - Similar barcodes found: {[p.cin7_barcode for p in similar_barcodes]}")
+
+                            logger.info(f"  ✅ Product found by {search_method}: {product.name} (ID: {product.id})")
+                        else:
+                            logger.debug(f"  - Product not found with SKU or barcode")
 
                         if not product:
                             not_found_count += 1
@@ -2269,19 +2795,24 @@ def wholesale_price_apply(request):
 
                         # Log current product state
                         logger.info(f"  - Current product state:")
-                        logger.info(f"    * Cost price: {product.cost_price}")
-                        logger.info(f"    * Margin 75% price: {product.margin_75_price}")
-                        logger.info(f"    * Retail price: {product.retail_price}")
+                        logger.info(f"    * Cost price: {getattr(product, 'cost_price', 'N/A')}")
+                        logger.info(f"    * Margin 75% price: {getattr(product, 'margin_75_price', 'N/A')}")
+                        logger.info(f"    * {price_field}: {getattr(product, price_field, 'N/A')}")
                         logger.info(f"    * Discount percentage: {getattr(product, 'discount_percentage', 'N/A')}")
 
                         # Create backup if requested
                         backup_data = {}
                         if backup_prices:
+                            cost_price = getattr(product, 'cost_price', None)
+                            margin_75 = getattr(product, 'margin_75_price', None)
+                            current_price = getattr(product, price_field, None) if price_field else None
+                            discount_pct = getattr(product, 'discount_percentage', None)
+
                             backup_data = {
-                                'original_cost_price': float(product.cost_price) if product.cost_price else None,
-                                'original_margin_75_price': float(product.margin_75_price) if product.margin_75_price else None,
-                                'original_retail_price': float(product.retail_price) if product.retail_price else None,
-                                'original_discount_percentage': float(getattr(product, 'discount_percentage', 0)) if hasattr(product, 'discount_percentage') and getattr(product, 'discount_percentage') else None,
+                                'original_cost_price': float(cost_price) if cost_price else None,
+                                'original_margin_75_price': float(margin_75) if margin_75 else None,
+                                'original_retail_price': float(current_price) if current_price else None,
+                                'original_discount_percentage': float(discount_pct) if discount_pct else None,
                             }
                             logger.debug(f"  - Backup created: {backup_data}")
 
@@ -2310,12 +2841,12 @@ def wholesale_price_apply(request):
                             else:
                                 logger.warning(f"  - Product model doesn't have discount_percentage field")
 
-                        # Also update retail price if provided
-                        if item.get('current_retail_nzd_incl'):
+                        # Also update retail price if provided (using correct field name for category)
+                        if item.get('current_retail_nzd_incl') and price_field:
                             new_retail = Decimal(str(item['current_retail_nzd_incl']))
-                            updates_to_apply['retail_price'] = new_retail
-                            product.retail_price = new_retail
-                            logger.info(f"  - Updating retail price: {new_retail}")
+                            updates_to_apply[price_field] = new_retail
+                            setattr(product, price_field, new_retail)
+                            logger.info(f"  - Updating {price_field}: {new_retail}")
 
                         if not updates_to_apply:
                             logger.warning(f"  ⚠️ No price fields to update for {product_name}")
@@ -2341,16 +2872,23 @@ def wholesale_price_apply(request):
                             raise save_error
 
                         results['successful_updates'] += 1
-                        results['updated_products'].append({
+
+                        # Build updated product info with category-aware field access
+                        updated_info = {
                             'product_name': product.name,
-                            'school_name': product.school.name,
                             'product_id': product.id,
                             'search_method': search_method,
                             'updates_applied': {k: float(v) for k, v in updates_to_apply.items()},
                             'backup_data': backup_data,
-                            'new_cost_price': float(product.cost_price) if product.cost_price else None,
-                            'new_margin_price': float(product.margin_75_price) if product.margin_75_price else None
-                        })
+                            'new_cost_price': float(getattr(product, 'cost_price', 0)) if hasattr(product, 'cost_price') and getattr(product, 'cost_price') else None,
+                            'new_margin_price': float(getattr(product, 'margin_75_price', 0)) if hasattr(product, 'margin_75_price') and getattr(product, 'margin_75_price') else None,
+                        }
+
+                        # Add school_name for wholesale products
+                        if category == 'wholesale-schools' and hasattr(product, 'school'):
+                            updated_info['school_name'] = product.school.name
+
+                        results['updated_products'].append(updated_info)
 
                         logger.info(f"  ✅ Successfully updated {product.name}")
 
@@ -2385,8 +2923,11 @@ def wholesale_price_apply(request):
         return JsonResponse({
             'success': True,
             'results': results,
-            'message': f"Updated {results['successful_updates']} products successfully out of {len(selected_items)} items",
+            'message': f"Updated {results['successful_updates']} products successfully out of {len(valid_items)} valid items (total items: {len(all_items)})",
             'summary': {
+                'total_received': len(all_items),
+                'valid_items': len(valid_items),
+                'skipped_items': len(all_items) - len(valid_items),
                 'total_processed': processed_count,
                 'found_by_sku': found_by_sku_count,
                 'found_by_barcode': found_by_barcode_count,

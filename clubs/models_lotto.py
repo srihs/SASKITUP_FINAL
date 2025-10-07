@@ -227,7 +227,14 @@ class LottoProduct(models.Model):
     description = models.TextField(blank=True, null=True, help_text="Product description")
     short_description = models.TextField(blank=True, null=True, help_text="Short product description")
     sku = models.CharField(max_length=100, blank=True, null=True, help_text="Stock Keeping Unit")
-    
+
+    # Pricing management fields (for price update system)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Cost price from supplier")
+    margin_75_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Price with 75% margin")
+    discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Discount percentage applied")
+    last_price_update = models.DateTimeField(null=True, blank=True, help_text="Last price update timestamp")
+    barcode = models.CharField(max_length=100, blank=True, db_index=True, help_text="Product barcode")
+
     # Product characteristics
     virtual = models.BooleanField(default=False, help_text="Is virtual product")
     downloadable = models.BooleanField(default=False, help_text="Is downloadable product")
@@ -374,8 +381,8 @@ class LottoProduct(models.Model):
         return self.on_sale and self.sale_price and self.regular_price and self.sale_price < self.regular_price
     
     @property
-    def discount_percentage(self):
-        """Calculate discount percentage if on sale"""
+    def sale_discount_percentage(self):
+        """Calculate sale discount percentage if on sale (WooCommerce sale price)"""
         if self.is_on_sale and self.regular_price:
             return round(((self.regular_price - self.sale_price) / self.regular_price) * 100, 2)
         return 0

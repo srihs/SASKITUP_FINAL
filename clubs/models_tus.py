@@ -498,6 +498,13 @@ class TUSProduct(models.Model):
     weight = models.CharField(max_length=50, blank=True, null=True, help_text="Product weight")
     dimensions = models.JSONField(blank=True, null=True, help_text="Product dimensions")
 
+    # Pricing management fields (for price update system)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Cost price from supplier")
+    margin_75_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Price with 75% margin")
+    discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Discount percentage applied")
+    last_price_update = models.DateTimeField(null=True, blank=True, help_text="Last price update timestamp")
+    barcode = models.CharField(max_length=100, blank=True, db_index=True, help_text="Product barcode")
+
     # Additional WooCommerce data
     tags = models.JSONField(blank=True, null=True, help_text="Product tags")
     attributes = models.JSONField(blank=True, null=True, help_text="Product attributes")
@@ -559,8 +566,8 @@ class TUSProduct(models.Model):
         return self.on_sale and self.sale_price and self.regular_price and self.sale_price < self.regular_price
 
     @property
-    def discount_percentage(self):
-        """Calculate discount percentage if on sale"""
+    def sale_discount_percentage(self):
+        """Calculate sale discount percentage if on sale (WooCommerce sale price)"""
         if self.is_on_sale and self.regular_price:
             return round(((self.regular_price - self.sale_price) / self.regular_price) * 100, 2)
         return 0
@@ -623,6 +630,218 @@ class TUSProduct(models.Model):
             product_assignments__product=self,
             school=school
         ).distinct()
+
+    def _parse_variation_attributes(self):
+        """
+        Parse variation attributes from variations and attributes field.
+        Returns dict with attribute type as key and list of values as value.
+        """
+        parsed_attributes = {}
+
+        # Check actual TUS variations first
+        if hasattr(self, 'variations'):
+            variations = self.variations.filter(is_active=True)
+            for variation in variations:
+                if variation.variation_type not in parsed_attributes:
+                    parsed_attributes[variation.variation_type] = set()
+                parsed_attributes[variation.variation_type].add(variation.variation_value)
+
+        # Parse from attributes field if present
+        if self.attributes:
+            for attr in self.attributes:
+                if isinstance(attr, dict) and attr.get('variation', False):
+                    attr_name = attr.get('name', '').lower()
+                    # Map common attribute names to standard types
+                    attr_type = attr_name
+                    if 'colour' in attr_name or 'color' in attr_name:
+                        attr_type = 'color'
+                    elif 'size' in attr_name:
+                        attr_type = 'size'
+                    elif 'gender' in attr_name:
+                        attr_type = 'gender'
+
+                    options = attr.get('options', [])
+                    if options and len(options) > 1:
+                        if attr_type not in parsed_attributes:
+                            parsed_attributes[attr_type] = set()
+                        for option in options:
+                            parsed_attributes[attr_type].add(str(option))
+
+        # Convert sets to sorted lists
+        result = {}
+        for attr_type, values in parsed_attributes.items():
+            if values:
+                result[attr_type] = sorted(list(values))
+
+        return result
+
+    @property
+    def available_sizes(self):
+        """Get available sizes for this product"""
+        parsed = self._parse_variation_attributes()
+        return parsed.get('size', [])
+
+    @property
+    def available_colors(self):
+        """Get available colors for this product"""
+        parsed = self._parse_variation_attributes()
+        return parsed.get('color', [])
+
+    @property
+    def available_genders(self):
+        """Get available genders for this product"""
+        parsed = self._parse_variation_attributes()
+        return parsed.get('gender', [])
+
+    @property
+    def variation_count(self):
+        """Count active variations"""
+        return self.variations.filter(is_active=True).count()
+
+    @property
+    def in_stock_variation_count(self):
+        """Count in-stock variations"""
+        return self.variations.filter(is_active=True, stock_quantity__gt=0).count()
+
+    @property
+    def base_variation(self):
+        """Get cheapest in-stock variation"""
+        return self.variations.filter(is_active=True, stock_quantity__gt=0).order_by('price').first()
+
+    @property
+    def price_range(self):
+        """Get min/max price range for variations"""
+        variations = self.variations.filter(is_active=True)
+        if not variations:
+            return None
+
+        prices = variations.values_list('price', flat=True)
+        return {
+            'min': min(prices),
+            'max': max(prices),
+            'has_range': min(prices) != max(prices)
+        }
+
+    def get_stock_for_attributes(self, **attributes):
+        """Get stock for specific attributes (e.g., size='M', color='Navy')"""
+        variations = self.variations.filter(is_active=True)
+
+        for attr_type, attr_value in attributes.items():
+            if attr_value:
+                variations = variations.filter(
+                    variation_type=attr_type,
+                    variation_value=attr_value
+                )
+
+        from django.db.models import Sum
+        total_stock = variations.aggregate(total=Sum('stock_quantity'))['total'] or 0
+        return total_stock
+
+    def get_variation_by_attributes(self, **attributes):
+        """Find variation by attributes"""
+        variations = self.variations.filter(is_active=True)
+
+        for attr_type, attr_value in attributes.items():
+            if attr_value:
+                variations = variations.filter(
+                    variation_type=attr_type,
+                    variation_value=attr_value
+                )
+
+        return variations.first()
+
+    def get_variation_data_for_frontend(self):
+        """
+        Get structured variation data for frontend JavaScript.
+
+        Returns:
+            dict: Structured data for frontend variation handling
+        """
+        if not self.has_variations:
+            return {}
+
+        variations_data = {
+            'product_id': self.id,
+            'has_variations': True,
+            'variation_types': [],
+            'variations': [],
+            'parsed_attributes': self._parse_variation_attributes(),
+            'total_stock': self.stock_quantity
+        }
+
+        # If product has actual TUS variations
+        if hasattr(self, 'variations') and self.variations.filter(is_active=True).exists():
+            variations_data['variation_types'] = list(
+                self.variations.filter(is_active=True).values_list('variation_type', flat=True).distinct()
+            )
+
+            for variation in self.variations.filter(is_active=True):
+                is_in_stock = variation.is_in_stock if hasattr(variation, 'is_in_stock') else variation.stock_quantity > 0
+
+                # Calculate stock_status
+                if not variation.is_active:
+                    stock_status = 'discontinued'
+                elif variation.stock_quantity > 0:
+                    stock_status = 'instock'
+                else:
+                    stock_status = 'outofstock'
+
+                var_data = {
+                    'id': variation.id,
+                    'type': variation.variation_type,
+                    'value': variation.variation_value,
+                    'stock': variation.stock_quantity,
+                    'stock_status': stock_status,
+                    'price_modifier': 0.0,
+                    'final_price': float(variation.price),
+                    'sku_suffix': variation.sku or '',
+                    'is_in_stock': is_in_stock,
+                    'image': variation.image_url or self.image_url,
+                    'attributes': variation.attributes or {}
+                }
+                variations_data['variations'].append(var_data)
+        else:
+            # Use attribute-based variations
+            parsed_attrs = self._parse_variation_attributes()
+            variations_data['variation_types'] = list(parsed_attrs.keys())
+
+            for attr_type, values in parsed_attrs.items():
+                for value in values:
+                    stock_value = 0
+                    if self.manage_stock and self.stock_quantity is not None:
+                        stock_value = self.stock_quantity
+
+                    is_in_stock = (stock_value > 0) or (self.stock_status == 'onbackorder')
+
+                    # Calculate stock_status
+                    if self.stock_status != 'instock':
+                        stock_status = 'discontinued'
+                    elif stock_value and stock_value > 0:
+                        stock_status = 'instock'
+                        is_in_stock = True
+                    elif self.stock_status == 'onbackorder':
+                        stock_status = 'onbackorder'
+                        is_in_stock = True
+                    else:
+                        stock_status = 'outofstock'
+                        is_in_stock = False
+
+                    var_data = {
+                        'id': f"{self.id}_{attr_type}_{value}",
+                        'type': attr_type,
+                        'value': value,
+                        'stock': stock_value,
+                        'stock_status': stock_status,
+                        'price_modifier': 0.0,
+                        'final_price': float(self.price),
+                        'sku_suffix': f"{attr_type}-{value}",
+                        'is_in_stock': is_in_stock,
+                        'image': self.image_url,
+                        'attributes': {attr_type: value}
+                    }
+                    variations_data['variations'].append(var_data)
+
+        return variations_data
 
 
 class TUSProductVariation(models.Model):
@@ -724,8 +943,8 @@ class TUSProductVariation(models.Model):
         return self.sale_price and self.regular_price and self.sale_price < self.regular_price
 
     @property
-    def discount_percentage(self):
-        """Calculate discount percentage if on sale"""
+    def sale_discount_percentage(self):
+        """Calculate sale discount percentage if on sale (WooCommerce sale price)"""
         if self.is_on_sale and self.regular_price:
             return round(((self.regular_price - self.sale_price) / self.regular_price) * 100, 2)
         return 0
@@ -753,3 +972,43 @@ class TUSProductVariation(models.Model):
         if self.product and self.product.image_url:
             return self.product.image_url
         return None
+
+    @property
+    def final_price(self):
+        """Calculate the final price for this variation"""
+        return self.price
+
+    @property
+    def effective_stock_status(self):
+        """Calculate effective stock status"""
+        if not self.is_active:
+            return 'discontinued'
+        elif self.stock_quantity > 0:
+            return 'instock'
+        else:
+            return 'outofstock'
+
+    @property
+    def attributes_dict(self):
+        """Parse attributes to dictionary"""
+        if self.attributes and isinstance(self.attributes, dict):
+            return self.attributes
+        return {}
+
+    @property
+    def size(self):
+        """Extract size attribute"""
+        attrs = self.attributes_dict
+        return attrs.get('size') or attrs.get('Size') or (self.variation_value if self.variation_type == 'size' else None)
+
+    @property
+    def color(self):
+        """Extract color attribute"""
+        attrs = self.attributes_dict
+        return attrs.get('color') or attrs.get('Color') or (self.variation_value if self.variation_type == 'color' else None)
+
+    @property
+    def gender(self):
+        """Extract gender attribute"""
+        attrs = self.attributes_dict
+        return attrs.get('gender') or attrs.get('Gender') or (self.variation_value if self.variation_type == 'gender' else None)

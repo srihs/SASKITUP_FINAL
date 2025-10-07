@@ -289,6 +289,9 @@ debug_*.py
 *_comparison.json
 *_validation_results.json
 
+# Temporary uploads
+temp_uploads/
+
 # Images in root
 /*.png
 /*.jpg

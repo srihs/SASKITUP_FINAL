@@ -521,6 +521,253 @@
         height: 40px;
     }
 }
+
+/* TUS Size Inventory Grid Styles - Based on SAS Pattern */
+.size-inventory-grid {
+    margin-top: 20px;
+}
+
+.size-inventory-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 15px;
+    text-align: left;
+    letter-spacing: 0.5px;
+}
+
+.size-tiles-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    padding: 0;
+}
+
+.size-inventory-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 12px;
+    min-height: 90px;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    background: linear-gradient(135deg, #387ADF 0%, #2968CC 100%);
+    color: white !important;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(56, 122, 223, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.size-inventory-tile::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.size-inventory-tile:hover::before {
+    opacity: 1;
+}
+
+.size-inventory-tile:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(56, 122, 223, 0.3);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.size-inventory-tile.out-of-stock {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    color: #f8f9fa !important;
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
+    cursor: not-allowed;
+}
+
+.size-inventory-tile.out-of-stock:hover {
+    transform: none;
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
+}
+
+.size-inventory-tile * {
+    color: inherit !important;
+}
+
+.size-name {
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: white !important;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8) !important;
+    background: rgba(0, 0, 0, 0.2) !important;
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    display: block !important;
+}
+
+.size-stock {
+    font-size: 0.85rem;
+    font-weight: 500;
+    opacity: 0.95;
+    text-transform: lowercase;
+    color: white !important;
+}
+
+/* TUS Stock Tiles for Single Products */
+.tus-stock-tile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+    min-height: 80px;
+}
+
+.tus-stock-tile.available {
+    background: linear-gradient(135deg, #387ADF 0%, #2968CC 100%);
+    color: white !important;
+    border-color: rgba(56, 122, 223, 0.3);
+}
+
+.tus-stock-tile.available:hover {
+    background: linear-gradient(135deg, #2968CC 0%, #387ADF 100%);
+    border-color: #387ADF;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(56, 122, 223, 0.3);
+}
+
+.tus-stock-tile::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+    transition: left 0.5s ease;
+}
+
+.tus-stock-tile:hover::before {
+    left: 100%;
+}
+
+.stock-quantity {
+    font-weight: 700;
+    font-size: 1.2rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stock-status-container {
+    padding: 1rem;
+    background: rgba(248, 249, 250, 0.5);
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+/* Responsive Design for Size Inventory */
+@media (max-width: 768px) {
+    .size-tiles-container {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 10px;
+    }
+
+    .size-inventory-tile {
+        padding: 12px 8px;
+        min-height: 75px;
+    }
+
+    .size-name {
+        font-size: 0.9rem;
+    }
+
+    .size-stock {
+        font-size: 0.75rem;
+    }
+
+    .tus-stock-tile {
+        padding: 16px;
+        font-size: 1rem;
+        min-height: 70px;
+    }
+
+    .stock-quantity {
+        font-size: 1.1rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .size-tiles-container {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+
+    .size-inventory-tile {
+        padding: 10px 6px;
+        min-height: 65px;
+    }
+
+    .size-name {
+        font-size: 0.8rem;
+        margin-bottom: 2px;
+    }
+
+    .size-stock {
+        font-size: 0.7rem;
+    }
+
+    .tus-stock-tile {
+        padding: 12px;
+        font-size: 0.95rem;
+        min-height: 60px;
+    }
+
+    .stock-quantity {
+        font-size: 1rem;
+    }
+}
+
+/* Animation for tiles */
+.size-inventory-tile,
+.tus-stock-tile {
+    animation: stockTileSlideIn 0.4s ease-out;
+}
+
+@keyframes stockTileSlideIn {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Focus states for accessibility */
+.tus-stock-tile:focus,
+.size-inventory-tile:focus {
+    outline: 3px solid #387ADF;
+    outline-offset: 2px;
+}
 </style>
 {% endblock %}
 
@@ -547,43 +794,14 @@
                 </div>
             </div>
 
-            <!-- Size Availability Section (Under Main Image) -->
-            {% regroup variations by variation_type as variation_groups %}
-            {% for group in variation_groups %}
-                {% if group.grouper == "size" %}
-                <div class="size-availability-section mt-4">
-                    <div class="size-availability-title mb-3">
-                        <strong>Size Availability</strong>
-                    </div>
-                    <div class="size-availability-grid">
-                        {% for size_variation in group.list|dictsort:"price" %}
-                        <button type="button"
-                                class="size-stock-button{% if size_variation.stock_quantity == 0 %} out-of-stock{% endif %}"
-                                data-size="{{ size_variation.variation_value }}"
-                                data-price="{{ size_variation.price }}"
-                                data-stock="{{ size_variation.stock_quantity }}"
-                                {% if size_variation.stock_quantity == 0 %}disabled{% endif %}>
-                            <div class="size-name">{{ size_variation.variation_value }}</div>
-                            <div class="stock-count">
-                                {% if size_variation.stock_quantity == 0 %}
-                                    Out of Stock
-                                {% else %}
-                                    {{ size_variation.stock_quantity }} available
-                                {% endif %}
-                            </div>
-                        </button>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
-            {% endfor %}
+            <!-- Stock Grid Container (Under Main Image) -->
+            <div class="stock-grid-container mt-3">
+                <!-- Stock availability will be displayed here for products with variations -->
+            </div>
 
-            <!-- Stock Status Display -->
-            <div class="product-stock-status mt-3">
-                <div class="stock-indicator">
-                    <i class="uil-check-circle"></i>
-                    <span class="stock-text"><strong>AVAILABLE</strong> In Stock</span>
-                </div>
+            <!-- Stock Status Container for Single-Variant Products -->
+            <div id="stockStatusContainer" class="stock-status-container mt-3" style="display: none;">
+                <!-- Stock tile for single-variant products will be populated by JavaScript -->
             </div>
         </div>
 
@@ -620,7 +838,7 @@
                             <div class="current-price">${{ product.sale_price }}</div>
                             <div class="original-price">${{ product.regular_price }}</div>
                             <span class="discount-badge">
-                                {{ product.discount_percentage }}% OFF
+                                {{ product.sale_discount_percentage }}% OFF
                             </span>
                         {% else %}
                             <div class="current-price">${{ product.price }}</div>
@@ -692,90 +910,134 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'assets/js/product-variations.js' %}?v=20250916-3"></script>
+
 <script>
+// Global variables for product variation management
+let variationManager;
+
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize product detail functionality
-    initializeImageGallery();
-    initializeColorSwatches();
-    initializeSizeButtons();
+    // Initialize TUS Product Variation Manager
+    const productId = {{ product.id }};
+    const productType = 'tus';
+
+    // Ensure price display shows correct initial value
+    const priceElement = document.querySelector('#productPrice, .current-price');
+    if (priceElement && priceElement.textContent.trim() === '$') {
+        {% if product.is_on_sale %}
+        priceElement.textContent = '${{ product.sale_price }}';
+        {% else %}
+        priceElement.textContent = '${{ product.price }}';
+        {% endif %}
+    }
+
+    // Create variation manager
+    variationManager = new ProductVariationManager(productId, productType, {
+        enableStockCheck: true,
+        enablePriceUpdates: true,
+        enableLoadingStates: true,
+        debounceDelay: 300
+    });
+
+    // Pass stock data from backend to JavaScript for single-variant products
+    if (variationManager) {
+        variationManager.productData = {
+            stock_status: '{{ effective_stock_status }}',
+            stock_quantity: {{ stock_quantity|default:0 }},
+            manage_stock: {{ manage_stock|yesno:"true,false" }}
+        };
+
+        // Set global stock variables
+        window.stockQuantity = {{ stock_quantity|default:0 }};
+        window.stockStatus = '{{ effective_stock_status }}';
+        window.manageStock = {{ manage_stock|yesno:"true,false" }};
+
+        // Set size-only product information
+        window.isSizeOnlyProduct = {{ is_size_only_product|yesno:"true,false" }};
+        {% if is_size_only_product and size_stock_info %}
+        window.sizeStockInfo = [
+            {% for size_info in size_stock_info %}
+            {
+                size: '{{ size_info.size }}',
+                stock_quantity: {{ size_info.stock_quantity }},
+                is_available: {{ size_info.is_available|yesno:"true,false" }}
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        {% else %}
+        window.sizeStockInfo = null;
+        {% endif %}
+
+        console.log('[TUS STOCK DEBUG] Stock data initialized:', {
+            stockQuantity: window.stockQuantity,
+            stockStatus: window.stockStatus,
+            manageStock: window.manageStock,
+            isSizeOnlyProduct: window.isSizeOnlyProduct,
+            sizeStockInfo: window.sizeStockInfo
+        });
+    }
+
+    // Hide stock status container for products with variations
+    setTimeout(function() {
+        const stockStatusContainer = document.querySelector('#stockStatusContainer');
+        if (stockStatusContainer && variationManager && variationManager.hasVariations) {
+            // Hide for products with variations - show in grid instead
+            stockStatusContainer.style.display = 'none';
+            console.log('Stock status container hidden for TUS product with variations');
+        } else if (stockStatusContainer && variationManager && !variationManager.hasVariations) {
+            // Show for simple products and create stock tile
+            stockStatusContainer.style.display = 'block';
+            console.log('Stock status container visible for simple TUS product');
+
+            // Create and display stock tile for single-variant products
+            if (window.stockQuantity > 0 && window.manageStock) {
+                const stockTile = document.createElement('div');
+                stockTile.className = 'tus-stock-tile available';
+                stockTile.innerHTML = `
+                    <div class="stock-icon">
+                        <i class="mdi mdi-check-circle"></i>
+                    </div>
+                    <div class="stock-text">
+                        <span class="stock-quantity">${window.stockQuantity} Available</span>
+                        <span class="stock-label">In Stock</span>
+                    </div>
+                `;
+                stockStatusContainer.innerHTML = '';
+                stockStatusContainer.appendChild(stockTile);
+                console.log(`[TUS STOCK DEBUG] Stock tile created: ${window.stockQuantity} Available`);
+            } else if (window.stockStatus === 'instock') {
+                // Fallback for in-stock products without specific quantity
+                const stockTile = document.createElement('div');
+                stockTile.className = 'tus-stock-tile available';
+                stockTile.innerHTML = `
+                    <div class="stock-icon">
+                        <i class="mdi mdi-check-circle"></i>
+                    </div>
+                    <div class="stock-text">
+                        <span class="stock-quantity">Available</span>
+                        <span class="stock-label">In Stock</span>
+                    </div>
+                `;
+                stockStatusContainer.innerHTML = '';
+                stockStatusContainer.appendChild(stockTile);
+                console.log('[TUS STOCK DEBUG] Generic stock tile created for in-stock product');
+            }
+        }
+    }, 1000); // Wait for variations to load
+
+    // Listen for variation changes
+    document.addEventListener('variationChanged', function(event) {
+        console.log('TUS variation changed:', event.detail);
+    });
 
     // Initialize tooltips
     var tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltips.map(function(tooltip) {
         return new bootstrap.Tooltip(tooltip);
     });
+
+    // Make it globally accessible for debugging
+    window.tusVariationManager = variationManager;
 });
-
-// Initialize color swatches
-function initializeColorSwatches() {
-    const colorSwatches = document.querySelectorAll('.color-swatch');
-
-    colorSwatches.forEach(swatch => {
-        swatch.addEventListener('click', function() {
-            // Remove selected class from all color swatches
-            colorSwatches.forEach(s => s.classList.remove('selected'));
-
-            // Add selected class to clicked swatch
-            this.classList.add('selected');
-
-            console.log('Color selected:', this);
-        });
-    });
-}
-
-// Initialize size buttons
-function initializeSizeButtons() {
-    const sizeLabels = document.querySelectorAll('.size-label');
-    const sizeAvailabilityButtons = document.querySelectorAll('.size-availability-button');
-
-    // Size label interactions
-    sizeLabels.forEach(label => {
-        label.addEventListener('click', function() {
-            if (this.classList.contains('out-of-stock')) return;
-
-            // Remove selected class from all size labels
-            sizeLabels.forEach(l => l.classList.remove('selected'));
-
-            // Add selected class to clicked label
-            this.classList.add('selected');
-
-            const selectedSize = this.dataset.size;
-            const selectedPrice = this.dataset.price;
-
-            console.log('Size selected:', selectedSize, 'Price:', selectedPrice);
-        });
-    });
-
-    // Size availability button interactions
-    sizeAvailabilityButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            if (this.classList.contains('out-of-stock')) return;
-
-            const selectedSize = this.dataset.size;
-            const selectedPrice = this.dataset.price;
-            const selectedStock = this.dataset.stock;
-
-            // Also select the corresponding size label
-            sizeLabels.forEach(l => l.classList.remove('selected'));
-            const matchingLabel = document.querySelector(`.size-label[data-size="${selectedSize}"]`);
-            if (matchingLabel) {
-                matchingLabel.classList.add('selected');
-            }
-
-            console.log('Size selected from availability:', selectedSize, 'Price:', selectedPrice, 'Stock:', selectedStock);
-        });
-    });
-}
-
-// Initialize image gallery (for future enhancement)
-function initializeImageGallery() {
-    const mainImage = document.getElementById('mainProductImage');
-
-    if (mainImage) {
-        // Add any image gallery functionality here
-        console.log('Image gallery initialized');
-    }
-}
-
 </script>
 {% endblock %}
