@@ -952,8 +952,9 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                         Q(name__icontains=search_query) |
                         Q(sku__icontains=search_query) |
                         Q(barcode__icontains=search_query) |
-                        Q(description__icontains=search_query)
-                    )
+                        Q(description__icontains=search_query) |
+                        Q(variations__sku__icontains=search_query)  # Search in variation SKUs
+                    ).distinct()  # Use distinct() to avoid duplicates from variation joins
 
             # Get Wholesale School Products with variations
             wholesale_products_qs = WholesaleProduct.objects.none()
@@ -966,11 +967,14 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
 
                 # Apply search filter
                 if search_query:
+                    # Search in product fields and variation SKUs (for grouped products)
+                    # This allows searching by any variation SKU and finding the base product
                     wholesale_products_qs = wholesale_products_qs.filter(
                         Q(name__icontains=search_query) |
                         Q(cin7_sku__icontains=search_query) |
-                        Q(description__icontains=search_query)
-                    )
+                        Q(description__icontains=search_query) |
+                        Q(variations__cin7_sku__icontains=search_query)  # Search in variation SKUs
+                    ).distinct()  # Use distinct() to avoid duplicates from variation joins
 
             # Combine querysets for pagination
             # Convert to lists and merge (since they're different models)
@@ -987,7 +991,10 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                 else:
                     product.variation_display = {}
 
-            for product in wholesale_products_list:
+            # Group wholesale products by base SKU (like in WholesaleSchoolDetailView)
+            grouped_wholesale_products = self._group_wholesale_products_by_base_sku(wholesale_products_list)
+
+            for product in grouped_wholesale_products:
                 product.product_type = 'wholesaleproduct'
                 # WholesaleProduct now has has_variations property - just add variation display data
                 if product.has_variations:
@@ -996,7 +1003,7 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                 else:
                     product.variation_display = {}
 
-            combined_products = tus_products_list + wholesale_products_list
+            combined_products = tus_products_list + grouped_wholesale_products
 
             # Apply pagination to combined list
             paginator = Paginator(combined_products, self.paginate_by)
@@ -1052,8 +1059,9 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                 sas_products_qs = sas_products_qs.filter(
                     Q(name__icontains=search_query) |
                     Q(sku__icontains=search_query) |
-                    Q(description__icontains=search_query)
-                )
+                    Q(description__icontains=search_query) |
+                    Q(variations__full_sku__icontains=search_query)  # Search in variation SKUs
+                ).distinct()
 
             # Get LOTTO Products with variations
             lotto_products_qs = LottoProduct.objects.filter(
@@ -1066,8 +1074,9 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                 lotto_products_qs = lotto_products_qs.filter(
                     Q(name__icontains=search_query) |
                     Q(sku__icontains=search_query) |
-                    Q(description__icontains=search_query)
-                )
+                    Q(description__icontains=search_query) |
+                    Q(variations__full_sku__icontains=search_query)  # Search in variation SKUs
+                ).distinct()
 
             # Combine querysets for pagination
             sas_products_list = list(sas_products_qs)
@@ -1138,14 +1147,113 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
 
         return render(request, self.template_name, context)
 
+    def _group_wholesale_products_by_base_sku(self, products):
+        """
+        Group wholesale products by their base SKU pattern.
+        For example: "POLO 45 FT BLK SAS WLC XS" and "POLO 45 FT BLK SAS WLC S"
+        both belong to base SKU "POLO 45 FT BLK SAS WLC"
+
+        This follows the same logic as WholesaleSchoolDetailView._group_products_by_base_sku()
+        """
+        from collections import defaultdict
+
+        grouped = defaultdict(lambda: {
+            'main_product': None,
+            'variations': [],
+            'variation_summary': set()
+        })
+
+        for product in products:
+            # Extract base SKU by removing variation suffixes
+            base_sku = self._extract_base_sku(product.cin7_sku or '')
+
+            if not base_sku:
+                base_sku = product.name or 'unknown'
+
+            # Use the first product as the main product for this base SKU
+            if grouped[base_sku]['main_product'] is None:
+                grouped[base_sku]['main_product'] = product
+
+            # Extract variation info from the SKU suffix
+            variation_info = self._extract_variation_from_sku(product.cin7_sku or '')
+            if variation_info:
+                grouped[base_sku]['variations'].append(product)
+                grouped[base_sku]['variation_summary'].add(variation_info)
+
+        # Convert to list format and add variation summary to main products
+        result = []
+        for base_sku, group_data in grouped.items():
+            main_product = group_data['main_product']
+            if main_product:
+                # Add variation summary as a property
+                main_product.variation_count = len(group_data['variations']) + 1  # +1 for main product
+                main_product.variation_summary = ', '.join(sorted(group_data['variation_summary'])) if group_data['variation_summary'] else ''
+                main_product.variation_list = sorted(list(group_data['variation_summary'])) if group_data['variation_summary'] else []  # List for template iteration
+                main_product.base_sku = base_sku
+                main_product.all_variations = [main_product] + group_data['variations']  # Store all variations
+                result.append(main_product)
+
+        return sorted(result, key=lambda p: p.name or '')
+
+    def _extract_base_sku(self, sku):
+        """
+        Extract base SKU by removing common variation patterns.
+        Examples:
+        - "POLO 45 FT BLK SAS WLC XS" -> "POLO 45 FT BLK SAS WLC"
+        - "US FLC 789 CGS - XL" -> "US FLC 789 CGS"
+        """
+        if not sku:
+            return ''
+
+        import re
+
+        # Pattern 1: Remove " - anything" (dash with spaces)
+        base = re.sub(r'\s*-\s*.+$', '', sku)
+
+        # Pattern 2: Remove common size indicators at the end
+        base = re.sub(r'\s+(XS|S|M|L|XL|XXL|2XL|3XL|\d+)$', '', base, flags=re.IGNORECASE)
+
+        # Pattern 3: Remove trailing numbers that might be sizes
+        base = re.sub(r'\s+\d+$', '', base)
+
+        return base.strip()
+
+    def _extract_variation_from_sku(self, sku):
+        """
+        Extract variation information from SKU.
+        Examples:
+        - "POLO 45 FT BLK SAS WLC XS" -> "XS"
+        - "US FLC 789 CGS - XL" -> "XL"
+        """
+        if not sku:
+            return ''
+
+        import re
+
+        # Pattern 1: After dash (e.g., " - XL")
+        match = re.search(r'\s*-\s*(.+)$', sku)
+        if match:
+            return match.group(1).strip()
+
+        # Pattern 2: Last word if it looks like a size
+        parts = sku.split()
+        if parts:
+            last_part = parts[-1]
+            # Check if last part looks like a size
+            if re.match(r'^(XS|S|M|L|XL|XXL|2XL|3XL|\d+)$', last_part, re.IGNORECASE):
+                return last_part
+
+        return ''
+
     def _get_variation_display_data(self, variations, product_type):
         """
         Extract variation display data from variation objects.
-        Returns dict with sizes, colors, total_stock, and variation_count.
+        Returns dict with sizes, colors, total_stock, variation_count, and SKU info.
         """
         sizes = set()
         colors = set()
         total_stock = 0
+        skus = []  # Store SKUs for display
 
         for variation in variations:
             # Extract variation type and value
@@ -1176,9 +1284,31 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
             if stock_qty:
                 total_stock += stock_qty
 
+            # Extract SKU based on product type
+            sku = None
+            if product_type == 'TUS':
+                # TUSProductVariation has 'sku' field
+                sku = getattr(variation, 'sku', None)
+            elif product_type == 'Wholesale':
+                # WholesaleProductVariation has 'cin7_sku' field
+                sku = getattr(variation, 'cin7_sku', None)
+            elif product_type in ['SAS', 'LOTTO']:
+                # SASProductVariation and LottoProductVariation have 'full_sku' property
+                sku = getattr(variation, 'full_sku', None)
+
+            # Add SKU to list if it exists
+            if sku:
+                skus.append({
+                    'sku': sku,
+                    'variation': var_value,
+                    'stock': stock_qty
+                })
+
         return {
             'sizes': sorted(list(sizes)) if sizes else [],
             'colors': sorted(list(colors)) if colors else [],
             'total_stock': total_stock,
             'variation_count': len(variations),
+            'skus': skus,  # List of SKU information
+            'has_skus': len(skus) > 0,  # Quick check for template
         }

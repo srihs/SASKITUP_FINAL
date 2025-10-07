@@ -614,9 +614,6 @@
                                         {% if product.product_type == 'tusproduct' %}
                                             <a href="{% url 'quotations:product-detail-for-quote' product_type='tusproduct' product_id=product.id %}" class="text-decoration-none" style="display: contents;">
                                                 <div class="product-img">
-                                                    {% if product.has_variations %}
-                                                        <span class="badge-variable">Variable</span>
-                                                    {% endif %}
                                                     {% if product.image_url %}
                                                         <img src="{{ product.image_url }}" alt="{{ product.name }}">
                                                     {% else %}
@@ -628,7 +625,7 @@
                                                     <h5 class="product-title">{{ product.name }}</h5>
 
                                                     <p class="product-sku mb-0">
-                                                        SKU: {% if product.sku %}{{ product.sku }}{% elif product.barcode %}{{ product.barcode }}{% else %}N/A{% endif %}
+                                                        SKU: {{ product.display_sku }}
                                                     </p>
 
                                                     <p class="product-institution mb-0">
@@ -658,6 +655,18 @@
                                                         </div>
                                                         {% endif %}
 
+                                                        {% if product.variation_display.has_skus %}
+                                                        <div class="variation-label mt-2">SKUs:</div>
+                                                        <div class="variation-pills">
+                                                            {% for sku_info in product.variation_display.skus|slice:":5" %}
+                                                                <span class="variation-pill" title="{{ sku_info.variation }} (Stock: {{ sku_info.stock }})">{{ sku_info.sku }}</span>
+                                                            {% endfor %}
+                                                            {% if product.variation_display.skus|length > 5 %}
+                                                                <span class="variation-pill">+{{ product.variation_display.skus|length|add:"-5" }} more</span>
+                                                            {% endif %}
+                                                        </div>
+                                                        {% endif %}
+
                                                         <div class="variation-summary">
                                                             <strong>{{ product.variation_display.variation_count }}</strong> variation{{ product.variation_display.variation_count|pluralize }}
                                                             ({{ product.variation_display.total_stock }} total in stock)
@@ -673,9 +682,6 @@
                                         {% elif product.product_type == 'wholesaleproduct' %}
                                             <a href="{% url 'quotations:product-detail-for-quote' product_type='wholesaleproduct' product_id=product.id %}" class="text-decoration-none" style="display: contents;">
                                                 <div class="product-img">
-                                                    {% if product.has_variations %}
-                                                        <span class="badge-variable">Variable</span>
-                                                    {% endif %}
                                                     {% if product.image_url %}
                                                         <img src="{{ product.image_url }}" alt="{{ product.name }}">
                                                     {% else %}
@@ -687,14 +693,14 @@
                                                     <h5 class="product-title">{{ product.name }}</h5>
 
                                                     <p class="product-sku mb-0">
-                                                        SKU: {% if product.cin7_sku %}{{ product.cin7_sku }}{% elif product.cin7_barcode %}{{ product.cin7_barcode }}{% else %}N/A{% endif %}
+                                                        SKU: {% if product.base_sku %}{{ product.base_sku }}{% elif product.cin7_sku %}{{ product.cin7_sku }}{% elif product.cin7_barcode %}{{ product.cin7_barcode }}{% else %}N/A{% endif %}
                                                     </p>
 
                                                     <p class="product-institution mb-0">
                                                         {{ product.school.name }}
                                                     </p>
 
-                                                    {% if product.has_variations %}
+                                                    {% if product.variation_count and product.variation_count > 1 %}
                                                         <p class="product-price variable-price">Variable pricing</p>
                                                     {% else %}
                                                         <p class="product-price">${{ product.wholesale_price }}</p>
@@ -702,20 +708,19 @@
 
                                                     <span class="product-stock stock-in">In Stock</span>
 
-                                                    {% if product.has_variations and product.variation_display %}
+                                                    {% if product.variation_count and product.variation_count > 1 %}
                                                     <div class="variation-info">
-                                                        {% if product.variation_display.sizes %}
-                                                        <div class="variation-label">Sizes:</div>
+                                                        {% if product.variation_list %}
+                                                        <div class="variation-label">Available:</div>
                                                         <div class="variation-pills">
-                                                            {% for size in product.variation_display.sizes %}
+                                                            {% for size in product.variation_list %}
                                                                 <span class="variation-pill">{{ size }}</span>
                                                             {% endfor %}
                                                         </div>
                                                         {% endif %}
 
                                                         <div class="variation-summary">
-                                                            <strong>{{ product.variation_display.variation_count }}</strong> variation{{ product.variation_display.variation_count|pluralize }}
-                                                            ({{ product.variation_display.total_stock }} total in stock)
+                                                            <strong>{{ product.variation_count }}</strong> variation{{ product.variation_count|pluralize }}
                                                         </div>
                                                     </div>
                                                     {% endif %}
@@ -728,9 +733,6 @@
                                         {% elif product.product_type == 'sasproduct' %}
                                             <a href="{% url 'quotations:product-detail-for-quote' product_type='sasproduct' product_id=product.id %}" class="text-decoration-none" style="display: contents;">
                                                 <div class="product-img">
-                                                    {% if product.has_variations %}
-                                                        <span class="badge-variable">Variable</span>
-                                                    {% endif %}
                                                     {% if product.image %}
                                                         <img src="{{ product.image }}" alt="{{ product.name }}">
                                                     {% else %}
@@ -768,6 +770,18 @@
                                                         </div>
                                                         {% endif %}
 
+                                                        {% if product.variation_display.has_skus %}
+                                                        <div class="variation-label mt-2">SKUs:</div>
+                                                        <div class="variation-pills">
+                                                            {% for sku_info in product.variation_display.skus|slice:":5" %}
+                                                                <span class="variation-pill" title="{{ sku_info.variation }} (Stock: {{ sku_info.stock }})">{{ sku_info.sku }}</span>
+                                                            {% endfor %}
+                                                            {% if product.variation_display.skus|length > 5 %}
+                                                                <span class="variation-pill">+{{ product.variation_display.skus|length|add:"-5" }} more</span>
+                                                            {% endif %}
+                                                        </div>
+                                                        {% endif %}
+
                                                         <div class="variation-summary">
                                                             <strong>{{ product.variation_display.variation_count }}</strong> variation{{ product.variation_display.variation_count|pluralize }}
                                                             ({{ product.variation_display.total_stock }} total in stock)
@@ -783,9 +797,6 @@
                                         {% elif product.product_type == 'lottoproduct' %}
                                             <a href="{% url 'quotations:product-detail-for-quote' product_type='lottoproduct' product_id=product.id %}" class="text-decoration-none" style="display: contents;">
                                                 <div class="product-img">
-                                                    {% if product.has_variations %}
-                                                        <span class="badge-variable">Variable</span>
-                                                    {% endif %}
                                                     {% if product.image %}
                                                         <img src="{{ product.image }}" alt="{{ product.name }}">
                                                     {% else %}
@@ -822,6 +833,18 @@
                                                             {% for size in product.variation_display.sizes %}
                                                                 <span class="variation-pill">{{ size }}</span>
                                                             {% endfor %}
+                                                        </div>
+                                                        {% endif %}
+
+                                                        {% if product.variation_display.has_skus %}
+                                                        <div class="variation-label mt-2">SKUs:</div>
+                                                        <div class="variation-pills">
+                                                            {% for sku_info in product.variation_display.skus|slice:":5" %}
+                                                                <span class="variation-pill" title="{{ sku_info.variation }} (Stock: {{ sku_info.stock }})">{{ sku_info.sku }}</span>
+                                                            {% endfor %}
+                                                            {% if product.variation_display.skus|length > 5 %}
+                                                                <span class="variation-pill">+{{ product.variation_display.skus|length|add:"-5" }} more</span>
+                                                            {% endif %}
                                                         </div>
                                                         {% endif %}
 

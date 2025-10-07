@@ -631,6 +631,26 @@ class TUSProduct(models.Model):
             school=school
         ).distinct()
 
+    @property
+    def display_sku(self):
+        """
+        Get SKU for display - checks product SKU, barcode, first variation SKU, or generates from woo_product_id.
+        This is useful because TUS products often have empty SKU fields at product level,
+        but variations contain the actual SKU values.
+        """
+        if self.sku:
+            return self.sku
+        if self.barcode:
+            return self.barcode
+        # Try to get SKU from first variation
+        first_variation = self.variations.filter(is_active=True).first()
+        if first_variation and first_variation.sku:
+            return first_variation.sku
+        # Fallback to WooCommerce product ID
+        if self.woo_product_id:
+            return f"TUS-{self.woo_product_id}"
+        return "N/A"
+
     def _parse_variation_attributes(self):
         """
         Parse variation attributes from variations and attributes field.
