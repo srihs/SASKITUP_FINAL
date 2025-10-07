@@ -1200,15 +1200,16 @@ def proxy_image_view(request):
     # Validate URL to prevent abuse
     if not image_url.startswith(('http://', 'https://')):
         return HttpResponse('Invalid image URL', status=400)
-    
-    # Only allow certain domains to prevent abuse
-    allowed_domains = [
-        'www.lottosports.co.nz',
-        'lottosports.co.nz',
-        'dev-lottosports.it.sas.co.nz',  # LOTTO dev environment
+
+    # Only allow certain domains to prevent abuse - use dynamic domain list
+    from clubs.utils import get_lotto_domain_list
+    allowed_domains = get_lotto_domain_list()
+
+    # Add other trusted domains
+    allowed_domains.extend([
         'd1zjzw7jbxeyd4.cloudfront.net',  # SAS CloudFront CDN
         # Add more trusted domains as needed
-    ]
+    ])
     
     from urllib.parse import urlparse
     domain = urlparse(image_url).netloc.lower()

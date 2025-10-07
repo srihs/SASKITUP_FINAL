@@ -464,6 +464,11 @@ class WholesaleProduct(models.Model):
         self.save(update_fields=['margin_75_price', 'discount_percentage', 'last_price_update'])
 
     @property
+    def has_variations(self):
+        """Check if product has variations"""
+        return self.variations.filter(is_active=True).exists()
+
+    @property
     def primary_category(self):
         """Get the primary category for this product"""
         assignment = self.category_assignments.filter(is_primary=True).first()

@@ -821,6 +821,86 @@ class QuotationDetailView(LoginRequiredMixin, DetailView):
 # NEW QUOTATION PAGE - TAB-BASED PRODUCT SELECTION
 # =====================================
 
+class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, DetailView):
+    """
+    Product detail page for quotation system.
+    Shows product details, variations, and allows adding to quote.
+    """
+    template_name = 'quotations/product_detail.html'
+    context_object_name = 'product'
+
+    def get_object(self):
+        product_type = self.kwargs.get('product_type')
+        product_id = self.kwargs.get('product_id')
+
+        # Get product by type
+        product = get_product_by_type_and_id(product_type, product_id)
+        if not product:
+            raise PermissionDenied("Product not found")
+        return product
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        product = self.object
+        product_type = self.kwargs.get('product_type')
+
+        # Add product type for variation fetching
+        context['product_type'] = product_type
+
+        # Add institution name
+        context['institution_name'] = self._get_institution_name(product, product_type)
+
+        # Determine active tab based on product type
+        if product_type.lower() in ['tusproduct', 'wholesaleproduct']:
+            context['active_tab'] = 'schools'
+        else:
+            context['active_tab'] = 'clubs'
+
+        # Get quotation summary from session
+        quotation_data = get_quotation_session(self.request)
+        totals = calculate_quotation_totals(quotation_data)
+        context['quotation_item_count'] = totals['item_count']
+        context['quotation_total'] = totals['total']
+
+        return context
+
+    def _get_institution_name(self, product, product_type):
+        """Get school/club name based on product type"""
+        from clubs.models_tus import TUSProduct
+
+        try:
+            if product_type.lower() == 'tusproduct':
+                # Get school from primary category assignment
+                if hasattr(product, 'primary_category_assignment') and product.primary_category_assignment:
+                    school_category = product.primary_category_assignment.school_category
+                    if school_category and school_category.school:
+                        return school_category.school.name
+                return "TUS School"
+
+            elif product_type.lower() == 'wholesaleproduct':
+                # Get school from direct FK
+                if hasattr(product, 'school') and product.school:
+                    return product.school.name
+                return "Wholesale School"
+
+            elif product_type.lower() == 'sasproduct':
+                # Get club from direct FK
+                if hasattr(product, 'club') and product.club:
+                    return f"SAS - {product.club.name}"
+                return "SAS Club"
+
+            elif product_type.lower() == 'lottoproduct':
+                # Get club from category
+                if hasattr(product, 'category') and product.category and product.category.club:
+                    return f"LOTTO - {product.category.club.name}"
+                return "LOTTO Club"
+
+        except Exception as e:
+            logger.error(f"Error getting institution name: {e}")
+
+        return "Unknown Institution"
+
+
 class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
     """
     New quotation page with tab-based product selection.
@@ -828,8 +908,10 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
     Only accessible to sales reps and account managers.
     """
     template_name = 'quotations/new_quotation.html'
+    paginate_by = 24  # Products per page
 
     def get(self, request):
+        from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
         from clubs.models_tus import TUSProduct, TUSSchool
 
         # Get search query
@@ -838,11 +920,13 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
         # Get current tab (default to 'schools')
         active_tab = request.GET.get('tab', 'schools')
 
-        # Initialize product collections
-        tus_products = []
-        wholesale_products = []
-        sas_products = []
-        lotto_products = []
+        # Get page number
+        page = request.GET.get('page', 1)
+
+        # Initialize product collections and pagination objects
+        combined_products = []
+        page_obj = None
+        is_paginated = False
 
         # Get user's assigned institutions
         assigned_schools = request.user.get_assigned_schools()
@@ -852,6 +936,7 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
         # ========================================
         if active_tab == 'schools':
             # Get TUS School Products
+            tus_products_qs = TUSProduct.objects.none()
             if assigned_schools.get('regular'):
                 tus_school_ids = [school.id for school in assigned_schools['regular']]
                 tus_products_qs = TUSProduct.objects.filter(
@@ -870,15 +955,14 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                         Q(description__icontains=search_query)
                     )
 
-                tus_products = list(tus_products_qs[:50])  # Limit to 50 products
-
-            # Get Wholesale School Products
+            # Get Wholesale School Products with variations
+            wholesale_products_qs = WholesaleProduct.objects.none()
             if assigned_schools.get('wholesale'):
                 wholesale_school_ids = [school.id for school in assigned_schools['wholesale']]
                 wholesale_products_qs = WholesaleProduct.objects.filter(
                     school_id__in=wholesale_school_ids,
                     is_active=True
-                ).select_related('school')
+                ).select_related('school').prefetch_related('variations')
 
                 # Apply search filter
                 if search_query:
@@ -888,15 +972,50 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                         Q(description__icontains=search_query)
                     )
 
-                wholesale_products = list(wholesale_products_qs[:50])  # Limit to 50 products
+            # Combine querysets for pagination
+            # Convert to lists and merge (since they're different models)
+            tus_products_list = list(tus_products_qs)
+            wholesale_products_list = list(wholesale_products_qs)
+
+            # Add product_type attribute and variation info for template rendering
+            for product in tus_products_list:
+                product.product_type = 'tusproduct'
+                # TUSProduct already has has_variations property - just add variation display data
+                if product.has_variations:
+                    variations = list(product.variations.all())
+                    product.variation_display = self._get_variation_display_data(variations, 'tus')
+                else:
+                    product.variation_display = {}
+
+            for product in wholesale_products_list:
+                product.product_type = 'wholesaleproduct'
+                # WholesaleProduct now has has_variations property - just add variation display data
+                if product.has_variations:
+                    variations = list(product.variations.filter(is_active=True))
+                    product.variation_display = self._get_variation_display_data(variations, 'wholesale')
+                else:
+                    product.variation_display = {}
+
+            combined_products = tus_products_list + wholesale_products_list
+
+            # Apply pagination to combined list
+            paginator = Paginator(combined_products, self.paginate_by)
+            try:
+                page_obj = paginator.get_page(page)
+            except PageNotAnInteger:
+                page_obj = paginator.get_page(1)
+            except EmptyPage:
+                page_obj = paginator.get_page(paginator.num_pages)
+
+            is_paginated = paginator.num_pages > 1
 
         # ========================================
         # CLUBS TAB - SAS Clubs and LOTTO Clubs
         # ========================================
         elif active_tab == 'clubs':
             # Get assigned clubs
-            if request.user.is_account_manager:
-                # Account managers have access to all clubs
+            if request.user.is_admin or request.user.is_account_manager:
+                # Admin and account managers have access to all clubs
                 sas_clubs = SASClub.objects.filter(is_active=True)
                 lotto_clubs = LottoClub.objects.filter(is_active=True)
             elif request.user.is_sales_rep:
@@ -922,11 +1041,11 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                 sas_clubs = SASClub.objects.none()
                 lotto_clubs = LottoClub.objects.none()
 
-            # Get SAS Products
+            # Get SAS Products with variations
             sas_products_qs = SASProduct.objects.filter(
                 club__in=sas_clubs,
                 is_active=True
-            ).select_related('club')
+            ).select_related('club').prefetch_related('variations')
 
             # Apply search filter
             if search_query:
@@ -936,13 +1055,11 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                     Q(description__icontains=search_query)
                 )
 
-            sas_products = list(sas_products_qs[:50])  # Limit to 50 products
-
-            # Get LOTTO Products
+            # Get LOTTO Products with variations
             lotto_products_qs = LottoProduct.objects.filter(
                 category__club__in=lotto_clubs,
                 stock_status__in=['instock', 'onbackorder']
-            ).select_related('category__club')
+            ).select_related('category__club').prefetch_related('variations')
 
             # Apply search filter
             if search_query:
@@ -952,7 +1069,41 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                     Q(description__icontains=search_query)
                 )
 
-            lotto_products = list(lotto_products_qs[:50])  # Limit to 50 products
+            # Combine querysets for pagination
+            sas_products_list = list(sas_products_qs)
+            lotto_products_list = list(lotto_products_qs)
+
+            # Add product_type attribute and variation info for template rendering
+            for product in sas_products_list:
+                product.product_type = 'sasproduct'
+                # SASProduct already has has_variations property - just add variation display data
+                if product.has_variations:
+                    variations = list(product.variations.filter(is_active=True))
+                    product.variation_display = self._get_variation_display_data(variations, 'sas')
+                else:
+                    product.variation_display = {}
+
+            for product in lotto_products_list:
+                product.product_type = 'lottoproduct'
+                # LottoProduct already has has_variations property - just add variation display data
+                if product.has_variations:
+                    variations = list(product.variations.filter(is_active=True))
+                    product.variation_display = self._get_variation_display_data(variations, 'lotto')
+                else:
+                    product.variation_display = {}
+
+            combined_products = sas_products_list + lotto_products_list
+
+            # Apply pagination to combined list
+            paginator = Paginator(combined_products, self.paginate_by)
+            try:
+                page_obj = paginator.get_page(page)
+            except PageNotAnInteger:
+                page_obj = paginator.get_page(1)
+            except EmptyPage:
+                page_obj = paginator.get_page(paginator.num_pages)
+
+            is_paginated = paginator.num_pages > 1
 
         # Get current quotation count from session
         quotation_data = get_quotation_session(request)
@@ -972,23 +1123,62 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
             'active_tab': active_tab,
             'search_query': search_query,
 
-            # Schools tab products
-            'tus_products': tus_products,
-            'wholesale_products': wholesale_products,
-
-            # Clubs tab products
-            'sas_products': sas_products,
-            'lotto_products': lotto_products,
+            # Paginated products
+            'products': page_obj.object_list if page_obj else [],
+            'page_obj': page_obj,
+            'is_paginated': is_paginated,
 
             # Quotation summary
             'quotation_item_count': totals['item_count'],
             'quotation_total': totals['total'],
 
-            # Product counts for display
-            'tus_product_count': len(tus_products),
-            'wholesale_product_count': len(wholesale_products),
-            'sas_product_count': len(sas_products),
-            'lotto_product_count': len(lotto_products),
+            # Total product counts (for display)
+            'total_product_count': len(combined_products),
         }
 
         return render(request, self.template_name, context)
+
+    def _get_variation_display_data(self, variations, product_type):
+        """
+        Extract variation display data from variation objects.
+        Returns dict with sizes, colors, total_stock, and variation_count.
+        """
+        sizes = set()
+        colors = set()
+        total_stock = 0
+
+        for variation in variations:
+            # Extract variation type and value
+            var_type = getattr(variation, 'variation_type', '').lower()
+            var_value = getattr(variation, 'variation_value', '')
+
+            # Parse composite values like "XL - Black" or "Large - Red"
+            if ' - ' in var_value:
+                parts = [p.strip() for p in var_value.split(' - ')]
+                # First part usually size, second usually color
+                if len(parts) >= 2:
+                    sizes.add(parts[0])
+                    colors.add(parts[1])
+                else:
+                    if var_type in ['size', 'pa_size']:
+                        sizes.add(parts[0])
+                    elif var_type in ['color', 'colour', 'pa_color', 'pa_colour']:
+                        colors.add(parts[0])
+            else:
+                # Single attribute value
+                if var_type in ['size', 'pa_size']:
+                    sizes.add(var_value)
+                elif var_type in ['color', 'colour', 'pa_color', 'pa_colour']:
+                    colors.add(var_value)
+
+            # Add stock
+            stock_qty = getattr(variation, 'stock_quantity', 0)
+            if stock_qty:
+                total_stock += stock_qty
+
+        return {
+            'sizes': sorted(list(sizes)) if sizes else [],
+            'colors': sorted(list(colors)) if colors else [],
+            'total_stock': total_stock,
+            'variation_count': len(variations),
+        }

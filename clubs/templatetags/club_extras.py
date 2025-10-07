@@ -1,6 +1,7 @@
 from django import template
 from django.urls import reverse
 from urllib.parse import urlencode
+from clubs.utils import get_lotto_domain_list
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,21 +13,18 @@ register = template.Library()
 def proxy_image_url(image_url):
     """
     Convert external image URL to use the internal image proxy
-    
+
     Args:
         image_url: External image URL
-        
+
     Returns:
         Proxied image URL or None if invalid
     """
     if not image_url:
         return None
-    
-    # Check if this is a URL that needs proxying
-    domains_to_proxy = [
-        'www.lottosports.co.nz',
-        'lottosports.co.nz',
-    ]
+
+    # Check if this is a URL that needs proxying - use dynamic domain list
+    domains_to_proxy = get_lotto_domain_list()
     
     # If URL doesn't need proxying, return as-is
     from urllib.parse import urlparse

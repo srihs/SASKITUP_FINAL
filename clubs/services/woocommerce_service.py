@@ -584,6 +584,9 @@ class WooCommerceService:
         # Clean the URL and remove parameters that might cause issues
         clean_url = image_url.split('?')[0]
         
+        # Get configured LOTTO site URL for Referer/Origin headers
+        lotto_site_url = getattr(settings, 'LOTTO_SITE_URL', 'https://dev-lottosports.it.sas.co.nz')
+
         # Try multiple strategies to bypass bot detection
         strategies = [
             # Strategy 1: Advanced browser simulation
@@ -595,8 +598,8 @@ class WooCommerceService:
                     'Accept-Encoding': 'gzip, deflate, br',
                     'Cache-Control': 'no-cache',
                     'Pragma': 'no-cache',
-                    'Referer': 'https://www.lottosports.co.nz/',
-                    'Origin': 'https://www.lottosports.co.nz',
+                    'Referer': f'{lotto_site_url}/',
+                    'Origin': lotto_site_url,
                     'Sec-Fetch-Dest': 'image',
                     'Sec-Fetch-Mode': 'no-cors',
                     'Sec-Fetch-Site': 'same-origin',
@@ -610,7 +613,7 @@ class WooCommerceService:
                 'headers': {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
                     'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
-                    'Referer': 'https://www.lottosports.co.nz/',
+                    'Referer': f'{lotto_site_url}/',
                 },
                 'name': 'Simple browser simulation'
             },
@@ -619,7 +622,7 @@ class WooCommerceService:
                 'headers': {
                     'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1',
                     'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
-                    'Referer': 'https://www.lottosports.co.nz/',
+                    'Referer': f'{lotto_site_url}/',
                 },
                 'name': 'Mobile browser simulation'
             }
@@ -634,9 +637,10 @@ class WooCommerceService:
                 # First establish a session by visiting the main site
                 if i == 1:  # Only do this for the first strategy to save time
                     try:
+                        lotto_site_url = getattr(settings, 'LOTTO_SITE_URL', 'https://dev-lottosports.it.sas.co.nz')
                         self.session.get(
-                            'https://www.lottosports.co.nz', 
-                            headers=strategy['headers'], 
+                            lotto_site_url,
+                            headers=strategy['headers'],
                             timeout=15,
                             verify=False
                         )

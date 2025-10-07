@@ -821,6 +821,12 @@ class LottoProduct(models.Model):
         elif self.images and isinstance(self.images, list) and len(self.images) > 0:
             return self.images[0].get('src', '')
         return None
+
+    @property
+    def normalized_image_url(self):
+        """Get product image URL with correct domain from settings"""
+        from clubs.utils import normalize_lotto_image_url
+        return normalize_lotto_image_url(self.primary_image_url)
     
     def get_attribute_value(self, attribute_name):
         """Get value for a specific attribute"""
@@ -1025,19 +1031,43 @@ class LottoProductVariation(models.Model):
         # If variation has its own image, use it
         if self.image:
             return self.image
-        
+
         # Fallback to parent product image
         if self.product and self.product.image:
             return self.product.image
-        
+
         return None
-    
+
     @property
     def effective_image_url(self):
         """Get effective image URL for this variation"""
         effective_image = self.effective_image
         if effective_image:
             return effective_image  # effective_image now returns URL directly
+        return None
+
+    @property
+    def normalized_image_url(self):
+        """Get variation image URL with correct domain from settings"""
+        from clubs.utils import normalize_lotto_image_url
+
+        if self.image:
+            return normalize_lotto_image_url(self.image)
+        return None
+
+    @property
+    def normalized_effective_image_url(self):
+        """Get effective image URL (variation or product fallback) with normalized domain"""
+        from clubs.utils import normalize_lotto_image_url
+
+        # Existing logic for effective image selection
+        if self.has_unique_image:
+            return normalize_lotto_image_url(self.image)
+
+        # Fallback to product image
+        if self.product and self.product.image:
+            return normalize_lotto_image_url(self.product.image)
+
         return None
     
     @property

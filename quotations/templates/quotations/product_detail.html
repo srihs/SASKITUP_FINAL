@@ -1,0 +1,899 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+/* Product Gallery Styling */
+.product-gallery {
+    position: relative;
+}
+
+.product-gallery .nav-pills {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.product-gallery .tab-img {
+    max-height: 80px;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.3s;
+    border-radius: 0.375rem;
+    border: 2px solid transparent;
+}
+
+.product-gallery .tab-img:hover,
+.product-gallery .nav-link.active .tab-img {
+    opacity: 1;
+    border-color: #556ee6;
+}
+
+.main-product-img {
+    max-height: 500px;
+    object-fit: contain;
+    width: 100%;
+}
+
+/* Product Details */
+.product-details {
+    padding-left: 2rem;
+}
+
+.product-sku {
+    color: #74788d;
+    font-size: 0.875rem;
+}
+
+.product-price {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: #556ee6;
+}
+
+.product-stock {
+    display: inline-block;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    border-radius: 0.375rem;
+}
+
+.stock-in {
+    background-color: #d1f2eb;
+    color: #0f5132;
+}
+
+.stock-out {
+    background-color: #f8d7da;
+    color: #842029;
+}
+
+.stock-backorder {
+    background-color: #fff3cd;
+    color: #664d03;
+}
+
+.stock-low {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+/* Variations Section */
+.variations-section {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 2px solid #e9ecef;
+}
+
+/* Variation Table Styles */
+.variations-table {
+    width: 100%;
+    margin-bottom: 1rem;
+}
+
+.variations-table thead th {
+    background: #f8f9fa;
+    font-weight: 600;
+    padding: 12px 8px;
+    font-size: 0.875rem;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.variations-table tbody td {
+    padding: 10px 8px;
+    vertical-align: middle;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.variations-table .variation-details {
+    font-weight: 500;
+}
+
+.variations-table .stock-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    border-radius: 0.25rem;
+    font-weight: 500;
+}
+
+.variations-table .variation-qty-input {
+    width: 80px;
+    padding: 0.375rem 0.5rem;
+}
+
+.variations-table .btn-add-variation {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.variations-table tbody tr.disabled {
+    opacity: 0.6;
+}
+
+/* Variations container with scrolling */
+.variations-container {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-bottom: 1rem;
+    border: 1px solid #e9ecef;
+    border-radius: 0.375rem;
+}
+
+/* Variation Matrix Styles */
+.variation-matrix {
+    overflow-x: auto;
+    margin-bottom: 1rem;
+}
+
+.variation-matrix table {
+    min-width: 600px;
+    width: 100%;
+}
+
+.variation-matrix th {
+    position: sticky;
+    top: 0;
+    background: #f8f9fa;
+    z-index: 10;
+    font-weight: 600;
+    padding: 12px 8px;
+    font-size: 0.875rem;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.variation-matrix th.row-header {
+    background: #ffffff;
+    font-weight: 600;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.variation-cell {
+    text-align: center;
+    padding: 12px 8px;
+    min-width: 140px;
+    vertical-align: middle;
+    border: 1px solid #e9ecef;
+}
+
+.variation-cell.empty {
+    background: #f8f9fa;
+    color: #adb5bd;
+    font-style: italic;
+}
+
+.variation-cell .stock-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    border-radius: 0.25rem;
+    font-weight: 500;
+    margin-bottom: 6px;
+}
+
+.variation-cell .cell-price {
+    font-weight: 600;
+    color: #212529;
+    margin-bottom: 6px;
+    font-size: 0.875rem;
+}
+
+.variation-cell input {
+    width: 70px;
+    margin: 6px auto;
+    padding: 0.375rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.variation-cell .btn {
+    width: 100%;
+    padding: 0.375rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.variation-cell.disabled {
+    opacity: 0.5;
+    background: #f8f9fa;
+}
+
+/* Selected Variations Section */
+.selected-variations-section {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 2px solid #e9ecef;
+}
+
+.selected-variations-list {
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid #e9ecef;
+    border-radius: 0.375rem;
+    padding: 10px;
+    margin-bottom: 1rem;
+}
+
+.selected-variation-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 0.375rem;
+    margin-bottom: 8px;
+}
+
+.selected-variation-item:last-child {
+    margin-bottom: 0;
+}
+
+.selected-variation-info {
+    flex: 1;
+}
+
+.selected-variation-details {
+    font-weight: 500;
+    color: #212529;
+}
+
+.selected-variation-meta {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 4px;
+}
+
+.btn-remove-variation {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+/* Summary Section */
+.variations-summary {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.375rem;
+    margin-bottom: 1rem;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+}
+
+.summary-row.total {
+    font-weight: 600;
+    font-size: 1.125rem;
+    color: #212529;
+    border-top: 2px solid #dee2e6;
+    padding-top: 1rem;
+    margin-top: 0.5rem;
+}
+
+/* Empty State */
+.variations-empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #6c757d;
+}
+
+.variations-empty-state i {
+    font-size: 3rem;
+    color: #dee2e6;
+    margin-bottom: 1rem;
+}
+
+/* Loading State */
+.variations-loading {
+    text-align: center;
+    padding: 2rem;
+    color: #6c757d;
+}
+
+/* Action Buttons */
+.action-buttons {
+    margin-top: 2rem;
+    display: flex;
+    gap: 1rem;
+}
+
+.action-buttons .btn {
+    flex: 1;
+}
+
+/* Responsive Design */
+@media (max-width: 991px) {
+    .product-details {
+        padding-left: 0;
+        margin-top: 2rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .variations-table {
+        font-size: 0.875rem;
+    }
+
+    .variations-table thead th,
+    .variations-table tbody td {
+        padding: 8px 4px;
+    }
+
+    .variations-table .variation-qty-input {
+        width: 60px;
+    }
+
+    .variations-container {
+        max-height: 300px;
+    }
+
+    .variation-matrix {
+        font-size: 0.875rem;
+    }
+
+    .variation-cell {
+        min-width: 120px;
+        padding: 8px 4px;
+    }
+
+    .variation-cell input {
+        width: 60px;
+    }
+
+    .action-buttons {
+        flex-direction: column;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-content">
+    <div class="container-fluid">
+
+        <!-- Breadcrumb -->
+        <div class="row">
+            <div class="col-12">
+                <div class="page-title-box d-flex align-items-center justify-content-between">
+                    <div>
+                        <ol class="breadcrumb m-0">
+                            <li class="breadcrumb-item"><a href="{% url 'quotations:new-quotation' %}">Products</a></li>
+                            <li class="breadcrumb-item active">{{ product.name }}</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- Left: Product Images (col-lg-5) -->
+                            <div class="col-lg-5">
+                                <div class="product-gallery">
+                                    <div class="row">
+                                        <div class="col-3">
+                                            <div class="nav flex-column nav-pills" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+                                                <a class="nav-link active" id="product-img-1-tab" data-bs-toggle="pill" href="#product-img-1" role="tab">
+                                                    {% if product.image_url %}
+                                                        <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-fluid mx-auto d-block tab-img">
+                                                    {% elif product.image %}
+                                                        <img src="{{ product.image }}" alt="{{ product.name }}" class="img-fluid mx-auto d-block tab-img">
+                                                    {% else %}
+                                                        <img src="{% static 'assets/images/product-placeholder.png' %}" alt="{{ product.name }}" class="img-fluid mx-auto d-block tab-img">
+                                                    {% endif %}
+                                                </a>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-9">
+                                            <div class="tab-content position-relative" id="v-pills-tabContent">
+                                                <div class="tab-pane fade show active" id="product-img-1" role="tabpanel">
+                                                    <div class="text-center">
+                                                        {% if product.image_url %}
+                                                            <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-fluid main-product-img">
+                                                        {% elif product.image %}
+                                                            <img src="{{ product.image }}" alt="{{ product.name }}" class="img-fluid main-product-img">
+                                                        {% else %}
+                                                            <img src="{% static 'assets/images/product-placeholder.png' %}" alt="{{ product.name }}" class="img-fluid main-product-img">
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right: Product Details (col-lg-7) -->
+                            <div class="col-lg-7">
+                                <div class="product-details">
+                                    <!-- Product Name -->
+                                    <h4 class="mb-3">{{ product.name }}</h4>
+
+                                    <!-- SKU -->
+                                    <p class="product-sku mb-2">
+                                        <strong>SKU:</strong>
+                                        {% if product.sku %}
+                                            {{ product.sku }}
+                                        {% elif product.cin7_sku %}
+                                            {{ product.cin7_sku }}
+                                        {% elif product.barcode %}
+                                            {{ product.barcode }}
+                                        {% elif product.style_code %}
+                                            {{ product.style_code }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </p>
+
+                                    <!-- School/Club Name -->
+                                    <p class="text-muted mb-2">
+                                        <strong>Institution:</strong> {{ institution_name }}
+                                    </p>
+
+                                    <!-- Price -->
+                                    <h3 class="product-price mt-3 mb-3">
+                                        ${% if product.wholesale_price %}{{ product.wholesale_price }}{% else %}{{ product.price }}{% endif %}
+                                    </h3>
+
+                                    <!-- Stock Availability -->
+                                    <div class="mb-4">
+                                        {% if product.stock_status == 'instock' %}
+                                            <span class="product-stock stock-in">In Stock</span>
+                                        {% elif product.stock_status == 'outofstock' %}
+                                            <span class="product-stock stock-out">Out of Stock</span>
+                                        {% elif product.stock_status == 'onbackorder' %}
+                                            <span class="product-stock stock-backorder">On Backorder</span>
+                                        {% else %}
+                                            <span class="product-stock stock-in">Available</span>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Variations Section -->
+                                    <div class="variations-section" id="variationSection">
+                                        <h5 class="mb-3">Product Variations:</h5>
+
+                                        <!-- Loading State -->
+                                        <div id="variationsLoading" class="variations-loading" style="display: none;">
+                                            <i class="mdi mdi-loading mdi-spin font-size-24 mb-2"></i>
+                                            <p>Loading variations...</p>
+                                        </div>
+
+                                        <!-- Empty State -->
+                                        <div id="variationsEmpty" class="variations-empty-state" style="display: none;">
+                                            <i class="mdi mdi-package-variant-closed"></i>
+                                            <h5>No Variations Available</h5>
+                                            <p class="mb-0">This product does not have any variations.</p>
+                                        </div>
+
+                                        <!-- Variations Table (Single Type) -->
+                                        <div id="variationsTableContainer" style="display: none;">
+                                            <div class="variations-container">
+                                                <table class="table variations-table mb-0">
+                                                    <thead>
+                                                        <tr>
+                                                            <th style="width: 35%;">Variation</th>
+                                                            <th style="width: 20%;">Stock</th>
+                                                            <th style="width: 15%;">Price</th>
+                                                            <th style="width: 15%;">Qty</th>
+                                                            <th style="width: 15%;"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="variationsTableBody">
+                                                        <!-- Variation rows will be inserted here -->
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+
+                                        <!-- Variations Matrix (Multi-Type) -->
+                                        <div id="variationsMatrixContainer" style="display: none;">
+                                            <div class="variation-matrix">
+                                                <table class="table mb-0" id="variationsMatrixTable">
+                                                    <!-- Matrix headers and cells will be inserted here -->
+                                                </table>
+                                            </div>
+                                        </div>
+
+                                        <!-- Selected Variations Section -->
+                                        <div id="selectedVariationsSection" class="selected-variations-section" style="display: none;">
+                                            <h5 class="mb-2">Selected Variations:</h5>
+
+                                            <div id="selectedVariationsList" class="selected-variations-list">
+                                                <!-- Selected variations will be listed here -->
+                                            </div>
+
+                                            <!-- Summary -->
+                                            <div class="variations-summary">
+                                                <div class="summary-row">
+                                                    <span>Total Items:</span>
+                                                    <span id="summaryTotalItems" class="fw-bold">0</span>
+                                                </div>
+                                                <div class="summary-row total">
+                                                    <span>Subtotal:</span>
+                                                    <span id="summarySubtotal">$0.00</span>
+                                                </div>
+                                            </div>
+
+                                            <div class="d-flex gap-2">
+                                                <button type="button" class="btn btn-outline-danger" id="clearAllVariationsBtn">
+                                                    <i class="mdi mdi-delete-outline me-1"></i> Clear All
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Action Buttons -->
+                                    <div class="action-buttons">
+                                        <button type="button" class="btn btn-secondary btn-lg" onclick="window.location.href='{% url 'quotations:new-quotation' %}?tab={{ active_tab|default:'schools' }}'">
+                                            <i class="mdi mdi-arrow-left me-1"></i> Continue Shopping
+                                        </button>
+                                        <button type="button" class="btn btn-primary btn-lg" id="addToQuoteBtn">
+                                            <i class="mdi mdi-cart-plus me-1"></i> Add to Quote
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Floating Quote Summary -->
+{% if quotation_item_count > 0 %}
+<div class="quote-summary" onclick="window.location.href='{% url 'quotations:cart' %}'" style="position: fixed; bottom: 20px; right: 20px; background: #556ee6; color: white; padding: 15px 20px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); z-index: 1000; cursor: pointer;">
+    <div class="d-flex align-items-center">
+        <div class="me-3">
+            <span class="badge" style="background: white; color: #556ee6; font-size: 0.9rem; padding: 0.4rem 0.6rem; border-radius: 50%; min-width: 30px;">{{ quotation_item_count }}</span>
+        </div>
+        <div>
+            <div class="fw-bold">View Quote</div>
+            <div class="font-size-12">${{ quotation_total }}</div>
+        </div>
+        <div class="ms-3">
+            <i class="mdi mdi-chevron-right font-size-20"></i>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// CSRF Token Setup
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+const csrftoken = getCookie('csrftoken');
+
+// Global variables
+let selectedVariations = [];
+const productType = '{{ product_type }}';
+const productId = '{{ product.id }}';
+
+// Load variations on page load
+document.addEventListener('DOMContentLoaded', function() {
+    fetchProductVariations();
+});
+
+// Fetch product variations via AJAX
+function fetchProductVariations() {
+    const variationSection = document.getElementById('variationSection');
+    const variationsLoading = document.getElementById('variationsLoading');
+    const variationsEmpty = document.getElementById('variationsEmpty');
+    const variationsTableContainer = document.getElementById('variationsTableContainer');
+    const variationsMatrixContainer = document.getElementById('variationsMatrixContainer');
+
+    // Show loading
+    variationsLoading.style.display = 'block';
+    variationsEmpty.style.display = 'none';
+    variationsTableContainer.style.display = 'none';
+    variationsMatrixContainer.style.display = 'none';
+
+    // TODO: Replace with actual API endpoint
+    // For now, use mock data
+    setTimeout(() => {
+        const mockVariations = generateMockVariations();
+
+        variationsLoading.style.display = 'none';
+
+        if (mockVariations.length > 0) {
+            const variationAnalysis = analyzeVariationTypes(mockVariations);
+
+            if (variationAnalysis.isCombined) {
+                displayVariationsMatrix(mockVariations, variationAnalysis);
+                variationsMatrixContainer.style.display = 'block';
+            } else {
+                displayVariationsTable(mockVariations);
+                variationsTableContainer.style.display = 'block';
+            }
+        } else {
+            variationsEmpty.style.display = 'block';
+        }
+    }, 500);
+}
+
+// Generate mock variations (to be replaced with API call)
+function generateMockVariations() {
+    const scenario = Math.floor(Math.random() * 3);
+
+    if (scenario === 0) {
+        return [
+            { id: 1, variation_type: 'size', variation_value: 'S', stock_quantity: 15, price: '25.99', is_active: true },
+            { id: 2, variation_type: 'size', variation_value: 'M', stock_quantity: 8, price: '25.99', is_active: true },
+            { id: 3, variation_type: 'size', variation_value: 'L', stock_quantity: 3, price: '26.99', is_active: true },
+            { id: 4, variation_type: 'size', variation_value: 'XL', stock_quantity: 0, price: '27.99', is_active: true }
+        ];
+    } else if (scenario === 1) {
+        return [
+            { id: 5, variation_type: 'color', variation_value: 'Red', stock_quantity: 20, price: '29.99', is_active: true },
+            { id: 6, variation_type: 'color', variation_value: 'Blue', stock_quantity: 5, price: '29.99', is_active: true },
+            { id: 7, variation_type: 'color', variation_value: 'Green', stock_quantity: 12, price: '29.99', is_active: true }
+        ];
+    } else {
+        return [
+            { id: 8, variation_type: 'size', variation_value: 'S - Red', stock_quantity: 10, price: '25.99', is_active: true },
+            { id: 9, variation_type: 'size', variation_value: 'S - Blue', stock_quantity: 5, price: '25.99', is_active: true },
+            { id: 10, variation_type: 'size', variation_value: 'S - Green', stock_quantity: 0, price: '25.99', is_active: true },
+            { id: 11, variation_type: 'size', variation_value: 'M - Red', stock_quantity: 15, price: '25.99', is_active: true },
+            { id: 12, variation_type: 'size', variation_value: 'M - Blue', stock_quantity: 8, price: '25.99', is_active: true },
+            { id: 13, variation_type: 'size', variation_value: 'M - Green', stock_quantity: 2, price: '26.99', is_active: true },
+            { id: 14, variation_type: 'size', variation_value: 'L - Red', stock_quantity: 20, price: '26.99', is_active: true },
+            { id: 15, variation_type: 'size', variation_value: 'L - Blue', stock_quantity: 0, price: '26.99', is_active: true },
+            { id: 16, variation_type: 'size', variation_value: 'L - Green', stock_quantity: 10, price: '27.99', is_active: true }
+        ];
+    }
+}
+
+// Copy variation analysis, parsing, display functions from modal
+// [Include all the JavaScript functions from new_quotation.html modal for variation handling]
+// analyzeVariationTypes, parseVariationValue, displayVariationsTable, displayVariationsMatrix
+// addVariationToSelection, updateSelectedVariationsList, etc.
+
+// Analyze variation types
+function analyzeVariationTypes(variations) {
+    const allTypes = new Set();
+    let hasComposite = false;
+
+    variations.forEach(v => {
+        if (v.variation_value.includes(' - ')) {
+            hasComposite = true;
+            const components = v.variation_value.split(' - ');
+            allTypes.add(v.variation_type);
+            const attributeOrder = ['size', 'color', 'material', 'style', 'gender', 'age_group'];
+            const startIndex = attributeOrder.indexOf(v.variation_type);
+            for (let i = 1; i < components.length; i++) {
+                const nextIndex = startIndex + i;
+                if (nextIndex < attributeOrder.length) {
+                    allTypes.add(attributeOrder[nextIndex]);
+                }
+            }
+        } else {
+            allTypes.add(v.variation_type);
+        }
+    });
+
+    return {
+        isCombined: hasComposite && allTypes.size > 1,
+        types: Array.from(allTypes)
+    };
+}
+
+// Display variations in table format
+function displayVariationsTable(variations) {
+    const tableBody = document.getElementById('variationsTableBody');
+    tableBody.innerHTML = '';
+
+    variations.forEach(variation => {
+        const isOutOfStock = variation.stock_quantity === 0;
+        const isLowStock = variation.stock_quantity > 0 && variation.stock_quantity < 5;
+
+        let stockBadge, stockClass;
+        if (isOutOfStock) {
+            stockBadge = 'Out of Stock';
+            stockClass = 'stock-out';
+        } else if (isLowStock) {
+            stockBadge = `Low Stock (${variation.stock_quantity})`;
+            stockClass = 'stock-low';
+        } else {
+            stockBadge = `In Stock (${variation.stock_quantity})`;
+            stockClass = 'stock-in';
+        }
+
+        const row = document.createElement('tr');
+        if (isOutOfStock) {
+            row.classList.add('disabled');
+        }
+
+        row.innerHTML = `
+            <td>
+                <div class="variation-details">
+                    ${variation.variation_type.charAt(0).toUpperCase() + variation.variation_type.slice(1)}:
+                    <strong>${variation.variation_value}</strong>
+                </div>
+            </td>
+            <td>
+                <span class="stock-badge ${stockClass}">${stockBadge}</span>
+            </td>
+            <td>
+                <strong>$${parseFloat(variation.price).toFixed(2)}</strong>
+            </td>
+            <td>
+                <input type="number"
+                       class="form-control variation-qty-input"
+                       data-variation-id="${variation.id}"
+                       value="0"
+                       min="0"
+                       max="${variation.stock_quantity}"
+                       ${isOutOfStock ? 'disabled' : ''}>
+            </td>
+            <td>
+                <button type="button"
+                        class="btn btn-sm btn-primary btn-add-variation"
+                        data-variation-id="${variation.id}"
+                        ${isOutOfStock ? 'disabled' : ''}>
+                    <i class="mdi mdi-plus"></i> Add
+                </button>
+            </td>
+        `;
+
+        tableBody.appendChild(row);
+
+        // Add event listeners
+        const qtyInput = row.querySelector('.variation-qty-input');
+        qtyInput.addEventListener('input', function() {
+            const max = parseInt(this.getAttribute('max'));
+            const value = parseInt(this.value);
+            if (value > max) this.value = max;
+            if (value < 0) this.value = 0;
+        });
+
+        const addBtn = row.querySelector('.btn-add-variation');
+        addBtn.addEventListener('click', function() {
+            const quantity = parseInt(qtyInput.value);
+            if (quantity <= 0) {
+                alert('Please enter a quantity greater than 0');
+                return;
+            }
+            addVariationToSelection(variation, quantity);
+            qtyInput.value = 0;
+        });
+    });
+}
+
+// Display variations matrix (placeholder - copy from modal)
+function displayVariationsMatrix(variations, variationAnalysis) {
+    // TODO: Implement matrix display (copy from modal)
+    console.log('Matrix display not yet implemented');
+}
+
+// Add variation to selection
+function addVariationToSelection(variation, quantity) {
+    const existingIndex = selectedVariations.findIndex(v => v.id === variation.id);
+
+    if (existingIndex >= 0) {
+        selectedVariations[existingIndex].quantity += quantity;
+    } else {
+        selectedVariations.push({
+            id: variation.id,
+            variation_type: variation.variation_type,
+            variation_value: variation.variation_value,
+            price: parseFloat(variation.price),
+            quantity: quantity,
+            stock_quantity: variation.stock_quantity
+        });
+    }
+
+    updateSelectedVariationsList();
+}
+
+// Update selected variations list
+function updateSelectedVariationsList() {
+    const section = document.getElementById('selectedVariationsSection');
+    const list = document.getElementById('selectedVariationsList');
+
+    if (selectedVariations.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+
+    section.style.display = 'block';
+
+    let totalItems = 0;
+    let subtotal = 0;
+
+    list.innerHTML = selectedVariations.map((item, index) => {
+        const lineTotal = item.price * item.quantity;
+        totalItems += item.quantity;
+        subtotal += lineTotal;
+
+        return `
+            <div class="selected-variation-item">
+                <div class="selected-variation-info">
+                    <div class="selected-variation-details">
+                        ${item.variation_type.charAt(0).toUpperCase() + item.variation_type.slice(1)}: ${item.variation_value}
+                    </div>
+                    <div class="selected-variation-meta">
+                        Qty: ${item.quantity} × $${item.price.toFixed(2)} = $${lineTotal.toFixed(2)}
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-danger btn-remove-variation" data-index="${index}">
+                    <i class="mdi mdi-close"></i>
+                </button>
+            </div>
+        `;
+    }).join('');
+
+    document.getElementById('summaryTotalItems').textContent = totalItems;
+    document.getElementById('summarySubtotal').textContent = `$${subtotal.toFixed(2)}`;
+
+    // Add remove button event listeners
+    document.querySelectorAll('.btn-remove-variation').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const index = parseInt(this.dataset.index);
+            selectedVariations.splice(index, 1);
+            updateSelectedVariationsList();
+        });
+    });
+}
+
+// Clear all variations
+document.getElementById('clearAllVariationsBtn')?.addEventListener('click', function() {
+    if (confirm('Are you sure you want to clear all selected variations?')) {
+        selectedVariations = [];
+        updateSelectedVariationsList();
+    }
+});
+
+// Add to quote button
+document.getElementById('addToQuoteBtn')?.addEventListener('click', function() {
+    // TODO: Implement add to quote functionality
+    if (selectedVariations.length === 0) {
+        // Add single product without variations
+        alert('Add to quote functionality - coming soon');
+    } else {
+        // Add all selected variations
+        alert(`Adding ${selectedVariations.length} variations to quote - coming soon`);
+    }
+});
+</script>
+{% endblock %}

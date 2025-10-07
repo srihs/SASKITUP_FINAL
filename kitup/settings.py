@@ -267,9 +267,10 @@ FILE_UPLOAD_TEMP_DIR = BASE_DIR / 'temp_uploads'
 # Ensure temp directory exists
 FILE_UPLOAD_TEMP_DIR.mkdir(exist_ok=True)
 
-# WooCommerce API Configuration for LOTTO
+# LOTTO Sports Configuration
+LOTTO_SITE_URL = config('LOTTO_SITE_URL', default='https://dev-lottosports.it.sas.co.nz')
 LOTTO_WOO_URL = config('LOTTO_WOOCOMMERCE_API_URL')
-LOTTO_WOO_KEY = config('LOTTO_WOOCOMMERCE_API_CONSUMER_KEY') 
+LOTTO_WOO_KEY = config('LOTTO_WOOCOMMERCE_API_CONSUMER_KEY')
 LOTTO_WOO_SECRET = config('LOTTO_WOOCOMMERCE_API_SECRET')
 
 # WooCommerce API Configuration for SAS

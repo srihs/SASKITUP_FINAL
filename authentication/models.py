@@ -149,13 +149,14 @@ class User(AbstractUser):
     def get_assigned_schools(self):
         """
         Get all assigned schools for this sales rep or account manager
-        Account managers have access to ALL schools
+        Admin and account managers have access to ALL schools
         """
-        from schools.models import School, WholesaleSchool
+        from schools.models import WholesaleSchool
+        from clubs.models_tus import TUSSchool
 
-        # Account managers have access to all schools
-        if self.is_account_manager:
-            regular_schools = School.objects.filter(is_active=True)
+        # Admin and account managers have access to all schools
+        if self.is_admin or self.is_account_manager:
+            regular_schools = TUSSchool.objects.all()  # TUS schools don't have is_active field
             wholesale_schools = WholesaleSchool.objects.filter(is_active=True)
             return {
                 'regular': regular_schools,

@@ -23,6 +23,11 @@ urlpatterns = [
     # NEW: Tab-based product selection (simplified workflow)
     path('new/', views.NewQuotationView.as_view(), name='new-quotation'),
 
+    # Product Detail Page for Quotation
+    path('product/<str:product_type>/<int:product_id>/',
+         views.ProductDetailForQuotationView.as_view(),
+         name='product-detail-for-quote'),
+
     # Step 1: Institution Selection
     path('select-institution/', views.InstitutionSelectionView.as_view(), name='select-institution'),
 
