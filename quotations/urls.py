@@ -24,7 +24,7 @@ urlpatterns = [
     path('new/', views.NewQuotationView.as_view(), name='new-quotation'),
 
     # Product Detail Page for Quotation
-    path('product/<str:product_type>/<int:product_id>/',
+    path('product/<str:product_type>/<slug:product_slug>/',
          views.ProductDetailForQuotationView.as_view(),
          name='product-detail-for-quote'),
 

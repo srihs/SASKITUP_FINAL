@@ -105,6 +105,27 @@ def get_product_by_type_and_id(product_type, product_id):
         return None
 
 
+def get_product_by_type_and_slug(product_type, product_slug):
+    """Get product object by type and slug"""
+    from clubs.models_tus import TUSProduct
+
+    product_models = {
+        'tusproduct': TUSProduct,
+        'wholesaleproduct': WholesaleProduct,
+        'lottoproduct': LottoProduct,
+        'sasproduct': SASProduct,
+    }
+
+    model_class = product_models.get(product_type.lower())
+    if not model_class:
+        return None
+
+    try:
+        return model_class.objects.get(slug=product_slug)
+    except model_class.DoesNotExist:
+        return None
+
+
 def user_can_access_institution(user, institution_type, institution_id):
     """Check if user can access the specified institution"""
     from clubs.models_tus import TUSSchool
@@ -831,10 +852,10 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
 
     def get_object(self):
         product_type = self.kwargs.get('product_type')
-        product_id = self.kwargs.get('product_id')
+        product_slug = self.kwargs.get('product_slug')
 
-        # Get product by type
-        product = get_product_by_type_and_id(product_type, product_id)
+        # Get product by type and slug
+        product = get_product_by_type_and_slug(product_type, product_slug)
         if not product:
             raise PermissionDenied("Product not found")
         return product

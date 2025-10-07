@@ -612,7 +612,7 @@
                                 <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
                                     <div class="product-box">
                                         {% if product.product_type == 'tusproduct' %}
-                                            <a href="{% url 'quotations:product-detail-for-quote' product_type='tusproduct' product_id=product.id %}" class="text-decoration-none" style="display: contents;">
+                                            <a href="{% url 'quotations:product-detail-for-quote' product_type='tusproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
                                                 <div class="product-img">
                                                     {% if product.image_url %}
                                                         <img src="{{ product.image_url }}" alt="{{ product.name }}">
@@ -674,13 +674,13 @@
                                                     </div>
                                                     {% endif %}
 
-                                                    <a href="{% url 'quotations:product-detail-for-quote' product_type='tusproduct' product_id=product.id %}" class="btn btn-view-details mt-2">
+                                                    <a href="{% url 'quotations:product-detail-for-quote' product_type='tusproduct' product_slug=product.slug %}" class="btn btn-view-details mt-2">
                                                         View Details
                                                     </a>
                                                 </div>
                                             </a>
                                         {% elif product.product_type == 'wholesaleproduct' %}
-                                            <a href="{% url 'quotations:product-detail-for-quote' product_type='wholesaleproduct' product_id=product.id %}" class="text-decoration-none" style="display: contents;">
+                                            <a href="{% url 'quotations:product-detail-for-quote' product_type='wholesaleproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
                                                 <div class="product-img">
                                                     {% if product.image_url %}
                                                         <img src="{{ product.image_url }}" alt="{{ product.name }}">
@@ -725,13 +725,13 @@
                                                     </div>
                                                     {% endif %}
 
-                                                    <a href="{% url 'quotations:product-detail-for-quote' product_type='wholesaleproduct' product_id=product.id %}" class="btn btn-view-details mt-2">
+                                                    <a href="{% url 'quotations:product-detail-for-quote' product_type='wholesaleproduct' product_slug=product.slug %}" class="btn btn-view-details mt-2">
                                                         View Details
                                                     </a>
                                                 </div>
                                             </a>
                                         {% elif product.product_type == 'sasproduct' %}
-                                            <a href="{% url 'quotations:product-detail-for-quote' product_type='sasproduct' product_id=product.id %}" class="text-decoration-none" style="display: contents;">
+                                            <a href="{% url 'quotations:product-detail-for-quote' product_type='sasproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
                                                 <div class="product-img">
                                                     {% if product.image %}
                                                         <img src="{{ product.image }}" alt="{{ product.name }}">
@@ -789,13 +789,13 @@
                                                     </div>
                                                     {% endif %}
 
-                                                    <a href="{% url 'quotations:product-detail-for-quote' product_type='sasproduct' product_id=product.id %}" class="btn btn-view-details mt-2">
+                                                    <a href="{% url 'quotations:product-detail-for-quote' product_type='sasproduct' product_slug=product.slug %}" class="btn btn-view-details mt-2">
                                                         View Details
                                                     </a>
                                                 </div>
                                             </a>
                                         {% elif product.product_type == 'lottoproduct' %}
-                                            <a href="{% url 'quotations:product-detail-for-quote' product_type='lottoproduct' product_id=product.id %}" class="text-decoration-none" style="display: contents;">
+                                            <a href="{% url 'quotations:product-detail-for-quote' product_type='lottoproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
                                                 <div class="product-img">
                                                     {% if product.image %}
                                                         <img src="{{ product.image }}" alt="{{ product.name }}">
@@ -855,7 +855,7 @@
                                                     </div>
                                                     {% endif %}
 
-                                                    <a href="{% url 'quotations:product-detail-for-quote' product_type='lottoproduct' product_id=product.id %}" class="btn btn-view-details mt-2">
+                                                    <a href="{% url 'quotations:product-detail-for-quote' product_type='lottoproduct' product_slug=product.slug %}" class="btn btn-view-details mt-2">
                                                         View Details
                                                     </a>
                                                 </div>
