@@ -369,22 +369,8 @@
 {% endblock %}
 
 {% block content %}
-<div class="page-content">
+<div class="page-content" style="padding-top: 0;">
     <div class="container-fluid">
-
-        <!-- Breadcrumb -->
-        <div class="row">
-            <div class="col-12">
-                <div class="page-title-box d-flex align-items-center justify-content-between">
-                    <div>
-                        <ol class="breadcrumb m-0">
-                            <li class="breadcrumb-item"><a href="{% url 'quotations:new-quotation' %}">Products</a></li>
-                            <li class="breadcrumb-item active">{{ product.name }}</li>
-                        </ol>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <div class="row">
             <div class="col-12">
