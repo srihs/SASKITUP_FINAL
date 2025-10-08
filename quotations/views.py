@@ -958,6 +958,17 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
                 elif product_type.lower() in ['sasproduct', 'lottoproduct']:
                     var_data['sku'] = getattr(variation, 'full_sku', '')
 
+                # Add image URL if available
+                image_url = None
+                if hasattr(variation, 'image') and variation.image:
+                    # Handle both ImageField (has .url) and string URLs
+                    image_url = variation.image.url if hasattr(variation.image, 'url') else variation.image
+                elif hasattr(variation, 'main_image') and variation.main_image:
+                    # Handle both ImageField (has .url) and string URLs
+                    image_url = variation.main_image.url if hasattr(variation.main_image, 'url') else variation.main_image
+
+                var_data['image_url'] = image_url
+
                 variations.append(var_data)
 
         context['variations'] = variations

@@ -1076,7 +1076,46 @@ html {
 }
 */
 
-/* LOTTO Page Size Button Styling - Use LOTTO Brand Colors */
+/* Quotation Pages - Use Theme Blue Colors */
+body[class*="quotation"] .variation-section .size-button {
+    background-color: #ffffff !important;
+    border: 2px solid #dee2e6 !important;
+    color: #2c3e50 !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+body[class*="quotation"] .variation-section .size-button:hover {
+    background-color: #ffffff !important;
+    border-color: #0065F8 !important;
+    color: #0065F8 !important;
+    transform: none !important;
+}
+
+body[class*="quotation"] .variation-section .size-button.selected {
+    background-color: #ffffff !important;
+    border-color: #0065F8 !important;
+    border-width: 3px !important;
+    color: #0065F8 !important;
+    box-shadow: none !important;
+}
+
+body[class*="quotation"] .variation-section .size-button.low-stock {
+    border-color: #ffc107 !important;
+}
+
+body[class*="quotation"] .variation-section .size-button.out-of-stock,
+body[class*="quotation"] .variation-section .size-button.disabled {
+    opacity: 0.6 !important;
+    background-color: #f8f9fa !important;
+    border-color: #dee2e6 !important;
+    color: #adb5bd !important;
+    cursor: not-allowed !important;
+}
+
+/* LOTTO Club Pages - Use LOTTO Brand Colors (red) */
 .lotto-page .variation-section .size-button,
 .lotto-product-page .variation-section .size-button {
     background-color: #ffffff !important;
@@ -2385,7 +2424,52 @@ html {
     box-shadow: var(--lotto-shadow-primary) !important;
 }
 
+/* QUOTATION PAGE OVERRIDES - Blue Theme for Size Buttons */
+/* Override LOTTO red theme with blue for quotation pages */
+body[class*="quotation"] .size-button.selected,
+body[class*="quotation"] .age-group-button.selected,
+body[class*="quotation"] .variation-button.selected,
+body.quotation-product-detail .size-button.selected,
+body.quotation-product-detail .age-group-button.selected,
+body.quotation-product-detail .variation-button.selected {
+    border-color: #0065F8 !important;
+    background-color: #ffffff !important;
+    border-width: 3px !important;
+    color: #0065F8 !important;
+    box-shadow: 0 4px 12px rgba(0, 101, 248, 0.3) !important;
+    transform: none !important;
+}
+
+body[class*="quotation"] .size-button:hover,
+body.quotation-product-detail .size-button:hover {
+    border-color: #0065F8 !important;
+}
+
+/* Quotation Page Focus States - No Outlines */
+body[class*="quotation"] .size-button:focus,
+body[class*="quotation"] .color-swatch:focus,
+body[class*="quotation"] .variation-button:focus,
+body.quotation-product-detail .size-button:focus,
+body.quotation-product-detail .color-swatch:focus,
+body.quotation-product-detail .variation-button:focus {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
 /* LOTTO Color Swatch Overrides for JavaScript-Generated Elements */
+/* Quotation Pages - Theme Blue Color Swatches */
+body[class*="quotation"] .color-swatch:hover {
+    border-color: #0065F8 !important;
+    box-shadow: 0 4px 12px rgba(0, 101, 248, 0.3) !important;
+}
+
+body[class*="quotation"] .color-swatch.selected {
+    border-color: #0065F8 !important;
+    border-width: 3px !important;
+    box-shadow: 0 4px 12px rgba(0, 101, 248, 0.3) !important;
+}
+
+/* LOTTO Club Pages - Red Color Swatches */
 .lotto-page .color-swatch:hover,
 .lotto-product-page .color-swatch:hover {
     border-color: var(--lotto-primary) !important;

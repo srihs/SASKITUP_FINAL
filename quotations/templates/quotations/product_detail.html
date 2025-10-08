@@ -1,6 +1,8 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block body_class %}quotation-product-detail{% endblock %}
+
 {% block extra_css %}
 <style>
 /* LOTTO Product Detail Page Styles */
@@ -164,7 +166,7 @@
 }
 
 .discount-badge {
-    background: linear-gradient(135deg, #0065F8, #E89DA2);
+    background: linear-gradient(135deg, #0065F8, #0052CC);
     color: white;
     padding: 6px 12px;
     border-radius: 20px;
@@ -420,9 +422,9 @@
 
 .color-swatch {
     display: inline-block;
-    width: 80px;
-    height: 80px;
-    border: 3px solid rgba(0, 101, 248, 0.2);
+    width: 60px;
+    height: 60px;
+    border: 2px solid #dee2e6;
     margin: 0;
     cursor: pointer;
     border-radius: 8px;
@@ -430,19 +432,20 @@
     position: relative;
     transition: all 0.3s ease;
     background: #f8f9fa;
-    box-shadow: 0 2px 8px rgba(0, 101, 248, 0.1);
+    box-shadow: none;
 }
 
 .color-swatch:hover {
     border-color: #0065F8;
-    transform: scale(1.05);
-    box-shadow: 0 4px 15px rgba(0, 101, 248, 0.3);
+    transform: none;
+    box-shadow: 0 4px 12px rgba(0, 101, 248, 0.3);
 }
 
 .color-swatch.selected {
     border-color: #0065F8;
-    box-shadow: 0 0 0 3px rgba(0, 101, 248, 0.5), 0 4px 15px rgba(0, 101, 248, 0.3);
-    transform: scale(1.05);
+    border-width: 3px;
+    box-shadow: 0 4px 12px rgba(0, 101, 248, 0.3);
+    transform: none;
 }
 
 .color-swatch.disabled {
@@ -525,22 +528,24 @@
 }
 
 .size-button {
-    display: flex;
-    flex-direction: column;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 16px 12px;
-    min-height: 90px;
-    border-radius: 12px;
-    border: 2px solid transparent;
-    background: linear-gradient(135deg, #0065F8 0%, #0052CC 100%);
-    color: white;
+    padding: 10px 20px;
+    min-width: 60px;
+    min-height: 45px;
+    border-radius: 6px;
+    border: 2px solid #dee2e6;
+    background: white;
+    color: #2c3e50;
     text-align: center;
     transition: all 0.3s ease;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0, 101, 248, 0.2);
+    box-shadow: none;
     position: relative;
     overflow: hidden;
+    font-weight: 600;
+    font-size: 0.9rem;
 }
 
 .size-button::before {
@@ -560,129 +565,49 @@
     opacity: 1;
 }
 
-.size-button .size-label {
-    font-size: 1.1rem;
-    font-weight: 700;
-    margin-bottom: 4px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    display: block;
-    color: #ffffff;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-}
-
-.size-button .stock-number {
-    font-size: 1rem;
-    font-weight: 600;
-    opacity: 1;
-    text-transform: lowercase;
-    display: block;
-    color: #ffffff;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-}
-
-.size-button .stock-status-text {
-    font-size: 0.85rem;
-    font-weight: 500;
-    opacity: 1;
-    display: block;
-    margin-top: 2px;
-    color: #ffffff;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
-}
-
-.size-button .add-icon {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    font-size: 1.2rem;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-}
-
 .size-button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(0, 101, 248, 0.3);
-    border-color: rgba(255, 255, 255, 0.3);
-}
-
-.size-button:hover .add-icon {
-    opacity: 1;
+    transform: none;
+    box-shadow: none;
+    border-color: #0065F8;
 }
 
 .size-button:active {
-    transform: translateY(-1px);
+    transform: none;
 }
 
 .size-button.selected {
-    border-color: rgba(255, 255, 255, 0.5);
-    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3), 0 8px 25px rgba(0, 101, 248, 0.4);
+    border-color: #0065F8;
+    border-width: 3px;
+    box-shadow: none;
 }
 
-.size-button.adding {
-    animation: pulse 0.4s ease;
-}
+/* Removed complex animations for simpler style */
 
-@keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-}
-
-.size-button .success-check {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    font-size: 1.2rem;
-    color: white;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.3));
-}
-
-.size-button.added .success-check {
-    opacity: 1;
-    animation: checkFade 1.5s ease;
-}
-
-@keyframes checkFade {
-    0% { opacity: 0; transform: scale(0.5); }
-    20% { opacity: 1; transform: scale(1.1); }
-    80% { opacity: 1; transform: scale(1); }
-    100% { opacity: 0; transform: scale(1); }
-}
-
-/* Stock-based styling - LOTTO Style */
+/* Stock-based styling - Simple Style */
 .size-button.in-stock {
-    background: linear-gradient(135deg, #0065F8 0%, #0052CC 100%);
+    background: white;
+    border-color: #dee2e6;
+    color: #2c3e50;
 }
 
 .size-button.low-stock {
-    background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
-    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.2);
+    background: white;
+    border-color: #ffc107;
     color: #2c3e50;
-}
-
-.size-button.low-stock .size-label,
-.size-button.low-stock .stock-number,
-.size-button.low-stock .stock-status-text {
-    color: #2c3e50;
-    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.3);
-}
-
-.size-button.low-stock:hover {
-    box-shadow: 0 8px 25px rgba(255, 193, 7, 0.3);
 }
 
 .size-button.out-of-stock {
-    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
-    color: #f8f9fa;
-    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
+    background: #f8f9fa;
+    border-color: #dee2e6;
+    color: #adb5bd;
     cursor: not-allowed;
+    opacity: 0.6;
 }
 
 .size-button.out-of-stock:hover {
     transform: none;
-    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
+    box-shadow: none;
+    border-color: #dee2e6;
 }
 
 /* Size Inventory Grid Styles */
@@ -1153,9 +1078,24 @@ function initializeProductVariations() {
                 colors.forEach(color => {
                     const colorBtn = document.createElement('button');
                     colorBtn.className = 'color-swatch';
-                    colorBtn.textContent = color;
+
+                    // Get a variation for this color to show its image
+                    const firstVariationForColor = Object.values(variationMap[color])[0];
+
+                    if (firstVariationForColor && firstVariationForColor.image_url) {
+                        // Show variation image
+                        const img = document.createElement('img');
+                        img.src = firstVariationForColor.image_url;
+                        img.alt = color;
+                        img.className = 'color-swatch-image';
+                        colorBtn.appendChild(img);
+                    } else {
+                        // Fallback to text if no image
+                        colorBtn.textContent = color;
+                    }
+
                     colorBtn.onclick = function() {
-                        selectColor(color, variationMap);
+                        selectColor(color, variationMap, this);
                     };
                     colorContainer.appendChild(colorBtn);
                 });
@@ -1210,35 +1150,8 @@ function createSizeButton(size, variation) {
     const sizeBtn = document.createElement('button');
     sizeBtn.className = `size-button ${stockClass}`;
 
-    // Create size label (bold)
-    const sizeLabel = document.createElement('span');
-    sizeLabel.className = 'size-label';
-    sizeLabel.textContent = size;
-
-    // Create stock number (medium)
-    const stockNumber = document.createElement('span');
-    stockNumber.className = 'stock-number';
-    stockNumber.textContent = stockQty;
-
-    // Create stock status (small)
-    const stockStatus = document.createElement('span');
-    stockStatus.className = 'stock-status-text';
-    stockStatus.textContent = stockStatusText;
-
-    // Create add icon
-    const addIcon = document.createElement('i');
-    addIcon.className = 'mdi mdi-plus-circle add-icon';
-
-    // Create success check icon
-    const successCheck = document.createElement('i');
-    successCheck.className = 'mdi mdi-check-circle success-check';
-
-    // Append elements to button
-    sizeBtn.appendChild(sizeLabel);
-    sizeBtn.appendChild(stockNumber);
-    sizeBtn.appendChild(stockStatus);
-    sizeBtn.appendChild(addIcon);
-    sizeBtn.appendChild(successCheck);
+    // Just show the size text (simple style like the image)
+    sizeBtn.textContent = size;
 
     // Only enable click if in stock
     if (stockQty > 0) {
@@ -1254,16 +1167,18 @@ function createSizeButton(size, variation) {
 }
 
 // Select color function
-function selectColor(color, variationMap) {
+function selectColor(color, variationMap, buttonElement) {
     console.log('Color selected:', color);
 
     // Update UI - highlight selected color
     document.querySelectorAll('.color-swatch').forEach(btn => {
         btn.classList.remove('selected');
-        if (btn.textContent === color) {
-            btn.classList.add('selected');
-        }
     });
+
+    // Select the clicked color swatch
+    if (buttonElement) {
+        buttonElement.classList.add('selected');
+    }
 
     // Show sizes for this color
     if (variationMap[color]) {
