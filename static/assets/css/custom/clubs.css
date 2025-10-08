@@ -1032,7 +1032,9 @@ html {
    Product Variation Size Labels (Non-Interactive)
    ============================================ */
 
-/* Override size button styles to make them non-interactive labels */
+/* COMMENTED OUT - These styles were blocking button clicks on quotation pages
+   Size buttons need to be interactive for adding items to quote
+
 .variation-section .size-button {
     pointer-events: none !important;
     cursor: default !important;
@@ -1072,6 +1074,7 @@ html {
     background-color: #f8f9fa !important;
     color: #6c757d !important;
 }
+*/
 
 /* LOTTO Page Size Button Styling - Use LOTTO Brand Colors */
 .lotto-page .variation-section .size-button,

@@ -502,38 +502,88 @@ class AddToQuotationView(LoginRequiredMixin, View):
 
     def post(self, request):
         try:
+            import json
+
             product_type = request.POST.get('product_type')
             product_id = int(request.POST.get('product_id'))
             quantity = int(request.POST.get('quantity', 1))
+
+            # Get variation data if provided
+            variations_json = request.POST.get('variations', '{}')
+            try:
+                variations = json.loads(variations_json)
+            except json.JSONDecodeError:
+                variations = {}
 
             # Get product
             product = get_product_by_type_and_id(product_type, product_id)
             if not product:
                 return JsonResponse({'success': False, 'error': 'Product not found'}, status=404)
 
+            # BUSINESS RULE ENFORCEMENT: Stock quantity validation
+            stock_qty = variations.get('stock_quantity', 0)
+
+            # Rule 1: Cannot order out-of-stock items
+            if stock_qty == 0:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'This item is out of stock and cannot be added to your quote.'
+                }, status=400)
+
             # Get quotation session
             quotation_data = get_quotation_session(request)
 
-            # Check if item already exists
+            # Check if item with same variation already exists
             existing_item = None
             for item in quotation_data['items']:
-                if item['product_type'] == product_type and item['product_id'] == product_id:
+                if (item['product_type'] == product_type and
+                    item['product_id'] == product_id and
+                    item.get('variations', {}) == variations):
                     existing_item = item
                     break
 
             if existing_item:
-                # Update quantity
-                existing_item['quantity'] += quantity
+                # Update quantity for existing variation
+                new_quantity = existing_item['quantity'] + quantity
+
+                # Rule 2: Cannot order more than stock quantity
+                if stock_qty > 0 and new_quantity > stock_qty:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Cannot add {quantity} more. Only {stock_qty - existing_item["quantity"]} units available (stock limit: {stock_qty}).'
+                    }, status=400)
+
+                existing_item['quantity'] = new_quantity
             else:
-                # Add new item
+                # Rule 2: Cannot order more than stock quantity (for new items)
+                if stock_qty > 0 and quantity > stock_qty:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Cannot add {quantity} units. Only {stock_qty} units available in stock.'
+                    }, status=400)
+
+                # Add new item with variation
+                product_name = product.name
+                product_sku = getattr(product, 'cin7_sku', '') or getattr(product, 'sku', '')
+
+                # If variation has SKU, use that instead
+                if variations.get('sku'):
+                    product_sku = variations.get('sku')
+
+                # If variation has size, append to product name
+                if variations.get('size'):
+                    product_name = f"{product.name} - {variations.get('size')}"
+                    if variations.get('color'):
+                        product_name = f"{product.name} - {variations.get('color')} - {variations.get('size')}"
+
                 quotation_data['items'].append({
                     'product_type': product_type,
                     'product_id': product_id,
-                    'product_name': product.name,
-                    'product_sku': getattr(product, 'cin7_sku', '') or getattr(product, 'sku', ''),
+                    'product_name': product_name,
+                    'product_sku': product_sku,
                     'quantity': quantity,
                     'unit_price': str(getattr(product, 'wholesale_price', None) or getattr(product, 'price', 0)),
-                    'variations': {},
+                    'variations': variations,
                 })
 
             # Save session
@@ -543,10 +593,11 @@ class AddToQuotationView(LoginRequiredMixin, View):
             totals = calculate_quotation_totals(quotation_data)
 
             # Log action
+            variation_info = f" ({variations.get('size', '')})" if variations.get('size') else ""
             AuditLog.log_action(
                 user=request.user,
                 action_type='data_access',
-                description=f'Added {product.name} to quotation',
+                description=f'Added {product.name}{variation_info} to quotation',
                 request=request,
                 product_type=product_type,
                 product_id=product_id,
@@ -883,6 +934,39 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
         context['quotation_item_count'] = totals['item_count']
         context['quotation_total'] = totals['total']
 
+        # Get product variations if available
+        variations = []
+        if hasattr(product, 'variations'):
+            variations_qs = product.variations.filter(is_active=True) if hasattr(product.variations, 'filter') else product.variations.all()
+            for variation in variations_qs:
+                # Get price and convert Decimal to string
+                price = getattr(variation, 'price', None) or getattr(variation, 'wholesale_price', None)
+                price_str = str(price) if price is not None else None
+
+                var_data = {
+                    'id': variation.id,
+                    'variation_type': getattr(variation, 'variation_type', ''),
+                    'variation_value': getattr(variation, 'variation_value', ''),
+                    'stock_quantity': getattr(variation, 'stock_quantity', 0) or getattr(variation, 'quantity_available', 0),
+                    'price': price_str,
+                }
+                # Add SKU based on product type
+                if product_type.lower() == 'tusproduct':
+                    var_data['sku'] = getattr(variation, 'sku', '')
+                elif product_type.lower() == 'wholesaleproduct':
+                    var_data['sku'] = getattr(variation, 'cin7_sku', '')
+                elif product_type.lower() in ['sasproduct', 'lottoproduct']:
+                    var_data['sku'] = getattr(variation, 'full_sku', '')
+
+                variations.append(var_data)
+
+        context['variations'] = variations
+        context['has_variations'] = len(variations) > 0
+
+        # Convert variations to JSON for JavaScript
+        import json
+        context['variations_json'] = json.dumps(variations)
+
         return context
 
     def _get_institution_name(self, product, product_type):
@@ -1081,7 +1165,7 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                     Q(name__icontains=search_query) |
                     Q(sku__icontains=search_query) |
                     Q(description__icontains=search_query) |
-                    Q(variations__full_sku__icontains=search_query)  # Search in variation SKUs
+                    Q(variations__sku_suffix__icontains=search_query)  # Search in variation SKU suffix
                 ).distinct()
 
             # Get LOTTO Products with variations
@@ -1096,7 +1180,7 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                     Q(name__icontains=search_query) |
                     Q(sku__icontains=search_query) |
                     Q(description__icontains=search_query) |
-                    Q(variations__full_sku__icontains=search_query)  # Search in variation SKUs
+                    Q(variations__sku_suffix__icontains=search_query)  # Search in variation SKU suffix
                 ).distinct()
 
             # Combine querysets for pagination
