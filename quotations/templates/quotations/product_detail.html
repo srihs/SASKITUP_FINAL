@@ -1286,6 +1286,44 @@ function showErrorNotification(message) {
     }, 3000);
 }
 
+// Show success notification
+function showSuccessNotification(message) {
+    // Create success notification element
+    const successDiv = document.createElement('div');
+    successDiv.className = 'success-notification';
+    successDiv.innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="mdi mdi-check-circle me-2" style="font-size: 1.5rem;"></i>
+            <div>${message}</div>
+        </div>
+    `;
+
+    // Add styles
+    successDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+        color: white;
+        padding: 16px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        z-index: 9999;
+        animation: slideIn 0.3s ease;
+        max-width: 400px;
+    `;
+
+    document.body.appendChild(successDiv);
+
+    // Remove after 3 seconds
+    setTimeout(() => {
+        successDiv.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => {
+            successDiv.remove();
+        }, 300);
+    }, 3000);
+}
+
 // Add animation styles
 const style = document.createElement('style');
 style.textContent = `
@@ -1450,7 +1488,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 if (data.success) {
                     // Show success message
-                    alert('Product added to quote successfully!');
+                    showSuccessNotification('Product added to quote successfully!');
 
                     // Reset quantity to 1 and clear selection
                     document.getElementById('productQuantity').value = 1;
@@ -1461,8 +1499,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                     selectedVariations = {};
 
-                    // Optionally redirect back to product listing
-                    window.location.href = '{% url "quotations:new-quotation" %}?tab={{ active_tab|default:"schools" }}';
+                    // Redirect back to product listing after notification
+                    setTimeout(() => {
+                        window.location.href = '{% url "quotations:new-quotation" %}?tab={{ active_tab|default:"schools" }}';
+                    }, 1500);
                 } else {
                     showErrorNotification(data.error || 'Failed to add product to quote');
                     btn.disabled = false;
