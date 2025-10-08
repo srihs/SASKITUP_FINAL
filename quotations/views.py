@@ -19,7 +19,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import ListView, DetailView, FormView
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 import logging
 
 from authentication.permissions import (
@@ -445,6 +445,7 @@ class QuotationCartView(LoginRequiredMixin, View):
     """
     Step 3: Display quotation cart with all items.
     User can adjust quantities, remove items, or save quotation.
+    Supports both authenticated and guest users via session storage.
     """
     template_name = 'quotations/quotation_cart.html'
 
@@ -453,12 +454,23 @@ class QuotationCartView(LoginRequiredMixin, View):
 
         # Enrich items with product details
         enriched_items = []
-        for item in quotation_data.get('items', []):
+        for idx, item in enumerate(quotation_data.get('items', [])):
             product = get_product_by_type_and_id(item['product_type'], item['product_id'])
             if product:
                 enriched_item = item.copy()
                 enriched_item['product'] = product
+                enriched_item['index'] = idx  # Add index for update/remove operations
                 enriched_item['line_total'] = Decimal(str(item['unit_price'])) * Decimal(str(item['quantity']))
+
+                # Add variation display info if variations exist
+                if item.get('variations'):
+                    variation_details = {}
+                    if item['variations'].get('size'):
+                        variation_details['size'] = item['variations']['size']
+                    if item['variations'].get('color'):
+                        variation_details['color'] = item['variations']['color']
+                    enriched_item['variation_details'] = variation_details
+
                 enriched_items.append(enriched_item)
 
         # Calculate totals
@@ -466,7 +478,10 @@ class QuotationCartView(LoginRequiredMixin, View):
 
         # Get institution if set
         institution = None
-        if quotation_data.get('institution_type') and quotation_data.get('institution_id'):
+        institution_type = quotation_data.get('institution_type')
+        institution_slug = quotation_data.get('institution_slug')
+
+        if institution_type and quotation_data.get('institution_id'):
             from clubs.models_tus import TUSSchool
 
             institution_models = {
@@ -475,19 +490,30 @@ class QuotationCartView(LoginRequiredMixin, View):
                 'lottoclub': LottoClub,
                 'sasclub': SASClub,
             }
-            model_class = institution_models.get(quotation_data['institution_type'].lower())
+            model_class = institution_models.get(institution_type.lower())
             if model_class:
                 try:
                     institution = model_class.objects.get(pk=quotation_data['institution_id'])
                 except model_class.DoesNotExist:
                     pass
 
+        # Log access
+        AuditLog.log_action(
+            user=request.user,
+            action_type='data_access',
+            description=f'Viewed quotation cart with {len(enriched_items)} items',
+            request=request,
+            item_count=len(enriched_items)
+        )
+
         context = {
-            'items': enriched_items,
-            'totals': totals,
+            'cart_items': enriched_items,  # Changed from 'items' to match template
+            'subtotal': totals['subtotal'],
+            'tax': totals['tax_amount'],
+            'total': totals['total'],
             'institution': institution,
-            'institution_type': quotation_data.get('institution_type'),
-            'institution_id': quotation_data.get('institution_id'),
+            'institution_type': institution_type,
+            'institution_slug': institution_slug,
         }
 
         return render(request, self.template_name, context)
@@ -632,6 +658,19 @@ class UpdateQuotationItemView(LoginRequiredMixin, View):
             if item_index < 0 or item_index >= len(quotation_data['items']):
                 return JsonResponse({'success': False, 'error': 'Invalid item index'}, status=400)
 
+            # Get the item to check stock limits
+            item = quotation_data['items'][item_index]
+
+            # BUSINESS RULE ENFORCEMENT: Stock quantity validation
+            stock_qty = item.get('variations', {}).get('stock_quantity', 0)
+
+            # Rule 1: Cannot order more than stock quantity
+            if stock_qty > 0 and quantity > stock_qty:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Cannot set quantity to {quantity}. Only {stock_qty} units available in stock.'
+                }, status=400)
+
             # Update quantity
             quotation_data['items'][item_index]['quantity'] = quantity
 
@@ -642,20 +681,34 @@ class UpdateQuotationItemView(LoginRequiredMixin, View):
             totals = calculate_quotation_totals(quotation_data)
 
             # Calculate line total
-            item = quotation_data['items'][item_index]
             line_total = Decimal(str(item['unit_price'])) * Decimal(str(quantity))
+
+            # Log action
+            AuditLog.log_action(
+                user=request.user,
+                action_type='data_modification',
+                description=f'Updated quotation item quantity to {quantity}',
+                request=request,
+                item_index=item_index,
+                quantity=quantity
+            )
 
             return JsonResponse({
                 'success': True,
                 'line_total': str(line_total),
+                'item_total': str(line_total),  # Alternative key for compatibility
                 'subtotal': str(totals['subtotal']),
+                'tax': str(totals['tax_amount']),
                 'tax_amount': str(totals['tax_amount']),
                 'total': str(totals['total']),
             })
 
+        except ValueError as e:
+            logger.error(f"Invalid input in update quotation item: {e}")
+            return JsonResponse({'success': False, 'error': 'Invalid input values'}, status=400)
         except Exception as e:
             logger.error(f"Error updating quotation item: {e}")
-            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+            return JsonResponse({'success': False, 'error': 'An error occurred while updating the item'}, status=500)
 
 
 class RemoveQuotationItemView(LoginRequiredMixin, View):
@@ -682,7 +735,7 @@ class RemoveQuotationItemView(LoginRequiredMixin, View):
             # Log action
             AuditLog.log_action(
                 user=request.user,
-                action_type='data_access',
+                action_type='data_modification',
                 description=f'Removed {removed_item["product_name"]} from quotation',
                 request=request,
                 product_name=removed_item['product_name']
@@ -692,13 +745,18 @@ class RemoveQuotationItemView(LoginRequiredMixin, View):
                 'success': True,
                 'item_count': totals['item_count'],
                 'subtotal': str(totals['subtotal']),
+                'tax': str(totals['tax_amount']),
                 'tax_amount': str(totals['tax_amount']),
                 'total': str(totals['total']),
+                'message': f'Removed {removed_item["product_name"]} from cart'
             })
 
+        except ValueError as e:
+            logger.error(f"Invalid input in remove quotation item: {e}")
+            return JsonResponse({'success': False, 'error': 'Invalid item index'}, status=400)
         except Exception as e:
             logger.error(f"Error removing quotation item: {e}")
-            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+            return JsonResponse({'success': False, 'error': 'An error occurred while removing the item'}, status=500)
 
 
 class ClearQuotationView(LoginRequiredMixin, View):
@@ -731,6 +789,7 @@ class SaveQuotationView(LoginRequiredMixin, View):
     """
     Step 4: Save quotation session to database.
     Creates Quotation and QuotationItem records.
+    Handles both authenticated users and validates institution access.
     """
 
     def post(self, request):
@@ -739,11 +798,17 @@ class SaveQuotationView(LoginRequiredMixin, View):
 
             # Validate quotation has items
             if not quotation_data.get('items'):
-                return JsonResponse({'success': False, 'error': 'Quotation is empty'}, status=400)
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Your quotation cart is empty. Please add items before submitting.'
+                }, status=400)
 
             # Validate institution is set
             if not quotation_data.get('institution_type') or not quotation_data.get('institution_id'):
-                return JsonResponse({'success': False, 'error': 'No institution selected'}, status=400)
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No institution selected. Please select an institution before submitting your quotation.'
+                }, status=400)
 
             # Get institution
             from clubs.models_tus import TUSSchool
@@ -755,7 +820,26 @@ class SaveQuotationView(LoginRequiredMixin, View):
                 'sasclub': SASClub,
             }
             model_class = institution_models.get(quotation_data['institution_type'].lower())
-            institution = get_object_or_404(model_class, pk=quotation_data['institution_id'])
+            if not model_class:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid institution type'
+                }, status=400)
+
+            try:
+                institution = model_class.objects.get(pk=quotation_data['institution_id'])
+            except model_class.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Institution not found'
+                }, status=404)
+
+            # Verify user has access to this institution
+            if not user_can_access_institution(request.user, quotation_data['institution_type'], quotation_data['institution_id']):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'You do not have permission to create quotations for this institution'
+                }, status=403)
 
             # Create Quotation
             institution_content_type = ContentType.objects.get_for_model(institution)
@@ -763,26 +847,45 @@ class SaveQuotationView(LoginRequiredMixin, View):
                 created_by=request.user,
                 institution_content_type=institution_content_type,
                 institution_object_id=institution.id,
-                status='draft',
+                status='pending',  # Changed from 'draft' to 'pending' for approval workflow
             )
 
             # Create QuotationItems
+            items_created = 0
             for item_data in quotation_data['items']:
                 product = get_product_by_type_and_id(item_data['product_type'], item_data['product_id'])
                 if not product:
+                    logger.warning(f"Product not found: {item_data['product_type']} {item_data['product_id']}")
                     continue
 
                 product_content_type = ContentType.objects.get_for_model(product)
+
+                # Get product image URL
+                product_image_url = ''
+                if hasattr(product, 'image_url') and product.image_url:
+                    product_image_url = product.image_url
+                elif hasattr(product, 'image') and product.image:
+                    product_image_url = str(product.image)
+
                 QuotationItem.objects.create(
                     quotation=quotation,
                     product_content_type=product_content_type,
                     product_object_id=product.id,
-                    product_name=product.name,
-                    product_sku=getattr(product, 'cin7_sku', '') or getattr(product, 'sku', ''),
+                    product_name=item_data.get('product_name', product.name),
+                    product_sku=item_data.get('product_sku', getattr(product, 'cin7_sku', '') or getattr(product, 'sku', '')),
+                    product_image_url=product_image_url,
                     quantity=item_data['quantity'],
                     unit_price=Decimal(str(item_data['unit_price'])),
                     variations=item_data.get('variations', {}),
                 )
+                items_created += 1
+
+            if items_created == 0:
+                quotation.delete()
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No valid products found in your cart. Please try again.'
+                }, status=400)
 
             # Calculate quotation totals
             quotation.calculate_totals()
@@ -793,23 +896,36 @@ class SaveQuotationView(LoginRequiredMixin, View):
             # Log action
             AuditLog.log_action(
                 user=request.user,
-                action_type='data_access',
-                description=f'Saved quotation {quotation.quotation_number}',
+                action_type='data_creation',
+                description=f'Created quotation {quotation.quotation_number} with {items_created} items',
                 request=request,
                 quotation_id=str(quotation.id),
-                quotation_number=quotation.quotation_number
+                quotation_number=quotation.quotation_number,
+                item_count=items_created
             )
 
             return JsonResponse({
                 'success': True,
                 'quotation_id': str(quotation.id),
                 'quotation_number': quotation.quotation_number,
+                'item_count': items_created,
+                'total_amount': str(quotation.total),
                 'redirect_url': reverse('quotations:my-quotations'),
+                'message': f'Quotation {quotation.quotation_number} submitted successfully!'
             })
 
+        except ValidationError as e:
+            logger.error(f"Validation error saving quotation: {e}")
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=400)
         except Exception as e:
             logger.error(f"Error saving quotation: {e}")
-            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+            return JsonResponse({
+                'success': False,
+                'error': 'An error occurred while saving your quotation. Please try again.'
+            }, status=500)
 
 
 # =====================================

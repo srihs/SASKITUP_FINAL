@@ -333,7 +333,7 @@ def frontend_landing_view(request):
         'sas_clubs': sas_clubs,
     }
 
-    return render(request, 'frontend/home.html', context)
+    return render(request, 'home.html', context)
 
 
 def products_view(request):

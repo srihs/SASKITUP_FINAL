@@ -40,6 +40,7 @@ urlpatterns = [
 
     # Step 3: Quotation Cart
     path('cart/', views.QuotationCartView.as_view(), name='cart'),
+    path('quotation-cart/', views.QuotationCartView.as_view(), name='quotation-cart'),
 
     # AJAX Endpoints
     path('add/', views.AddToQuotationView.as_view(), name='add-item'),

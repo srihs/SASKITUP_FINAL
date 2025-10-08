@@ -941,7 +941,7 @@
 
 <!-- Floating Quote Summary -->
 {% if quotation_item_count > 0 %}
-<div class="quote-summary" onclick="window.location.href='{% url 'quotations:cart' %}'">
+<div class="quote-summary" onclick="window.location.href='{% url 'quotations:quotation-cart' %}'">
     <div class="d-flex align-items-center">
         <div class="me-3">
             <span class="badge">{{ quotation_item_count }}</span>
