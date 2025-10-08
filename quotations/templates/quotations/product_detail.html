@@ -36,7 +36,7 @@
     width: 100%;
     height: 500px;
     object-fit: contain;
-    transition: transform 0.3s ease;
+    transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 .main-product-image:hover img {
@@ -1178,6 +1178,24 @@ function selectColor(color, variationMap, buttonElement) {
     // Select the clicked color swatch
     if (buttonElement) {
         buttonElement.classList.add('selected');
+    }
+
+    // Update main product image with smooth transition
+    const firstVariationForColor = Object.values(variationMap[color])[0];
+    if (firstVariationForColor && firstVariationForColor.image_url) {
+        const mainImage = document.getElementById('mainProductImage');
+
+        if (mainImage) {
+            // Add fade effect
+            mainImage.style.opacity = '0.5';
+
+            // Update image after short delay for smooth transition
+            setTimeout(() => {
+                mainImage.src = firstVariationForColor.image_url;
+                mainImage.alt = `${color} variation`;
+                mainImage.style.opacity = '1';
+            }, 150);
+        }
     }
 
     // Show sizes for this color
