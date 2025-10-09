@@ -2308,7 +2308,8 @@ def wholesale_price_preview(request):
 
         # Get category filter (default to wholesale-schools for backward compatibility)
         category = request.POST.get('category_filter', 'wholesale-schools')
-        logger.info(f"Category filter: {category}")
+        logger.info(f"[LOTTO-CATEGORY] Category filter selected: {category}")
+        logger.info(f"[LOTTO-CATEGORY] Is LOTTO category: {category == 'lotto-clubs'}")
 
         # Initialize product matcher service
         try:
@@ -2400,10 +2401,12 @@ def wholesale_price_preview(request):
                 elif category == 'lotto-clubs':
                     from clubs.models_lotto import LottoProductVariation
                     variations = LottoProductVariation.objects.select_related('product').all()
+                    logger.info(f"[LOTTO-MATCH] Loading {variations.count()} LOTTO variations")
                     for variation in variations:
                         if variation.sku_suffix:
                             # LOTTO uses 'sku_suffix' field
                             products_by_variation[str(variation.sku_suffix).strip().upper()] = variation.product
+                    logger.info(f"[LOTTO-MATCH] Indexed {len([k for k in products_by_variation.keys()])} LOTTO variations by sku_suffix")
 
                 logger.info(f"Pre-loaded {len(all_products)} products: "
                            f"{len(products_by_sku)} indexed by SKU, "
@@ -2494,16 +2497,47 @@ def wholesale_price_preview(request):
                         product_code_clean = str(product_code).strip() if product_code else ''
                         barcode_clean = str(barcode).strip() if barcode else ''
 
-                        # Find product with variation support
-                        product, match_method, variation = matcher.find_product_with_variation(
-                            category, product_code_clean, barcode_clean
-                        )
+                        # LOTTO-specific SKU parsing: Handle composite format "BASE_SKU SUFFIX"
+                        # CSV format: "R9039 -4--7" → Database: sku="R9039", sku_suffix="-4--7"
+                        if category == 'lotto-clubs' and product_code_clean and ' ' in product_code_clean:
+                            parts = product_code_clean.split(' ', 1)  # Split on first space only
+                            if len(parts) == 2:
+                                base_sku, sku_suffix = parts
+                                logger.debug(f"[LOTTO-MATCH] Parsed composite SKU: '{product_code_clean}' → base='{base_sku}', suffix='{sku_suffix}'")
+
+                                # Try matching with suffix first (for variations)
+                                product, match_method, variation = matcher.find_product_with_variation(
+                                    category, sku_suffix.strip(), barcode_clean
+                                )
+
+                                # If not found by suffix, try base SKU (for products without variations)
+                                if not product:
+                                    logger.debug(f"[LOTTO-MATCH] Suffix '{sku_suffix}' not found, trying base SKU '{base_sku}'")
+                                    product, match_method, variation = matcher.find_product_with_variation(
+                                        category, base_sku.strip(), barcode_clean
+                                    )
+                            else:
+                                # Shouldn't happen after split, but fallback to original
+                                product, match_method, variation = matcher.find_product_with_variation(
+                                    category, product_code_clean, barcode_clean
+                                )
+                        else:
+                            # Non-LOTTO categories or no space in SKU - use original logic
+                            product, match_method, variation = matcher.find_product_with_variation(
+                                category, product_code_clean, barcode_clean
+                            )
+
+                        if category == 'lotto-clubs' and row_count <= 5:
+                            logger.info(f"[LOTTO-MATCH] Row {row_num}: SKU='{product_code_clean}' -> Product={product.name if product else 'None'}, Variation={'Yes' if variation else 'No'}, Method={match_method}")
 
                         # Determine target object: use variation if found, otherwise use product
                         target = variation if variation else product
 
                         # Get price field name for this category
                         price_field = matcher.get_price_field(category)
+
+                        if category == 'lotto-clubs' and row_count <= 5:
+                            logger.info(f"[LOTTO-PRICE] Row {row_num}: price_field={price_field}, target_type={'variation' if variation else 'product'}")
 
                         # Get cost from CSV - support multiple column name variations
                         cost_raw = (
@@ -2548,6 +2582,9 @@ def wholesale_price_preview(request):
                                             if margin_75_price > 0:
                                                 discount_calc = ((Decimal(str(margin_75_price)) - Decimal(str(current_price))) / Decimal(str(margin_75_price))) * 100
                                                 discount_percentage = float(discount_calc)  # Allow negative discounts
+
+                                                if category == 'lotto-clubs' and row_count <= 5:
+                                                    logger.info(f"[LOTTO-PRICE] Row {row_num}: cost={cost_value}, margin_75={margin_75_price:.2f}, rrp={rrp:.2f}, discount={discount_percentage:.2f}%")
                             except (ValueError, InvalidOperation, ZeroDivisionError) as e:
                                 logger.warning(f"Row {row_num}: Price calculation error - {str(e)}")
 
@@ -2648,9 +2685,12 @@ def wholesale_price_preview(request):
                         errors.append(error_msg)
 
             filtered_count = row_count - len(preview_data)
-            logger.info(f"CSV processing complete: {row_count} rows processed, "
+            logger.info(f"[LOTTO-SUMMARY] CSV processing complete: {row_count} rows processed, "
                        f"{valid_rows} valid products found, "
                        f"{filtered_count} filtered out (stock=0 & cost=0, or not found)")
+            if category == 'lotto-clubs':
+                logger.info(f"[LOTTO-SUMMARY] LOTTO preview data count: {len(preview_data)}")
+                logger.info(f"[LOTTO-SUMMARY] LOTTO valid items: {valid_rows}")
 
             return JsonResponse({
                 'success': True,
@@ -2727,8 +2767,12 @@ def wholesale_price_apply(request):
         # Filter for only valid items
         valid_items = [item for item in all_items if item.get('status') == 'valid']
 
-        logger.info(f"Valid items to process: {len(valid_items)} out of {len(all_items)} total items")
-        logger.info(f"Skipped items: {len(all_items) - len(valid_items)}")
+        logger.info(f"[LOTTO-CATEGORY] Apply category: {category}")
+        logger.info(f"[LOTTO-SUMMARY] Valid items to process: {len(valid_items)} out of {len(all_items)} total items")
+        logger.info(f"[LOTTO-SUMMARY] Skipped items: {len(all_items) - len(valid_items)}")
+
+        if category == 'lotto-clubs':
+            logger.info(f"[LOTTO-SUMMARY] Processing LOTTO price updates")
 
         # Initialize product matcher service
         matcher = ProductMatcherService()
@@ -2847,10 +2891,37 @@ def wholesale_price_apply(request):
 
                         logger.debug(f"  - Searching for product: SKU='{product_code_clean}', Barcode='{barcode_clean}'")
 
-                        # Use find_product_with_variation to get both product and variation
-                        product, search_method, variation = matcher.find_product_with_variation(
-                            category, product_code_clean, barcode_clean
-                        )
+                        # LOTTO-specific SKU parsing: Handle composite format "BASE_SKU SUFFIX"
+                        # CSV format: "R9039 -4--7" → Database: sku="R9039", sku_suffix="-4--7"
+                        if category == 'lotto-clubs' and product_code_clean and ' ' in product_code_clean:
+                            parts = product_code_clean.split(' ', 1)  # Split on first space only
+                            if len(parts) == 2:
+                                base_sku, sku_suffix = parts
+                                if index <= 10:
+                                    logger.info(f"[LOTTO-MATCH] Item {index}: Parsed composite SKU: '{product_code_clean}' → base='{base_sku}', suffix='{sku_suffix}'")
+
+                                # Try matching with suffix first (for variations)
+                                product, search_method, variation = matcher.find_product_with_variation(
+                                    category, sku_suffix.strip(), barcode_clean
+                                )
+
+                                # If not found by suffix, try base SKU (for products without variations)
+                                if not product:
+                                    if index <= 10:
+                                        logger.info(f"[LOTTO-MATCH] Item {index}: Suffix '{sku_suffix}' not found, trying base SKU '{base_sku}'")
+                                    product, search_method, variation = matcher.find_product_with_variation(
+                                        category, base_sku.strip(), barcode_clean
+                                    )
+                            else:
+                                # Shouldn't happen after split, but fallback to original
+                                product, search_method, variation = matcher.find_product_with_variation(
+                                    category, product_code_clean, barcode_clean
+                                )
+                        else:
+                            # Non-LOTTO categories or no space in SKU - use original logic
+                            product, search_method, variation = matcher.find_product_with_variation(
+                                category, product_code_clean, barcode_clean
+                            )
 
                         # Determine target object: use variation if found, otherwise use product
                         target = variation if variation else product
@@ -2864,8 +2935,12 @@ def wholesale_price_apply(request):
 
                             if variation:
                                 logger.info(f"  ✅ Variation found by {search_method}: {product.name} - Variation ID {variation.id}")
+                                if category == 'lotto-clubs' and index <= 10:
+                                    logger.info(f"[LOTTO-MATCH] Item {index}: Found LOTTO variation - SKU={product_code_clean}, Variation ID={variation.id}")
                             else:
                                 logger.info(f"  ✅ Product found by {search_method}: {product.name} (ID: {product.id})")
+                                if category == 'lotto-clubs' and index <= 10:
+                                    logger.info(f"[LOTTO-MATCH] Item {index}: Found LOTTO product (no variation) - SKU={product_code_clean}")
                         else:
                             logger.debug(f"  - Product not found with SKU or barcode")
 
@@ -2923,12 +2998,16 @@ def wholesale_price_apply(request):
                             updates_to_apply['cost_price'] = new_cost
                             target.cost_price = new_cost
                             logger.info(f"  - Updating cost price: {new_cost}")
+                            if category == 'lotto-clubs' and index <= 10:
+                                logger.info(f"[LOTTO-UPDATE] Item {index}: Setting cost_price={new_cost}")
 
                         if item.get('margin_75_price'):
                             new_margin = Decimal(str(item['margin_75_price']))
                             updates_to_apply['margin_75_price'] = new_margin
                             target.margin_75_price = new_margin
                             logger.info(f"  - Updating margin 75% price: {new_margin}")
+                            if category == 'lotto-clubs' and index <= 10:
+                                logger.info(f"[LOTTO-UPDATE] Item {index}: Setting margin_75_price={new_margin}")
 
                         if item.get('discount_percentage'):
                             new_discount = Decimal(str(item['discount_percentage']))
@@ -2936,6 +3015,8 @@ def wholesale_price_apply(request):
                                 updates_to_apply['discount_percentage'] = new_discount
                                 target.discount_percentage = new_discount
                                 logger.info(f"  - Updating discount percentage: {new_discount}")
+                                if category == 'lotto-clubs' and index <= 10:
+                                    logger.info(f"[LOTTO-UPDATE] Item {index}: Setting discount_percentage={new_discount}%")
                             else:
                                 logger.warning(f"  - Target model doesn't have discount_percentage field")
 
@@ -2947,10 +3028,14 @@ def wholesale_price_apply(request):
                                 updates_to_apply['price'] = new_retail
                                 target.price = new_retail
                                 logger.info(f"  - Updating variation price: {new_retail}")
+                                if category == 'lotto-clubs' and index <= 10:
+                                    logger.info(f"[LOTTO-UPDATE] Item {index}: Setting variation.price={new_retail}")
                             elif price_field:
                                 updates_to_apply[price_field] = new_retail
                                 setattr(target, price_field, new_retail)
                                 logger.info(f"  - Updating {price_field}: {new_retail}")
+                                if category == 'lotto-clubs' and index <= 10:
+                                    logger.info(f"[LOTTO-UPDATE] Item {index}: Setting {price_field}={new_retail}")
 
                         if not updates_to_apply:
                             logger.warning(f"  ⚠️ No price fields to update for {product_name}")
@@ -2975,11 +3060,17 @@ def wholesale_price_apply(request):
                         try:
                             target.save(update_fields=update_fields)
                             logger.debug(f"  - Database save successful")
+                            if category == 'lotto-clubs' and index <= 10:
+                                logger.info(f"[LOTTO-UPDATE] Item {index}: Database save SUCCESSFUL - fields={update_fields}")
                         except Exception as save_error:
                             logger.error(f"  - Database save failed: {save_error}")
+                            if category == 'lotto-clubs':
+                                logger.error(f"[LOTTO-UPDATE] Item {index}: Database save FAILED - {save_error}")
                             raise save_error
 
                         results['successful_updates'] += 1
+                        if category == 'lotto-clubs' and index <= 10:
+                            logger.info(f"[LOTTO-UPDATE] Item {index}: Update count incremented - total={results['successful_updates']}")
 
                         # Build updated info with category-aware field access
                         updated_info = {
@@ -3024,13 +3115,21 @@ def wholesale_price_apply(request):
 
         # Log comprehensive summary
         logger.info("=== WHOLESALE PRICE APPLY SUMMARY ===")
-        logger.info(f"Total items processed: {processed_count}")
-        logger.info(f"Successfully updated: {results['successful_updates']}")
-        logger.info(f"Failed updates: {results['failed_updates']}")
-        logger.info(f"Products found by SKU: {found_by_sku_count}")
-        logger.info(f"Products found by barcode: {found_by_barcode_count}")
-        logger.info(f"Products not found: {not_found_count}")
-        logger.info(f"Update failures: {update_failed_count}")
+        logger.info(f"[LOTTO-SUMMARY] Total items processed: {processed_count}")
+        logger.info(f"[LOTTO-SUMMARY] Successfully updated: {results['successful_updates']}")
+        logger.info(f"[LOTTO-SUMMARY] Failed updates: {results['failed_updates']}")
+        logger.info(f"[LOTTO-SUMMARY] Products found by SKU: {found_by_sku_count}")
+        logger.info(f"[LOTTO-SUMMARY] Products found by barcode: {found_by_barcode_count}")
+        logger.info(f"[LOTTO-SUMMARY] Products not found: {not_found_count}")
+        logger.info(f"[LOTTO-SUMMARY] Update failures: {update_failed_count}")
+
+        if category == 'lotto-clubs':
+            logger.info(f"[LOTTO-SUMMARY] ========== LOTTO FINAL STATS ==========")
+            logger.info(f"[LOTTO-SUMMARY] Total LOTTO items: {len(all_items)}")
+            logger.info(f"[LOTTO-SUMMARY] Valid LOTTO items: {len(valid_items)}")
+            logger.info(f"[LOTTO-SUMMARY] LOTTO updates applied: {results['successful_updates']}")
+            logger.info(f"[LOTTO-SUMMARY] LOTTO update failures: {results['failed_updates']}")
+            logger.info(f"[LOTTO-SUMMARY] Success rate: {(results['successful_updates']/len(valid_items)*100):.1f}%" if len(valid_items) > 0 else "[LOTTO-SUMMARY] Success rate: N/A")
 
         if results['errors']:
             logger.warning("=== ERRORS ENCOUNTERED ===")
