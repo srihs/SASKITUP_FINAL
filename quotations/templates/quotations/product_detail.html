@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load humanize %}
 
 {% block body_class %}quotation-product-detail{% endblock %}
 
@@ -895,7 +896,7 @@
                             <div class="club-name">{{ product_type|upper }}</div>
                             {% if product.sku or product.cin7_sku or product.barcode or product.style_code %}
                             <small class="text-muted">
-                                SKU: {% if product.sku %}{{ product.sku }}{% elif product.cin7_sku %}{{ product.cin7_sku }}{% elif product.barcode %}{{ product.barcode }}{% elif product.style_code %}{{ product.style_code }}{% else %}N/A{% endif %}
+                                SKU: <span id="productSku">{% if product.sku %}{{ product.sku }}{% elif product.cin7_sku %}{{ product.cin7_sku }}{% elif product.barcode %}{{ product.barcode }}{% elif product.style_code %}{{ product.style_code }}{% else %}N/A{% endif %}</span>
                             </small>
                             {% endif %}
                         </div>
@@ -907,10 +908,26 @@
 
                     <!-- Product Pricing -->
                     <div class="product-pricing">
-                        <div class="price-container">
-                            <div class="current-price" id="productPrice">
-                                ${% if product.wholesale_price %}{{ product.wholesale_price }}{% else %}{{ product.price }}{% endif %}
-                            </div>
+                        <div class="price-container" id="priceContainer">
+                            {% if product.margin_75_price and product.price and product.margin_75_price > product.price %}
+                                <!-- Show discount badge -->
+                                <span class="badge bg-danger discount-badge" id="discountBadge" style="font-size: 0.9rem; padding: 0.4rem 0.8rem; margin-right: 1rem;">
+                                    {% if product.discount_percentage %}
+                                        -{{ product.discount_percentage|floatformat:0 }}%
+                                    {% else %}
+                                        SALE
+                                    {% endif %}
+                                </span>
+                                <div class="d-flex align-items-center gap-3">
+                                    <span class="original-price" id="marginPrice">${{ product.margin_75_price|floatformat:2|intcomma }}</span>
+                                    <div class="current-price" id="productPrice">${{ product.price|floatformat:2|intcomma }}</div>
+                                </div>
+                            {% else %}
+                                <!-- No discount, show regular price -->
+                                <div class="current-price" id="productPrice">
+                                    ${{ product.price|floatformat:2|intcomma }}
+                                </div>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -1198,6 +1215,12 @@ function selectColor(color, variationMap, buttonElement) {
         }
     }
 
+    // If only one size available for this color, auto-select it and update display
+    if (variationMap[color] && Object.keys(variationMap[color]).length === 1) {
+        const onlyVariation = Object.values(variationMap[color])[0];
+        updateProductDisplay(onlyVariation);
+    }
+
     // Show sizes for this color
     if (variationMap[color]) {
         const sizes = new Set(Object.keys(variationMap[color]));
@@ -1205,6 +1228,50 @@ function selectColor(color, variationMap, buttonElement) {
     }
 
     selectedVariations.color = color;
+}
+
+// Update SKU and pricing display for selected variation
+function updateProductDisplay(variation) {
+    console.log('Updating product display with variation:', variation);
+
+    // Update SKU
+    const skuElement = document.getElementById('productSku');
+    if (skuElement && variation.sku) {
+        skuElement.textContent = variation.sku;
+    }
+
+    // Update pricing
+    const priceContainer = document.getElementById('priceContainer');
+    if (priceContainer && variation.price) {
+        const sellingPrice = parseFloat(variation.price);
+        const marginPrice = variation.margin_75_price ? parseFloat(variation.margin_75_price) : null;
+        const discountPercentage = variation.discount_percentage ? parseInt(variation.discount_percentage) : null;
+
+        // Format price with commas
+        const formatPrice = (price) => {
+            return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        };
+
+        if (marginPrice && marginPrice > sellingPrice) {
+            // Show discount pricing
+            priceContainer.innerHTML = `
+                <span class="badge bg-danger discount-badge" id="discountBadge" style="font-size: 0.9rem; padding: 0.4rem 0.8rem; margin-right: 1rem;">
+                    ${discountPercentage ? '-' + discountPercentage + '%' : 'SALE'}
+                </span>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="original-price" id="marginPrice">$${formatPrice(marginPrice)}</span>
+                    <div class="current-price" id="productPrice">$${formatPrice(sellingPrice)}</div>
+                </div>
+            `;
+        } else {
+            // Show regular price only
+            priceContainer.innerHTML = `
+                <div class="current-price" id="productPrice">
+                    $${formatPrice(sellingPrice)}
+                </div>
+            `;
+        }
+    }
 }
 
 // Select variation when size tile is clicked (doesn't add to quote immediately)
@@ -1225,12 +1292,17 @@ function addVariationToQuote(size, variation, buttonElement) {
     selectedVariations.variation_id = variation.id;
     selectedVariations.sku = variation.sku || '';
     selectedVariations.stock_quantity = stockQty;
+    selectedVariations.price = variation.price || '';
+    selectedVariations.margin_75_price = variation.margin_75_price || '';
 
     // Update UI - highlight selected size button
     document.querySelectorAll('.size-button').forEach(btn => {
         btn.classList.remove('selected');
     });
     buttonElement.classList.add('selected');
+
+    // Update SKU and pricing display
+    updateProductDisplay(variation);
 
     // Update quantity input max attribute to stock quantity
     const quantityInput = document.getElementById('productQuantity');
@@ -1499,10 +1571,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                     selectedVariations = {};
 
-                    // Redirect back to product listing after notification
-                    setTimeout(() => {
-                        window.location.href = '{% url "quotations:new-quotation" %}?tab={{ active_tab|default:"schools" }}';
-                    }, 1500);
+                    // Update floating quote summary if data provided
+                    if (data.item_count !== undefined && data.total !== undefined) {
+                        updateFloatingQuoteSummary(data.item_count, data.total);
+                    }
+
+                    // Re-enable button
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="mdi mdi-cart-plus me-1"></i> Add to Quote';
+
+                    // Stay on product detail page - user can use back button to return to listing
                 } else {
                     showErrorNotification(data.error || 'Failed to add product to quote');
                     btn.disabled = false;

@@ -40,6 +40,7 @@ class TUSLocation(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        app_label = 'schools'
         db_table = 'tus_locations'
         ordering = ['name']
         verbose_name = "TUS Location"
@@ -85,7 +86,7 @@ class TUSLocation(models.Model):
         """Get total number of products across all schools in this location"""
         # Use lazy import to avoid circular imports
         from django.apps import apps
-        TUSProduct = apps.get_model('clubs', 'TUSProduct')
+        TUSProduct = apps.get_model('schools', 'TUSProduct')
         return TUSProduct.objects.filter(
             category_assignments__school_category__school__location=self,
             stock_status__in=['instock', 'onbackorder']
@@ -150,6 +151,7 @@ class TUSSchool(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        app_label = 'schools'
         db_table = 'tus_schools'
         ordering = ['location', 'name']
         verbose_name = "TUS School"
@@ -187,7 +189,7 @@ class TUSSchool(models.Model):
         """Get total number of products across all categories for this school"""
         # Use lazy import to avoid circular imports
         from django.apps import apps
-        TUSProduct = apps.get_model('clubs', 'TUSProduct')
+        TUSProduct = apps.get_model('schools', 'TUSProduct')
         return TUSProduct.objects.filter(
             category_assignments__school_category__school=self,
             stock_status__in=['instock', 'onbackorder']
@@ -243,6 +245,7 @@ class TUSGeneralCategory(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        app_label = 'schools'
         db_table = 'tus_general_categories'
         ordering = ['display_order', 'name']
         verbose_name = "TUS General Category"
@@ -269,7 +272,7 @@ class TUSGeneralCategory(models.Model):
         # Count products through the product assignments
         # Use lazy import to avoid circular imports
         from django.apps import apps
-        TUSProduct = apps.get_model('clubs', 'TUSProduct')
+        TUSProduct = apps.get_model('schools', 'TUSProduct')
         self.product_count = TUSProduct.objects.filter(
             category_assignments__general_category=self,
             stock_status__in=['instock', 'onbackorder']
@@ -304,6 +307,7 @@ class TUSSchoolCategory(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        app_label = 'schools'
         db_table = 'tus_school_categories'
         ordering = ['school', 'display_order', 'name']
         verbose_name = "TUS School Category"
@@ -329,7 +333,7 @@ class TUSSchoolCategory(models.Model):
         """Get products assigned to this school category"""
         # Use lazy import to avoid circular imports
         from django.apps import apps
-        TUSProduct = apps.get_model('clubs', 'TUSProduct')
+        TUSProduct = apps.get_model('schools', 'TUSProduct')
         return TUSProduct.objects.filter(
             category_assignments__school_category=self
         ).distinct()
@@ -339,7 +343,7 @@ class TUSSchoolCategory(models.Model):
         # Count products through the product assignments
         # Use lazy import to avoid circular imports
         from django.apps import apps
-        TUSProduct = apps.get_model('clubs', 'TUSProduct')
+        TUSProduct = apps.get_model('schools', 'TUSProduct')
         self.product_count = TUSProduct.objects.filter(
             category_assignments__school_category=self,
             stock_status__in=['instock', 'onbackorder']
@@ -380,6 +384,7 @@ class TUSProductCategoryAssignment(models.Model):
     last_synced = models.DateTimeField(auto_now=True, help_text="Last sync with WooCommerce")
 
     class Meta:
+        app_label = 'schools'
         db_table = 'tus_product_category_assignments'
         unique_together = ['product', 'school_category', 'general_category']
         verbose_name = "TUS Product Category Assignment"
@@ -526,6 +531,7 @@ class TUSProduct(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        app_label = 'schools'
         db_table = 'tus_products'
         ordering = ['name']
         verbose_name = "TUS Product"
@@ -891,6 +897,24 @@ class TUSProductVariation(models.Model):
     regular_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, help_text="Regular price")
     sale_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, help_text="Sale price")
 
+    # Pricing management fields (for wholesale price update system)
+    cost_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Cost price from supplier"
+    )
+    margin_75_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Price with 75% margin (cost ÷ 0.25)"
+    )
+    discount_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text="Discount percentage from 75% margin price"
+    )
+    last_price_update = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Timestamp of last price update"
+    )
+
     # Stock
     stock_quantity = models.PositiveIntegerField(default=0, help_text="Stock quantity for this variation")
     stock_status = models.CharField(
@@ -918,6 +942,7 @@ class TUSProductVariation(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        app_label = 'schools'
         db_table = 'tus_product_variations'
         ordering = ['product', 'menu_order', 'variation_type', 'variation_value']
         verbose_name = "TUS Product Variation"

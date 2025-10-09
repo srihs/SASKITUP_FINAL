@@ -6,6 +6,12 @@ from decimal import Decimal
 import uuid
 import logging
 
+# Import TUS models
+from .models_tus import (
+    TUSLocation, TUSSchool, TUSGeneralCategory, TUSSchoolCategory,
+    TUSProduct, TUSProductVariation, TUSProductCategoryAssignment
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -536,6 +542,20 @@ class WholesaleProductVariation(models.Model):
     wholesale_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     retail_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     cost_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
+    # Pricing management fields (for wholesale price update system)
+    margin_75_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Price with 75% margin (cost ÷ 0.25)"
+    )
+    discount_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text="Discount percentage from 75% margin price"
+    )
+    last_price_update = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Timestamp of last price update"
+    )
 
     # Stock for this specific variation
     quantity_available = models.IntegerField(default=0)

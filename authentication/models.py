@@ -152,7 +152,7 @@ class User(AbstractUser):
         Admin and account managers have access to ALL schools
         """
         from schools.models import WholesaleSchool
-        from clubs.models_tus import TUSSchool
+        from schools.models_tus import TUSSchool
 
         # Admin and account managers have access to all schools
         if self.is_admin or self.is_account_manager:
@@ -177,7 +177,7 @@ class User(AbstractUser):
                 wholesale_school__isnull=False
             ).values_list('wholesale_school_id', flat=True)
 
-            from clubs.models_tus import TUSSchool
+            from schools.models_tus import TUSSchool
             tus_schools = TUSSchool.objects.filter(id__in=tus_school_ids)
             wholesale_schools = WholesaleSchool.objects.filter(id__in=wholesale_school_ids)
 
@@ -293,7 +293,7 @@ class SalesRepSchoolAssignment(models.Model):
 
     # School relationships (one of these should be set, not both)
     tus_school = models.ForeignKey(
-        'clubs.TUSSchool',
+        'schools.TUSSchool',
         on_delete=models.CASCADE,
         related_name='sales_rep_assignments',
         null=True,

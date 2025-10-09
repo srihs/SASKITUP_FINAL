@@ -27,7 +27,7 @@ class ProductMatcherService:
     # Category to model mapping
     CATEGORY_MODELS = {
         'wholesale-schools': 'schools.WholesaleProduct',
-        'retail-schools': 'clubs.TUSProduct',
+        'retail-schools': 'schools.TUSProduct',
         'sas-clubs': 'clubs.SASProduct',
         'lotto-clubs': 'clubs.LottoProduct',
     }
@@ -199,6 +199,42 @@ class ProductMatcherService:
 
         return None, None
 
+    def _match_variation_with_instance(
+        self,
+        variation_model: type,
+        product_code: str,
+        field_name: str = 'sku_suffix'
+    ) -> Tuple[Optional[Model], Optional[str], Optional[Model]]:
+        """
+        Generic variation field matching that returns both product and variation instance.
+
+        Args:
+            variation_model: TUSProductVariation, SASProductVariation, or LottoProductVariation
+            product_code: Code to match against variation field
+            field_name: Field name to match against (default: 'sku_suffix')
+
+        Returns:
+            Tuple of (product instance or None, match method or None, variation instance or None)
+        """
+        try:
+            # Exact match
+            filter_kwargs = {field_name: product_code}
+            variation = variation_model.objects.filter(**filter_kwargs).first()
+            if variation and variation.product:
+                logger.debug(f"Found product by exact variation {field_name}: {product_code}")
+                return variation.product, f'{field_name}_exact', variation
+
+            # Case-insensitive match
+            filter_kwargs = {f'{field_name}__iexact': product_code}
+            variation = variation_model.objects.filter(**filter_kwargs).first()
+            if variation and variation.product:
+                logger.debug(f"Found product by case-insensitive variation {field_name}: {product_code}")
+                return variation.product, f'{field_name}_iexact', variation
+        except Exception as e:
+            logger.error(f"Error matching variation {field_name}: {str(e)}")
+
+        return None, None, None
+
     def _match_by_style_code(
         self,
         model_class: type,
@@ -362,7 +398,7 @@ class ProductMatcherService:
             # Priority 1-2: Try barcode against variation SKU FIRST (Excel barcode column contains variation SKU)
             if barcode:
                 try:
-                    from clubs.models_tus import TUSProductVariation
+                    from schools.models_tus import TUSProductVariation
                     product, match_method = self._match_by_variation_suffix(
                         TUSProductVariation, barcode, field_name='sku'
                     )
@@ -375,7 +411,7 @@ class ProductMatcherService:
             # Priority 3-4: Try product_code against variation SKU
             if product_code:
                 try:
-                    from clubs.models_tus import TUSProductVariation
+                    from schools.models_tus import TUSProductVariation
                     product, match_method = self._match_by_variation_suffix(
                         TUSProductVariation, product_code, field_name='sku'
                     )
@@ -512,6 +548,133 @@ class ProductMatcherService:
         # No match found
         logger.debug(f"No product found for category={category}, code={product_code}, barcode={barcode}")
         return None, None
+
+    def find_product_with_variation(
+        self,
+        category: str,
+        product_code: str = '',
+        barcode: str = ''
+    ) -> Tuple[Optional[Model], Optional[str], Optional[Model]]:
+        """
+        Find product and return matched variation instance for categories with variations.
+
+        This method is specifically for the price update system which needs to update
+        variation-level pricing rather than product-level pricing.
+
+        Returns:
+            Tuple of (product instance or None, match method or None, variation instance or None)
+            variation will be None for categories without variations or when matched at product level
+        """
+        model_class = self._get_model_class(category)
+        if not model_class:
+            logger.warning(f"Cannot find products for category: {category}")
+            return None, None, None
+
+        sku_field = self.SKU_FIELDS.get(category)
+        barcode_field = self.BARCODE_FIELDS.get(category)
+
+        # TUS (retail-schools): Return variation instance when matched
+        if category == 'retail-schools':
+            # Priority 1-2: Try barcode against variation SKU
+            if barcode:
+                try:
+                    from schools.models_tus import TUSProductVariation
+                    product, match_method, variation = self._match_variation_with_instance(
+                        TUSProductVariation, barcode, field_name='sku'
+                    )
+                    if product and variation:
+                        return product, f'variation_sku_from_barcode_{match_method.split("_")[-1]}', variation
+                except Exception as e:
+                    logger.error(f"Error matching TUS variation by barcode: {str(e)}")
+
+            # Priority 3-4: Try product_code against variation SKU
+            if product_code:
+                try:
+                    from schools.models_tus import TUSProductVariation
+                    product, match_method, variation = self._match_variation_with_instance(
+                        TUSProductVariation, product_code, field_name='sku'
+                    )
+                    if product and variation:
+                        return product, match_method, variation
+                except Exception as e:
+                    logger.error(f"Error matching TUS variation by product_code: {str(e)}")
+
+            # Priority 5-6: Try barcode against product-level barcode (no variation)
+            if barcode and barcode_field:
+                product, match_method = self._match_by_barcode(model_class, barcode_field, barcode)
+                if product:
+                    return product, match_method, None
+
+            # Priority 7-8: Try product SKU (no variation)
+            if product_code and sku_field:
+                product, match_method = self._match_by_sku(model_class, sku_field, product_code)
+                if product:
+                    return product, match_method, None
+
+        # SAS (sas-clubs): Return variation instance when matched
+        elif category == 'sas-clubs':
+            # Priority 1-2: Try barcode against variation sku_suffix
+            if barcode:
+                try:
+                    from clubs.models_sas import SASProductVariation
+                    product, match_method, variation = self._match_variation_with_instance(
+                        SASProductVariation, barcode, field_name='sku_suffix'
+                    )
+                    if product and variation:
+                        return product, f'variation_sku_suffix_from_barcode_{match_method.split("_")[-1]}', variation
+                except Exception as e:
+                    logger.error(f"Error matching SAS variation by barcode: {str(e)}")
+
+            # Priority 3-4: Try product_code against variation sku_suffix
+            if product_code:
+                try:
+                    from clubs.models_sas import SASProductVariation
+                    product, match_method, variation = self._match_variation_with_instance(
+                        SASProductVariation, product_code, field_name='sku_suffix'
+                    )
+                    if product and variation:
+                        return product, match_method, variation
+                except Exception as e:
+                    logger.error(f"Error matching SAS variation by product_code: {str(e)}")
+
+            # Fallback to product-level matching (no variation)
+            if product_code and sku_field:
+                product, match_method = self._match_by_sku(model_class, sku_field, product_code)
+                if product:
+                    return product, match_method, None
+
+        # LOTTO (lotto-clubs): Return variation instance when matched
+        elif category == 'lotto-clubs':
+            # Priority 1-2: Try variation sku_suffix
+            if product_code:
+                try:
+                    from clubs.models_lotto import LottoProductVariation
+                    product, match_method, variation = self._match_variation_with_instance(
+                        LottoProductVariation, product_code, field_name='sku_suffix'
+                    )
+                    if product and variation:
+                        return product, match_method, variation
+                except Exception as e:
+                    logger.error(f"Error matching Lotto variation: {str(e)}")
+
+            # Fallback to product-level matching (no variation)
+            if product_code and sku_field:
+                product, match_method = self._match_by_sku(model_class, sku_field, product_code)
+                if product:
+                    return product, match_method, None
+
+        # Wholesale (wholesale-schools): No variations, always product-level
+        elif category == 'wholesale-schools':
+            product, match_method = self.find_product(category, product_code, barcode)
+            return product, match_method, None
+
+        else:
+            logger.warning(f"Unknown category: {category}")
+            return None, None, None
+
+        # No match found
+        logger.debug(f"No product/variation found for category={category}, code={product_code}, barcode={barcode}")
+        return None, None, None
 
     def get_price_field(self, category: str) -> Optional[str]:
         """

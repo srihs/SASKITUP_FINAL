@@ -300,4 +300,5 @@ temp_uploads/
 /*.webp
 /*.svg
 
-test-results
+test-results/
+chrome/

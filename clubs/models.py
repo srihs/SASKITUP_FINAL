@@ -12,12 +12,7 @@ from .models_lotto import LottoClub, LottoClubCategory, LottoProduct, LottoProdu
 # Import SAS-specific models
 from .models_sas import SASSport, SASClub, SASProduct, SASProductVariation
 
-# Import TUS-specific models
-from .models_tus import (
-    TUSLocation, TUSSchool, TUSGeneralCategory, TUSSchoolCategory,
-    TUSProduct, TUSProductVariation, TUSProductCategoryAssignment
-)
-
+# TUS models moved to schools app
 # Wholesale models moved to schools app
 
 logger = logging.getLogger(__name__)

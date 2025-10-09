@@ -7,11 +7,11 @@ from django.db import transaction
 from django.utils import timezone
 
 from clubs.models import SyncJob
-from clubs.models_tus import (
+from schools.models_tus import (
     TUSLocation, TUSSchool, TUSGeneralCategory, TUSSchoolCategory,
     TUSProduct, TUSProductVariation, TUSProductCategoryAssignment
 )
-from clubs.services.tus_woocommerce import TUSWooCommerceService
+from schools.services.tus_woocommerce import TUSWooCommerceService
 
 logger = logging.getLogger(__name__)
 

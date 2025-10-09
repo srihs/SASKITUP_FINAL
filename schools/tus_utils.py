@@ -12,7 +12,7 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 
-from clubs.models_tus import (
+from schools.models_tus import (
     TUSLocation, TUSSchool, TUSGeneralCategory, TUSSchoolCategory,
     TUSProduct, TUSProductVariation, TUSProductCategoryAssignment
 )

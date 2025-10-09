@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load humanize %}
 
 {% block body_class %}quotation-cart{% endblock %}
 
@@ -9,30 +10,6 @@
 
 <style>
 /* Match Reference Design - No Custom Gradients or Colors */
-.page-title-box {
-    padding-bottom: 20px;
-}
-
-.page-title-box h4 {
-    font-size: 18px;
-    font-weight: 600;
-    margin: 0;
-}
-
-/* Breadcrumb */
-.breadcrumb {
-    background-color: transparent;
-    margin-bottom: 0;
-    padding: 0;
-}
-
-.breadcrumb-item a {
-    color: #6c757d;
-}
-
-.breadcrumb-item.active {
-    color: #495057;
-}
 
 /* Cart Cards - Match Reference */
 .card.border {
@@ -98,7 +75,8 @@
 
 /* Quantity Controls - Match Reference TouchSpin Style */
 .product-cart-touchspin {
-    width: 110px;
+    width: 80px;
+    max-width: 100%;
 }
 
 .product-cart-touchspin input {
@@ -107,6 +85,17 @@
     border-radius: 0.25rem;
     padding: 0.375rem 0.75rem;
     font-size: 0.875rem;
+}
+
+/* Price Column Layout - Ensure proper spacing */
+.card-body .row > [class*='col-'] {
+    padding-right: 0.75rem;
+    padding-left: 0.75rem;
+}
+
+/* Ensure columns don't overflow */
+.card-body .row > [class*='col-'] > div {
+    width: 100%;
 }
 
 /* Action Icons */
@@ -403,23 +392,6 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- start page title -->
-    <div class="row">
-        <div class="col-12">
-            <div class="page-title-box d-flex align-items-center justify-content-between">
-                <h4 class="mb-0">Cart</h4>
-
-                <div class="page-title-right">
-                    <ol class="breadcrumb m-0">
-                        <li class="breadcrumb-item"><a href="{% url 'quotations:new-quotation' %}">Quotations</a></li>
-                        <li class="breadcrumb-item active">Cart</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- end page title -->
-
     {% if cart_items %}
     <div class="row mb-3">
         <div class="col-xl-8">
@@ -455,9 +427,35 @@
                                     {% if item.variation_details.color %}Color : <span class="fw-medium">{{ item.variation_details.color }}</span>{% endif %}
                                 </p>
                                 {% if item.variation_details.size %}
-                                <p>Size : <span class="fw-medium">{{ item.variation_details.size }}</span></p>
+                                <p class="mb-1">Size : <span class="fw-medium">{{ item.variation_details.size }}</span></p>
                                 {% endif %}
                                 {% endif %}
+
+                                <!-- Price Display with Margin -->
+                                <div class="mt-2">
+                                    {% if item.margin_75_price %}
+                                        {# Convert to strings for comparison to handle Decimal properly #}
+                                        {% with margin_str=item.margin_75_price|stringformat:"f" unit_str=item.unit_price|stringformat:"f" %}
+                                            {% if margin_str != unit_str and item.margin_75_price > item.unit_price %}
+                                                {# Show dual pricing with strikethrough #}
+                                                <p class="mb-1">
+                                                    <span class="text-muted text-decoration-line-through me-2" style="font-size: 14px;">${{ item.margin_75_price|floatformat:2|intcomma }}</span>
+                                                    <span class="fw-bold" id="price-{{ item.index }}" style="color: #556ee6; font-size: 18px;">${{ item.unit_price|floatformat:2|intcomma }}</span>
+                                                </p>
+                                            {% else %}
+                                                {# Show single price #}
+                                                <p class="mb-1">
+                                                    <span class="fw-medium font-size-16">${{ item.unit_price|floatformat:2|intcomma }}</span>
+                                                </p>
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% else %}
+                                        {# No margin price available #}
+                                        <p class="mb-1">
+                                            <span class="fw-medium font-size-16">${{ item.unit_price|floatformat:2|intcomma }}</span>
+                                        </p>
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
                         <div class="ms-2">
@@ -476,16 +474,10 @@
 
                     <div>
                         <div class="row">
-                            <div class="col-md-4">
-                                <div class="mt-3">
-                                    <p class="text-muted mb-2">Price</p>
-                                    <h5 class="font-size-16" id="price-{{ item.index }}">${{ item.unit_price }}</h5>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
+                            <div class="col-md-4 col-6">
                                 <div class="mt-3">
                                     <p class="text-muted mb-2">Quantity</p>
-                                    <div style="width: 110px;" class="product-cart-touchspin">
+                                    <div style="width: 80px;" class="product-cart-touchspin">
                                         <input data-toggle="touchspin"
                                                type="text"
                                                value="{{ item.quantity|stringformat:'02d' }}"
@@ -494,10 +486,20 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-4 col-6">
+                                <div class="mt-3">
+                                    <p class="text-muted mb-2">Discount</p>
+                                    {% if item.item_discount > 0 %}
+                                        <h5 class="font-size-16 text-success mb-0">-${{ item.item_discount|floatformat:2|intcomma }}</h5>
+                                    {% else %}
+                                        <h5 class="font-size-16 text-muted mb-0">-</h5>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4 col-12">
                                 <div class="mt-3">
                                     <p class="text-muted mb-2">Total</p>
-                                    <h5 class="font-size-16" id="total-{{ item.index }}">${{ item.line_total }}</h5>
+                                    <h5 class="font-size-16" id="total-{{ item.index }}">${{ item.line_total|floatformat:2|intcomma }}</h5>
                                 </div>
                             </div>
                         </div>
@@ -535,23 +537,29 @@
                                 <tbody>
                                     <tr>
                                         <td>Sub Total :</td>
-                                        <td class="text-end" id="subtotal">$ {{ subtotal|default:"0.00" }}</td>
+                                        <td class="text-end" id="subtotal">$ {{ subtotal|floatformat:2|intcomma|default:"0.00" }}</td>
                                     </tr>
+                                    {% if total_savings > 0 %}
+                                    <tr>
+                                        <td><span class="text-success">Total Discounts :</span></td>
+                                        <td class="text-end text-success fw-medium" id="total-savings">- $ {{ total_savings|floatformat:2|intcomma }}</td>
+                                    </tr>
+                                    {% endif %}
                                     {% if discount > 0 %}
                                     <tr>
                                         <td>Discount :</td>
-                                        <td class="text-end" id="discount">- $ {{ discount }}</td>
+                                        <td class="text-end" id="discount">- $ {{ discount|floatformat:2|intcomma }}</td>
                                     </tr>
                                     {% endif %}
                                     <tr>
-                                        <td>Estimated Tax :</td>
-                                        <td class="text-end" id="tax">$ {{ tax|default:"0.00" }}</td>
+                                        <td>GST :</td>
+                                        <td class="text-end" id="tax">$ {{ tax|floatformat:2|intcomma|default:"0.00" }}</td>
                                     </tr>
                                     <tr class="bg-light">
                                         <th>Total :</th>
                                         <td class="text-end">
                                             <span class="fw-bold" id="total">
-                                                $ {{ total|default:"0.00" }}
+                                                $ {{ total|floatformat:2|intcomma|default:"0.00" }}
                                             </span>
                                         </td>
                                     </tr>

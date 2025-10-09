@@ -18,8 +18,8 @@ from clubs.models import SyncJob
 # Import wholesale models from schools app
 from .models import WholesaleSyncJob
 
-# Import TUS models from clubs app
-from clubs.models_tus import (
+# Import TUS models from schools app
+from schools.models_tus import (
     TUSLocation, TUSSchool, TUSSchoolCategory, TUSGeneralCategory,
     TUSProduct, TUSProductVariation, TUSProductCategoryAssignment
 )
@@ -2382,7 +2382,7 @@ def wholesale_price_preview(request):
 
                 # Load variations based on category
                 if category == 'retail-schools':
-                    from clubs.models_tus import TUSProductVariation
+                    from schools.models_tus import TUSProductVariation
                     variations = TUSProductVariation.objects.select_related('product').all()
                     for variation in variations:
                         if variation.sku:
@@ -2490,97 +2490,17 @@ def wholesale_price_preview(request):
                             logger.warning(error_msg)
                             continue
 
-                        # Fast lookup using pre-loaded dictionaries with proper priority per category
-                        product = None
-                        match_method = None
+                        # Use ProductMatcherService to find product and variation
+                        product_code_clean = str(product_code).strip() if product_code else ''
+                        barcode_clean = str(barcode).strip() if barcode else ''
 
-                        # TUS (retail-schools): Variation SKU → Product SKU → Barcode
-                        # Note: Excel "barcode" column contains variation SKU values for TUS products
-                        if category == 'retail-schools':
-                            # DEBUG: Log to verify new code is running
-                            logger.debug(f"[TUS MATCHING v2.0] Row {row_num}: barcode={barcode}, product_code={product_code}, variations_dict_size={len(products_by_variation)}")
+                        # Find product with variation support
+                        product, match_method, variation = matcher.find_product_with_variation(
+                            category, product_code_clean, barcode_clean
+                        )
 
-                            # Priority 1: Try barcode value against variation SKU first (Excel barcode = TUS variation.sku)
-                            if barcode:
-                                product = products_by_variation.get(barcode.upper())
-                                if product:
-                                    match_method = 'variation_sku_from_barcode'
-                                    logger.debug(f"[TUS MATCHING v2.0] ✅ Matched barcode {barcode} to product {product.id}: {product.name}")
-                                else:
-                                    logger.debug(f"[TUS MATCHING v2.0] ❌ Barcode {barcode} not in variation dict")
-
-                            # Priority 2: Try product_code against variation SKU
-                            if not product and product_code:
-                                product = products_by_variation.get(product_code.upper())
-                                if product:
-                                    match_method = 'variation_sku_exact'
-
-                            # Priority 3: Try product_code against product SKU
-                            if not product and product_code:
-                                product = products_by_sku.get(product_code.upper())
-                                if product:
-                                    match_method = 'sku_exact'
-
-                            # Priority 4: Fallback to product barcode (rarely used for TUS)
-                            if not product and barcode:
-                                product = products_by_barcode.get(barcode.upper())
-                                if product:
-                                    match_method = 'barcode_exact'
-
-                        # SAS (sas-clubs): Barcode as sku_suffix → Variation → Product SKU → Product Barcode
-                        elif category == 'sas-clubs':
-                            # Priority 1: Try barcode value against variation sku_suffix first
-                            if barcode:
-                                product = products_by_variation.get(barcode.upper())
-                                if product:
-                                    match_method = 'variation_sku_suffix_from_barcode'
-
-                            # Priority 2: Try product_code against variation sku_suffix
-                            if not product and product_code:
-                                product = products_by_variation.get(product_code.upper())
-                                if product:
-                                    match_method = 'variation_sku_suffix_exact'
-
-                            # Priority 3: Try product_code against product SKU
-                            if not product and product_code:
-                                product = products_by_sku.get(product_code.upper())
-                                if product:
-                                    match_method = 'sku_exact'
-
-                            # Priority 4: Try barcode against product barcode field (fallback)
-                            if not product and barcode:
-                                product = products_by_barcode.get(barcode.upper())
-                                if product:
-                                    match_method = 'barcode_exact'
-
-                        # LOTTO (lotto-clubs): Variation → Product SKU → Barcode
-                        elif category == 'lotto-clubs':
-                            if product_code:
-                                product = products_by_variation.get(product_code.upper())
-                                if product:
-                                    match_method = 'variation_sku_suffix_exact'
-
-                            if not product and product_code:
-                                product = products_by_sku.get(product_code.upper())
-                                if product:
-                                    match_method = 'sku_exact'
-
-                            if not product and barcode:
-                                product = products_by_barcode.get(barcode.upper())
-                                if product:
-                                    match_method = 'barcode_exact'
-
-                        # Wholesale (default): SKU → Barcode
-                        else:
-                            if product_code:
-                                product = products_by_sku.get(product_code.upper())
-                                if product:
-                                    match_method = 'sku_exact'
-
-                            if not product and barcode:
-                                product = products_by_barcode.get(barcode.upper())
-                                if product:
-                                    match_method = 'barcode_exact'
+                        # Determine target object: use variation if found, otherwise use product
+                        target = variation if variation else product
 
                         # Get price field name for this category
                         price_field = matcher.get_price_field(category)
@@ -2610,12 +2530,16 @@ def wholesale_price_preview(request):
                                     # Calculate 75% margin price: Cost ÷ 0.25
                                     margin_75_price = float(cost_value / Decimal('0.25'))
 
-                                    # Get current retail price using the correct field name for this category
-                                    price_field = matcher.get_price_field(category)
+                                    # Get current retail price from target (variation or product)
                                     current_price = None
 
-                                    if product and price_field and hasattr(product, price_field):
-                                        current_price = getattr(product, price_field)
+                                    if target and price_field:
+                                        # For variations, use 'price' field instead of 'retail_price'
+                                        if variation:
+                                            current_price = getattr(target, 'price', None)
+                                        else:
+                                            current_price = getattr(target, price_field, None) if hasattr(target, price_field) else None
+
                                         if current_price:
                                             rrp = float(current_price)
 
@@ -2671,18 +2595,30 @@ def wholesale_price_preview(request):
                                 'rrp': rrp,
                                 'discount_percentage': discount_percentage,
                                 'current_retail_nzd_incl': row.get('current_retail_nzd_incl', '') or row.get('Retail NZD Incl', ''),
-                                'current_cost_price': float(product.cost_price) if product and hasattr(product, 'cost_price') and product.cost_price else None,
-                                'current_margin_75_price': float(product.margin_75_price) if product and hasattr(product, 'margin_75_price') and product.margin_75_price else None,
+                                # Get current cost/margin from target (variation or product)
+                                'current_cost_price': float(target.cost_price) if target and hasattr(target, 'cost_price') and target.cost_price else None,
+                                'current_margin_75_price': float(target.margin_75_price) if target and hasattr(target, 'margin_75_price') and target.margin_75_price else None,
                                 'stock_quantity': stock_quantity,  # Add stock info for display/debugging
                             }
+
+                            # Include variation_id if matched to a variation
+                            if variation:
+                                preview_item['variation_id'] = variation.id
+                                preview_item['variation_sku'] = getattr(variation, 'sku', None) or getattr(variation, 'sku_suffix', None)
 
                             # Add school_name for wholesale products
                             if category == 'wholesale-schools' and product:
                                 preview_item['school_name'] = product.school.name if hasattr(product, 'school') else None
 
-                            # Add current retail price using the correct field name
-                            if product and price_field:
-                                current_price = getattr(product, price_field, None)
+                            # Add current retail price from target using the correct field name
+                            if target:
+                                if variation:
+                                    # Variations always use 'price' field
+                                    current_price = getattr(target, 'price', None)
+                                elif price_field:
+                                    current_price = getattr(target, price_field, None)
+                                else:
+                                    current_price = None
                                 preview_item['current_retail_price'] = float(current_price) if current_price else None
                             else:
                                 preview_item['current_retail_price'] = None
@@ -2911,7 +2847,13 @@ def wholesale_price_apply(request):
 
                         logger.debug(f"  - Searching for product: SKU='{product_code_clean}', Barcode='{barcode_clean}'")
 
-                        product, search_method = matcher.find_product(category, product_code_clean, barcode_clean)
+                        # Use find_product_with_variation to get both product and variation
+                        product, search_method, variation = matcher.find_product_with_variation(
+                            category, product_code_clean, barcode_clean
+                        )
+
+                        # Determine target object: use variation if found, otherwise use product
+                        target = variation if variation else product
 
                         # Update statistics based on match method
                         if product:
@@ -2920,7 +2862,10 @@ def wholesale_price_apply(request):
                             elif 'barcode' in search_method:
                                 found_by_barcode_count += 1
 
-                            logger.info(f"  ✅ Product found by {search_method}: {product.name} (ID: {product.id})")
+                            if variation:
+                                logger.info(f"  ✅ Variation found by {search_method}: {product.name} - Variation ID {variation.id}")
+                            else:
+                                logger.info(f"  ✅ Product found by {search_method}: {product.name} (ID: {product.id})")
                         else:
                             logger.debug(f"  - Product not found with SKU or barcode")
 
@@ -2937,20 +2882,29 @@ def wholesale_price_apply(request):
                             })
                             continue
 
-                        # Log current product state
-                        logger.info(f"  - Current product state:")
-                        logger.info(f"    * Cost price: {getattr(product, 'cost_price', 'N/A')}")
-                        logger.info(f"    * Margin 75% price: {getattr(product, 'margin_75_price', 'N/A')}")
-                        logger.info(f"    * {price_field}: {getattr(product, price_field, 'N/A')}")
-                        logger.info(f"    * Discount percentage: {getattr(product, 'discount_percentage', 'N/A')}")
+                        # Log current target state (variation or product)
+                        target_type = "Variation" if variation else "Product"
+                        logger.info(f"  - Current {target_type} state:")
+                        logger.info(f"    * Cost price: {getattr(target, 'cost_price', 'N/A')}")
+                        logger.info(f"    * Margin 75% price: {getattr(target, 'margin_75_price', 'N/A')}")
+                        # For variations, use 'price' field
+                        if variation:
+                            logger.info(f"    * price: {getattr(target, 'price', 'N/A')}")
+                        else:
+                            logger.info(f"    * {price_field}: {getattr(target, price_field, 'N/A')}")
+                        logger.info(f"    * Discount percentage: {getattr(target, 'discount_percentage', 'N/A')}")
 
                         # Create backup if requested
                         backup_data = {}
                         if backup_prices:
-                            cost_price = getattr(product, 'cost_price', None)
-                            margin_75 = getattr(product, 'margin_75_price', None)
-                            current_price = getattr(product, price_field, None) if price_field else None
-                            discount_pct = getattr(product, 'discount_percentage', None)
+                            cost_price = getattr(target, 'cost_price', None)
+                            margin_75 = getattr(target, 'margin_75_price', None)
+                            # For variations, use 'price' field; for products, use price_field
+                            if variation:
+                                current_price = getattr(target, 'price', None)
+                            else:
+                                current_price = getattr(target, price_field, None) if price_field else None
+                            discount_pct = getattr(target, 'discount_percentage', None)
 
                             backup_data = {
                                 'original_cost_price': float(cost_price) if cost_price else None,
@@ -2963,34 +2917,40 @@ def wholesale_price_apply(request):
                         # Track what fields will be updated
                         updates_to_apply = {}
 
-                        # Update product pricing fields using new structure
+                        # Update target pricing fields (variation or product)
                         if item.get('cost'):
                             new_cost = Decimal(str(item['cost']))
                             updates_to_apply['cost_price'] = new_cost
-                            product.cost_price = new_cost
+                            target.cost_price = new_cost
                             logger.info(f"  - Updating cost price: {new_cost}")
 
                         if item.get('margin_75_price'):
                             new_margin = Decimal(str(item['margin_75_price']))
                             updates_to_apply['margin_75_price'] = new_margin
-                            product.margin_75_price = new_margin
+                            target.margin_75_price = new_margin
                             logger.info(f"  - Updating margin 75% price: {new_margin}")
 
                         if item.get('discount_percentage'):
                             new_discount = Decimal(str(item['discount_percentage']))
-                            if hasattr(product, 'discount_percentage'):
+                            if hasattr(target, 'discount_percentage'):
                                 updates_to_apply['discount_percentage'] = new_discount
-                                product.discount_percentage = new_discount
+                                target.discount_percentage = new_discount
                                 logger.info(f"  - Updating discount percentage: {new_discount}")
                             else:
-                                logger.warning(f"  - Product model doesn't have discount_percentage field")
+                                logger.warning(f"  - Target model doesn't have discount_percentage field")
 
-                        # Also update retail price if provided (using correct field name for category)
-                        if item.get('current_retail_nzd_incl') and price_field:
+                        # Update retail price if provided
+                        if item.get('current_retail_nzd_incl'):
                             new_retail = Decimal(str(item['current_retail_nzd_incl']))
-                            updates_to_apply[price_field] = new_retail
-                            setattr(product, price_field, new_retail)
-                            logger.info(f"  - Updating {price_field}: {new_retail}")
+                            # For variations, always update 'price' field
+                            if variation:
+                                updates_to_apply['price'] = new_retail
+                                target.price = new_retail
+                                logger.info(f"  - Updating variation price: {new_retail}")
+                            elif price_field:
+                                updates_to_apply[price_field] = new_retail
+                                setattr(target, price_field, new_retail)
+                                logger.info(f"  - Updating {price_field}: {new_retail}")
 
                         if not updates_to_apply:
                             logger.warning(f"  ⚠️ No price fields to update for {product_name}")
@@ -3002,14 +2962,18 @@ def wholesale_price_apply(request):
                             })
                             continue
 
-                        product.last_price_update = timezone.now()
+                        # Update last_price_update timestamp on target
+                        if hasattr(target, 'last_price_update'):
+                            target.last_price_update = timezone.now()
+                            update_fields = list(updates_to_apply.keys()) + ['last_price_update']
+                        else:
+                            update_fields = list(updates_to_apply.keys())
 
-                        # Save with explicit field list
-                        update_fields = list(updates_to_apply.keys()) + ['last_price_update']
-                        logger.debug(f"  - Saving with update_fields: {update_fields}")
+                        # Save target with explicit field list
+                        logger.debug(f"  - Saving {target_type} with update_fields: {update_fields}")
 
                         try:
-                            product.save(update_fields=update_fields)
+                            target.save(update_fields=update_fields)
                             logger.debug(f"  - Database save successful")
                         except Exception as save_error:
                             logger.error(f"  - Database save failed: {save_error}")
@@ -3017,16 +2981,22 @@ def wholesale_price_apply(request):
 
                         results['successful_updates'] += 1
 
-                        # Build updated product info with category-aware field access
+                        # Build updated info with category-aware field access
                         updated_info = {
                             'product_name': product.name,
                             'product_id': product.id,
                             'search_method': search_method,
+                            'updated_target': target_type,  # Track whether variation or product was updated
                             'updates_applied': {k: float(v) for k, v in updates_to_apply.items()},
                             'backup_data': backup_data,
-                            'new_cost_price': float(getattr(product, 'cost_price', 0)) if hasattr(product, 'cost_price') and getattr(product, 'cost_price') else None,
-                            'new_margin_price': float(getattr(product, 'margin_75_price', 0)) if hasattr(product, 'margin_75_price') and getattr(product, 'margin_75_price') else None,
+                            'new_cost_price': float(getattr(target, 'cost_price', 0)) if hasattr(target, 'cost_price') and getattr(target, 'cost_price') else None,
+                            'new_margin_price': float(getattr(target, 'margin_75_price', 0)) if hasattr(target, 'margin_75_price') and getattr(target, 'margin_75_price') else None,
                         }
+
+                        # Add variation_id if variation was updated
+                        if variation:
+                            updated_info['variation_id'] = variation.id
+                            updated_info['variation_sku'] = getattr(variation, 'sku', None) or getattr(variation, 'sku_suffix', None)
 
                         # Add school_name for wholesale products
                         if category == 'wholesale-schools' and hasattr(product, 'school'):
@@ -3034,7 +3004,10 @@ def wholesale_price_apply(request):
 
                         results['updated_products'].append(updated_info)
 
-                        logger.info(f"  ✅ Successfully updated {product.name}")
+                        if variation:
+                            logger.info(f"  ✅ Successfully updated variation for {product.name}")
+                        else:
+                            logger.info(f"  ✅ Successfully updated {product.name}")
 
                     except Exception as e:
                         update_failed_count += 1

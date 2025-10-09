@@ -1084,12 +1084,51 @@ class SASProductVariation(models.Model):
     
     # Pricing (SAS products typically don't have variation pricing, but keeping for consistency)
     price_modifier = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        default=0.00, 
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
         help_text="Price adjustment (+/-) from base product price"
     )
-    
+    price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Variation price"
+    )
+    regular_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Regular price"
+    )
+    sale_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Sale price"
+    )
+
+    # Pricing management fields (for wholesale price update system)
+    cost_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Cost price from supplier"
+    )
+    margin_75_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Price with 75% margin (cost ÷ 0.25)"
+    )
+    discount_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text="Discount percentage from 75% margin price"
+    )
+    last_price_update = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Timestamp of last price update"
+    )
+
     # Stock
     stock_quantity = models.PositiveIntegerField(default=0, help_text="Stock quantity for this variation")
     sku_suffix = models.CharField(max_length=50, blank=True, null=True, help_text="SKU suffix for this variation")

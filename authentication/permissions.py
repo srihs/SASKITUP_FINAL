@@ -378,7 +378,7 @@ def filter_schools_for_user(user, queryset):
 
         # Filter queryset based on school type
         from schools.models import WholesaleSchool
-        from clubs.models_tus import TUSSchool
+        from schools.models_tus import TUSSchool
 
         if hasattr(queryset.model, '_meta') and queryset.model == TUSSchool:
             return queryset.filter(id__in=tus_school_ids)

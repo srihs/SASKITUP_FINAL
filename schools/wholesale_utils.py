@@ -9,9 +9,9 @@ from django.db.models import Q, Count, Sum, Prefetch
 from django.core.paginator import Paginator
 from typing import List, Dict, Optional, Tuple, Any
 
-# Import TUS models from clubs app
+# Import TUS models from schools app
 try:
-    from clubs.models_tus import (
+    from schools.models_tus import (
         TUSLocation, TUSSchool, TUSSchoolCategory, TUSGeneralCategory,
         TUSProduct, TUSProductVariation, TUSProductCategoryAssignment
     )

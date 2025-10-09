@@ -574,7 +574,7 @@ class ProfileView(TemplateView):
         """Get context data for sales rep profile"""
         from clubs.models_lotto import LottoClub
         from clubs.models_sas import SASClub
-        from clubs.models_tus import TUSSchool
+        from schools.models_tus import TUSSchool
         from django.contrib.contenttypes.models import ContentType
 
         # Get assigned TUS schools
@@ -1170,7 +1170,7 @@ class BulkAssignmentView(AdminRequiredMixin, TemplateView):
         # Import club models
         from clubs.models_lotto import LottoClub
         from clubs.models_sas import SASClub
-        from clubs.models_tus import TUSSchool
+        from schools.models_tus import TUSSchool
         from django.contrib.contenttypes.models import ContentType
 
         # Add LOTTO Clubs
@@ -1319,7 +1319,7 @@ class BulkAssignmentCustomersAPIView(AdminRequiredMixin, View):
         from schools.models import WholesaleSchool
         from clubs.models_lotto import LottoClub
         from clubs.models_sas import SASClub
-        from clubs.models_tus import TUSSchool
+        from schools.models_tus import TUSSchool
         from django.contrib.contenttypes.models import ContentType
 
         sales_rep_id = request.GET.get('sales_rep')
@@ -1481,7 +1481,7 @@ class ProcessBulkAssignmentView(AdminRequiredMixin, View):
             from schools.models import WholesaleSchool
             from clubs.models_lotto import LottoClub
             from clubs.models_sas import SASClub
-            from clubs.models_tus import TUSSchool  # Add TUSSchool import for TUS retail schools
+            from schools.models_tus import TUSSchool  # Add TUSSchool import for TUS retail schools
             from django.contrib.contenttypes.models import ContentType
 
             # Process assignments for each customer
@@ -1897,7 +1897,7 @@ def get_current_assignments(request):
         ).select_related('club_content_type')
 
         # Import TUSSchool for retail school handling
-        from clubs.models_tus import TUSSchool
+        from schools.models_tus import TUSSchool
 
         # Format school assignments response
         school_data = []

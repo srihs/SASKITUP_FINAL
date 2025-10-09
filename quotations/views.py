@@ -27,7 +27,7 @@ from authentication.permissions import (
     CustomerRequiredMixin,
 )
 from authentication.models import User, SalesRepSchoolAssignment, SalesRepClubAssignment, AuditLog
-from schools.models import School, WholesaleSchool, WholesaleProduct
+from schools.models import School, WholesaleSchool, WholesaleProduct, WholesaleProductVariation
 from clubs.models_lotto import LottoClub, LottoProduct
 from clubs.models_sas import SASClub, SASProduct
 from .models import Quotation, QuotationItem, CustomerInstitutionAssignment
@@ -86,7 +86,7 @@ def calculate_quotation_totals(quotation_data):
 
 def get_product_by_type_and_id(product_type, product_id):
     """Get product object by type and ID"""
-    from clubs.models_tus import TUSProduct
+    from schools.models_tus import TUSProduct
 
     product_models = {
         'tusproduct': TUSProduct,
@@ -107,7 +107,7 @@ def get_product_by_type_and_id(product_type, product_id):
 
 def get_product_by_type_and_slug(product_type, product_slug):
     """Get product object by type and slug"""
-    from clubs.models_tus import TUSProduct
+    from schools.models_tus import TUSProduct
 
     product_models = {
         'tusproduct': TUSProduct,
@@ -128,7 +128,7 @@ def get_product_by_type_and_slug(product_type, product_slug):
 
 def user_can_access_institution(user, institution_type, institution_id):
     """Check if user can access the specified institution"""
-    from clubs.models_tus import TUSSchool
+    from schools.models_tus import TUSSchool
 
     # Admin and account managers can access all institutions
     if user.is_admin or user.is_account_manager:
@@ -195,7 +195,7 @@ def get_user_institutions(user):
     Get all institutions accessible by the user, grouped by type.
     Returns dict with keys: tus_schools, wholesale_schools, lotto_clubs, sas_clubs
     """
-    from clubs.models_tus import TUSSchool
+    from schools.models_tus import TUSSchool
 
     institutions = {
         'tus_schools': [],
@@ -389,7 +389,7 @@ class ProductListingView(LoginRequiredMixin, View):
 
     def get_institution(self, institution_type, institution_slug):
         """Get institution object by type and slug"""
-        from clubs.models_tus import TUSSchool, TUSProduct
+        from schools.models_tus import TUSSchool, TUSProduct
 
         institution_models = {
             'tusschool': TUSSchool,
@@ -406,7 +406,7 @@ class ProductListingView(LoginRequiredMixin, View):
 
     def get_products_for_institution(self, institution_type, institution_id):
         """Get products based on institution type"""
-        from clubs.models_tus import TUSSchool, TUSProduct
+        from schools.models_tus import TUSSchool, TUSProduct
 
         # TUSSchool → TUSProduct (products linked to school via categories)
         if institution_type.lower() == 'tusschool':
@@ -454,6 +454,8 @@ class QuotationCartView(LoginRequiredMixin, View):
 
         # Enrich items with product details
         enriched_items = []
+        total_savings = Decimal('0.00')
+
         for idx, item in enumerate(quotation_data.get('items', [])):
             product = get_product_by_type_and_id(item['product_type'], item['product_id'])
             if product:
@@ -461,6 +463,93 @@ class QuotationCartView(LoginRequiredMixin, View):
                 enriched_item['product'] = product
                 enriched_item['index'] = idx  # Add index for update/remove operations
                 enriched_item['line_total'] = Decimal(str(item['unit_price'])) * Decimal(str(item['quantity']))
+
+                # Add pricing information for discount display
+                margin_price = None
+                unit_price_decimal = Decimal(str(item['unit_price']))
+
+                # Check if item has variation data with variation_id
+                variation_obj = None
+                if item.get('variations') and item['variations'].get('variation_id'):
+                    variation_id = item['variations']['variation_id']
+                    product_type = item['product_type'].lower()
+
+                    # Get the appropriate variation model based on product type
+                    try:
+                        if product_type == 'tusproduct':
+                            from schools.models_tus import TUSProductVariation
+                            variation_obj = TUSProductVariation.objects.get(pk=variation_id)
+                        elif product_type == 'wholesaleproduct':
+                            variation_obj = WholesaleProductVariation.objects.get(pk=variation_id)
+                        elif product_type == 'sasproduct':
+                            from clubs.models_sas import SASProductVariation
+                            variation_obj = SASProductVariation.objects.get(pk=variation_id)
+                        elif product_type == 'lottoproduct':
+                            from clubs.models_lotto import LottoProductVariation
+                            variation_obj = LottoProductVariation.objects.get(pk=variation_id)
+                    except Exception as e:
+                        logger.warning(f"Could not fetch variation {variation_id} for {product_type}: {e}")
+                        variation_obj = None
+
+                # If we have a variation object, ensure we're using the variation's price
+                # This handles both new items (with price in variations dict) and legacy items
+                if variation_obj:
+                    variation_price = getattr(variation_obj, 'price', None) or getattr(variation_obj, 'wholesale_price', None)
+                    if variation_price:
+                        unit_price_decimal = Decimal(str(variation_price))
+                        enriched_item['unit_price'] = str(variation_price)
+                        enriched_item['line_total'] = unit_price_decimal * Decimal(str(item['quantity']))
+
+                # Try to get margin_75_price from variation first, then fall back to product
+                # Priority: variation.margin_75_price > product.margin_75_price > calculated > retail > regular
+
+                # Check variation first if it exists
+                if variation_obj and hasattr(variation_obj, 'margin_75_price') and variation_obj.margin_75_price:
+                    margin_price = variation_obj.margin_75_price
+                # Fall back to product's margin_75_price
+                elif hasattr(product, 'margin_75_price') and product.margin_75_price:
+                    margin_price = product.margin_75_price
+                # Try to calculate from variation's cost_price
+                elif variation_obj and hasattr(variation_obj, 'cost_price') and variation_obj.cost_price and variation_obj.cost_price > 0:
+                    calculated_margin = (variation_obj.cost_price / Decimal('0.25')).quantize(Decimal('0.01'))
+                    if calculated_margin > unit_price_decimal:
+                        margin_price = calculated_margin
+                # Try to calculate from product's cost_price
+                elif hasattr(product, 'cost_price') and product.cost_price and product.cost_price > 0:
+                    calculated_margin = (product.cost_price / Decimal('0.25')).quantize(Decimal('0.01'))
+                    if calculated_margin > unit_price_decimal:
+                        margin_price = calculated_margin
+                # For variations with retail_price
+                elif variation_obj and hasattr(variation_obj, 'retail_price') and variation_obj.retail_price and variation_obj.retail_price > 0:
+                    if variation_obj.retail_price > unit_price_decimal:
+                        margin_price = variation_obj.retail_price
+                # For products with retail_price
+                elif hasattr(product, 'retail_price') and product.retail_price and product.retail_price > 0:
+                    if product.retail_price > unit_price_decimal:
+                        margin_price = product.retail_price
+                # For variations with regular_price
+                elif variation_obj and hasattr(variation_obj, 'regular_price') and variation_obj.regular_price and variation_obj.regular_price > 0:
+                    if variation_obj.regular_price > unit_price_decimal:
+                        margin_price = variation_obj.regular_price
+                # For products with regular_price
+                elif hasattr(product, 'regular_price') and product.regular_price and product.regular_price > 0:
+                    if product.regular_price > unit_price_decimal:
+                        margin_price = product.regular_price
+
+                # Only set margin_75_price if we found a valid margin price greater than unit price
+                if margin_price and margin_price > unit_price_decimal:
+                    enriched_item['margin_75_price'] = margin_price
+                    item_savings = (margin_price - unit_price_decimal) * Decimal(str(item['quantity']))
+                    total_savings += item_savings
+                    enriched_item['item_discount'] = item_savings
+                else:
+                    enriched_item['item_discount'] = Decimal('0.00')
+
+                # Get discount_percentage from variation first, then product
+                if variation_obj and hasattr(variation_obj, 'discount_percentage') and variation_obj.discount_percentage:
+                    enriched_item['discount_percentage'] = variation_obj.discount_percentage
+                elif hasattr(product, 'discount_percentage') and product.discount_percentage:
+                    enriched_item['discount_percentage'] = product.discount_percentage
 
                 # Add variation display info if variations exist
                 if item.get('variations'):
@@ -482,7 +571,7 @@ class QuotationCartView(LoginRequiredMixin, View):
         institution_slug = quotation_data.get('institution_slug')
 
         if institution_type and quotation_data.get('institution_id'):
-            from clubs.models_tus import TUSSchool
+            from schools.models_tus import TUSSchool
 
             institution_models = {
                 'tusschool': TUSSchool,
@@ -511,6 +600,7 @@ class QuotationCartView(LoginRequiredMixin, View):
             'subtotal': totals['subtotal'],
             'tax': totals['tax_amount'],
             'total': totals['total'],
+            'total_savings': total_savings,
             'institution': institution,
             'institution_type': institution_type,
             'institution_slug': institution_slug,
@@ -602,13 +692,16 @@ class AddToQuotationView(LoginRequiredMixin, View):
                     if variations.get('color'):
                         product_name = f"{product.name} - {variations.get('color')} - {variations.get('size')}"
 
+                # Use variation price if available, otherwise fall back to product price
+                unit_price = variations.get('price') or str(getattr(product, 'wholesale_price', None) or getattr(product, 'price', 0))
+
                 quotation_data['items'].append({
                     'product_type': product_type,
                     'product_id': product_id,
                     'product_name': product_name,
                     'product_sku': product_sku,
                     'quantity': quantity,
-                    'unit_price': str(getattr(product, 'wholesale_price', None) or getattr(product, 'price', 0)),
+                    'unit_price': str(unit_price),
                     'variations': variations,
                 })
 
@@ -811,7 +904,7 @@ class SaveQuotationView(LoginRequiredMixin, View):
                 }, status=400)
 
             # Get institution
-            from clubs.models_tus import TUSSchool
+            from schools.models_tus import TUSSchool
 
             institution_models = {
                 'tusschool': TUSSchool,
@@ -1085,6 +1178,56 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
 
                 var_data['image_url'] = image_url
 
+                # Add pricing information for variation (same fallback logic as cart)
+                # Priority: variation.margin_75_price > product.margin_75_price > calculated > retail > regular
+                margin_price = None
+                selling_price = Decimal(str(price_str)) if price_str else Decimal('0')
+
+                # Try variation's margin_75_price first
+                if hasattr(variation, 'margin_75_price') and variation.margin_75_price:
+                    margin_price = variation.margin_75_price
+                # Fall back to product's margin_75_price
+                elif hasattr(product, 'margin_75_price') and product.margin_75_price:
+                    margin_price = product.margin_75_price
+                # Try to calculate from variation's cost_price
+                elif hasattr(variation, 'cost_price') and variation.cost_price and variation.cost_price > 0:
+                    calculated_margin = (variation.cost_price / Decimal('0.25')).quantize(Decimal('0.01'))
+                    if calculated_margin > selling_price:
+                        margin_price = calculated_margin
+                # Try to calculate from product's cost_price
+                elif hasattr(product, 'cost_price') and product.cost_price and product.cost_price > 0:
+                    calculated_margin = (product.cost_price / Decimal('0.25')).quantize(Decimal('0.01'))
+                    if calculated_margin > selling_price:
+                        margin_price = calculated_margin
+                # For variations with retail_price
+                elif hasattr(variation, 'retail_price') and variation.retail_price and variation.retail_price > 0:
+                    if variation.retail_price > selling_price:
+                        margin_price = variation.retail_price
+                # For products with retail_price
+                elif hasattr(product, 'retail_price') and product.retail_price and product.retail_price > 0:
+                    if product.retail_price > selling_price:
+                        margin_price = product.retail_price
+                # For variations with regular_price
+                elif hasattr(variation, 'regular_price') and variation.regular_price and variation.regular_price > 0:
+                    if variation.regular_price > selling_price:
+                        margin_price = variation.regular_price
+                # For products with regular_price
+                elif hasattr(product, 'regular_price') and product.regular_price and product.regular_price > 0:
+                    if product.regular_price > selling_price:
+                        margin_price = product.regular_price
+
+                # Add margin price if valid and calculate discount
+                if margin_price and margin_price > selling_price:
+                    var_data['margin_75_price'] = str(margin_price)
+                    discount_amount = margin_price - selling_price
+                    discount_percentage = (discount_amount / margin_price * 100).quantize(Decimal('0'))
+                    var_data['discount_amount'] = str(discount_amount)
+                    var_data['discount_percentage'] = str(discount_percentage)
+                else:
+                    var_data['margin_75_price'] = None
+                    var_data['discount_amount'] = None
+                    var_data['discount_percentage'] = None
+
                 variations.append(var_data)
 
         context['variations'] = variations
@@ -1098,7 +1241,7 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
 
     def _get_institution_name(self, product, product_type):
         """Get school/club name based on product type"""
-        from clubs.models_tus import TUSProduct
+        from schools.models_tus import TUSProduct
 
         try:
             if product_type.lower() == 'tusproduct':
@@ -1144,7 +1287,7 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
 
     def get(self, request):
         from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-        from clubs.models_tus import TUSProduct, TUSSchool
+        from schools.models_tus import TUSProduct, TUSSchool
 
         # Get search query
         search_query = request.GET.get('search', '')

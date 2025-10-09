@@ -9,7 +9,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from clubs.models_lotto import LottoClub, LottoClubCategory, LottoProduct
 from clubs.models_sas import SASClub, SASProduct
-from clubs.models_tus import TUSSchool
+from schools.models_tus import TUSSchool
 
 
 @method_decorator(login_required, name='dispatch')
@@ -444,7 +444,7 @@ class ProfileView(TemplateView):
         from authentication.models import AuditLog, SalesRepSchoolAssignment, SalesRepClubAssignment
         from clubs.models_lotto import LottoClub
         from clubs.models_sas import SASClub
-        from clubs.models_tus import TUSSchool
+        from schools.models_tus import TUSSchool
         from schools.models import WholesaleSchool
         from django.contrib.contenttypes.models import ContentType
 

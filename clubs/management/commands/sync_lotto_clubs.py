@@ -772,6 +772,32 @@ class Command(BaseCommand):
             'dimensions': extracted_data['dimensions'],
         }
 
+        # Extract and add price fields from raw_data
+        if 'raw_data' in extracted_data and extracted_data['raw_data']:
+            raw_data = extracted_data['raw_data']
+
+            # Parse prices from raw_data
+            if 'price' in raw_data and raw_data['price']:
+                try:
+                    from decimal import Decimal, InvalidOperation
+                    new_variation_data['price'] = Decimal(str(raw_data['price']))
+                except (InvalidOperation, ValueError, TypeError):
+                    pass
+
+            if 'regular_price' in raw_data and raw_data['regular_price']:
+                try:
+                    from decimal import Decimal, InvalidOperation
+                    new_variation_data['regular_price'] = Decimal(str(raw_data['regular_price']))
+                except (InvalidOperation, ValueError, TypeError):
+                    pass
+
+            if 'sale_price' in raw_data and raw_data['sale_price']:
+                try:
+                    from decimal import Decimal, InvalidOperation
+                    new_variation_data['sale_price'] = Decimal(str(raw_data['sale_price']))
+                except (InvalidOperation, ValueError, TypeError):
+                    pass
+
         if image_url:
             new_variation_data['image'] = image_url
         
@@ -986,10 +1012,10 @@ class Command(BaseCommand):
     def _detect_variation_changes(self, existing_variation, new_data, new_image_url):
         """Intelligent change detection for variation data"""
         changes = {}
-        
-        # Check basic fields
+
+        # Check basic fields including price fields
         comparable_fields = ['variation_type', 'variation_value', 'price_modifier', 'stock_quantity',
-                           'sku_suffix', 'is_active', 'weight']
+                           'sku_suffix', 'is_active', 'weight', 'price', 'regular_price', 'sale_price']
         
         for field in comparable_fields:
             if field in new_data:

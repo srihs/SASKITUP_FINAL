@@ -805,6 +805,32 @@ class Command(BaseCommand):
             'dimensions': extracted_data['dimensions'],
         }
 
+        # Extract and add price fields from raw_data
+        if 'raw_data' in extracted_data and extracted_data['raw_data']:
+            raw_data = extracted_data['raw_data']
+
+            # Parse prices from raw_data
+            if 'price' in raw_data and raw_data['price']:
+                try:
+                    from decimal import Decimal, InvalidOperation
+                    variation_data_obj['price'] = Decimal(str(raw_data['price']))
+                except (InvalidOperation, ValueError, TypeError):
+                    pass
+
+            if 'regular_price' in raw_data and raw_data['regular_price']:
+                try:
+                    from decimal import Decimal, InvalidOperation
+                    variation_data_obj['regular_price'] = Decimal(str(raw_data['regular_price']))
+                except (InvalidOperation, ValueError, TypeError):
+                    pass
+
+            if 'sale_price' in raw_data and raw_data['sale_price']:
+                try:
+                    from decimal import Decimal, InvalidOperation
+                    variation_data_obj['sale_price'] = Decimal(str(raw_data['sale_price']))
+                except (InvalidOperation, ValueError, TypeError):
+                    pass
+
         if image_url:
             variation_data_obj['image_url'] = image_url
 
