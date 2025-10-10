@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Price Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .method-card {
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+        cursor: pointer;
+        height: 100%;
+    }
+    .method-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        border-color: #727cf5;
+    }
+    .method-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+    .method-badge {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        font-size: 0.75rem;
+    }
+    .feature-list {
+        list-style: none;
+        padding: 0;
+    }
+    .feature-list li {
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #f1f3fa;
+    }
+    .feature-list li:last-child {
+        border-bottom: none;
+    }
+    .feature-list i {
+        color: #10b981;
+        margin-right: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Title -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-title-box">
+                <div class="page-title-right">
+                    <ol class="breadcrumb m-0">
+                        <li class="breadcrumb-item"><a href="{% url 'schools:wholesale_schools' %}">Wholesale</a></li>
+                        <li class="breadcrumb-item active">Price Management</li>
+                    </ol>
+                </div>
+                <h4 class="page-title">
+                    <i class="uil-dollar-sign-alt me-2"></i>Price Management
+                </h4>
+                <p class="text-muted mb-0">Choose your preferred method to update product prices</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Method Selection -->
+    <div class="row">
+        <!-- Cin7 API Sync -->
+        <div class="col-lg-6">
+            <div class="card method-card" onclick="window.location.href='{% url 'schools:cin7-price-update-settings' %}'">
+                <div class="card-body position-relative p-4">
+                    <span class="badge bg-primary method-badge">Recommended</span>
+
+                    <div class="text-center mb-4">
+                        <div class="method-icon text-primary">
+                            <i class="uil-cloud-download"></i>
+                        </div>
+                        <h3 class="card-title mb-2">Cin7 API Sync</h3>
+                        <p class="text-muted">Direct integration with Cin7 inventory system</p>
+                    </div>
+
+                    <ul class="feature-list mb-4">
+                        <li>
+                            <i class="uil-check-circle"></i>
+                            <strong>Real-time data</strong> from Cin7 API
+                        </li>
+                        <li>
+                            <i class="uil-check-circle"></i>
+                            <strong>Automatic matching</strong> by SKU, Barcode, Style Code
+                        </li>
+                        <li>
+                            <i class="uil-check-circle"></i>
+                            <strong>Multiple price types</strong> (TUS, LOTTO, SAS, Wholesale)
+                        </li>
+                        <li>
+                            <i class="uil-check-circle"></i>
+                            <strong>Product variants</strong> with size/option tracking
+                        </li>
+                        <li>
+                            <i class="uil-check-circle"></i>
+                            <strong>Preview before apply</strong> with match statistics
+                        </li>
+                        <li>
+                            <i class="uil-check-circle"></i>
+                            <strong>Automated calculations</strong> (75% margin, discount %)
+                        </li>
+                    </ul>
+
+                    <div class="text-center">
+                        <a href="{% url 'schools:cin7-price-update-settings' %}" class="btn btn-primary btn-lg w-100">
+                            <i class="uil-cloud-download me-2"></i>Start Cin7 Sync
+                        </a>
+                    </div>
+
+                    <div class="alert alert-info mt-3 mb-0">
+                        <i class="uil-info-circle me-2"></i>
+                        <small><strong>Best for:</strong> Regular price updates from Cin7 inventory system</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CSV Upload -->
+        <div class="col-lg-6">
+            <div class="card method-card" onclick="window.location.href='{% url 'schools:wholesale-price-update-settings' %}'">
+                <div class="card-body position-relative p-4">
+                    <span class="badge bg-secondary method-badge">Alternative</span>
+
+                    <div class="text-center mb-4">
+                        <div class="method-icon text-success">
+                            <i class="uil-file-upload-alt"></i>
+                        </div>
+                        <h3 class="card-title mb-2">CSV File Upload</h3>
+                        <p class="text-muted">Upload price data from spreadsheet files</p>
+                    </div>
+
+                    <ul class="feature-list mb-4">
+                        <li>
+                            <i class="uil-check-circle"></i>
+                            <strong>Bulk upload</strong> from CSV or Excel files
+                        </li>
+                        <li>
+                            <i class="uil-check-circle"></i>
+                            <strong>Flexible format</strong> with column mapping
+                        </li>
+                        <li>
+                            <i class="uil-check-circle"></i>
+                            <strong>Manual data</strong> from any source
+                        </li>
+                        <li>
+                            <i class="uil-check-circle"></i>
+                            <strong>Validation</strong> before processing
+                        </li>
+                        <li>
+                            <i class="uil-check-circle"></i>
+                            <strong>Error reporting</strong> with line numbers
+                        </li>
+                        <li>
+                            <i class="uil-check-circle"></i>
+                            <strong>Historical imports</strong> tracking
+                        </li>
+                    </ul>
+
+                    <div class="text-center">
+                        <a href="{% url 'schools:wholesale-price-update-settings' %}" class="btn btn-success btn-lg w-100">
+                            <i class="uil-file-upload-alt me-2"></i>Upload CSV File
+                        </a>
+                    </div>
+
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <i class="uil-exclamation-triangle me-2"></i>
+                        <small><strong>Best for:</strong> Manual price adjustments or offline data sources</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Guide -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">
+                        <i class="uil-question-circle me-2 text-info"></i>Which method should I use?
+                    </h5>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <h6 class="text-primary">
+                                    <i class="uil-thumbs-up me-2"></i>Use Cin7 API Sync when:
+                                </h6>
+                                <ul class="text-muted mb-0">
+                                    <li>You manage inventory in Cin7</li>
+                                    <li>You want real-time price updates</li>
+                                    <li>You need to sync product variants (sizes/options)</li>
+                                    <li>You want automatic matching by multiple fields</li>
+                                    <li>You update prices regularly</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <h6 class="text-success">
+                                    <i class="uil-file-check-alt me-2"></i>Use CSV Upload when:
+                                </h6>
+                                <ul class="text-muted mb-0">
+                                    <li>You have price data in spreadsheets</li>
+                                    <li>You're making one-time or manual adjustments</li>
+                                    <li>You need to import from other systems</li>
+                                    <li>You want full control over the data format</li>
+                                    <li>You're migrating from another system</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

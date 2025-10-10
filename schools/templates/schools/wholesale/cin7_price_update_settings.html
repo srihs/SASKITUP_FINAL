@@ -1,0 +1,926 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cin7 Price Update Settings{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'assets/libs/sweetalert2/sweetalert2.min.css' %}" rel="stylesheet" type="text/css" />
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css">
+<style>
+    .stat-card {
+        transition: transform 0.2s;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+    }
+    .progress-container {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+    }
+    .preview-table {
+        font-size: 0.9rem;
+    }
+    .preview-table th {
+        background-color: #f1f3fa;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .badge-method {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    .price-diff {
+        font-weight: 600;
+    }
+    .price-increase {
+        color: #10b981;
+    }
+    .price-decrease {
+        color: #ef4444;
+    }
+
+    /* DataTables Custom Styling */
+    .dataTables_wrapper .dataTables_length select {
+        padding: 0.375rem 1.75rem 0.375rem 0.75rem;
+    }
+    .dataTables_wrapper .dataTables_filter input {
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.25rem;
+        border: 1px solid #ced4da;
+    }
+    .dt-buttons {
+        margin-bottom: 1rem;
+    }
+    .dt-button {
+        margin-right: 0.5rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.25rem;
+        background: #556ee6;
+        color: white;
+        border: none;
+        font-size: 0.875rem;
+    }
+    .dt-button:hover {
+        background: #4c63d2;
+    }
+    #previewTable_wrapper .row {
+        margin-bottom: 1rem;
+    }
+    table.dataTable tbody tr.discount-positive td:nth-child(8) {
+        color: #10b981 !important;
+        font-weight: 600 !important;
+    }
+    table.dataTable tbody tr.discount-negative td:nth-child(8) {
+        color: #ef4444 !important;
+        font-weight: 600 !important;
+    }
+    table.dataTable tbody tr.discount-zero td:nth-child(8) {
+        color: #6c757d !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- CSRF Token for JavaScript -->
+<meta name="csrf-token" content="{{ csrf_token }}">
+
+<div class="container-fluid">
+    <!-- Page Title -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-title-box">
+                <div class="page-title-right">
+                    <ol class="breadcrumb m-0">
+                        <li class="breadcrumb-item"><a href="{% url 'schools:wholesale_schools' %}">Wholesale</a></li>
+                        <li class="breadcrumb-item active">Cin7 Price Update</li>
+                    </ol>
+                </div>
+                <h4 class="page-title">
+                    <i class="uil-cloud-download me-2"></i>Cin7 Price Update
+                </h4>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Card -->
+    <div class="row" id="settingsCard">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-body">
+                    <h4 class="header-title mb-3">
+                        <i class="uil-setting me-2 text-primary"></i>Select Price Type
+                    </h4>
+
+                    <div class="mb-3">
+                        <label for="priceType" class="form-label fw-semibold">Price Category</label>
+                        <select class="form-select" id="priceType">
+                            <option value="Wholesale" selected>Wholesale (Schools)</option>
+                            <option value="TUS">TUS (Retail Schools)</option>
+                            <option value="LOTTO">LOTTO (Clubs)</option>
+                            <option value="SAS">SAS (Clubs)</option>
+                        </select>
+                        <small class="form-text text-muted">
+                            <i class="uil-info-circle"></i> Select the product category to update prices for
+                        </small>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-primary btn-lg" id="fetchPricesBtn">
+                            <i class="uil-download-alt me-2"></i>Fetch Prices from Cin7
+                        </button>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-success btn-lg" id="standaloneMatchBtn">
+                                <i class="uil-sync me-2"></i>Match Existing Products
+                            </button>
+                            <button type="button" class="btn btn-warning btn-lg" id="resetMatchBtn">
+                                <i class="uil-redo me-2"></i>Reset Matching
+                            </button>
+                        </div>
+                        <small class="text-muted mt-2">
+                            <i class="uil-info-circle"></i> Use "Match Existing Products" to match fetched data. Use "Reset Matching" to clear existing matches and re-run.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h4 class="header-title text-white mb-3">
+                        <i class="uil-lightbulb-alt me-2"></i>How It Works
+                    </h4>
+                    <ol class="mb-3">
+                        <li class="mb-2">Select the price type you want to update</li>
+                        <li class="mb-2">Click "Fetch Prices from Cin7" to retrieve latest prices</li>
+                        <li class="mb-2">Review the preview of price changes</li>
+                        <li class="mb-2">Click "Apply Updates" to save changes to database</li>
+                    </ol>
+                    <div class="border-top border-white-50 pt-3">
+                        <h5 class="text-white mb-2">
+                            <i class="uil-calculator me-2"></i>Price Calculations
+                        </h5>
+                        <ul class="mb-0">
+                            <li><strong>75% Margin Price</strong> = Cost ÷ 0.25</li>
+                            <li><strong>Discount %</strong> = ((75% Margin - RRP) ÷ 75% Margin) × 100</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Card (hidden initially) -->
+    <div class="row" id="progressCard" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="progress-container">
+                        <h4 class="mb-3">
+                            <i class="uil-sync me-2 text-primary"></i>
+                            <span id="progressTitle">Fetching Prices from Cin7...</span>
+                        </h4>
+
+                        <div class="progress mb-3" style="height: 35px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                                 id="progressBar"
+                                 role="progressbar"
+                                 style="width: 0%"
+                                 aria-valuenow="0"
+                                 aria-valuemin="0"
+                                 aria-valuemax="100">
+                                <span id="progressPercent" class="fw-bold">0%</span>
+                            </div>
+                        </div>
+
+                        <p class="mb-0 text-muted">
+                            <i class="uil-process me-2"></i>
+                            <span id="progressMessage">Initializing...</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fetch Results Card (After Stage 1) -->
+    <div class="row" id="fetchResultsCard" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="alert alert-success mb-4">
+                        <i class="uil-check-circle me-2"></i>
+                        <strong>Fetch Complete!</strong>
+                        <span id="fetchSummaryText">Products successfully fetched from Cin7</span>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <h2 class="text-primary mb-1" id="fetchTotalVariants">0</h2>
+                                <p class="text-muted mb-0">Product Variants Saved</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <h2 class="text-warning mb-1" id="fetchSkippedBS">0</h2>
+                                <p class="text-muted mb-0">Skipped (BS Products)</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <h2 class="text-info mb-1" id="fetchDuration">0s</h2>
+                                <p class="text-muted mb-0">Duration</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center">
+                        <button type="button" class="btn btn-primary btn-lg" id="matchProductsBtn">
+                            <i class="uil-sync me-2"></i>Match Products with Database
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-lg" id="cancelFetchBtn">
+                            <i class="uil-times me-2"></i>Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Card (hidden initially) -->
+    <div class="row" id="previewCard" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h4 class="header-title mb-3">
+                        <i class="uil-eye me-2 text-success"></i>Price Update Preview
+                    </h4>
+
+                    <!-- Summary Stats -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card stat-card border-0 shadow-sm bg-light">
+                                <div class="card-body text-center py-3">
+                                    <i class="uil-box text-primary" style="font-size: 2rem;"></i>
+                                    <h3 class="text-dark mb-1 mt-2" id="statTotalProducts">0</h3>
+                                    <p class="text-muted mb-0 small">Total Cin7 Products</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card stat-card border-0 shadow-sm bg-light">
+                                <div class="card-body text-center py-3">
+                                    <i class="uil-check-circle text-success" style="font-size: 2rem;"></i>
+                                    <h3 class="text-success mb-1 mt-2" id="statMatched">0</h3>
+                                    <p class="text-muted mb-0 small">Matched Products</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card stat-card border-0 shadow-sm bg-light">
+                                <div class="card-body text-center py-3">
+                                    <i class="uil-exclamation-triangle text-warning" style="font-size: 2rem;"></i>
+                                    <h3 class="text-warning mb-1 mt-2" id="statNotFound">0</h3>
+                                    <p class="text-muted mb-0 small">Not Found</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card stat-card border-0 shadow-sm bg-light">
+                                <div class="card-body text-center py-3">
+                                    <i class="uil-clock text-info" style="font-size: 2rem;"></i>
+                                    <h3 class="text-info mb-1 mt-2" id="statDuration">0s</h3>
+                                    <p class="text-muted mb-0 small">Fetch Duration</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Preview Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover table-centered preview-table" id="previewTable">
+                            <thead>
+                                <tr>
+                                    <th>Product Name</th>
+                                    <th>SKU</th>
+                                    <th>Barcode</th>
+                                    <th>Style Code</th>
+                                    <th class="text-end">Cost (NZD)</th>
+                                    <th class="text-end">RRP</th>
+                                    <th class="text-end">75% Margin Price</th>
+                                    <th class="text-end">Discount %</th>
+                                    <th>Match Method</th>
+                                </tr>
+                            </thead>
+                            <tbody id="previewTableBody">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="mt-4 d-flex gap-2">
+                        <button type="button" class="btn btn-success btn-lg" id="applyUpdatesBtn">
+                            <i class="uil-check-circle me-2"></i>Apply Updates
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-lg" id="cancelBtn">
+                            <i class="uil-times me-2"></i>Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Card (hidden initially) -->
+    <div class="row" id="resultsCard" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h4 class="header-title mb-3">
+                        <i class="uil-chart-line me-2 text-info"></i>Update Results
+                    </h4>
+
+                    <div class="alert" id="resultsAlert" role="alert">
+                        <!-- Populated by JavaScript -->
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5 class="mb-3">Summary</h5>
+                            <ul id="resultsSummary" class="list-unstyled">
+                                <!-- Populated by JavaScript -->
+                            </ul>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-primary" id="newUpdateBtn">
+                        <i class="uil-refresh me-2"></i>Start New Update
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'assets/libs/sweetalert2/sweetalert2.min.js' %}"></script>
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"></script>
+<script>
+$(document).ready(function() {
+    let sessionId = null;
+    let previewData = [];
+    let progressInterval = null;
+    let previewTable = null; // DataTable instance
+
+    // Get CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    // Fetch prices from Cin7
+    $('#fetchPricesBtn').click(function() {
+        const priceType = $('#priceType').val();
+
+        // Show progress card
+        $('#settingsCard').hide();
+        $('#progressCard').show();
+        $('#previewCard').hide();
+        $('#resultsCard').hide();
+        $('#progressTitle').text('Fetching Prices from Cin7...');
+        updateProgressBar(0, 'Initializing connection...');
+
+        // Disable button
+        $(this).prop('disabled', true);
+
+        // Make AJAX request
+        $.ajax({
+            url: '{% url "schools:cin7-price-fetch" %}',
+            method: 'POST',
+            contentType: 'application/json',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            data: JSON.stringify({
+                price_type: priceType
+            }),
+            success: function(response) {
+                if (response.success) {
+                    sessionId = response.session_id;
+
+                    // Hide progress, show fetch results card
+                    $('#progressCard').hide();
+                    $('#fetchResultsCard').show();
+
+                    // Update fetch results display
+                    $('#fetchTotalVariants').text(response.summary.saved_to_db.toLocaleString());
+                    $('#fetchSkippedBS').text(response.summary.skipped_bs_products.toLocaleString());
+                    $('#fetchDuration').text(response.summary.duration_seconds.toFixed(2) + 's');
+                    $('#fetchSummaryText').text(`${response.summary.saved_to_db.toLocaleString()} product variants fetched and saved`);
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Fetch Complete!',
+                        text: `Fetched ${response.summary.saved_to_db.toLocaleString()} product variants from Cin7`,
+                        timer: 3000,
+                        showConfirmButton: false
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: response.error
+                    });
+                    $('#progressCard').hide();
+                    $('#settingsCard').show();
+                }
+
+                $('#fetchPricesBtn').prop('disabled', false);
+            },
+            error: function(xhr) {
+                let errorMsg = 'Failed to fetch prices';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMsg = xhr.responseJSON.error;
+                }
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: errorMsg
+                });
+
+                $('#progressCard').hide();
+                $('#settingsCard').show();
+                $('#fetchPricesBtn').prop('disabled', false);
+            }
+        });
+    });
+
+    // Apply updates
+    $('#applyUpdatesBtn').click(function() {
+        Swal.fire({
+            title: 'Confirm Price Updates',
+            text: `Are you sure you want to update ${previewData.length} products?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#10b981',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, apply updates',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (!result.isConfirmed) {
+                return;
+            }
+
+            const priceType = $('#priceType').val();
+
+            // Show progress
+            $('#previewCard').hide();
+            $('#progressCard').show();
+            $('#progressTitle').text('Applying Price Updates...');
+            updateProgressBar(0, 'Preparing updates...');
+
+            // Start progress polling
+            startProgressPolling();
+
+            // Make AJAX request
+            $.ajax({
+                url: '{% url "schools:cin7-price-apply" %}',
+                method: 'POST',
+                contentType: 'application/json',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                data: JSON.stringify({
+                    price_type: priceType,
+                    session_id: sessionId
+                }),
+                success: function(response) {
+                    stopProgressPolling();
+
+                    if (response.success) {
+                        // Show results
+                        $('#progressCard').hide();
+                        $('#resultsCard').show();
+
+                        const results = response.results;
+                        const alertClass = results.failed_updates > 0 ? 'alert-warning' : 'alert-success';
+                        const alertIcon = results.failed_updates > 0 ? 'uil-exclamation-triangle' : 'uil-check-circle';
+
+                        $('#resultsAlert')
+                            .removeClass('alert-success alert-warning alert-danger')
+                            .addClass(alertClass)
+                            .html(`
+                                <i class="${alertIcon} me-2"></i>
+                                <strong>Update Complete!</strong><br>
+                                ${response.message}
+                            `);
+
+                        $('#resultsSummary').html(`
+                            <li class="mb-2"><i class="uil-check text-success me-2"></i>Successful updates: <strong>${results.successful_updates.toLocaleString()}</strong></li>
+                            <li class="mb-2"><i class="uil-times text-danger me-2"></i>Failed updates: <strong>${results.failed_updates.toLocaleString()}</strong></li>
+                            <li class="mb-2"><i class="uil-clock text-info me-2"></i>Duration: <strong>${results.performance.total_time_seconds.toFixed(2)}s</strong></li>
+                            <li class="mb-2"><i class="uil-tachometer-fast text-primary me-2"></i>Throughput: <strong>${results.performance.items_per_second.toFixed(0)} items/sec</strong></li>
+                        `);
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Updates Applied!',
+                            text: `Successfully updated ${results.successful_updates} products`,
+                            timer: 3000
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: response.error
+                        });
+                        $('#progressCard').hide();
+                        $('#previewCard').show();
+                    }
+                },
+                error: function(xhr) {
+                    stopProgressPolling();
+
+                    let errorMsg = 'Failed to apply updates';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMsg = xhr.responseJSON.error;
+                    }
+
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: errorMsg
+                    });
+
+                    $('#progressCard').hide();
+                    $('#previewCard').show();
+                }
+            });
+        });
+    });
+
+    // Standalone Match Products button (from settings)
+    $('#standaloneMatchBtn').click(function() {
+        const priceType = $('#priceType').val();
+
+        // Generate new session ID for standalone matching
+        sessionId = 'match-' + Date.now();
+
+        // Show progress
+        $('#settingsCard').hide();
+        $('#progressCard').show();
+        $('#progressTitle').text('Matching Products...');
+        updateProgressBar(0, 'Starting product matching...');
+
+        // Call Stage 2
+        matchProducts(priceType, sessionId);
+    });
+
+    // Reset Matching button
+    $('#resetMatchBtn').click(function() {
+        Swal.fire({
+            title: 'Reset Matching?',
+            text: 'This will clear all existing matches so you can re-run the matching process.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#f1b44c',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, reset matches',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (!result.isConfirmed) {
+                return;
+            }
+
+            // Reset all matched flags via AJAX
+            $.ajax({
+                url: '{% url "schools:cin7-match-products" %}',
+                method: 'POST',
+                contentType: 'application/json',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                data: JSON.stringify({
+                    reset_only: true,
+                    session_id: 'reset-' + Date.now()
+                }),
+                success: function(response) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Matching Reset!',
+                        text: 'You can now re-run the matching process.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                },
+                error: function() {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Reset Failed',
+                        text: 'Failed to reset matching. Please try again.'
+                    });
+                }
+            });
+        });
+    });
+
+    // Match Products button (Stage 2 - after fetch)
+    $('#matchProductsBtn').click(function() {
+        const priceType = $('#priceType').val();
+
+        // Show progress
+        $('#fetchResultsCard').hide();
+        $('#progressCard').show();
+        $('#progressTitle').text('Matching Products...');
+        updateProgressBar(0, 'Starting product matching...');
+
+        // Call Stage 2
+        matchProducts(priceType, sessionId);
+    });
+
+    // Cancel fetch button
+    $('#cancelFetchBtn').click(function() {
+        $('#fetchResultsCard').hide();
+        $('#settingsCard').show();
+        sessionId = null;
+    });
+
+    // Cancel button
+    $('#cancelBtn').click(function() {
+        $('#previewCard').hide();
+        $('#settingsCard').show();
+        previewData = [];
+        sessionId = null;
+    });
+
+    // New update button
+    $('#newUpdateBtn').click(function() {
+        $('#resultsCard').hide();
+        $('#settingsCard').show();
+        previewData = [];
+        sessionId = null;
+    });
+
+    // Stage 2: Match products
+    function matchProducts(priceType, sessionId) {
+        // Start progress polling for real-time updates
+        startProgressPolling();
+
+        $.ajax({
+            url: '{% url "schools:cin7-match-products" %}',
+            method: 'POST',
+            contentType: 'application/json',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            data: JSON.stringify({
+                price_type: priceType,
+                session_id: sessionId
+            }),
+            success: function(response) {
+                stopProgressPolling();
+
+                if (response.success) {
+                    previewData = response.preview;
+
+                    // Hide progress, show preview
+                    $('#progressCard').hide();
+                    $('#previewCard').show();
+
+                    // Update stats
+                    $('#statTotalProducts').text(response.summary.total_processed.toLocaleString());
+                    $('#statMatched').text(response.summary.matched.toLocaleString());
+                    $('#statNotFound').text((response.summary.not_found + response.summary.skipped_no_cost).toLocaleString());
+                    $('#statDuration').text(response.summary.duration_seconds.toFixed(2) + 's');
+
+                    // Populate preview table (first 100 items)
+                    populatePreviewTable(previewData);
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Products Matched!',
+                        text: `Found ${response.summary.matched} matching products`,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Matching Failed',
+                        text: response.error
+                    });
+                    $('#progressCard').hide();
+                    $('#settingsCard').show();
+                }
+
+                $('#fetchPricesBtn').prop('disabled', false);
+            },
+            error: function(xhr) {
+                stopProgressPolling();
+
+                let errorMsg = 'Failed to match products';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMsg = xhr.responseJSON.error;
+                }
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: errorMsg
+                });
+
+                $('#progressCard').hide();
+                $('#settingsCard').show();
+                $('#fetchPricesBtn').prop('disabled', false);
+            }
+        });
+    }
+
+    // Populate preview table with DataTable
+    function populatePreviewTable(data) {
+        // Destroy existing DataTable if it exists
+        if (previewTable) {
+            previewTable.destroy();
+            previewTable = null;
+        }
+
+        // Clear table body
+        $('#previewTableBody').empty();
+
+        // Initialize DataTable with all data
+        previewTable = $('#previewTable').DataTable({
+            data: data,
+            columns: [
+                {
+                    data: 'name',
+                    title: 'Product Name',
+                    render: function(data) {
+                        return '<small>' + (data || 'N/A') + '</small>';
+                    }
+                },
+                {
+                    data: 'sku',
+                    title: 'SKU',
+                    render: function(data) {
+                        return '<small><code>' + (data || '-') + '</code></small>';
+                    }
+                },
+                {
+                    data: 'barcode',
+                    title: 'Barcode',
+                    render: function(data) {
+                        return '<small><code>' + (data || '-') + '</code></small>';
+                    }
+                },
+                {
+                    data: 'style_code',
+                    title: 'Style Code',
+                    render: function(data) {
+                        return '<small><code>' + (data || '-') + '</code></small>';
+                    }
+                },
+                {
+                    data: 'cost',
+                    title: 'Cost (NZD)',
+                    className: 'text-end',
+                    render: function(data) {
+                        return '<small>$' + (data || 0).toFixed(2) + '</small>';
+                    }
+                },
+                {
+                    data: 'rrp',
+                    title: 'RRP',
+                    className: 'text-end',
+                    render: function(data) {
+                        return '<small>$' + (data || 0).toFixed(2) + '</small>';
+                    }
+                },
+                {
+                    data: 'margin_75_price',
+                    title: '75% Margin Price',
+                    className: 'text-end',
+                    render: function(data) {
+                        return '<small>$' + (data || 0).toFixed(2) + '</small>';
+                    }
+                },
+                {
+                    data: 'discount_percentage',
+                    title: 'Discount %',
+                    className: 'text-end',
+                    render: function(data) {
+                        return '<small>' + (data || 0).toFixed(1) + '%</small>';
+                    }
+                },
+                {
+                    data: 'match_method',
+                    title: 'Match Method',
+                    render: function(data) {
+                        return '<span class="badge badge-method bg-info">' + (data || 'N/A') + '</span>';
+                    }
+                }
+            ],
+            pageLength: 50,
+            order: [[0, 'asc']],
+            dom: 'Bfrtip',
+            buttons: [
+                {
+                    extend: 'copy',
+                    text: '<i class="uil-copy me-1"></i>Copy',
+                    className: 'btn btn-sm btn-primary'
+                },
+                {
+                    extend: 'csv',
+                    text: '<i class="uil-file-download me-1"></i>CSV',
+                    className: 'btn btn-sm btn-success'
+                },
+                {
+                    extend: 'excel',
+                    text: '<i class="uil-file-download me-1"></i>Excel',
+                    className: 'btn btn-sm btn-success'
+                },
+                {
+                    extend: 'print',
+                    text: '<i class="uil-print me-1"></i>Print',
+                    className: 'btn btn-sm btn-info'
+                },
+                {
+                    extend: 'colvis',
+                    text: '<i class="uil-eye me-1"></i>Columns',
+                    className: 'btn btn-sm btn-secondary'
+                }
+            ],
+            responsive: true,
+            language: {
+                search: "Filter products:",
+                lengthMenu: "Show _MENU_ products per page",
+                info: "Showing _START_ to _END_ of _TOTAL_ products",
+                infoEmpty: "Showing 0 to 0 of 0 products",
+                infoFiltered: "(filtered from _MAX_ total products)",
+                paginate: {
+                    first: "First",
+                    last: "Last",
+                    next: "Next",
+                    previous: "Previous"
+                },
+                emptyTable: "No products available"
+            },
+            lengthMenu: [[25, 50, 100, -1], [25, 50, 100, "All"]],
+            createdRow: function(row, data, dataIndex) {
+                // Add color coding based on discount percentage
+                if (data.discount_percentage > 0) {
+                    $(row).addClass('discount-positive');
+                } else if (data.discount_percentage < 0) {
+                    $(row).addClass('discount-negative');
+                } else {
+                    $(row).addClass('discount-zero');
+                }
+            }
+        });
+    }
+
+    // Progress polling
+    function startProgressPolling() {
+        progressInterval = setInterval(function() {
+            if (!sessionId) return;
+
+            $.ajax({
+                url: '/schools/wholesale/api/cin7-price-progress/' + sessionId + '/',
+                method: 'GET',
+                success: function(response) {
+                    if (response.status === 'in_progress' || response.status === 'pending') {
+                        const progress = response.progress;
+                        const percentage = progress.percentage || 0;
+                        updateProgressBar(percentage, progress.message || 'Processing...');
+                    }
+                }
+            });
+        }, 1000);  // Poll every second
+    }
+
+    function stopProgressPolling() {
+        if (progressInterval) {
+            clearInterval(progressInterval);
+            progressInterval = null;
+        }
+    }
+
+    function updateProgressBar(percentage, message) {
+        $('#progressBar').css('width', percentage + '%').attr('aria-valuenow', percentage);
+        $('#progressPercent').text(percentage + '%');
+        $('#progressMessage').text(message);
+    }
+});
+</script>
+{% endblock %}
