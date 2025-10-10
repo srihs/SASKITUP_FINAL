@@ -489,7 +489,7 @@
 }
 
 .variation-touchspin {
-    width: 100px !important;
+    width: 70px !important;
 }
 
 .variation-touchspin .bootstrap-touchspin {
@@ -498,10 +498,12 @@
 
 .variation-touchspin input {
     font-size: 13px !important;
-    padding: 0.25rem 0.5rem !important;
-    height: 32px !important;
-    width: 40px !important;
+    padding: 0 !important;
+    width: 30px !important;
     text-align: center !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    background-color: #fff !important;
 }
 
 .variation-touchspin .bootstrap-touchspin .input-group-btn-vertical {
@@ -509,10 +511,14 @@
 }
 
 .variation-touchspin .bootstrap-touchspin .input-group-btn .btn {
-    padding: 0.3rem 0.4rem !important;
-    font-size: 11px !important;
-    height: 32px !important;
-    min-width: 28px !important;
+    padding: 0 !important;
+    font-size: 14px !important;
+    width: 20px !important;
+    min-width: 20px !important;
+    line-height: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
 .variation-touchspin .bootstrap-touchspin .input-group-prepend,
@@ -851,10 +857,33 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Toastr for notifications -->
+<link href="{% static 'assets/libs/toastr/build/toastr.min.css' %}" rel="stylesheet" />
+<script src="{% static 'assets/libs/toastr/build/toastr.min.js' %}"></script>
+
 <!-- Bootrstrap touchspin -->
 <script src="{% static 'assets/libs/bootstrap-touchspin/jquery.bootstrap-touchspin.min.js' %}"></script>
 
 <script>
+// Configure Toastr
+toastr.options = {
+    "closeButton": true,
+    "debug": false,
+    "newestOnTop": true,
+    "progressBar": true,
+    "positionClass": "toast-top-right",
+    "preventDuplicates": true,
+    "onclick": null,
+    "showDuration": "300",
+    "hideDuration": "1000",
+    "timeOut": "5000",
+    "extendedTimeOut": "1000",
+    "showEasing": "swing",
+    "hideEasing": "linear",
+    "showMethod": "fadeIn",
+    "hideMethod": "fadeOut"
+};
+
 // CSRF Token Setup
 function getCookie(name) {
     let cookieValue = null;
@@ -968,6 +997,12 @@ function updateCartQuantityValue(itemIndex, newQty) {
         return;
     }
 
+    const inputElement = $('#qty-input-' + itemIndex);
+
+    // Store the current value before update (for rollback on error)
+    const previousQty = parseInt(inputElement.val());
+    inputElement.data('previous-qty', previousQty);
+
     showLoading();
 
     // Send AJAX request to update quantity
@@ -982,10 +1017,19 @@ function updateCartQuantityValue(itemIndex, newQty) {
             'quantity': newQty
         })
     })
-    .then(response => response.json())
-    .then(data => {
+    .then(response => {
+        // Parse JSON regardless of status code
+        return response.json().then(data => ({
+            ok: response.ok,
+            status: response.status,
+            data: data
+        }));
+    })
+    .then(result => {
         hideLoading();
-        if (data.success) {
+        const data = result.data;
+
+        if (result.ok && data.success) {
             // Update item total
             const itemTotal = document.getElementById('total-' + itemIndex);
             if (itemTotal && data.item_total) {
@@ -1001,16 +1045,23 @@ function updateCartQuantityValue(itemIndex, newQty) {
             // Update summary
             updateSummary(data);
         } else {
-            alert(data.error || 'Failed to update quantity');
-            // Reset to previous value
-            location.reload();
+            toastr.error(data.error || 'Failed to update quantity');
+            // Reset input to previous value
+            const prevQty = inputElement.data('previous-qty');
+            if (prevQty) {
+                inputElement.val(String(prevQty).padStart(2, '0'));
+            }
         }
     })
     .catch(error => {
         hideLoading();
         console.error('Error:', error);
-        alert('An error occurred. Please try again.');
-        location.reload();
+        toastr.error('An error occurred. Please try again.');
+        // Reset input to previous value
+        const prevQty = inputElement.data('previous-qty');
+        if (prevQty) {
+            inputElement.val(String(prevQty).padStart(2, '0'));
+        }
     });
 }
 
@@ -1040,13 +1091,13 @@ function removeFromCart(itemIndex) {
             // Reload page to reflect changes
             location.reload();
         } else {
-            alert(data.error || 'Failed to remove item');
+            toastr.error(data.error || 'Failed to remove item');
         }
     })
     .catch(error => {
         hideLoading();
         console.error('Error:', error);
-        alert('An error occurred. Please try again.');
+        toastr.error('An error occurred. Please try again.');
     });
 }
 
@@ -1086,17 +1137,19 @@ function saveQuotation() {
     .then(data => {
         hideLoading();
         if (data.success) {
-            alert(data.message || 'Quotation request submitted successfully!');
-            // Redirect to quotations list or confirmation page
-            window.location.href = data.redirect_url || '{% url "quotations:my-quotations" %}';
+            toastr.success(data.message || 'Quotation request submitted successfully!');
+            // Redirect to quotations list or confirmation page after a short delay
+            setTimeout(() => {
+                window.location.href = data.redirect_url || '{% url "quotations:my-quotations" %}';
+            }, 1500);
         } else {
-            alert(data.error || 'Failed to save quotation');
+            toastr.error(data.error || 'Failed to save quotation');
         }
     })
     .catch(error => {
         hideLoading();
         console.error('Error:', error);
-        alert('An error occurred. Please try again.');
+        toastr.error('An error occurred. Please try again.');
     });
 }
 </script>
