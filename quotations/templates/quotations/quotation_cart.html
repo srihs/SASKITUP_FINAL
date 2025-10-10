@@ -333,6 +333,225 @@
     }
 }
 
+/* Product Group Header */
+.product-group-header {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    border-radius: 0.25rem;
+    padding: 1rem;
+}
+
+.product-group-header:hover {
+    background-color: #f8f9fa;
+}
+
+.product-group-header .collapse-icon {
+    transition: transform 0.3s ease;
+    font-size: 1.2rem;
+    color: #74788d;
+}
+
+.product-group-header[aria-expanded="false"] .collapse-icon {
+    transform: rotate(-90deg);
+}
+
+.product-group-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #495057;
+    margin: 0;
+}
+
+.product-group-badge {
+    background-color: #e9ecef;
+    color: #495057;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 12px;
+    font-weight: 500;
+    margin-left: 0.5rem;
+}
+
+.product-group-total {
+    font-size: 18px;
+    font-weight: 600;
+    color: #556ee6;
+}
+
+/* Variation Row Styling */
+.variation-item {
+    border-left: 3px solid #e9ecef;
+    margin-left: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background-color: #fafbfc;
+}
+
+.variation-badge {
+    display: inline-block;
+    background-color: #556ee6;
+    color: white;
+    padding: 0.2rem 0.6rem;
+    border-radius: 1rem;
+    font-size: 11px;
+    font-weight: 500;
+    margin-right: 0.25rem;
+    white-space: nowrap;
+}
+
+.variation-badge.size-badge {
+    background-color: #34c38f;
+}
+
+.variation-badge.color-badge {
+    background-color: #f46a6a;
+}
+
+/* Compact Single-Row Layout */
+.variation-row {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    flex-wrap: nowrap;
+}
+
+.variation-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-right: 0.5rem;
+}
+
+.variation-col-badges {
+    min-width: 150px;
+    flex-shrink: 0;
+}
+
+.variation-col-sku {
+    min-width: 110px;
+    flex-shrink: 0;
+}
+
+.variation-col-price {
+    min-width: 120px;
+    flex-shrink: 0;
+}
+
+.variation-col-qty {
+    min-width: 110px;
+    flex-shrink: 0;
+}
+
+.variation-col-discount {
+    min-width: 110px;
+    flex-shrink: 0;
+}
+
+.variation-col-total {
+    min-width: 120px;
+    flex-grow: 1;
+}
+
+.variation-col-action {
+    min-width: 40px;
+    flex-shrink: 0;
+}
+
+.variation-label {
+    font-size: 10px;
+    color: #74788d;
+    text-transform: uppercase;
+    margin-bottom: 0.2rem;
+    font-weight: 500;
+}
+
+.variation-value {
+    font-size: 14px;
+    color: #495057;
+    font-weight: 500;
+}
+
+.variation-sku {
+    font-size: 11px;
+    color: #74788d;
+}
+
+.variation-price-strike {
+    font-size: 11px;
+    color: #adb5bd;
+    text-decoration: line-through;
+    margin-bottom: 0.1rem;
+}
+
+.variation-price-main {
+    font-size: 14px;
+    color: #556ee6;
+    font-weight: 600;
+}
+
+.variation-touchspin {
+    width: 50px !important;
+}
+
+.variation-touchspin input {
+    font-size: 13px !important;
+    padding: 0.25rem 0.5rem !important;
+    height: 32px !important;
+}
+
+.variation-touchspin .bootstrap-touchspin .input-group-btn-vertical {
+    width: 32px;
+}
+
+.variation-touchspin .bootstrap-touchspin .input-group-btn-vertical .btn {
+    padding: 0.3rem 0.5rem;
+    font-size: 12px;
+}
+
+.variation-touchspin .bootstrap-touchspin .input-group-btn .btn {
+    padding: 0.3rem 0.5rem;
+    font-size: 12px;
+    height: 32px;
+}
+
+.variation-discount {
+    font-size: 14px;
+    color: #34c38f;
+    font-weight: 600;
+}
+
+.variation-total {
+    font-size: 15px;
+    color: #495057;
+    font-weight: 600;
+}
+
+/* Responsive - Stack on Mobile */
+@media (max-width: 767px) {
+    .variation-row {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .variation-col-badges,
+    .variation-col-sku,
+    .variation-col-price {
+        width: 100%;
+        min-width: unset;
+    }
+
+    .variation-col-qty,
+    .variation-col-discount,
+    .variation-col-total {
+        width: calc(50% - 0.375rem);
+        min-width: unset;
+    }
+
+    .variation-col-action {
+        width: 100%;
+        text-align: right;
+    }
+}
+
 /* Empty Cart State */
 .empty-cart-container {
     text-align: center;
@@ -395,114 +614,132 @@
     {% if cart_items %}
     <div class="row mb-3">
         <div class="col-xl-8">
-            {% for item in cart_items %}
-            <div class="card border shadow-none">
+            {% regroup cart_items by product.name as product_groups %}
+            {% for group in product_groups %}
+            <div class="card border shadow-none mb-3">
                 <div class="card-body">
-                    <div class="d-flex align-items-start border-bottom pb-3">
-                        <div class="flex-shrink-0 me-4">
-                            {% if item.product.images.first %}
-                            <img src="{{ item.product.images.first.image.url }}"
-                                 alt="{{ item.product_name }}"
-                                 class="avatar-lg">
-                            {% elif item.product.image_url %}
-                            <img src="{{ item.product.image_url }}"
-                                 alt="{{ item.product_name }}"
-                                 class="avatar-lg">
-                            {% else %}
-                            <div class="avatar-lg d-flex align-items-center justify-content-center" style="background: #f6f6f6; border-radius: 0.25rem;">
-                                <i class="uil-image" style="font-size: 2rem; color: #ccc;"></i>
-                            </div>
-                            {% endif %}
-                        </div>
-                        <div class="flex-grow-1 align-self-center overflow-hidden">
-                            <div>
-                                <h5 class="text-truncate font-size-16">
-                                    <a href="#" class="text-reset">{{ item.product_name }}</a>
-                                </h5>
-                                {% if item.product_sku %}
-                                <p class="mb-1">SKU : <span class="fw-medium">{{ item.product_sku }}</span></p>
-                                {% endif %}
-                                {% if item.variation_details %}
-                                <p class="mb-1">
-                                    {% if item.variation_details.color %}Color : <span class="fw-medium">{{ item.variation_details.color }}</span>{% endif %}
-                                </p>
-                                {% if item.variation_details.size %}
-                                <p class="mb-1">Size : <span class="fw-medium">{{ item.variation_details.size }}</span></p>
-                                {% endif %}
-                                {% endif %}
-
-                                <!-- Price Display with Margin -->
-                                <div class="mt-2">
-                                    {% if item.margin_75_price %}
-                                        {# Convert to strings for comparison to handle Decimal properly #}
-                                        {% with margin_str=item.margin_75_price|stringformat:"f" unit_str=item.unit_price|stringformat:"f" %}
-                                            {% if margin_str != unit_str and item.margin_75_price > item.unit_price %}
-                                                {# Show dual pricing with strikethrough #}
-                                                <p class="mb-1">
-                                                    <span class="text-muted text-decoration-line-through me-2" style="font-size: 14px;">${{ item.margin_75_price|floatformat:2|intcomma }}</span>
-                                                    <span class="fw-bold" id="price-{{ item.index }}" style="color: #556ee6; font-size: 18px;">${{ item.unit_price|floatformat:2|intcomma }}</span>
-                                                </p>
-                                            {% else %}
-                                                {# Show single price #}
-                                                <p class="mb-1">
-                                                    <span class="fw-medium font-size-16">${{ item.unit_price|floatformat:2|intcomma }}</span>
-                                                </p>
-                                            {% endif %}
-                                        {% endwith %}
-                                    {% else %}
-                                        {# No margin price available #}
-                                        <p class="mb-1">
-                                            <span class="fw-medium font-size-16">${{ item.unit_price|floatformat:2|intcomma }}</span>
-                                        </p>
-                                    {% endif %}
+                    <!-- Product Group Header -->
+                    <div class="product-group-header" data-bs-toggle="collapse" data-bs-target="#product-group-{{ forloop.counter }}" aria-expanded="true">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0 me-3">
+                                {% if group.list.0.product.images.first %}
+                                <img src="{{ group.list.0.product.images.first.image.url }}"
+                                     alt="{{ group.grouper }}"
+                                     class="avatar-lg">
+                                {% elif group.list.0.product.image_url %}
+                                <img src="{{ group.list.0.product.image_url }}"
+                                     alt="{{ group.grouper }}"
+                                     class="avatar-lg">
+                                {% else %}
+                                <div class="avatar-lg d-flex align-items-center justify-content-center" style="background: #f6f6f6; border-radius: 0.25rem;">
+                                    <i class="uil-image" style="font-size: 2rem; color: #ccc;"></i>
                                 </div>
+                                {% endif %}
                             </div>
-                        </div>
-                        <div class="ms-2">
-                            <ul class="list-inline mb-0 font-size-16">
-                                <li class="list-inline-item">
-                                    <a href="javascript:void(0);"
-                                       class="text-muted px-2"
-                                       onclick="removeFromCart({{ item.index }})"
-                                       title="Remove">
-                                        <i class="uil uil-trash-alt"></i>
-                                    </a>
-                                </li>
-                            </ul>
+                            <div class="flex-grow-1 overflow-hidden">
+                                <h5 class="product-group-title">{{ group.grouper }}</h5>
+                                <span class="product-group-badge">{{ group.list|length }} variation{{ group.list|length|pluralize }}</span>
+                            </div>
+                            <div class="text-end me-3">
+                                <p class="text-muted mb-0" style="font-size: 12px;">Group Total</p>
+                                <p class="product-group-total mb-0" id="group-total-{{ forloop.counter }}">$0.00</p>
+                            </div>
+                            <div>
+                                <i class="uil uil-angle-down collapse-icon"></i>
+                            </div>
                         </div>
                     </div>
 
-                    <div>
-                        <div class="row">
-                            <div class="col-md-4 col-6">
-                                <div class="mt-3">
-                                    <p class="text-muted mb-2">Quantity</p>
-                                    <div style="width: 80px;" class="product-cart-touchspin">
+                    <!-- Collapsible Variations -->
+                    <div class="collapse show" id="product-group-{{ forloop.counter }}">
+                        {% for item in group.list %}
+                        <div class="variation-item border-top">
+                            <div class="variation-row">
+                                <!-- Column 1: Size/Color Badges -->
+                                <div class="variation-col variation-col-badges">
+                                    <div class="variation-label">Attributes</div>
+                                    <div>
+                                        {% if item.variation_details %}
+                                            {% if item.variation_details.size %}
+                                            <span class="variation-badge size-badge">{{ item.variation_details.size }}</span>
+                                            {% endif %}
+                                            {% if item.variation_details.color %}
+                                            <span class="variation-badge color-badge">{{ item.variation_details.color }}</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="variation-sku">No variations</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <!-- Column 2: SKU -->
+                                <div class="variation-col variation-col-sku">
+                                    <div class="variation-label">SKU</div>
+                                    {% if item.product_sku %}
+                                        <div class="variation-sku">{{ item.product_sku }}</div>
+                                    {% else %}
+                                        <div class="variation-sku">-</div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Column 3: Unit Price -->
+                                <div class="variation-col variation-col-price">
+                                    <div class="variation-label">Unit Price</div>
+                                    {% if item.margin_75_price %}
+                                        {% with margin_str=item.margin_75_price|stringformat:"f" unit_str=item.unit_price|stringformat:"f" %}
+                                            {% if margin_str != unit_str and item.margin_75_price > item.unit_price %}
+                                                <div class="variation-price-strike">${{ item.margin_75_price|floatformat:2|intcomma }}</div>
+                                                <div class="variation-price-main" id="price-{{ item.index }}">${{ item.unit_price|floatformat:2|intcomma }}</div>
+                                            {% else %}
+                                                <div class="variation-value">${{ item.unit_price|floatformat:2|intcomma }}</div>
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% else %}
+                                        <div class="variation-value">${{ item.unit_price|floatformat:2|intcomma }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Column 4: Quantity -->
+                                <div class="variation-col variation-col-qty">
+                                    <div class="variation-label">Quantity</div>
+                                    <div class="variation-touchspin">
                                         <input data-toggle="touchspin"
                                                type="text"
                                                value="{{ item.quantity|stringformat:'02d' }}"
                                                id="qty-input-{{ item.index }}"
+                                               data-group-id="{{ forloop.parentloop.counter }}"
                                                onchange="updateCartQuantityFromInput({{ item.index }}, this.value)">
                                     </div>
                                 </div>
-                            </div>
-                            <div class="col-md-4 col-6">
-                                <div class="mt-3">
-                                    <p class="text-muted mb-2">Discount</p>
+
+                                <!-- Column 5: Discount -->
+                                <div class="variation-col variation-col-discount">
+                                    <div class="variation-label">Discount</div>
                                     {% if item.item_discount > 0 %}
-                                        <h5 class="font-size-16 text-success mb-0">-${{ item.item_discount|floatformat:2|intcomma }}</h5>
+                                        <div class="variation-discount">-${{ item.item_discount|floatformat:2|intcomma }}</div>
                                     {% else %}
-                                        <h5 class="font-size-16 text-muted mb-0">-</h5>
+                                        <div class="variation-value text-muted">-</div>
                                     {% endif %}
                                 </div>
-                            </div>
-                            <div class="col-md-4 col-12">
-                                <div class="mt-3">
-                                    <p class="text-muted mb-2">Total</p>
-                                    <h5 class="font-size-16" id="total-{{ item.index }}">${{ item.line_total|floatformat:2|intcomma }}</h5>
+
+                                <!-- Column 6: Line Total -->
+                                <div class="variation-col variation-col-total">
+                                    <div class="variation-label">Line Total</div>
+                                    <div class="variation-total" id="total-{{ item.index }}" data-group-id="{{ forloop.parentloop.counter }}">${{ item.line_total|floatformat:2|intcomma }}</div>
+                                </div>
+
+                                <!-- Column 7: Delete Button -->
+                                <div class="variation-col variation-col-action">
+                                    <a href="javascript:void(0);"
+                                       class="text-danger"
+                                       onclick="removeFromCart({{ item.index }})"
+                                       title="Remove">
+                                        <i class="uil uil-trash-alt" style="font-size: 18px;"></i>
+                                    </a>
                                 </div>
                             </div>
                         </div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>
@@ -622,7 +859,50 @@ function getCookie(name) {
 }
 const csrftoken = getCookie('csrftoken');
 
-// Initialize TouchSpin
+// Calculate and Update Group Totals
+function updateGroupTotal(groupId) {
+    let groupTotal = 0;
+
+    // Find only line total elements (variation-total class) for this group
+    const lineTotals = document.querySelectorAll(`.variation-total[data-group-id="${groupId}"]`);
+
+    console.log(`Calculating total for group ${groupId}, found ${lineTotals.length} items`);
+
+    lineTotals.forEach(function(element) {
+        // Extract numeric value from formatted string (e.g., "$1,234.56" -> 1234.56)
+        const totalText = element.textContent.trim().replace(/[$,\s]/g, '');
+        const totalValue = parseFloat(totalText) || 0;
+        console.log(`  Line item: ${element.textContent.trim()} -> ${totalValue}`);
+        groupTotal += totalValue;
+    });
+
+    console.log(`  Group ${groupId} total: ${groupTotal}`);
+
+    // Update the group total display
+    const groupTotalElement = document.getElementById(`group-total-${groupId}`);
+    if (groupTotalElement) {
+        groupTotalElement.textContent = '$' + groupTotal.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+}
+
+// Calculate All Group Totals
+function updateAllGroupTotals() {
+    console.log('Updating all group totals...');
+
+    // Find all group total elements
+    const groupTotalElements = document.querySelectorAll('[id^="group-total-"]');
+
+    console.log(`Found ${groupTotalElements.length} groups to update`);
+
+    groupTotalElements.forEach(function(element) {
+        // Extract group ID from element id (e.g., "group-total-1" -> "1")
+        const groupId = element.id.replace('group-total-', '');
+        console.log(`Processing group: ${groupId}`);
+        updateGroupTotal(groupId);
+    });
+}
+
+// Initialize TouchSpin and Group Totals
 $(document).ready(function() {
     $('[data-toggle="touchspin"]').each(function() {
         const input = $(this);
@@ -632,8 +912,8 @@ $(document).ready(function() {
             min: 1,
             max: 1000,
             step: 1,
-            buttondown_class: 'btn btn-primary',
-            buttonup_class: 'btn btn-primary',
+            buttondown_class: 'btn btn-primary btn-sm',
+            buttonup_class: 'btn btn-primary btn-sm',
             verticalbuttons: false,
             verticalup: '',
             verticaldown: '',
@@ -647,6 +927,9 @@ $(document).ready(function() {
             updateCartQuantityValue(itemIndex, newQty);
         });
     });
+
+    // Calculate initial group totals
+    updateAllGroupTotals();
 });
 
 // Show/Hide Loading Overlay
@@ -694,6 +977,12 @@ function updateCartQuantityValue(itemIndex, newQty) {
             const itemTotal = document.getElementById('total-' + itemIndex);
             if (itemTotal && data.item_total) {
                 itemTotal.textContent = '$' + data.item_total;
+
+                // Update group total for this item's group
+                const groupId = itemTotal.getAttribute('data-group-id');
+                if (groupId) {
+                    updateGroupTotal(groupId);
+                }
             }
 
             // Update summary
