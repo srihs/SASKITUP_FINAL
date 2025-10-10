@@ -657,3 +657,92 @@ class WholesaleSyncJob(models.Model):
                 self.products_created + self.products_updated +
                 self.categories_created + self.categories_updated +
                 self.variations_created + self.variations_updated)
+
+
+class Cin7Product(models.Model):
+    """
+    Temporary storage for Cin7 API product data
+
+    This model stores raw data from Cin7 API before matching and price updates.
+    Allows for two-stage processing: fetch → match/update
+
+    Fields map directly to Cin7 API response fields.
+    """
+
+    # Cin7 identifiers
+    cin7_id = models.IntegerField(db_index=True, help_text="Cin7 product ID")
+    code = models.CharField(max_length=100, db_index=True, help_text="Product SKU/Code")
+    style_code = models.CharField(max_length=100, blank=True, db_index=True, help_text="Product style code")
+    barcode = models.CharField(max_length=100, blank=True, db_index=True, help_text="Product barcode")
+
+    # Product details
+    name = models.CharField(max_length=500, help_text="Product name")
+    category = models.CharField(max_length=200, blank=True, help_text="Cin7 category")
+    brand = models.CharField(max_length=200, blank=True, help_text="Product brand")
+
+    # Pricing data
+    cost_nzd = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Cost price in NZD")
+    retail_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Retail price (RRP)")
+
+    # Calculated pricing (on save)
+    margin_75_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="75% margin price (Cost ÷ 0.25)")
+    discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Discount from 75% margin")
+
+    # Stock data
+    stock_available = models.IntegerField(null=True, blank=True, help_text="Available stock quantity")
+
+    # Matching status
+    matched = models.BooleanField(default=False, db_index=True, help_text="Whether matched to local product")
+    matched_product_id = models.IntegerField(null=True, blank=True, help_text="Local product ID if matched")
+    matched_variation_id = models.IntegerField(null=True, blank=True, help_text="Local variation ID if matched")
+    match_method = models.CharField(max_length=100, blank=True, help_text="How product was matched")
+    price_type = models.CharField(max_length=50, db_index=True, help_text="Price type: TUS, LOTTO, SAS, Wholesale")
+
+    # Processing status
+    processed = models.BooleanField(default=False, db_index=True, help_text="Whether prices have been applied")
+    processed_at = models.DateTimeField(null=True, blank=True, help_text="When prices were applied")
+
+    # Metadata
+    fetch_session_id = models.CharField(max_length=100, db_index=True, help_text="Session ID from fetch operation")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Raw JSON data (for debugging/future use)
+    raw_data = models.JSONField(null=True, blank=True, help_text="Raw Cin7 API response")
+
+    class Meta:
+        db_table = 'cin7_products'
+        verbose_name = 'Cin7 Product'
+        verbose_name_plural = 'Cin7 Products'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['fetch_session_id', 'matched']),
+            models.Index(fields=['price_type', 'processed']),
+            models.Index(fields=['created_at', 'fetch_session_id']),
+        ]
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+    def save(self, *args, **kwargs):
+        """Calculate derived fields on save"""
+        # Calculate 75% margin price
+        if self.cost_nzd and self.cost_nzd > 0:
+            self.margin_75_price = self.cost_nzd / Decimal('0.25')
+
+        # Calculate discount percentage
+        if self.margin_75_price and self.retail_price and self.margin_75_price > 0:
+            discount = ((self.margin_75_price - self.retail_price) / self.margin_75_price) * 100
+            self.discount_percentage = max(Decimal('0'), discount)
+
+        super().save(*args, **kwargs)
+
+    @property
+    def has_pricing_data(self):
+        """Check if product has valid pricing data"""
+        return self.cost_nzd is not None and self.cost_nzd > 0
+
+    @property
+    def is_ready_for_update(self):
+        """Check if product is ready for price update"""
+        return self.matched and self.has_pricing_data and not self.processed

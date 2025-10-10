@@ -64,12 +64,23 @@ urlpatterns = [
     # CSV upload endpoint
     path('wholesale/upload-csv/', views.wholesale_csv_upload, name='wholesale-csv-upload'),
 
+    # Price management hub
+    path('wholesale/price-management/', views.price_management_hub, name='price-management-hub'),
+
     # Wholesale settings endpoints
     path('wholesale/settings/price-update/', views.wholesale_price_update_settings, name='wholesale-price-update-settings'),
 
     # Wholesale price update API endpoints
     path('wholesale/api/price-preview/', views.wholesale_price_preview, name='wholesale-price-preview'),
     path('wholesale/api/price-apply/', views.wholesale_price_apply, name='wholesale-price-apply'),
+    path('wholesale/api/price-progress/<str:session_id>/', views.wholesale_price_progress, name='wholesale-price-progress'),
+
+    # Cin7 price update endpoints
+    path('wholesale/cin7-price-update/', views.cin7_price_update_settings, name='cin7-price-update-settings'),
+    path('wholesale/api/cin7-price-fetch/', views.cin7_price_fetch, name='cin7-price-fetch'),
+    path('wholesale/api/cin7-match-products/', views.cin7_match_products, name='cin7-match-products'),
+    path('wholesale/api/cin7-price-apply/', views.cin7_price_apply, name='cin7-price-apply'),
+    path('wholesale/api/cin7-price-progress/<str:session_id>/', views.cin7_price_progress, name='cin7-price-progress'),
 
     # Legacy placeholder pages
     path('retail-legacy/', views.RetailSchoolsView.as_view(), name='retail_schools_legacy'),

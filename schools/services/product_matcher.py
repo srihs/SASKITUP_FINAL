@@ -124,6 +124,19 @@ class ProductMatcherService:
         except Exception as e:
             logger.error(f"Error in case-insensitive SKU match: {str(e)}")
 
+        # Space-normalized match (database might have spaces but CSV might not, or vice versa)
+        try:
+            normalized_code = product_code.replace(' ', '').upper()
+            for product in model_class.objects.all():
+                sku_value = getattr(product, sku_field, None)
+                if sku_value:
+                    normalized_db = sku_value.replace(' ', '').upper()
+                    if normalized_db == normalized_code:
+                        logger.debug(f"Found product by space-normalized SKU: {product_code} -> {sku_value}")
+                        return product, 'sku_normalized'
+        except Exception as e:
+            logger.error(f"Error in space-normalized SKU match: {str(e)}")
+
         return None, None
 
     def _match_by_barcode(
@@ -194,6 +207,19 @@ class ProductMatcherService:
             if variation and variation.product:
                 logger.debug(f"Found product by case-insensitive variation {field_name}: {product_code}")
                 return variation.product, f'{field_name}_iexact'
+
+            # Space-normalized match (e.g., "R9039 -4--7" matches "R9039-4--7" or vice versa)
+            # Try this for all SKUs since database might have spaces but CSV might not
+            normalized_code = product_code.replace(' ', '').upper()
+            # Use select_related to optimize database queries
+            for variation in variation_model.objects.select_related('product').all():
+                field_value = getattr(variation, field_name, None)
+                if field_value:
+                    normalized_db = field_value.replace(' ', '').upper()
+                    if normalized_db == normalized_code:
+                        logger.debug(f"Found product by space-normalized variation {field_name}: {product_code} -> {field_value}")
+                        return variation.product, f'{field_name}_normalized'
+
         except Exception as e:
             logger.error(f"Error matching variation {field_name}: {str(e)}")
 
@@ -230,6 +256,19 @@ class ProductMatcherService:
             if variation and variation.product:
                 logger.debug(f"Found product by case-insensitive variation {field_name}: {product_code}")
                 return variation.product, f'{field_name}_iexact', variation
+
+            # Space-normalized match (e.g., "R9039 -4--7" matches "R9039-4--7" or vice versa)
+            # Try this for all SKUs since database might have spaces but CSV might not
+            normalized_code = product_code.replace(' ', '').upper()
+            # Use select_related to optimize database queries
+            for variation in variation_model.objects.select_related('product').all():
+                field_value = getattr(variation, field_name, None)
+                if field_value:
+                    normalized_db = field_value.replace(' ', '').upper()
+                    if normalized_db == normalized_code:
+                        logger.debug(f"Found product by space-normalized variation {field_name}: {product_code} -> {field_value}")
+                        return variation.product, f'{field_name}_normalized', variation
+
         except Exception as e:
             logger.error(f"Error matching variation {field_name}: {str(e)}")
 
@@ -527,15 +566,27 @@ class ProductMatcherService:
                 if product:
                     return product, match_method
 
-        # Wholesale: SKU FIRST, then barcode (original logic)
+        # Wholesale: Variation cin7_sku FIRST, then Product SKU, then barcode
         elif category == 'wholesale-schools':
-            # Priority 1-2: Try SKU first
+            # Priority 1-2: Try variation cin7_sku first
+            if product_code:
+                try:
+                    from schools.models import WholesaleProductVariation
+                    product, match_method = self._match_by_variation_suffix(
+                        WholesaleProductVariation, product_code, field_name='cin7_sku'
+                    )
+                    if product:
+                        return product, match_method
+                except Exception as e:
+                    logger.error(f"Error importing WholesaleProductVariation: {str(e)}")
+
+            # Priority 3-4: Try product SKU
             if product_code and sku_field:
                 product, match_method = self._match_by_sku(model_class, sku_field, product_code)
                 if product:
                     return product, match_method
 
-            # Priority 3-4: Then try barcode
+            # Priority 5-6: Try barcode
             if barcode and barcode_field:
                 product, match_method = self._match_by_barcode(model_class, barcode_field, barcode)
                 if product:
@@ -663,10 +714,25 @@ class ProductMatcherService:
                 if product:
                     return product, match_method, None
 
-        # Wholesale (wholesale-schools): No variations, always product-level
+        # Wholesale (wholesale-schools): Return variation instance when matched
         elif category == 'wholesale-schools':
-            product, match_method = self.find_product(category, product_code, barcode)
-            return product, match_method, None
+            # Priority 1-2: Try variation cin7_sku
+            if product_code:
+                try:
+                    from schools.models import WholesaleProductVariation
+                    product, match_method, variation = self._match_variation_with_instance(
+                        WholesaleProductVariation, product_code, field_name='cin7_sku'
+                    )
+                    if product and variation:
+                        return product, match_method, variation
+                except Exception as e:
+                    logger.error(f"Error matching Wholesale variation: {str(e)}")
+
+            # Fallback to product-level matching (no variation)
+            if product_code and sku_field:
+                product, match_method = self._match_by_sku(model_class, sku_field, product_code)
+                if product:
+                    return product, match_method, None
 
         else:
             logger.warning(f"Unknown category: {category}")

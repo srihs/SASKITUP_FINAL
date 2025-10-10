@@ -176,7 +176,7 @@
                                         <ul class="list-unstyled mb-0 small text-info">
                                             <li class="mb-1">75% Margin Price = Cost ÷ 0.25</li>
                                             <li class="mb-1">RRP = 75% Margin Price</li>
-                                            <li class="mb-1">Discount % = (75% - Retail) ÷ 75% × 100</li>
+                                            <li class="mb-1">Discount % = (Margin - RRP) ÷ Margin × 100</li>
                                         </ul>
                                     </div>
                                 </div>
@@ -1941,7 +1941,12 @@ function populatePreviewDataFromAPI(previewData) {
             `<span class="fw-medium">${cost}</span>`,
             `<span class="fw-medium text-primary">${marginPrice}</span>`,
             `<span class="fw-medium">${currentRetail}</span>`,
-            `<span class="fw-medium ${item.discount_percentage && item.discount_percentage > 60 ? 'text-warning' : 'text-info'}">${discount}</span>`,
+            `<span class="fw-medium ${
+                item.discount_percentage > 60 ? 'text-warning' :  // High discount (> 60%)
+                item.discount_percentage > 0 ? 'text-success' :    // Discount (0-60%)
+                item.discount_percentage < 0 ? 'text-danger' :     // Markup needed (negative)
+                'text-info'                                         // Zero or no data
+            }">${discount}</span>`,
             `<div>
                 <small class="text-muted">${item.notes}</small>
                 ${item.filename ? `<br><small class="text-info">From: ${item.filename}</small>` : ''}
@@ -2260,16 +2265,6 @@ function applyPreviewChanges() {
     // Show progress
     showProgressSection();
 
-    // Simulated progress for apply operation
-    let simulatedCurrent = 0;
-    const progressInterval = setInterval(() => {
-        if (simulatedCurrent < totalRecords * 0.9) { // Stop at 90%
-            simulatedCurrent += Math.max(1, Math.floor(totalRecords / 20)); // 5% increments
-            updateProgress(1, 1, simulatedCurrent, totalRecords,
-                `Applying changes... ${Math.round((simulatedCurrent/totalRecords)*100)}%`);
-        }
-    }, 200); // Update every 200ms
-
     // Get backup setting
     const backupPrices = document.getElementById('backup-prices').checked;
 
@@ -2279,25 +2274,97 @@ function applyPreviewChanges() {
                           'wholesale-schools';
     console.log('[DEBUG] Using category filter for apply:', categoryFilter);
 
-    // Prepare request data with ALL preview items (backend will filter for valid)
+    // Generate session ID for progress tracking
+    const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    console.log('[PROGRESS] Generated session ID:', sessionId);
+
+    // Prepare request data - send only essential fields to reduce payload size
+    // Full preview items = 1.8MB, compact items = ~300KB (6x smaller!)
+    const compactItems = window.currentPreviewData.map(item => ({
+        product_code: item.product_code,
+        barcode: item.barcode,
+        cost: item.cost,
+        margin_75_price: item.margin_75_price,
+        status: item.status,
+        current_retail_nzd_incl: item.current_retail_nzd_incl,
+        discount_percentage: item.discount_percentage
+    }));
+
     const requestData = {
-        preview_items: window.currentPreviewData,  // Send all items, backend filters for valid
+        preview_items: compactItems,  // Send compact items (~300KB vs 1.8MB)
         backup_prices: backupPrices,
-        category_filter: categoryFilter  // Include category from preview
+        category_filter: categoryFilter,
+        session_id: sessionId
     };
 
+    let requestBody;
+    try {
+        requestBody = JSON.stringify(requestData);
+        console.log('[DEBUG] Request data prepared:', {
+            preview_items_count: requestData.preview_items?.length,
+            backup_prices: requestData.backup_prices,
+            category_filter: requestData.category_filter,
+            session_id: requestData.session_id,
+            payload_size_estimate: requestBody.length + ' bytes'
+        });
+    } catch (error) {
+        console.error('[DEBUG] Failed to stringify request data:', error);
+        addLogEntry(`Failed to prepare request: ${error.message}`, 'error');
+        return;
+    }
+
+    // Variable to store polling interval
+    let progressInterval = null;
+
+    // Function to poll progress
+    function pollProgress() {
+        fetch(`/schools/wholesale/api/price-progress/${sessionId}/`)
+            .then(response => response.json())
+            .then(progressData => {
+                if (progressData.status === 'success' && progressData.progress) {
+                    const p = progressData.progress;
+                    console.log(`[PROGRESS] ${p.phase}: ${p.current}/${p.total} (${p.percentage}%) - ${p.message}`);
+
+                    // Update UI with real progress
+                    updateProgress(1, 1, p.current, p.total, p.message);
+                }
+            })
+            .catch(error => {
+                console.error('[PROGRESS] Polling error:', error);
+            });
+    }
+
+    // Start polling immediately
+    console.log('[PROGRESS] Starting progress polling every 500ms...');
+    progressInterval = setInterval(pollProgress, 500);
+
     // Call the apply API
-    fetch('/schools/wholesale/api/price-apply/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-        },
-        body: JSON.stringify(requestData)
+    console.log('[DEBUG] Sending POST request to /schools/wholesale/api/price-apply/...');
+    console.log('[DEBUG] Payload size:', requestBody.length, 'bytes (', (requestBody.length / 1024 / 1024).toFixed(2), 'MB)');
+
+    try {
+        fetch('/schools/wholesale/api/price-apply/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: requestBody
+        })
+        .catch(fetchError => {
+            console.error('[DEBUG] Fetch itself failed (before .then):', fetchError);
+            throw fetchError;
+        })
+    .then(response => {
+        console.log('[DEBUG] Response received:', {status: response.status, statusText: response.statusText});
+        return response.json();
     })
-    .then(response => response.json())
     .then(data => {
-        clearInterval(progressInterval); // Stop simulation
+        // Stop polling when complete
+        if (progressInterval) {
+            clearInterval(progressInterval);
+            console.log('[PROGRESS] Stopped polling - operation complete');
+        }
 
         if (data.success) {
             // Show 100% completion
@@ -2357,11 +2424,18 @@ function applyPreviewChanges() {
     })
     .catch(error => {
         clearInterval(progressInterval); // Stop simulation on error
+        console.error('[DEBUG] Fetch error:', error);
+        console.error('[DEBUG] Error stack:', error.stack);
         addLogEntry(`Network error while applying changes: ${error.message}`, 'error');
         setTimeout(() => {
             hideProgressSection();
         }, 1000);
     });
+    } catch (outerError) {
+        console.error('[DEBUG] Try-catch outer error:', outerError);
+        clearInterval(progressInterval);
+        addLogEntry(`Failed to send request: ${outerError.message}`, 'error');
+    }
 }
 
 function rejectPreviewChanges() {
