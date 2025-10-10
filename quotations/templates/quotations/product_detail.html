@@ -110,7 +110,7 @@
 }
 
 .product-title {
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: 700;
     color: #2c3e50;
     margin-bottom: 1rem;
@@ -155,13 +155,13 @@
 }
 
 .current-price {
-    font-size: 2.5rem;
+    font-size: 1.75rem;
     font-weight: 700;
     color: #0065F8;
 }
 
 .original-price {
-    font-size: 1.8rem;
+    font-size: 1.25rem;
     color: #6c757d;
     text-decoration: line-through;
 }
@@ -230,15 +230,15 @@
 /* Responsive Design */
 @media (max-width: 1024px) {
     .product-title {
-        font-size: 1.75rem;
+        font-size: 1.35rem;
     }
 
     .current-price {
-        font-size: 2rem;
+        font-size: 1.5rem;
     }
 
     .original-price {
-        font-size: 1.5rem;
+        font-size: 1.1rem;
     }
 
     .main-product-image img {
@@ -278,11 +278,11 @@
     }
 
     .product-title {
-        font-size: 1.5rem;
+        font-size: 1.25rem;
     }
 
     .current-price {
-        font-size: 1.8rem;
+        font-size: 1.4rem;
     }
 
     .main-product-image img {
@@ -904,7 +904,14 @@
                     </div>
 
                     <!-- Product Title -->
-                    <h1 class="product-title">{{ product.name }}</h1>
+                    <h1 class="product-title">
+                        {{ product.name }}
+                        {% if can_view_cost_price_alerts and product_missing_cost_price %}
+                            <span class="badge bg-danger ms-2" style="font-size: 0.7rem; vertical-align: middle;">
+                                <i class="uil-exclamation-triangle me-1"></i>Missing product cost
+                            </span>
+                        {% endif %}
+                    </h1>
 
                     <!-- Product Pricing -->
                     <div class="product-pricing">
@@ -972,10 +979,10 @@
 
                     <!-- Action Buttons -->
                     <div class="action-buttons">
-                        <button type="button" class="btn btn-secondary btn-lg" onclick="window.location.href='{% url 'quotations:new-quotation' %}?tab={{ active_tab|default:'schools' }}'">
+                        <button type="button" class="btn btn-secondary" onclick="window.location.href='{% url 'quotations:new-quotation' %}?tab={{ active_tab|default:'schools' }}'">
                             <i class="mdi mdi-arrow-left me-1"></i> Back
                         </button>
-                        <button type="button" class="btn btn-primary btn-lg" id="addToQuoteBtn">
+                        <button type="button" class="btn btn-primary" id="addToQuoteBtn">
                             <i class="mdi mdi-cart-plus me-1"></i> Add to Quote
                         </button>
                     </div>
@@ -1238,6 +1245,27 @@ function updateProductDisplay(variation) {
     const skuElement = document.getElementById('productSku');
     if (skuElement && variation.sku) {
         skuElement.textContent = variation.sku;
+    }
+
+    // Update product title with cost price indicator if applicable
+    const canViewAlerts = {{ can_view_cost_price_alerts|lower }};
+    const productTitleElement = document.querySelector('.product-title');
+    if (productTitleElement && canViewAlerts) {
+        // Remove existing cost price badge if any
+        const existingBadge = productTitleElement.querySelector('.badge.bg-danger');
+        if (existingBadge) {
+            existingBadge.remove();
+        }
+
+        // Add new badge if variation is missing cost price
+        if (variation.missing_cost_price) {
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-danger ms-2';
+            badge.style.fontSize = '0.7rem';
+            badge.style.verticalAlign = 'middle';
+            badge.innerHTML = '<i class="uil-exclamation-triangle me-1"></i>Missing product cost';
+            productTitleElement.appendChild(badge);
+        }
     }
 
     // Update pricing

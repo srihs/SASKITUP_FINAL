@@ -1128,6 +1128,13 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
         # Add product type for variation fetching
         context['product_type'] = product_type
 
+        # Add permission flag for cost price alerts (visible to admins, sales reps, account managers)
+        context['can_view_cost_price_alerts'] = (
+            self.request.user.is_admin or
+            self.request.user.is_sales_rep or
+            self.request.user.is_account_manager
+        )
+
         # Add institution name
         context['institution_name'] = self._get_institution_name(product, product_type)
 
@@ -1228,6 +1235,13 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
                     var_data['discount_amount'] = None
                     var_data['discount_percentage'] = None
 
+                # Add cost price missing indicator for variation
+                var_data['missing_cost_price'] = (
+                    not hasattr(variation, 'cost_price') or
+                    variation.cost_price is None or
+                    variation.cost_price <= 0
+                )
+
                 variations.append(var_data)
 
         context['variations'] = variations
@@ -1236,6 +1250,23 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
         # Convert variations to JSON for JavaScript
         import json
         context['variations_json'] = json.dumps(variations)
+
+        # Check if product is missing cost price
+        # Logic: If variations exist, check if ALL variations are missing cost price
+        #        If no variations, check main product's cost price
+        if variations:
+            # Check if ALL variations are missing cost price
+            context['product_missing_cost_price'] = all(
+                var_data.get('missing_cost_price', True)
+                for var_data in variations
+            )
+        else:
+            # No variations - check main product's cost price
+            context['product_missing_cost_price'] = (
+                not hasattr(product, 'cost_price') or
+                product.cost_price is None or
+                product.cost_price <= 0
+            )
 
         return context
 
