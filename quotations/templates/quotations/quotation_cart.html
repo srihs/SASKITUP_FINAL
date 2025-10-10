@@ -489,28 +489,41 @@
 }
 
 .variation-touchspin {
-    width: 50px !important;
+    width: 100px !important;
+}
+
+.variation-touchspin .bootstrap-touchspin {
+    width: 100% !important;
 }
 
 .variation-touchspin input {
     font-size: 13px !important;
     padding: 0.25rem 0.5rem !important;
     height: 32px !important;
+    width: 40px !important;
+    text-align: center !important;
 }
 
 .variation-touchspin .bootstrap-touchspin .input-group-btn-vertical {
-    width: 32px;
-}
-
-.variation-touchspin .bootstrap-touchspin .input-group-btn-vertical .btn {
-    padding: 0.3rem 0.5rem;
-    font-size: 12px;
+    display: none !important;
 }
 
 .variation-touchspin .bootstrap-touchspin .input-group-btn .btn {
-    padding: 0.3rem 0.5rem;
-    font-size: 12px;
-    height: 32px;
+    padding: 0.3rem 0.4rem !important;
+    font-size: 11px !important;
+    height: 32px !important;
+    min-width: 28px !important;
+}
+
+.variation-touchspin .bootstrap-touchspin .input-group-prepend,
+.variation-touchspin .bootstrap-touchspin .input-group-append {
+    display: flex !important;
+}
+
+.variation-touchspin .bootstrap-touchspin .input-group {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
 }
 
 .variation-discount {
