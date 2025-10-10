@@ -67,13 +67,16 @@ urlpatterns = [
     # Price management hub
     path('wholesale/price-management/', views.price_management_hub, name='price-management-hub'),
 
-    # Wholesale settings endpoints
-    path('wholesale/settings/price-update/', views.wholesale_price_update_settings, name='wholesale-price-update-settings'),
-
-    # Wholesale price update API endpoints
-    path('wholesale/api/price-preview/', views.wholesale_price_preview, name='wholesale-price-preview'),
-    path('wholesale/api/price-apply/', views.wholesale_price_apply, name='wholesale-price-apply'),
-    path('wholesale/api/price-progress/<str:session_id>/', views.wholesale_price_progress, name='wholesale-price-progress'),
+    # ============================================================================
+    # OLD EXCEL/CSV-BASED PRICE UPDATE - COMMENTED OUT - Replaced with Cin7 API
+    # ============================================================================
+    # # Wholesale settings endpoints
+    # path('wholesale/settings/price-update/', views.wholesale_price_update_settings, name='wholesale-price-update-settings'),
+    #
+    # # Wholesale price update API endpoints
+    # path('wholesale/api/price-preview/', views.wholesale_price_preview, name='wholesale-price-preview'),
+    # path('wholesale/api/price-apply/', views.wholesale_price_apply, name='wholesale-price-apply'),
+    # path('wholesale/api/price-progress/<str:session_id>/', views.wholesale_price_progress, name='wholesale-price-progress'),
 
     # Cin7 price update endpoints
     path('wholesale/cin7-price-update/', views.cin7_price_update_settings, name='cin7-price-update-settings'),

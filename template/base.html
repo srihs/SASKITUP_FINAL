@@ -484,7 +484,10 @@
                                     {% if user.is_authenticated and user.is_admin %}
                                     <li><a href="{% url 'authentication:settings-dashboard' %}">Settings Dashboard</a></li>
                                     <li><a href="{% url 'clubs:sync-management' %}">Sync Management</a></li>
-                                    <li><a href="{% url 'schools:wholesale-price-update-settings' %}">Price Update</a></li>
+                                    {# OLD Excel-based price update - COMMENTED OUT #}
+                                    {# <li><a href="{% url 'schools:wholesale-price-update-settings' %}">Price Update</a></li> #}
+                                    {# NEW Price Management Hub - Choose between Cin7 API or CSV upload #}
+                                    <li><a href="{% url 'schools:price-management-hub' %}">Price Update</a></li>
                                     {% elif user.is_authenticated and user.id %}
                                     <li><a href="{% url 'authentication:user-detail' user.id %}">My Profile</a></li>
                                     {% endif %}
@@ -522,11 +525,11 @@
                     <div class="container-fluid">
                         <div class="row">
                             <div class="col-sm-6">
-                                <script>document.write(new Date().getFullYear())</script> © Minible.
+                                <script>document.write(new Date().getFullYear())</script> © SAS SPORTS LTD.
                             </div>
                             <div class="col-sm-6">
                                 <div class="text-sm-end d-none d-sm-block">
-                                    Crafted with <i class="mdi mdi-heart text-danger"></i> by SAS IT TEAM</a>
+                                    Crafted by <strong>SAS SPORTS IT TEAM</strong>
                                 </div>
                             </div>
                         </div>

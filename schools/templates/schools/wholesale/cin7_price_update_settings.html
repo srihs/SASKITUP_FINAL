@@ -88,85 +88,94 @@
 <meta name="csrf-token" content="{{ csrf_token }}">
 
 <div class="container-fluid">
-    <!-- Page Title -->
-    <div class="row">
-        <div class="col-12">
-            <div class="page-title-box">
-                <div class="page-title-right">
-                    <ol class="breadcrumb m-0">
-                        <li class="breadcrumb-item"><a href="{% url 'schools:wholesale_schools' %}">Wholesale</a></li>
-                        <li class="breadcrumb-item active">Cin7 Price Update</li>
-                    </ol>
+    <!-- Settings Card -->
+    <div class="row justify-content-center" id="settingsCard">
+        <div class="col-xl-8 col-lg-10">
+            <div class="card">
+                <div class="card-body">
+                    <h4 class="header-title mb-4">
+                        <i class="uil-setting me-2 text-primary"></i>Select Price Type
+                    </h4>
+
+                    <div class="row">
+                        <!-- Price Category Selection -->
+                        <div class="col-md-12 mb-4">
+                            <label for="priceType" class="form-label fw-semibold">Price Category</label>
+                            <select class="form-select form-select-lg" id="priceType">
+                                <option value="Wholesale" selected>Wholesale (Schools)</option>
+                                <option value="TUS">TUS (Retail Schools)</option>
+                                <option value="LOTTO">LOTTO (Clubs)</option>
+                                <option value="SAS">SAS (Clubs)</option>
+                            </select>
+                            <small class="form-text text-muted mt-2 d-block">
+                                <i class="uil-info-circle"></i> Select the product category to update prices for
+                            </small>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="col-md-12">
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <button type="button" class="btn btn-primary btn-lg w-100" id="fetchPricesBtn">
+                                        <i class="uil-cloud-download me-2"></i>Fetch Prices from Cin7
+                                    </button>
+                                </div>
+                                <div class="col-md-6">
+                                    <button type="button" class="btn btn-success btn-lg w-100" id="standaloneMatchBtn">
+                                        <i class="uil-sync me-2"></i>Match Existing Products
+                                    </button>
+                                </div>
+                                <div class="col-md-6">
+                                    <button type="button" class="btn btn-warning btn-lg w-100" id="resetMatchBtn">
+                                        <i class="uil-redo me-2"></i>Reset Matching
+                                    </button>
+                                </div>
+                            </div>
+                            <small class="text-muted mt-3 d-block">
+                                <i class="uil-info-circle"></i> Use "Match Existing Products" to match fetched data. Use "Reset Matching" to clear existing matches and re-run.
+                            </small>
+                        </div>
+                    </div>
                 </div>
-                <h4 class="page-title">
-                    <i class="uil-cloud-download me-2"></i>Cin7 Price Update
-                </h4>
             </div>
         </div>
     </div>
 
-    <!-- Settings Card -->
-    <div class="row" id="settingsCard">
-        <div class="col-lg-6">
-            <div class="card">
+    <!-- Instructions Section -->
+    <div class="row justify-content-center mt-4">
+        <div class="col-xl-8 col-lg-10">
+            <div class="card border-primary">
                 <div class="card-body">
-                    <h4 class="header-title mb-3">
-                        <i class="uil-setting me-2 text-primary"></i>Select Price Type
-                    </h4>
-
-                    <div class="mb-3">
-                        <label for="priceType" class="form-label fw-semibold">Price Category</label>
-                        <select class="form-select" id="priceType">
-                            <option value="Wholesale" selected>Wholesale (Schools)</option>
-                            <option value="TUS">TUS (Retail Schools)</option>
-                            <option value="LOTTO">LOTTO (Clubs)</option>
-                            <option value="SAS">SAS (Clubs)</option>
-                        </select>
-                        <small class="form-text text-muted">
-                            <i class="uil-info-circle"></i> Select the product category to update prices for
-                        </small>
-                    </div>
-
-                    <div class="d-grid gap-2">
-                        <button type="button" class="btn btn-primary btn-lg" id="fetchPricesBtn">
-                            <i class="uil-download-alt me-2"></i>Fetch Prices from Cin7
-                        </button>
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-success btn-lg" id="standaloneMatchBtn">
-                                <i class="uil-sync me-2"></i>Match Existing Products
-                            </button>
-                            <button type="button" class="btn btn-warning btn-lg" id="resetMatchBtn">
-                                <i class="uil-redo me-2"></i>Reset Matching
-                            </button>
-                        </div>
-                        <small class="text-muted mt-2">
-                            <i class="uil-info-circle"></i> Use "Match Existing Products" to match fetched data. Use "Reset Matching" to clear existing matches and re-run.
-                        </small>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-6">
-            <div class="card bg-primary text-white">
-                <div class="card-body">
-                    <h4 class="header-title text-white mb-3">
+                    <h5 class="card-title text-primary mb-3">
                         <i class="uil-lightbulb-alt me-2"></i>How It Works
-                    </h4>
-                    <ol class="mb-3">
-                        <li class="mb-2">Select the price type you want to update</li>
-                        <li class="mb-2">Click "Fetch Prices from Cin7" to retrieve latest prices</li>
-                        <li class="mb-2">Review the preview of price changes</li>
-                        <li class="mb-2">Click "Apply Updates" to save changes to database</li>
-                    </ol>
-                    <div class="border-top border-white-50 pt-3">
-                        <h5 class="text-white mb-2">
-                            <i class="uil-calculator me-2"></i>Price Calculations
-                        </h5>
-                        <ul class="mb-0">
-                            <li><strong>75% Margin Price</strong> = Cost ÷ 0.25</li>
-                            <li><strong>Discount %</strong> = ((75% Margin - RRP) ÷ 75% Margin) × 100</li>
-                        </ul>
+                    </h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="fw-semibold mb-2"><i class="uil-list-ul me-2 text-info"></i>Steps:</h6>
+                            <ol class="ps-3">
+                                <li class="mb-2">Select your price category from the dropdown</li>
+                                <li class="mb-2">Click <strong>"Fetch Prices from Cin7"</strong> to retrieve latest data</li>
+                                <li class="mb-2">Click <strong>"Match Existing Products"</strong> to match with your database</li>
+                                <li class="mb-2">Review the preview table showing all changes</li>
+                                <li class="mb-2">Click <strong>"Apply Updates"</strong> to save changes</li>
+                            </ol>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="fw-semibold mb-2"><i class="uil-calculator me-2 text-success"></i>Price Calculations:</h6>
+                            <ul class="list-unstyled ps-3">
+                                <li class="mb-2">
+                                    <strong>75% Margin Price</strong><br>
+                                    <code class="text-muted">Cost ÷ 0.25</code>
+                                </li>
+                                <li class="mb-2">
+                                    <strong>Discount Percentage</strong><br>
+                                    <code class="text-muted">((Margin - RRP) ÷ Margin) × 100</code>
+                                </li>
+                            </ul>
+                            <div class="alert alert-info mb-0 mt-3">
+                                <small><i class="uil-info-circle"></i> Positive % = discount, Negative % = markup needed</small>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

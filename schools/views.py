@@ -2261,7 +2261,10 @@ def nz_schools_sync_status(request, job_id):
             'error': f'Failed to get sync status: {str(e)}'
         }, status=500)
 
-
+# ============================================================================
+# OLD EXCEL/CSV-BASED PRICE PREVIEW - COMMENTED OUT - Replaced with Cin7 API
+# ============================================================================
+'''
 @csrf_exempt
 @require_http_methods(["POST"])
 def wholesale_price_preview(request):
@@ -2776,8 +2779,12 @@ def wholesale_price_preview(request):
             'traceback': traceback.format_exc(),
             'context': context_info
         }, status=500)
+'''
 
-
+# ============================================================================
+# OLD EXCEL/CSV-BASED PRICE APPLY - COMMENTED OUT - Replaced with Cin7 API
+# ============================================================================
+'''
 @csrf_exempt
 @require_http_methods(["POST"])
 def wholesale_price_apply(request):
@@ -3367,65 +3374,68 @@ def wholesale_price_apply(request):
             'success': False,
             'error': f'Apply operation failed: {str(e)}'
         }, status=500)
+'''
+
+# ============================================================================
+# OLD EXCEL/CSV-BASED PRICE UPDATE - COMMENTED OUT - Replaced with Cin7 API
+# ============================================================================
+# def wholesale_price_update_settings(request):
+#     """
+#     Wholesale price update settings page
+#     """
+#     # Log settings access
+#     try:
+#         from authentication.models import AuditLog
+#         user = request.user if hasattr(request, 'user') and request.user.is_authenticated else None
+#         AuditLog.log_action(
+#             user=user,
+#             action_type='wholesale_price_settings_accessed',
+#             description="Accessed wholesale price update settings",
+#             request=request
+#         )
+#     except Exception as e:
+#         logger.error(f"Failed to audit settings access: {str(e)}")
+#
+#     context = {
+#         'page_title': 'Wholesale Price Update Settings',
+#     }
+#     return render(request, 'schools/wholesale/price_update_settings.html', context)
 
 
-def wholesale_price_update_settings(request):
-    """
-    Wholesale price update settings page
-    """
-    # Log settings access
-    try:
-        from authentication.models import AuditLog
-        user = request.user if hasattr(request, 'user') and request.user.is_authenticated else None
-        AuditLog.log_action(
-            user=user,
-            action_type='wholesale_price_settings_accessed',
-            description="Accessed wholesale price update settings",
-            request=request
-        )
-    except Exception as e:
-        logger.error(f"Failed to audit settings access: {str(e)}")
-
-    context = {
-        'page_title': 'Wholesale Price Update Settings',
-    }
-    return render(request, 'schools/wholesale/price_update_settings.html', context)
-
-
-@csrf_exempt
-def wholesale_price_progress(request, session_id):
-    """
-    Poll endpoint for real-time price update progress.
-    Returns current progress from Django cache.
-    """
-    from django.core.cache import cache
-
-    if request.method != 'GET':
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
-
-    # Get progress from cache
-    cache_key = f"price_update_progress_{session_id}"
-    progress_data = cache.get(cache_key)
-
-    if progress_data is None:
-        # Return pending status instead of 404 to avoid console errors
-        # The frontend polls before the backend initializes progress data
-        return JsonResponse({
-            'status': 'pending',
-            'message': 'Waiting for price update to start...',
-            'progress': {
-                'current': 0,
-                'total': 0,
-                'percentage': 0,
-                'phase': 'waiting',
-                'message': 'Initializing...'
-            }
-        })
-
-    return JsonResponse({
-        'status': 'success',
-        'progress': progress_data
-    })
+# @csrf_exempt
+# def wholesale_price_progress(request, session_id):
+#     """
+#     Poll endpoint for real-time price update progress.
+#     Returns current progress from Django cache.
+#     """
+#     from django.core.cache import cache
+#
+#     if request.method != 'GET':
+#         return JsonResponse({'error': 'Method not allowed'}, status=405)
+#
+#     # Get progress from cache
+#     cache_key = f"price_update_progress_{session_id}"
+#     progress_data = cache.get(cache_key)
+#
+#     if progress_data is None:
+#         # Return pending status instead of 404 to avoid console errors
+#         # The frontend polls before the backend initializes progress data
+#         return JsonResponse({
+#             'status': 'pending',
+#             'message': 'Waiting for price update to start...',
+#             'progress': {
+#                 'current': 0,
+#                 'total': 0,
+#                 'percentage': 0,
+#                 'phase': 'waiting',
+#                 'message': 'Initializing...'
+#             }
+#         })
+#
+#     return JsonResponse({
+#         'status': 'success',
+#         'progress': progress_data
+#     })
 
 
 # ============================================================================
