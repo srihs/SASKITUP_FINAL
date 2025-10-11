@@ -333,6 +333,20 @@
     }
 }
 
+/* NEW: Mobile responsive styles for action buttons */
+@media (max-width: 575px) {
+    /* Stack buttons vertically on mobile */
+    .text-sm-end .btn {
+        display: block;
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+
+    .text-sm-end .btn.ms-2 {
+        margin-left: 0 !important;
+    }
+}
+
 /* Product Group Header */
 .product-group-header {
     cursor: pointer;
@@ -790,8 +804,13 @@
                 </div> <!-- end col -->
                 <div class="col-sm-6">
                     <div class="text-sm-end mt-2 mt-sm-0">
+                        <!-- CHANGED: Updated button text from "Submit Quotation" to "Generate Quotation" -->
                         <button type="button" class="btn btn-success" onclick="saveQuotation()">
-                            <i class="uil uil-shopping-cart-alt me-1"></i> Submit Quotation
+                            <i class="uil uil-shopping-cart-alt me-1"></i> Generate Quotation
+                        </button>
+                        <!-- NEW: Added Clear Quotation button with secondary/danger styling -->
+                        <button type="button" class="btn btn-outline-danger ms-2" onclick="clearQuotation()">
+                            <i class="mdi mdi-delete-outline me-1"></i> Clear Quotation
                         </button>
                     </div>
                 </div> <!-- end col -->
@@ -801,8 +820,9 @@
         <div class="col-xl-4">
             <div class="mt-5 mt-lg-3">
                 <div class="card border shadow-none">
+                    <!-- CHANGED: Updated "Order Summary" to "Quotation Summary" -->
                     <div class="card-header bg-transparent border-bottom py-3 px-4">
-                        <h5 class="font-size-16 mb-0">Order Summary{% if quotation_number %} <span class="float-end">#{{ quotation_number }}</span>{% endif %}</h5>
+                        <h5 class="font-size-16 mb-0">Quotation Summary{% if quotation_number %} <span class="float-end">#{{ quotation_number }}</span>{% endif %}</h5>
                     </div>
                     <div class="card-body p-4">
                         <div class="table-responsive">
@@ -1161,6 +1181,43 @@ function saveQuotation() {
             }, 1500);
         } else {
             toastr.error(data.error || 'Failed to save quotation');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        console.error('Error:', error);
+        toastr.error('An error occurred. Please try again.');
+    });
+}
+
+// NEW: Clear Quotation Function
+function clearQuotation() {
+    // Confirmation dialog before clearing
+    if (!confirm('Are you sure you want to clear all items from the quotation? This action cannot be undone.')) {
+        return;
+    }
+
+    showLoading();
+
+    // Send AJAX request to clear quotation
+    fetch('{% url "quotations:clear" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrftoken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            toastr.success(data.message || 'Quotation cleared successfully!');
+            // Reload page to show empty cart state after a short delay
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        } else {
+            toastr.error(data.error || 'Failed to clear quotation');
         }
     })
     .catch(error => {
