@@ -58,19 +58,10 @@ def quotation_cart(request):
 
                 # Fetch product image
                 try:
-                    # Normalize product_type - it might be stored as "LOTTO", "SAS", "TUS"
-                    # but get_product_by_type_and_id expects "LottoProduct", "SASProduct", etc.
-                    normalized_type = product_type
-                    if product_type.upper() == 'LOTTO':
-                        normalized_type = 'LottoProduct'
-                    elif product_type.upper() == 'SAS':
-                        normalized_type = 'SASProduct'
-                    elif product_type.upper() == 'TUS':
-                        normalized_type = 'TUSProduct'
-                    elif product_type.lower() == 'wholesale':
-                        normalized_type = 'WholesaleProduct'
+                    # Product type is stored as lowercase model name (lottoproduct, sasproduct, tusproduct, wholesaleproduct)
+                    # get_product_by_type_and_id expects the same format
+                    product = get_product_by_type_and_id(product_type, product_id)
 
-                    product = get_product_by_type_and_id(normalized_type, product_id)
                     if product:
                         # Try different image field names
                         image_url = None
@@ -82,11 +73,8 @@ def quotation_cart(request):
                             image_url = product.product_image
 
                         product_groups[product_key]['image_url'] = image_url or ''
-                except Exception as e:
+                except Exception:
                     # If product fetch fails, just continue without image
-                    import traceback
-                    print(f"Error fetching product image for {product_type} {product_id}: {e}")
-                    print(traceback.format_exc())
                     pass
 
             product_groups[product_key]['variations'].append({

@@ -167,17 +167,6 @@
                                         {% for group in grouped_cart_items %}
                                         <div class="mini-cart-item" role="listitem">
                                             <div class="d-flex gap-3">
-                                                <div class="mini-cart-item-image">
-                                                    <a href="{% url 'quotations:quotation-cart' %}" class="product-thumbnail">
-                                                        {% if group.image_url %}
-                                                            <img src="{{ group.image_url }}" alt="{{ group.product_name }}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                                            <i class="uil-box" aria-hidden="true" style="display:none;"></i>
-                                                        {% else %}
-                                                            <i class="uil-box" aria-hidden="true"></i>
-                                                        {% endif %}
-                                                    </a>
-                                                    <!-- Debug: {{ group.image_url|default:"no image" }} -->
-                                                </div>
                                                 <div class="mini-cart-item-details flex-grow-1">
                                                     <a href="{% url 'quotations:quotation-cart' %}" class="product-name">
                                                         {{ group.product_name }}
