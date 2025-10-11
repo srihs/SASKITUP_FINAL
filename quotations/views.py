@@ -28,6 +28,7 @@ from authentication.permissions import (
 )
 from authentication.models import User, SalesRepSchoolAssignment, SalesRepClubAssignment, AuditLog
 from schools.models import School, WholesaleSchool, WholesaleProduct, WholesaleProductVariation
+from schools.models_tus import TUSProductVariation
 from clubs.models_lotto import LottoClub, LottoProduct
 from clubs.models_sas import SASClub, SASProduct
 from .models import Quotation, QuotationItem, CustomerInstitutionAssignment
@@ -1341,15 +1342,40 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
         # SCHOOLS TAB - TUS Schools and Wholesale Schools
         # ========================================
         if active_tab == 'schools':
+            from django.db.models import Exists, OuterRef, Q as QOuter
+
             # Get TUS School Products
             tus_products_qs = TUSProduct.objects.none()
             if assigned_schools.get('regular'):
                 tus_school_ids = [school.id for school in assigned_schools['regular']]
+
+                # Stock filtering for TUS Products:
+                # - If product has variations: At least ONE variation must have stock_quantity > 0
+                # - If product has no variations: Base product must have stock_status in ['instock', 'onbackorder']
+
+                # Subquery to check if product has at least one variation with stock
+                has_stock_variation = Exists(
+                    TUSProductVariation.objects.filter(
+                        product=OuterRef('pk'),
+                        is_active=True,
+                        stock_quantity__gt=0
+                    )
+                )
+
                 tus_products_qs = TUSProduct.objects.filter(
                     category_assignments__school_category__school_id__in=tus_school_ids,
-                    stock_status__in=['instock', 'onbackorder']
+                ).annotate(
+                    has_stock_variation=has_stock_variation
+                ).filter(
+                    # Filter: (has variations AND has stock in at least one variation) OR
+                    #         (no variations AND product stock_status is instock/onbackorder)
+                    QOuter(
+                        QOuter(type='variable', has_stock_variation=True) |
+                        QOuter(type='simple', stock_status__in=['instock', 'onbackorder'])
+                    )
                 ).prefetch_related(
-                    'category_assignments__school_category__school'
+                    'category_assignments__school_category__school',
+                    'variations'
                 ).distinct()
 
                 # Apply search filter
@@ -1365,10 +1391,44 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
             # Get Wholesale School Products with variations
             wholesale_products_qs = WholesaleProduct.objects.none()
             if assigned_schools.get('wholesale'):
+                from schools.models import WholesaleProductVariation
+
                 wholesale_school_ids = [school.id for school in assigned_schools['wholesale']]
+
+                # Stock filtering for Wholesale Products:
+                # - If product has variations: At least ONE variation must have stock_quantity > 0
+                # - If product has no variations: Base product must be is_active=True (already filtered)
+
+                # Subquery to check if product has at least one variation with stock
+                has_stock_variation_wholesale = Exists(
+                    WholesaleProductVariation.objects.filter(
+                        product=OuterRef('pk'),
+                        is_active=True,
+                        quantity_available__gt=0
+                    )
+                )
+
+                # Subquery to check if product has any variations at all
+                has_any_variation_wholesale = Exists(
+                    WholesaleProductVariation.objects.filter(
+                        product=OuterRef('pk'),
+                        is_active=True
+                    )
+                )
+
                 wholesale_products_qs = WholesaleProduct.objects.filter(
                     school_id__in=wholesale_school_ids,
                     is_active=True
+                ).annotate(
+                    has_stock_variation=has_stock_variation_wholesale,
+                    has_any_variation=has_any_variation_wholesale
+                ).filter(
+                    # Filter: (has variations AND has stock in at least one variation) OR
+                    #         (no variations - show all active products without variations)
+                    QOuter(
+                        QOuter(has_any_variation=True, has_stock_variation=True) |
+                        QOuter(has_any_variation=False)
+                    )
                 ).select_related('school').prefetch_related('variations')
 
                 # Apply search filter
@@ -1426,6 +1486,10 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
         # CLUBS TAB - SAS Clubs and LOTTO Clubs
         # ========================================
         elif active_tab == 'clubs':
+            from django.db.models import Exists, OuterRef, Q as QOuter
+            from clubs.models_sas import SASProductVariation
+            from clubs.models_lotto import LottoProductVariation
+
             # Get assigned clubs
             if request.user.is_admin or request.user.is_account_manager:
                 # Admin and account managers have access to all clubs
@@ -1454,10 +1518,41 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                 sas_clubs = SASClub.objects.none()
                 lotto_clubs = LottoClub.objects.none()
 
-            # Get SAS Products with variations
+            # Stock filtering for SAS Products:
+            # - If product has variations: At least ONE variation must have stock_quantity > 0
+            # - If product has no variations: Base product must have stock_status in ['instock', 'onbackorder']
+
+            # Subquery to check if product has at least one variation with stock
+            has_stock_variation_sas = Exists(
+                SASProductVariation.objects.filter(
+                    product=OuterRef('pk'),
+                    is_active=True,
+                    stock_quantity__gt=0
+                )
+            )
+
+            # Subquery to check if product has any variations at all
+            has_any_variation_sas = Exists(
+                SASProductVariation.objects.filter(
+                    product=OuterRef('pk'),
+                    is_active=True
+                )
+            )
+
+            # Get SAS Products with stock filtering
             sas_products_qs = SASProduct.objects.filter(
                 club__in=sas_clubs,
                 is_active=True
+            ).annotate(
+                has_stock_variation=has_stock_variation_sas,
+                has_any_variation=has_any_variation_sas
+            ).filter(
+                # Filter: (has variations AND has stock in at least one variation) OR
+                #         (no variations AND product stock_status is instock/onbackorder)
+                QOuter(
+                    QOuter(has_any_variation=True, has_stock_variation=True) |
+                    QOuter(has_any_variation=False, stock_status__in=['instock', 'onbackorder'])
+                )
             ).select_related('club').prefetch_related('variations')
 
             # Apply search filter
@@ -1469,10 +1564,31 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                     Q(variations__sku_suffix__icontains=search_query)  # Search in variation SKU suffix
                 ).distinct()
 
-            # Get LOTTO Products with variations
+            # Stock filtering for LOTTO Products:
+            # - If product has variations: At least ONE variation must have stock_quantity > 0
+            # - If product has no variations: Base product must have stock_status in ['instock', 'onbackorder']
+
+            # Subquery to check if product has at least one variation with stock
+            has_stock_variation_lotto = Exists(
+                LottoProductVariation.objects.filter(
+                    product=OuterRef('pk'),
+                    is_active=True,
+                    stock_quantity__gt=0
+                )
+            )
+
+            # Get LOTTO Products with stock filtering
             lotto_products_qs = LottoProduct.objects.filter(
                 category__club__in=lotto_clubs,
-                stock_status__in=['instock', 'onbackorder']
+            ).annotate(
+                has_stock_variation=has_stock_variation_lotto
+            ).filter(
+                # Filter: (has variations AND has stock in at least one variation) OR
+                #         (no variations AND product stock_status is instock/onbackorder)
+                QOuter(
+                    QOuter(type='variable', has_stock_variation=True) |
+                    QOuter(type='simple', stock_status__in=['instock', 'onbackorder'])
+                )
             ).select_related('category__club').prefetch_related('variations')
 
             # Apply search filter

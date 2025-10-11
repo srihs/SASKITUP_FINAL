@@ -735,8 +735,8 @@
                                         {% elif product.product_type == 'sasproduct' %}
                                             <a href="{% url 'quotations:product-detail-for-quote' product_type='sasproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
                                                 <div class="product-img">
-                                                    {% if product.image %}
-                                                        <img src="{{ product.image }}" alt="{{ product.name }}">
+                                                    {% if product.image_url %}
+                                                        <img src="{{ product.image_url }}" alt="{{ product.name }}">
                                                     {% else %}
                                                         <img src="{% static 'assets/images/product-placeholder.png' %}" alt="{{ product.name }}">
                                                     {% endif %}
