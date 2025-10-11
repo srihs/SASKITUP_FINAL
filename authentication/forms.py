@@ -138,7 +138,7 @@ class UserForm(forms.ModelForm):
         model = User
         fields = [
             'email', 'username', 'first_name', 'last_name',
-            'user_type', 'employee_id', 'phone', 'department',
+            'user_type', 'employee_id', 'phone', 'address', 'department',
             'hire_date', 'is_active', 'is_staff', 'is_active_sales_rep'
         ]
         # Note: email_verified is referenced in template but not in model
@@ -168,6 +168,11 @@ class UserForm(forms.ModelForm):
             'phone': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Enter phone number'
+            }),
+            'address': forms.Textarea(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter physical address',
+                'rows': 3
             }),
             'department': forms.TextInput(attrs={
                 'class': 'form-control',

@@ -862,6 +862,24 @@
                         <!-- end table-responsive -->
                     </div>
                 </div>
+
+                <!-- Recipient Information Section -->
+                <div class="card border shadow-none mt-3">
+                    <div class="card-header bg-transparent border-bottom py-3 px-4">
+                        <h5 class="font-size-16 mb-0">Recipient Information <span class="text-muted font-size-13">(Optional)</span></h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="mb-3">
+                            <label for="recipient_name" class="form-label">Recipient Name</label>
+                            <input type="text" class="form-control" id="recipient_name" placeholder="Enter recipient name" value="{% if is_customer %}{{ user_full_name }}{% endif %}">
+                        </div>
+                        <div class="mb-0">
+                            <label for="recipient_address" class="form-label">Recipient Address</label>
+                            <textarea class="form-control" id="recipient_address" rows="3" placeholder="Enter recipient address">{% if is_customer %}{{ user_address }}{% endif %}</textarea>
+                        </div>
+                    </div>
+                </div>
+                <!-- end Recipient Information Section -->
             </div>
         </div>
     </div>
@@ -1194,13 +1212,23 @@ function saveQuotation() {
 
     showLoading();
 
+    // Get recipient information from the form
+    const recipientName = document.getElementById('recipient_name').value;
+    const recipientAddress = document.getElementById('recipient_address').value;
+
+    // Prepare form data
+    const formData = new URLSearchParams();
+    formData.append('recipient_name', recipientName);
+    formData.append('recipient_address', recipientAddress);
+
     // Send AJAX request to save quotation
     fetch('{% url "quotations:save" %}', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
             'X-CSRFToken': csrftoken
-        }
+        },
+        body: formData
     })
     .then(response => response.json())
     .then(data => {

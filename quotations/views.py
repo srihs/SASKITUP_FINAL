@@ -596,6 +596,13 @@ class QuotationCartView(LoginRequiredMixin, View):
             item_count=len(enriched_items)
         )
 
+        # Prepare user data for auto-population (for customer users)
+        user_full_name = ''
+        user_address = ''
+        if request.user.is_customer:
+            user_full_name = request.user.get_full_name()
+            user_address = getattr(request.user, 'address', '')
+
         context = {
             'cart_items': enriched_items,  # Changed from 'items' to match template
             'subtotal': totals['subtotal'],
@@ -605,6 +612,9 @@ class QuotationCartView(LoginRequiredMixin, View):
             'institution': institution,
             'institution_type': institution_type,
             'institution_slug': institution_slug,
+            'user_full_name': user_full_name,
+            'user_address': user_address,
+            'is_customer': request.user.is_customer,
         }
 
         return render(request, self.template_name, context)
@@ -935,6 +945,10 @@ class SaveQuotationView(LoginRequiredMixin, View):
                     'error': 'You do not have permission to create quotations for this institution'
                 }, status=403)
 
+            # Get recipient information from POST data
+            recipient_name = request.POST.get('recipient_name', '').strip()
+            recipient_address = request.POST.get('recipient_address', '').strip()
+
             # Create Quotation
             institution_content_type = ContentType.objects.get_for_model(institution)
             quotation = Quotation.objects.create(
@@ -942,6 +956,8 @@ class SaveQuotationView(LoginRequiredMixin, View):
                 institution_content_type=institution_content_type,
                 institution_object_id=institution.id,
                 status='pending',  # Changed from 'draft' to 'pending' for approval workflow
+                recipient_name=recipient_name,
+                recipient_address=recipient_address,
             )
 
             # Create QuotationItems

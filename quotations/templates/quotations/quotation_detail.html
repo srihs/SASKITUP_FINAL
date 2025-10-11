@@ -315,6 +315,31 @@
                 </div>
             </div>
 
+            <!-- Recipient Information -->
+            {% if quotation.recipient_name or quotation.recipient_address %}
+            <div class="card mb-3">
+                <div class="card-header-custom">
+                    <h4>
+                        <i class="uil-user"></i> Recipient Information
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if quotation.recipient_name %}
+                    <div class="info-row">
+                        <div class="info-label">Recipient Name:</div>
+                        <div class="info-value"><strong>{{ quotation.recipient_name }}</strong></div>
+                    </div>
+                    {% endif %}
+                    {% if quotation.recipient_address %}
+                    <div class="info-row">
+                        <div class="info-label">Recipient Address:</div>
+                        <div class="info-value">{{ quotation.recipient_address|linebreaksbr }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Timeline -->
             <div class="card mb-3">
                 <div class="card-header-custom">

@@ -212,6 +212,17 @@ class Quotation(models.Model):
         help_text="Terms and conditions for this quotation"
     )
 
+    # Recipient information (optional)
+    recipient_name = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Name of the quotation recipient"
+    )
+    recipient_address = models.TextField(
+        blank=True,
+        help_text="Address of the quotation recipient"
+    )
+
     # Version tracking
     version = models.PositiveIntegerField(
         default=1,
