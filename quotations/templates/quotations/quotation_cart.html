@@ -891,6 +891,32 @@
 <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-spinner"></div>
 </div>
+
+<!-- Clear Quotation Confirmation Modal -->
+<div class="modal fade" id="clearQuotationModal" tabindex="-1" aria-labelledby="clearQuotationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title" id="clearQuotationModalLabel">
+                    <i class="mdi mdi-alert-outline text-warning me-2"></i>
+                    Confirm Clear Quotation
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Are you sure you want to clear all items from the quotation? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="uil-times me-1"></i> Cancel
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmClearBtn" onclick="confirmClearQuotation()">
+                    <i class="mdi mdi-delete-outline me-1"></i> Clear Quotation
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -1009,6 +1035,12 @@ $(document).ready(function() {
 
     // Calculate initial group totals
     updateAllGroupTotals();
+
+    // Add event listener for Clear Quotation confirmation button
+    const confirmClearBtn = document.getElementById('confirmClearBtn');
+    if (confirmClearBtn) {
+        confirmClearBtn.addEventListener('click', confirmClearQuotation);
+    }
 });
 
 // Show/Hide Loading Overlay
@@ -1192,10 +1224,16 @@ function saveQuotation() {
 
 // NEW: Clear Quotation Function
 function clearQuotation() {
-    // Confirmation dialog before clearing
-    if (!confirm('Are you sure you want to clear all items from the quotation? This action cannot be undone.')) {
-        return;
-    }
+    // Show the confirmation modal instead of using browser confirm
+    const modal = new bootstrap.Modal(document.getElementById('clearQuotationModal'));
+    modal.show();
+}
+
+// Handle Clear Quotation Confirmation
+function confirmClearQuotation() {
+    // Hide the modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('clearQuotationModal'));
+    modal.hide();
 
     showLoading();
 
