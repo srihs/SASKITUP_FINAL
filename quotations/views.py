@@ -1442,36 +1442,16 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                         Q(variations__cin7_sku__icontains=search_query)  # Search in variation SKUs
                     ).distinct()  # Use distinct() to avoid duplicates from variation joins
 
-            # Combine querysets for pagination
+            # PERFORMANCE OPTIMIZATION: Paginate BEFORE processing variations
             # Convert to lists and merge (since they're different models)
             tus_products_list = list(tus_products_qs)
             wholesale_products_list = list(wholesale_products_qs)
 
-            # Add product_type attribute and variation info for template rendering
-            for product in tus_products_list:
-                product.product_type = 'tusproduct'
-                # TUSProduct already has has_variations property - just add variation display data
-                if product.has_variations:
-                    variations = list(product.variations.all())
-                    product.variation_display = self._get_variation_display_data(variations, 'tus')
-                else:
-                    product.variation_display = {}
-
-            # Group wholesale products by base SKU (like in WholesaleSchoolDetailView)
+            # Group wholesale products by base SKU BEFORE pagination
             grouped_wholesale_products = self._group_wholesale_products_by_base_sku(wholesale_products_list)
 
-            for product in grouped_wholesale_products:
-                product.product_type = 'wholesaleproduct'
-                # WholesaleProduct now has has_variations property - just add variation display data
-                if product.has_variations:
-                    variations = list(product.variations.filter(is_active=True))
-                    product.variation_display = self._get_variation_display_data(variations, 'wholesale')
-                else:
-                    product.variation_display = {}
-
+            # Combine and paginate FIRST (before variation processing)
             combined_products = tus_products_list + grouped_wholesale_products
-
-            # Apply pagination to combined list
             paginator = Paginator(combined_products, self.paginate_by)
             try:
                 page_obj = paginator.get_page(page)
@@ -1481,6 +1461,27 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                 page_obj = paginator.get_page(paginator.num_pages)
 
             is_paginated = paginator.num_pages > 1
+
+            # ONLY process variations for products on CURRENT PAGE (24 products instead of ALL)
+            for product in page_obj.object_list:
+                if not hasattr(product, 'product_type'):
+                    # Determine product type by model class
+                    if product.__class__.__name__ == 'TUSProduct':
+                        product.product_type = 'tusproduct'
+                        # Fetch variations only for displayed products
+                        if product.has_variations:
+                            variations = list(product.variations.all())
+                            product.variation_display = self._get_variation_display_data(variations, 'tus')
+                        else:
+                            product.variation_display = {}
+                    elif product.__class__.__name__ == 'WholesaleProduct':
+                        product.product_type = 'wholesaleproduct'
+                        # Fetch variations only for displayed products
+                        if product.has_variations:
+                            variations = list(product.variations.filter(is_active=True))
+                            product.variation_display = self._get_variation_display_data(variations, 'wholesale')
+                        else:
+                            product.variation_display = {}
 
         # ========================================
         # CLUBS TAB - SAS Clubs and LOTTO Clubs
@@ -1600,32 +1601,13 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                     Q(variations__sku_suffix__icontains=search_query)  # Search in variation SKU suffix
                 ).distinct()
 
-            # Combine querysets for pagination
+            # PERFORMANCE OPTIMIZATION: Paginate BEFORE processing variations
+            # Convert to lists and merge (since they're different models)
             sas_products_list = list(sas_products_qs)
             lotto_products_list = list(lotto_products_qs)
 
-            # Add product_type attribute and variation info for template rendering
-            for product in sas_products_list:
-                product.product_type = 'sasproduct'
-                # SASProduct already has has_variations property - just add variation display data
-                if product.has_variations:
-                    variations = list(product.variations.filter(is_active=True))
-                    product.variation_display = self._get_variation_display_data(variations, 'sas')
-                else:
-                    product.variation_display = {}
-
-            for product in lotto_products_list:
-                product.product_type = 'lottoproduct'
-                # LottoProduct already has has_variations property - just add variation display data
-                if product.has_variations:
-                    variations = list(product.variations.filter(is_active=True))
-                    product.variation_display = self._get_variation_display_data(variations, 'lotto')
-                else:
-                    product.variation_display = {}
-
+            # Combine and paginate FIRST (before variation processing)
             combined_products = sas_products_list + lotto_products_list
-
-            # Apply pagination to combined list
             paginator = Paginator(combined_products, self.paginate_by)
             try:
                 page_obj = paginator.get_page(page)
@@ -1635,6 +1617,26 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                 page_obj = paginator.get_page(paginator.num_pages)
 
             is_paginated = paginator.num_pages > 1
+
+            # ONLY process variations for products on CURRENT PAGE (24 products instead of ALL)
+            for product in page_obj.object_list:
+                # Determine product type by model class
+                if product.__class__.__name__ == 'SASProduct':
+                    product.product_type = 'sasproduct'
+                    # Fetch variations only for displayed products
+                    if product.has_variations:
+                        variations = list(product.variations.filter(is_active=True))
+                        product.variation_display = self._get_variation_display_data(variations, 'sas')
+                    else:
+                        product.variation_display = {}
+                elif product.__class__.__name__ == 'LottoProduct':
+                    product.product_type = 'lottoproduct'
+                    # Fetch variations only for displayed products
+                    if product.has_variations:
+                        variations = list(product.variations.filter(is_active=True))
+                        product.variation_display = self._get_variation_display_data(variations, 'lotto')
+                    else:
+                        product.variation_display = {}
 
         # Get current quotation count from session
         quotation_data = get_quotation_session(request)
