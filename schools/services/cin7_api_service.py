@@ -263,8 +263,9 @@ class Cin7ApiService:
             return []
 
         for option in product_options:
-            # Skip inactive options
-            if option.get('status') != 'Active':
+            # Skip inactive options (only process Active or Primary status)
+            option_status = option.get('status', '').lower()
+            if option_status not in ['active', 'primary']:
                 continue
 
             # Extract price columns

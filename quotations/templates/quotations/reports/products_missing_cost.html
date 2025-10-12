@@ -1,0 +1,389 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<!-- DataTables -->
+<link href="{% static 'assets/libs/datatables.net-bs4/css/dataTables.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+<link href="{% static 'assets/libs/datatables.net-buttons-bs4/css/buttons.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+<link href="{% static 'assets/libs/datatables.net-responsive-bs4/css/responsive.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+
+<style>
+    .report-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 0.25rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .count-badge {
+        font-size: 1.5rem;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        border-radius: 0.25rem;
+    }
+
+    .product-type-section {
+        margin-bottom: 2rem;
+    }
+
+    .section-header {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-left: 4px solid #556ee6;
+        margin-bottom: 1rem;
+        border-radius: 0.25rem;
+    }
+
+    .table-wrapper {
+        background: white;
+        border-radius: 0.25rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+    }
+
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .status-instock {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .status-outofstock {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .status-onbackorder {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .status-active {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+
+    .status-inactive {
+        background-color: #e2e3e5;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-flex align-items-center justify-content-between">
+            <h4 class="mb-0">Products Missing Cost Report</h4>
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item">Reports</li>
+                    <li class="breadcrumb-item active">Products Missing Cost</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Report Header -->
+<div class="row">
+    <div class="col-12">
+        <div class="report-header">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h3 class="mb-2">Products Missing Cost Price</h3>
+                    <p class="mb-0 opacity-75">Products with missing or zero cost_price field</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <div class="count-badge bg-white text-dark">
+                        <i class="uil-exclamation-triangle text-warning me-2"></i>
+                        {{ counts.total }} Products
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Controls -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="product_type" class="form-label">Product Type</label>
+                        <select name="product_type" id="product_type" class="form-select" onchange="this.form.submit()">
+                            <option value="all" {% if product_type_filter == 'all' %}selected{% endif %}>All Products</option>
+                            <option value="tus" {% if product_type_filter == 'tus' %}selected{% endif %}>TUS ({{ counts.tus }})</option>
+                            <option value="lotto" {% if product_type_filter == 'lotto' %}selected{% endif %}>LOTTO ({{ counts.lotto }})</option>
+                            <option value="sas" {% if product_type_filter == 'sas' %}selected{% endif %}>SAS ({{ counts.sas }})</option>
+                            <option value="wholesale" {% if product_type_filter == 'wholesale' %}selected{% endif %}>Wholesale ({{ counts.wholesale }})</option>
+                        </select>
+                    </div>
+                    <div class="col-md-8 d-flex align-items-end">
+                        <button type="button" class="btn btn-success me-2" onclick="exportToCSV()">
+                            <i class="uil-export me-1"></i> Export CSV
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="window.print()">
+                            <i class="uil-print me-1"></i> Print
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TUS Products -->
+{% if counts.tus > 0 and product_type_filter in 'all,tus' %}
+<div class="product-type-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="uil-shopping-cart-alt me-2"></i>
+            TUS Products
+            <span class="badge bg-warning ms-2">{{ counts.tus }}</span>
+        </h5>
+    </div>
+    <div class="table-wrapper">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 datatable">
+                <thead class="table-light">
+                    <tr>
+                        <th>Product Name</th>
+                        <th>SKU</th>
+                        <th>School</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in products_by_type.tus %}
+                    <tr>
+                        <td>{{ item.product_name }}</td>
+                        <td><code>{{ item.sku|default:"N/A" }}</code></td>
+                        <td>{{ item.category }}</td>
+                        <td>
+                            <span class="status-badge status-{{ item.status }}">
+                                {{ item.status|upper }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- LOTTO Products -->
+{% if counts.lotto > 0 and product_type_filter in 'all,lotto' %}
+<div class="product-type-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="uil-ticket me-2"></i>
+            LOTTO Products
+            <span class="badge bg-warning ms-2">{{ counts.lotto }}</span>
+        </h5>
+    </div>
+    <div class="table-wrapper">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 datatable">
+                <thead class="table-light">
+                    <tr>
+                        <th>Product Name</th>
+                        <th>SKU</th>
+                        <th>Club</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in products_by_type.lotto %}
+                    <tr>
+                        <td>{{ item.product_name }}</td>
+                        <td><code>{{ item.sku|default:"N/A" }}</code></td>
+                        <td>{{ item.category }}</td>
+                        <td>
+                            <span class="status-badge status-{{ item.status }}">
+                                {{ item.status|upper }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- SAS Products -->
+{% if counts.sas > 0 and product_type_filter in 'all,sas' %}
+<div class="product-type-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="uil-trophy me-2"></i>
+            SAS Products
+            <span class="badge bg-warning ms-2">{{ counts.sas }}</span>
+        </h5>
+    </div>
+    <div class="table-wrapper">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 datatable">
+                <thead class="table-light">
+                    <tr>
+                        <th>Product Name</th>
+                        <th>SKU</th>
+                        <th>Club</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in products_by_type.sas %}
+                    <tr>
+                        <td>{{ item.product_name }}</td>
+                        <td><code>{{ item.sku|default:"N/A" }}</code></td>
+                        <td>{{ item.category }}</td>
+                        <td>
+                            <span class="status-badge status-{{ item.status }}">
+                                {{ item.status|upper }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Wholesale Products -->
+{% if counts.wholesale > 0 and product_type_filter in 'all,wholesale' %}
+<div class="product-type-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="uil-store me-2"></i>
+            Wholesale Products
+            <span class="badge bg-warning ms-2">{{ counts.wholesale }}</span>
+        </h5>
+    </div>
+    <div class="table-wrapper">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 datatable">
+                <thead class="table-light">
+                    <tr>
+                        <th>Product Name</th>
+                        <th>SKU</th>
+                        <th>School</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in products_by_type.wholesale %}
+                    <tr>
+                        <td>{{ item.product_name }}</td>
+                        <td><code>{{ item.sku|default:"N/A" }}</code></td>
+                        <td>{{ item.category }}</td>
+                        <td>
+                            <span class="status-badge status-{{ item.status }}">
+                                {{ item.status|upper }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- No Results Message -->
+{% if counts.total == 0 %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="uil-check-circle text-success" style="font-size: 4rem;"></i>
+                <h4 class="mt-3">All Products Have Cost Prices</h4>
+                <p class="text-muted">No products found with missing or zero cost_price.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- DataTables -->
+<script src="{% static 'assets/libs/datatables.net/js/jquery.dataTables.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-bs4/js/dataTables.bootstrap4.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-buttons/js/dataTables.buttons.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-buttons-bs4/js/buttons.bootstrap4.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-buttons/js/buttons.html5.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-buttons/js/buttons.print.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-responsive/js/dataTables.responsive.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-responsive-bs4/js/responsive.bootstrap4.min.js' %}"></script>
+
+<script>
+$(document).ready(function() {
+    // Initialize DataTables for each table
+    $('.datatable').DataTable({
+        pageLength: 25,
+        order: [[0, 'asc']],
+        responsive: true,
+        language: {
+            paginate: {
+                previous: "<i class='mdi mdi-chevron-left'>",
+                next: "<i class='mdi mdi-chevron-right'>"
+            }
+        },
+        drawCallback: function () {
+            $(".dataTables_paginate > .pagination").addClass("pagination-rounded");
+        }
+    });
+});
+
+function exportToCSV() {
+    // Collect all visible table data
+    let csv = 'Product Type,Product Name,SKU,Category,Status\n';
+
+    $('.datatable').each(function() {
+        const productType = $(this).closest('.product-type-section').find('.section-header h5').text().trim().split('\n')[0].trim();
+
+        $(this).find('tbody tr').each(function() {
+            const cols = $(this).find('td');
+            const row = [
+                productType,
+                $(cols[0]).text().trim(),
+                $(cols[1]).text().trim(),
+                $(cols[2]).text().trim(),
+                $(cols[3]).text().trim()
+            ];
+            csv += row.map(val => '"' + val + '"').join(',') + '\n';
+        });
+    });
+
+    // Download CSV
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'products_missing_cost_' + new Date().toISOString().slice(0,10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+}
+</script>
+{% endblock %}

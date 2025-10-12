@@ -342,6 +342,28 @@
                                 </ul>
                             </li>
 
+                            {% if user.is_authenticated and not user.is_customer %}
+                            {% if user.is_admin or user.is_account_manager or user.is_sales_rep %}
+                            <li class="menu-title">REPORTS</li>
+
+                            <li>
+                                <a href="javascript: void(0);" class="has-arrow waves-effect">
+                                    <i class="uil-chart-line"></i>
+                                    <span>Reports</span>
+                                </a>
+                                <ul class="sub-menu" aria-expanded="false">
+                                    <li>
+                                        <a href="javascript: void(0);" class="has-arrow">Products</a>
+                                        <ul class="sub-menu" aria-expanded="false">
+                                            <li><a href="{% url 'quotations:products-missing-cost' %}">Products Missing Cost</a></li>
+                                            <li><a href="{% url 'quotations:products-price-anomaly' %}">Selling Price > 75% Margin</a></li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </li>
+                            {% endif %}
+                            {% endif %}
+
                             <li class="menu-title">SETTINGS</li>
 
                             {% if user.is_authenticated and user.is_admin %}

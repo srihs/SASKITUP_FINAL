@@ -2180,3 +2180,309 @@ class ApproveQuotationView(LoginRequiredMixin, View):
                 'success': False,
                 'error': 'An error occurred while approving the quotation'
             }, status=500)
+
+
+# =====================================
+# REPORTS - PRODUCTS MISSING COST
+# =====================================
+
+class ProductsMissingCostView(LoginRequiredMixin, UserPassesTestMixin, View):
+    """
+    Report showing products with missing or zero cost_nzd.
+    Accessible to Admin, Account Managers, and Sales Reps only.
+    """
+    template_name = 'quotations/reports/products_missing_cost.html'
+
+    def test_func(self):
+        """Check if user has permission to view reports"""
+        user = self.request.user
+        return (user.is_staff or user.is_superuser or
+                user.groups.filter(name__in=['account_manager', 'sales_rep']).exists() or
+                user.is_admin or user.is_account_manager or user.is_sales_rep)
+
+    def get(self, request):
+        from schools.models_tus import TUSProduct
+
+        # Get filter parameter
+        product_type_filter = request.GET.get('product_type', 'all')
+
+        # Initialize product collections
+        products_by_type = {
+            'tus': [],
+            'lotto': [],
+            'sas': [],
+            'wholesale': [],
+        }
+
+        # Query TUS Products with missing cost
+        if product_type_filter in ['all', 'tus']:
+            tus_products = TUSProduct.objects.filter(
+                Q(cost_price__isnull=True) | Q(cost_price=0)
+            ).order_by('name')
+
+            for product in tus_products:
+                # Get school name
+                school_name = "Unknown"
+                if hasattr(product, 'primary_category_assignment') and product.primary_category_assignment:
+                    if product.primary_category_assignment.school_category and product.primary_category_assignment.school_category.school:
+                        school_name = product.primary_category_assignment.school_category.school.name
+
+                products_by_type['tus'].append({
+                    'product': product,
+                    'product_name': product.name,
+                    'sku': getattr(product, 'sku', ''),
+                    'category': school_name,
+                    'status': product.stock_status if hasattr(product, 'stock_status') else 'unknown',
+                })
+
+        # Query LOTTO Products with missing cost
+        if product_type_filter in ['all', 'lotto']:
+            lotto_products = LottoProduct.objects.filter(
+                Q(cost_price__isnull=True) | Q(cost_price=0)
+            ).order_by('name')
+
+            for product in lotto_products:
+                club_name = product.category.club.name if product.category and product.category.club else "Unknown"
+                products_by_type['lotto'].append({
+                    'product': product,
+                    'product_name': product.name,
+                    'sku': getattr(product, 'sku', ''),
+                    'category': club_name,
+                    'status': product.stock_status if hasattr(product, 'stock_status') else 'unknown',
+                })
+
+        # Query SAS Products with missing cost
+        if product_type_filter in ['all', 'sas']:
+            sas_products = SASProduct.objects.filter(
+                Q(cost_price__isnull=True) | Q(cost_price=0)
+            ).order_by('name')
+
+            for product in sas_products:
+                club_name = product.club.name if product.club else "Unknown"
+                products_by_type['sas'].append({
+                    'product': product,
+                    'product_name': product.name,
+                    'sku': getattr(product, 'sku', ''),
+                    'category': club_name,
+                    'status': product.stock_status if hasattr(product, 'stock_status') else 'unknown',
+                })
+
+        # Query Wholesale Products with missing cost
+        if product_type_filter in ['all', 'wholesale']:
+            wholesale_products = WholesaleProduct.objects.filter(
+                Q(cost_price__isnull=True) | Q(cost_price=0)
+            ).order_by('name')
+
+            for product in wholesale_products:
+                school_name = product.school.name if product.school else "Unknown"
+                products_by_type['wholesale'].append({
+                    'product': product,
+                    'product_name': product.name,
+                    'sku': getattr(product, 'cin7_sku', ''),
+                    'category': school_name,
+                    'status': 'active' if product.is_active else 'inactive',
+                })
+
+        # Calculate counts
+        counts = {
+            'tus': len(products_by_type['tus']),
+            'lotto': len(products_by_type['lotto']),
+            'sas': len(products_by_type['sas']),
+            'wholesale': len(products_by_type['wholesale']),
+        }
+        counts['total'] = sum(counts.values())
+
+        # Log access
+        AuditLog.log_action(
+            user=request.user,
+            action_type='report_access',
+            description=f'Viewed Products Missing Cost report (filter: {product_type_filter})',
+            request=request,
+            product_type_filter=product_type_filter,
+            total_products=counts['total']
+        )
+
+        context = {
+            'products_by_type': products_by_type,
+            'counts': counts,
+            'product_type_filter': product_type_filter,
+            'page_title': 'Products Missing Cost Report',
+        }
+
+        return render(request, self.template_name, context)
+
+
+# =====================================
+# REPORTS - PRICE ANOMALY
+# =====================================
+
+class ProductsPriceAnomalyView(LoginRequiredMixin, UserPassesTestMixin, View):
+    """
+    Report showing products where unit_price > margin_75_price.
+    This indicates pricing anomalies where selling price exceeds the 75% margin price.
+    Accessible to Admin, Account Managers, and Sales Reps only.
+    """
+    template_name = 'quotations/reports/products_price_anomaly.html'
+
+    def test_func(self):
+        """Check if user has permission to view reports"""
+        user = self.request.user
+        return (user.is_staff or user.is_superuser or
+                user.groups.filter(name__in=['account_manager', 'sales_rep']).exists() or
+                user.is_admin or user.is_account_manager or user.is_sales_rep)
+
+    def get(self, request):
+        from schools.models_tus import TUSProduct
+
+        # Get filter parameter
+        product_type_filter = request.GET.get('product_type', 'all')
+
+        # Initialize product collections
+        products_by_type = {
+            'tus': [],
+            'lotto': [],
+            'sas': [],
+            'wholesale': [],
+        }
+
+        # Query TUS Products with price anomaly
+        if product_type_filter in ['all', 'tus']:
+            tus_products = TUSProduct.objects.filter(
+                margin_75_price__isnull=False,
+                price__isnull=False
+            ).order_by('name')
+
+            for product in tus_products:
+                unit_price = product.price or Decimal('0')
+                margin_75_price = product.margin_75_price or Decimal('0')
+
+                # Check if unit_price > margin_75_price
+                if unit_price > margin_75_price and margin_75_price > 0:
+                    difference = unit_price - margin_75_price
+                    percentage_over = ((difference / margin_75_price) * 100).quantize(Decimal('0.01'))
+
+                    # Get school name
+                    school_name = "Unknown"
+                    if hasattr(product, 'primary_category_assignment') and product.primary_category_assignment:
+                        if product.primary_category_assignment.school_category and product.primary_category_assignment.school_category.school:
+                            school_name = product.primary_category_assignment.school_category.school.name
+
+                    products_by_type['tus'].append({
+                        'product': product,
+                        'product_name': product.name,
+                        'sku': getattr(product, 'sku', ''),
+                        'category': school_name,
+                        'unit_price': unit_price,
+                        'margin_75_price': margin_75_price,
+                        'difference': difference,
+                        'percentage_over': percentage_over,
+                    })
+
+        # Query LOTTO Products with price anomaly
+        if product_type_filter in ['all', 'lotto']:
+            lotto_products = LottoProduct.objects.filter(
+                margin_75_price__isnull=False,
+                price__isnull=False
+            ).order_by('name')
+
+            for product in lotto_products:
+                unit_price = product.price or Decimal('0')
+                margin_75_price = product.margin_75_price or Decimal('0')
+
+                if unit_price > margin_75_price and margin_75_price > 0:
+                    difference = unit_price - margin_75_price
+                    percentage_over = ((difference / margin_75_price) * 100).quantize(Decimal('0.01'))
+
+                    club_name = product.category.club.name if product.category and product.category.club else "Unknown"
+                    products_by_type['lotto'].append({
+                        'product': product,
+                        'product_name': product.name,
+                        'sku': getattr(product, 'sku', ''),
+                        'category': club_name,
+                        'unit_price': unit_price,
+                        'margin_75_price': margin_75_price,
+                        'difference': difference,
+                        'percentage_over': percentage_over,
+                    })
+
+        # Query SAS Products with price anomaly
+        if product_type_filter in ['all', 'sas']:
+            sas_products = SASProduct.objects.filter(
+                margin_75_price__isnull=False,
+                price__isnull=False
+            ).order_by('name')
+
+            for product in sas_products:
+                unit_price = product.price or Decimal('0')
+                margin_75_price = product.margin_75_price or Decimal('0')
+
+                if unit_price > margin_75_price and margin_75_price > 0:
+                    difference = unit_price - margin_75_price
+                    percentage_over = ((difference / margin_75_price) * 100).quantize(Decimal('0.01'))
+
+                    club_name = product.club.name if product.club else "Unknown"
+                    products_by_type['sas'].append({
+                        'product': product,
+                        'product_name': product.name,
+                        'sku': getattr(product, 'sku', ''),
+                        'category': club_name,
+                        'unit_price': unit_price,
+                        'margin_75_price': margin_75_price,
+                        'difference': difference,
+                        'percentage_over': percentage_over,
+                    })
+
+        # Query Wholesale Products with price anomaly
+        if product_type_filter in ['all', 'wholesale']:
+            wholesale_products = WholesaleProduct.objects.filter(
+                margin_75_price__isnull=False,
+                wholesale_price__isnull=False
+            ).order_by('name')
+
+            for product in wholesale_products:
+                unit_price = product.wholesale_price or Decimal('0')
+                margin_75_price = product.margin_75_price or Decimal('0')
+
+                if unit_price > margin_75_price and margin_75_price > 0:
+                    difference = unit_price - margin_75_price
+                    percentage_over = ((difference / margin_75_price) * 100).quantize(Decimal('0.01'))
+
+                    school_name = product.school.name if product.school else "Unknown"
+                    products_by_type['wholesale'].append({
+                        'product': product,
+                        'product_name': product.name,
+                        'sku': getattr(product, 'cin7_sku', ''),
+                        'category': school_name,
+                        'unit_price': unit_price,
+                        'margin_75_price': margin_75_price,
+                        'difference': difference,
+                        'percentage_over': percentage_over,
+                    })
+
+        # Calculate counts
+        counts = {
+            'tus': len(products_by_type['tus']),
+            'lotto': len(products_by_type['lotto']),
+            'sas': len(products_by_type['sas']),
+            'wholesale': len(products_by_type['wholesale']),
+        }
+        counts['total'] = sum(counts.values())
+
+        # Log access
+        AuditLog.log_action(
+            user=request.user,
+            action_type='report_access',
+            description=f'Viewed Products Price Anomaly report (filter: {product_type_filter})',
+            request=request,
+            product_type_filter=product_type_filter,
+            total_products=counts['total']
+        )
+
+        context = {
+            'products_by_type': products_by_type,
+            'counts': counts,
+            'product_type_filter': product_type_filter,
+            'page_title': 'Products with Selling Price > 75% Margin',
+        }
+
+        return render(request, self.template_name, context)

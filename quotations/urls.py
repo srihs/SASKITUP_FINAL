@@ -65,4 +65,8 @@ urlpatterns = [
 
     # Approve Quotation
     path('approve/<uuid:pk>/', views.ApproveQuotationView.as_view(), name='approve-quotation'),
+
+    # Reports
+    path('reports/products/missing-cost/', views.ProductsMissingCostView.as_view(), name='products-missing-cost'),
+    path('reports/products/price-anomaly/', views.ProductsPriceAnomalyView.as_view(), name='products-price-anomaly'),
 ]
