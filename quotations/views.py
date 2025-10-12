@@ -9,7 +9,7 @@ This module provides comprehensive quotation workflow views:
 5. My Quotations - View user's quotations
 """
 
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.contenttypes.models import ContentType
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
@@ -41,6 +41,28 @@ logger = logging.getLogger(__name__)
 # =====================================
 # HELPER FUNCTIONS & UTILITIES
 # =====================================
+
+def round_to_nearest_5(value):
+    """
+    Round a decimal value to the nearest $5 increment.
+
+    Examples:
+        $78.50 → $80.00
+        $76.20 → $75.00
+        $163.84 → $165.00
+        $52.00 → $50.00
+        $0.00 → $0.00
+
+    Args:
+        value: Decimal value to round
+
+    Returns:
+        Decimal: Value rounded to nearest $5
+    """
+    if not value or value == 0:
+        return Decimal('0')
+    # Divide by 5, round to nearest integer, multiply by 5
+    return (value / Decimal('5')).quantize(Decimal('1'), rounding=ROUND_HALF_UP) * Decimal('5')
 
 def get_quotation_session(request):
     """Get or create quotation session data"""
@@ -583,15 +605,23 @@ class QuotationCartView(LoginRequiredMixin, View):
 
                 # Only set margin_75_price if we found a valid margin price greater than unit price
                 if margin_price and margin_price > unit_price_decimal:
-                    enriched_item['margin_75_price'] = margin_price
-                    unit_discount = margin_price - unit_price_decimal
+                    # Round margin price to nearest $5
+                    rounded_margin_price = round_to_nearest_5(margin_price)
+
+                    # Use rounded margin price for all calculations
+                    enriched_item['margin_75_price'] = rounded_margin_price
+                    unit_discount = rounded_margin_price - unit_price_decimal
                     item_savings = unit_discount * Decimal(str(item['quantity']))
                     total_savings += item_savings
                     enriched_item['unit_discount'] = unit_discount
                     enriched_item['item_discount'] = item_savings
+                    # Calculate discount percentage using rounded margin price
+                    discount_percentage = int(((rounded_margin_price - unit_price_decimal) / rounded_margin_price) * 100)
+                    enriched_item['discount_percentage'] = discount_percentage
                 else:
                     enriched_item['unit_discount'] = Decimal('0.00')
                     enriched_item['item_discount'] = Decimal('0.00')
+                    enriched_item['discount_percentage'] = 0
 
                 # Get discount_percentage from variation first, then product
                 if variation_obj and hasattr(variation_obj, 'discount_percentage') and variation_obj.discount_percentage:
@@ -765,6 +795,9 @@ class AddToQuotationView(LoginRequiredMixin, View):
                 # Use variation price if available, otherwise fall back to product price
                 unit_price = variations.get('price') or str(getattr(product, 'wholesale_price', None) or getattr(product, 'price', 0))
 
+                # Get margin_75_price from variations or product
+                margin_75_price = variations.get('margin_75_price') or str(getattr(product, 'margin_75_price', None) or '')
+
                 quotation_data['items'].append({
                     'product_type': product_type,
                     'product_id': product_id,
@@ -772,6 +805,7 @@ class AddToQuotationView(LoginRequiredMixin, View):
                     'product_sku': product_sku,
                     'quantity': quantity,
                     'unit_price': str(unit_price),
+                    'margin_75_price': margin_75_price,
                     'variations': variations,
                 })
 
@@ -852,10 +886,25 @@ class UpdateQuotationItemView(LoginRequiredMixin, View):
 
             unit_discount = Decimal('0')
             item_discount = Decimal('0')
+            discount_percentage = 0
 
-            if margin_price > 0:
+            if margin_price > 0 and margin_price > unit_price_decimal:
                 unit_discount = margin_price - unit_price_decimal
                 item_discount = unit_discount * Decimal(str(quantity))
+                # Calculate discount percentage
+                discount_percentage = int(((margin_price - unit_price_decimal) / margin_price) * 100)
+
+            # Calculate total savings across all items
+            total_savings = Decimal('0.00')
+            for cart_item in quotation_data.get('items', []):
+                item_unit_price = Decimal(str(cart_item.get('unit_price', 0)))
+                item_margin_price = Decimal(str(cart_item.get('margin_75_price', 0))) if cart_item.get('margin_75_price') else Decimal('0')
+                item_qty = Decimal(str(cart_item.get('quantity', 0)))
+
+                if item_margin_price > 0 and item_margin_price > item_unit_price:
+                    item_unit_discount = item_margin_price - item_unit_price
+                    item_total_discount = item_unit_discount * item_qty
+                    total_savings += item_total_discount
 
             # Log action
             AuditLog.log_action(
@@ -873,10 +922,12 @@ class UpdateQuotationItemView(LoginRequiredMixin, View):
                 'item_total': str(line_total),  # Alternative key for compatibility
                 'unit_discount': str(unit_discount),
                 'item_discount': str(item_discount),
+                'discount_percentage': discount_percentage,
                 'subtotal': str(totals['subtotal']),
                 'tax': str(totals['tax_amount']),
                 'tax_amount': str(totals['tax_amount']),
                 'total': str(totals['total']),
+                'total_savings': str(total_savings),
             })
 
         except ValueError as e:
@@ -1395,9 +1446,13 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
 
                 # Add margin price if valid and calculate discount
                 if margin_price and margin_price > selling_price:
-                    var_data['margin_75_price'] = str(margin_price)
-                    discount_amount = margin_price - selling_price
-                    discount_percentage = (discount_amount / margin_price * 100).quantize(Decimal('0'))
+                    # Round margin price to nearest $5
+                    rounded_margin_price = round_to_nearest_5(margin_price)
+
+                    # Use rounded margin price for all calculations
+                    var_data['margin_75_price'] = str(rounded_margin_price)
+                    discount_amount = rounded_margin_price - selling_price
+                    discount_percentage = (discount_amount / rounded_margin_price * 100).quantize(Decimal('0'))
                     var_data['discount_amount'] = str(discount_amount)
                     var_data['discount_percentage'] = str(discount_percentage)
                 else:
