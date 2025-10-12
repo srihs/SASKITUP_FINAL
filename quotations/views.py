@@ -584,10 +584,13 @@ class QuotationCartView(LoginRequiredMixin, View):
                 # Only set margin_75_price if we found a valid margin price greater than unit price
                 if margin_price and margin_price > unit_price_decimal:
                     enriched_item['margin_75_price'] = margin_price
-                    item_savings = (margin_price - unit_price_decimal) * Decimal(str(item['quantity']))
+                    unit_discount = margin_price - unit_price_decimal
+                    item_savings = unit_discount * Decimal(str(item['quantity']))
                     total_savings += item_savings
+                    enriched_item['unit_discount'] = unit_discount
                     enriched_item['item_discount'] = item_savings
                 else:
+                    enriched_item['unit_discount'] = Decimal('0.00')
                     enriched_item['item_discount'] = Decimal('0.00')
 
                 # Get discount_percentage from variation first, then product

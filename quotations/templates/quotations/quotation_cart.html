@@ -439,32 +439,42 @@
 }
 
 .variation-col-badges {
-    min-width: 150px;
+    min-width: 140px;
     flex-shrink: 0;
 }
 
 .variation-col-sku {
-    min-width: 110px;
+    min-width: 100px;
+    flex-shrink: 0;
+}
+
+.variation-col-selling-price {
+    min-width: 100px;
+    flex-shrink: 0;
+}
+
+.variation-col-unit-discount {
+    min-width: 90px;
     flex-shrink: 0;
 }
 
 .variation-col-price {
-    min-width: 120px;
+    min-width: 100px;
     flex-shrink: 0;
 }
 
 .variation-col-qty {
-    min-width: 110px;
+    min-width: 90px;
     flex-shrink: 0;
 }
 
-.variation-col-discount {
-    min-width: 110px;
+.variation-col-total-discount {
+    min-width: 100px;
     flex-shrink: 0;
 }
 
 .variation-col-total {
-    min-width: 120px;
+    min-width: 110px;
     flex-grow: 1;
 }
 
@@ -586,16 +596,26 @@
     }
 
     .variation-col-badges,
-    .variation-col-sku,
-    .variation-col-price {
+    .variation-col-sku {
         width: 100%;
         min-width: unset;
     }
 
+    .variation-col-selling-price,
+    .variation-col-unit-discount,
+    .variation-col-price {
+        width: calc(33.333% - 0.5rem);
+        min-width: unset;
+    }
+
     .variation-col-qty,
-    .variation-col-discount,
-    .variation-col-total {
+    .variation-col-total-discount {
         width: calc(50% - 0.375rem);
+        min-width: unset;
+    }
+
+    .variation-col-total {
+        width: 100%;
         min-width: unset;
     }
 
@@ -735,26 +755,35 @@
                                     {% endif %}
                                 </div>
 
-                                <!-- Column 3: Unit Price -->
-                                <div class="variation-col variation-col-price">
-                                    <div class="variation-label">Unit Price</div>
-                                    {% if item.margin_75_price %}
-                                        {% with margin_str=item.margin_75_price|stringformat:"f" unit_str=item.unit_price|stringformat:"f" %}
-                                            {% if margin_str != unit_str and item.margin_75_price > item.unit_price %}
-                                                <div class="variation-price-strike">${{ item.margin_75_price|floatformat:2|intcomma }}</div>
-                                                <div class="variation-price-main" id="price-{{ item.index }}">${{ item.unit_price|floatformat:2|intcomma }}</div>
-                                            {% else %}
-                                                <div class="variation-value">${{ item.unit_price|floatformat:2|intcomma }}</div>
-                                            {% endif %}
-                                        {% endwith %}
+                                <!-- Column 3: Selling Price (75% Margin) -->
+                                <div class="variation-col variation-col-selling-price">
+                                    <div class="variation-label">Selling Price</div>
+                                    {% if item.margin_75_price and item.margin_75_price > 0 %}
+                                        <div class="variation-value">${{ item.margin_75_price|floatformat:2|intcomma }}</div>
                                     {% else %}
                                         <div class="variation-value">${{ item.unit_price|floatformat:2|intcomma }}</div>
                                     {% endif %}
                                 </div>
 
-                                <!-- Column 4: Quantity -->
+                                <!-- Column 4: Discount (Per Unit) -->
+                                <div class="variation-col variation-col-unit-discount">
+                                    <div class="variation-label">Discount</div>
+                                    {% if item.margin_75_price and item.margin_75_price > 0 and item.unit_discount > 0 %}
+                                        <div class="variation-discount">${{ item.unit_discount|floatformat:2|intcomma }}</div>
+                                    {% else %}
+                                        <div class="variation-value text-muted">$0.00</div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Column 5: Price (After Discount) -->
+                                <div class="variation-col variation-col-price">
+                                    <div class="variation-label">Price</div>
+                                    <div class="variation-price-main" id="price-{{ item.index }}">${{ item.unit_price|floatformat:2|intcomma }}</div>
+                                </div>
+
+                                <!-- Column 6: Quantity -->
                                 <div class="variation-col variation-col-qty">
-                                    <div class="variation-label">Quantity</div>
+                                    <div class="variation-label">Qty</div>
                                     <div class="variation-touchspin">
                                         <input data-toggle="touchspin"
                                                type="text"
@@ -765,23 +794,23 @@
                                     </div>
                                 </div>
 
-                                <!-- Column 5: Discount -->
-                                <div class="variation-col variation-col-discount">
-                                    <div class="variation-label">Discount</div>
-                                    {% if item.item_discount > 0 %}
-                                        <div class="variation-discount">-${{ item.item_discount|floatformat:2|intcomma }}</div>
+                                <!-- Column 7: Total Line Item Discount -->
+                                <div class="variation-col variation-col-total-discount">
+                                    <div class="variation-label">Total Discount</div>
+                                    {% if item.margin_75_price and item.margin_75_price > 0 and item.item_discount > 0 %}
+                                        <div class="variation-discount">${{ item.item_discount|floatformat:2|intcomma }}</div>
                                     {% else %}
-                                        <div class="variation-value text-muted">-</div>
+                                        <div class="variation-value text-muted">$0.00</div>
                                     {% endif %}
                                 </div>
 
-                                <!-- Column 6: Line Total -->
+                                <!-- Column 8: Line Item Total -->
                                 <div class="variation-col variation-col-total">
                                     <div class="variation-label">Line Total</div>
                                     <div class="variation-total" id="total-{{ item.index }}" data-group-id="{{ forloop.parentloop.counter }}">${{ item.line_total|floatformat:2|intcomma }}</div>
                                 </div>
 
-                                <!-- Column 7: Delete Button -->
+                                <!-- Column 9: Delete Button -->
                                 <div class="variation-col variation-col-action">
                                     <a href="javascript:void(0);"
                                        class="text-danger"
