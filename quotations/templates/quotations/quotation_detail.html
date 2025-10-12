@@ -711,7 +711,7 @@
                     <!-- Action Buttons -->
                     <div class="d-print-none mt-4">
                         <div class="float-end">
-                            {% if quotation.status == 'pending' and user.is_account_manager %}
+                            {% if quotation.status == 'pending' and quotation.created_by == user %}
                             <button type="button" class="btn btn-success waves-effect waves-light me-1" onclick="approveQuotation()">
                                 <i class="fa fa-check"></i> Approve Quotation
                             </button>

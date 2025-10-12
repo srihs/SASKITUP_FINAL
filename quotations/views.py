@@ -2056,20 +2056,16 @@ class SiteSettingsView(LoginRequiredMixin, UserPassesTestMixin, FormView):
 # APPROVE QUOTATION VIEW
 # =====================================
 
-class ApproveQuotationView(LoginRequiredMixin, UserPassesTestMixin, View):
+class ApproveQuotationView(LoginRequiredMixin, View):
     """
     Approve a pending quotation.
-    Only accessible to account managers.
+    Accessible to quotation creator.
     """
-
-    def test_func(self):
-        """Only account managers can approve quotations"""
-        return self.request.user.is_authenticated and self.request.user.is_account_manager
 
     def post(self, request, pk):
         try:
-            # Get quotation
-            quotation = get_object_or_404(Quotation, pk=pk)
+            # Get quotation - ensure user is the creator
+            quotation = get_object_or_404(Quotation, pk=pk, created_by=request.user)
 
             # Check if quotation is pending
             if quotation.status != 'pending':

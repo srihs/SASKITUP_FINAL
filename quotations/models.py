@@ -139,6 +139,7 @@ class Quotation(models.Model):
         ('draft', 'Draft'),
         ('pending', 'Pending Approval'),
         ('approved', 'Approved'),
+        ('confirmed', 'Confirmed'),
         ('rejected', 'Rejected'),
         ('expired', 'Expired'),
         ('cancelled', 'Cancelled'),
@@ -500,11 +501,11 @@ class Quotation(models.Model):
         self.save(update_fields=['subtotal', 'tax_amount', 'total', 'updated_at'])
 
     def approve(self, approved_by, notes=''):
-        """Approve the quotation"""
-        if self.status == 'approved':
-            raise ValidationError('Quotation is already approved')
+        """Approve the quotation and set status to confirmed"""
+        if self.status == 'confirmed':
+            raise ValidationError('Quotation is already confirmed')
 
-        self.status = 'approved'
+        self.status = 'confirmed'
         self.approved_by = approved_by
         self.approved_at = timezone.now()
         if notes:
