@@ -3577,22 +3577,9 @@ def cin7_price_fetch(request):
                     skipped_bs_products += 1
                     continue
 
-                # Calculate margin and discount with correct formula
+                # Get pricing data from Cin7
                 cost = option_data.get('cost')
                 rrp = option_data.get('current_retail_nzd_incl')
-                margin_75 = None
-                discount_pct = None
-
-                if cost and cost > 0:
-                    margin_75 = cost / Decimal('0.25')  # 75% margin price
-
-                    # Calculate discount: (Margin - RRP) / Margin * 100
-                    if rrp and rrp > 0:
-                        discount_pct = ((margin_75 - rrp) / margin_75) * 100
-                        # Clamp to valid range (0-100) to prevent database errors
-                        # DecimalField(max_digits=5, decimal_places=2) max is 999.99
-                        # but discount percentages should be 0-100%
-                        discount_pct = max(Decimal('0'), min(discount_pct, Decimal('100')))
 
                 cin7_products.append(Cin7Product(
                     cin7_id=option_data.get('cin7_id'),
@@ -3604,8 +3591,6 @@ def cin7_price_fetch(request):
                     brand=option_data.get('brand') or '',
                     cost_nzd=cost,
                     retail_price=rrp,
-                    margin_75_price=margin_75,  # Save calculated 75% margin price
-                    discount_percentage=discount_pct,  # Save calculated discount % with +/- sign
                     stock_available=option_data.get('stock_available'),
                     price_type=price_type,
                     fetch_session_id=session_id,
@@ -4197,16 +4182,27 @@ def cin7_price_apply(request):
         # IMPORTANT: Field names must match what BulkPriceUpdater expects
         valid_items = []
         for cp in matched_products:
+            # Calculate margin_75_price dynamically from cost_nzd (margin_75_price was removed from Cin7Product)
+            cost_nzd = float(cp.cost_nzd) if cp.cost_nzd else 0
+            margin_75_price = (cost_nzd / 0.25) if cost_nzd > 0 else 0
+
+            # Calculate discount_percentage dynamically (discount_percentage was removed from Cin7Product)
+            retail_price = float(cp.retail_price) if cp.retail_price else 0
+            if margin_75_price > 0 and retail_price > 0:
+                discount_percentage = ((margin_75_price - retail_price) / margin_75_price) * 100
+            else:
+                discount_percentage = 0
+
             valid_items.append({
                 'cin7_id': cp.cin7_id,
                 'product_code': cp.code,  # Changed from 'sku' to 'product_code' for BulkPriceUpdater
                 'barcode': cp.barcode,
                 'style_code': cp.style_code,
                 'product_name': cp.name,  # Changed from 'name' to 'product_name' for BulkPriceUpdater
-                'cost': float(cp.cost_nzd) if cp.cost_nzd else 0,
-                'current_retail_nzd_incl': float(cp.retail_price) if cp.retail_price else 0,  # Changed from 'rrp' to match BulkPriceUpdater
-                'margin_75_price': float(cp.margin_75_price) if cp.margin_75_price else 0,
-                'discount_percentage': float(cp.discount_percentage) if cp.discount_percentage else 0,
+                'cost': cost_nzd,
+                'current_retail_nzd_incl': retail_price,  # Changed from 'rrp' to match BulkPriceUpdater
+                'margin_75_price': margin_75_price,  # Calculated dynamically
+                'discount_percentage': discount_percentage,  # Calculated dynamically
                 'match_method': cp.match_method,
                 'product_id': cp.matched_product_id,
                 'variation_id': cp.matched_variation_id,

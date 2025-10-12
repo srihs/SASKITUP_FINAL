@@ -830,6 +830,10 @@ class BulkPriceUpdater:
         start_time = timezone.now()
         logger.info(f"[PERF-START] Operation: _bulk_update_products | Start: {start_time.isoformat()} | Items: {len(products_to_update)}")
 
+        # Initialize price logger
+        from schools.utils.price_update_logger import get_price_logger
+        price_logger = get_price_logger()
+
         chunk_size = self.DEFAULT_CHUNK_SIZE
         successful = 0
         failed = 0

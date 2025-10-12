@@ -685,10 +685,6 @@ class Cin7Product(models.Model):
     cost_nzd = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Cost price in NZD")
     retail_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Retail price (RRP)")
 
-    # Calculated pricing (on save)
-    margin_75_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="75% margin price (Cost ÷ 0.25)")
-    discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Discount from 75% margin")
-
     # Stock data
     stock_available = models.IntegerField(null=True, blank=True, help_text="Available stock quantity")
 
@@ -726,19 +722,7 @@ class Cin7Product(models.Model):
         return f"{self.code} - {self.name}"
 
     def save(self, *args, **kwargs):
-        """Calculate derived fields on save"""
-        # Calculate 75% margin price
-        if self.cost_nzd and self.cost_nzd > 0:
-            self.margin_75_price = self.cost_nzd / Decimal('0.25')
-
-        # Calculate discount percentage
-        if self.margin_75_price and self.retail_price and self.margin_75_price > 0:
-            discount = ((self.margin_75_price - self.retail_price) / self.margin_75_price) * 100
-            # Clamp to valid range (0-100) to prevent database errors
-            # DecimalField(max_digits=5, decimal_places=2) supports up to 999.99
-            # but discount percentages should be 0-100%
-            self.discount_percentage = max(Decimal('0'), min(discount, Decimal('100')))
-
+        """Save Cin7Product"""
         super().save(*args, **kwargs)
 
     @property
