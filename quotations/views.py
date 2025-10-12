@@ -1326,7 +1326,7 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
                 elif product_type.lower() == 'wholesaleproduct':
                     var_data['sku'] = getattr(variation, 'cin7_sku', '')
                 elif product_type.lower() in ['sasproduct', 'lottoproduct']:
-                    var_data['sku'] = getattr(variation, 'full_sku', '')
+                    var_data['sku'] = getattr(variation, 'sku_suffix', '')
 
                 # Add image URL if available
                 image_url = None
@@ -1970,8 +1970,8 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
                 # WholesaleProductVariation has 'cin7_sku' field
                 sku = getattr(variation, 'cin7_sku', None)
             elif product_type in ['SAS', 'LOTTO']:
-                # SASProductVariation and LottoProductVariation have 'full_sku' property
-                sku = getattr(variation, 'full_sku', None)
+                # SASProductVariation and LottoProductVariation have 'sku_suffix' field
+                sku = getattr(variation, 'sku_suffix', None)
 
             # Add SKU to list if it exists
             if sku:
