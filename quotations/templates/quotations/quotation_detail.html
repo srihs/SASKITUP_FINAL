@@ -712,7 +712,7 @@
                     <div class="d-print-none mt-4">
                         <div class="float-end">
                             {% if quotation.status == 'pending' and quotation.created_by == user %}
-                            <button type="button" class="btn btn-success waves-effect waves-light me-1" onclick="approveQuotation()">
+                            <button type="button" class="btn btn-success waves-effect waves-light me-1" data-bs-toggle="modal" data-bs-target="#approveModal">
                                 <i class="fa fa-check"></i> Approve Quotation
                             </button>
                             {% endif %}
@@ -732,6 +732,28 @@
 
     <!-- P.T.O marker (Please Turn Over) - only visible in print when content spans multiple pages -->
     <div class="pto-marker d-none d-print-block">P.T.O</div>
+
+    <!-- Approve Confirmation Modal -->
+    <div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="approveModalLabel">Confirm Approval</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to approve this quotation?</p>
+                    <p class="text-muted mb-0"><small>This action will change the quotation status to "Confirmed".</small></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" onclick="confirmApproval()">
+                        <i class="fa fa-check"></i> Yes, Approve
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -769,32 +791,34 @@ window.onbeforeprint = function() {
 };
 
 // Approve quotation function
-function approveQuotation() {
-    if (confirm('Are you sure you want to approve this quotation?')) {
-        // Make AJAX call to approve endpoint
-        fetch('{% url "quotations:approve-quotation" quotation.id %}', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}',
-                'Content-Type': 'application/json',
-            },
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                toastr.success('Quotation approved successfully!');
-                setTimeout(function() {
-                    location.reload();
-                }, 1500);
-            } else {
-                toastr.error(data.error || 'Failed to approve quotation');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            toastr.error('An error occurred while approving the quotation');
-        });
-    }
+function confirmApproval() {
+    // Close the modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('approveModal'));
+    modal.hide();
+
+    // Make AJAX call to approve endpoint
+    fetch('{% url "quotations:approve-quotation" quotation.id %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            toastr.success('Quotation approved successfully!');
+            setTimeout(function() {
+                location.reload();
+            }, 1500);
+        } else {
+            toastr.error(data.error || 'Failed to approve quotation');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        toastr.error('An error occurred while approving the quotation');
+    });
 }
 </script>
 {% endblock %}
