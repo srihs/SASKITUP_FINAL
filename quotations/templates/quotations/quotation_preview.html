@@ -1,0 +1,513 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Quotation {{ quotation.quotation_number }} - Preview{% endblock %}
+
+{% block body_class %}quotation-preview{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Print Styles */
+@media print {
+    .no-print, .page-title-box, .action-buttons {
+        display: none !important;
+    }
+
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    .main-content {
+        margin-left: 0 !important;
+        padding: 0 !important;
+    }
+
+    body {
+        background: white !important;
+        overflow: hidden !important;
+    }
+
+    .page-content {
+        padding: 0 !important;
+    }
+
+    .company-logo {
+        height: 75px !important;
+    }
+
+    /* Hide toast notifications */
+    #toast-container, .toast, .toastr {
+        display: none !important;
+    }
+
+    /* Remove scrollbar */
+    html, body {
+        overflow: hidden !important;
+        height: auto !important;
+    }
+
+    /* Remove all borders and outlines */
+    *, *::before, *::after {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+    }
+
+    .card-body, .row, .col-lg-12, .col-12, .container-fluid {
+        border: none !important;
+        outline: none !important;
+    }
+
+    /* Set font size to 11px for entire quotation in print */
+    body, .quotation-body, .card-body, p, td, th, div, span {
+        font-size: 11px !important;
+    }
+
+    /* Keep headings proportional but smaller */
+    h4, h4.font-size-16 {
+        font-size: 12.5px !important;
+    }
+
+    h5, h5.font-size-15, .font-size-15, .table h5.font-size-15 {
+        font-size: 12px !important;
+    }
+}
+
+/* Quotation Body Font Size */
+.quotation-body {
+    font-size: 11px;
+}
+
+/* Invoice Title Section */
+.invoice-title {
+    margin-bottom: 2rem;
+}
+
+.invoice-title h4 {
+    font-size: 16px;
+}
+
+.invoice-title .badge {
+    font-size: 12px;
+    margin-left: 8px;
+}
+
+.invoice-title .mb-4 {
+    margin-bottom: 1.5rem;
+}
+
+.text-muted p {
+    margin-bottom: 0.25rem;
+}
+
+/* Billing Section */
+.billing-section h5 {
+    font-size: 16px;
+    margin-bottom: 1rem;
+}
+
+.billing-section h5.font-size-15 {
+    font-size: 12px;
+}
+
+.billing-section p {
+    margin-bottom: 0.5rem;
+}
+
+/* Order Summary Section */
+.order-summary {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+}
+
+.order-summary h5 {
+    font-size: 15px;
+    margin-bottom: 1rem;
+}
+
+/* Table Styles */
+.table-nowrap {
+    white-space: nowrap;
+}
+
+.table-centered td,
+.table-centered th {
+    vertical-align: middle;
+}
+
+.table thead th {
+    border-bottom: 2px solid #eff2f7;
+    padding: 12px 12px;
+    font-weight: 600;
+    color: #495057;
+    background-color: #f8f9fa;
+}
+
+.table tbody td {
+    padding: 12px;
+    border-bottom: 1px solid #eff2f7;
+}
+
+.table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.table h5.font-size-15 {
+    font-size: 12px !important;
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+}
+
+/* Override global font-size classes */
+.quotation-body .font-size-15 {
+    font-size: 12px !important;
+}
+
+.quotation-body .font-size-16 {
+    font-size: 12.5px !important;
+}
+
+.table .list-inline {
+    margin-bottom: 0;
+}
+
+.table .list-inline-item {
+    display: inline-block;
+    padding-right: 0.5rem;
+    margin-right: 0.5rem;
+    border-right: 1px solid #dee2e6;
+}
+
+.table .list-inline-item:last-child {
+    border-right: none;
+}
+
+.table .fw-medium {
+    font-weight: 500;
+}
+
+/* Totals Section */
+.table tbody .text-end {
+    text-align: right !important;
+}
+
+.table tbody .border-0 {
+    border: none !important;
+}
+
+.table tbody h4 {
+    margin: 0;
+    font-size: 12.5px;
+}
+
+/* Action Buttons */
+.d-print-none {
+    margin-top: 1.5rem;
+}
+
+.float-end {
+    float: right;
+}
+
+/* Status Badges */
+.badge.bg-success {
+    background-color: #34c38f !important;
+}
+
+.badge.bg-warning {
+    background-color: #f1b44c !important;
+}
+
+.badge.bg-info {
+    background-color: #50a5f1 !important;
+}
+
+.badge.bg-danger {
+    background-color: #f46a6a !important;
+}
+
+.badge.bg-secondary {
+    background-color: #74788d !important;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Invoice Card -->
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card">
+                <div class="card-body quotation-body">
+                    <!-- Invoice Title -->
+                    <div class="invoice-title">
+                        <div class="row">
+                            <div class="col-sm-6">
+                                <div class="mb-4">
+                                    <img src="{% static 'assets/images/sas-logo.png' %}" alt="SAS Corporate" height="90" class="company-logo">
+                                </div>
+                                <div class="text-muted">
+                                    <p class="mb-1"><strong>521 ROSEBANK ROAD,</strong></p>
+                                    <p class="mb-1"><strong>AVONDALE,</strong></p>
+                                    <p class="mb-1"><strong>AUCKLAND,</strong></p>
+                                    <p class="mb-1"><strong>NEW ZEALAND</strong></p>
+                                    <p class="mb-1"><i class="uil uil-envelope-alt me-1"></i> <strong>CUSTOMERSERVICES@SAS.CO.NZ</strong></p>
+                                    <p><i class="uil uil-phone me-1"></i> <strong>09 2998412</strong></p>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-sm-end">
+                                    <h4 class="font-size-16">
+                                        Quotation #{{ quotation.quotation_number }}
+                                        {% if quotation.status == 'approved' %}
+                                            <span class="badge bg-success font-size-12 ms-2">Approved</span>
+                                        {% elif quotation.status == 'pending' %}
+                                            <span class="badge bg-warning font-size-12 ms-2">Pending</span>
+                                        {% elif quotation.status == 'draft' %}
+                                            <span class="badge bg-info font-size-12 ms-2">Draft</span>
+                                        {% elif quotation.status == 'rejected' %}
+                                            <span class="badge bg-danger font-size-12 ms-2">Rejected</span>
+                                        {% elif quotation.status == 'expired' %}
+                                            <span class="badge bg-danger font-size-12 ms-2">Expired</span>
+                                        {% elif quotation.status == 'cancelled' %}
+                                            <span class="badge bg-secondary font-size-12 ms-2">Cancelled</span>
+                                        {% endif %}
+                                    </h4>
+
+                                    <div class="text-muted mt-4">
+                                        <div>
+                                            <h5 class="font-size-16 mb-1">Quotation No:</h5>
+                                            <p>#{{ quotation.quotation_number }}</p>
+                                        </div>
+                                        <div class="mt-4">
+                                            <h5 class="font-size-16 mb-1">Quotation Date:</h5>
+                                            <p>{{ quotation.created_at|date:"d M, Y" }}</p>
+                                        </div>
+                                        {% if quotation.expires_at %}
+                                        <div class="mt-4">
+                                            <h5 class="font-size-16 mb-1">Valid Until:</h5>
+                                            <p>{{ quotation.expires_at|date:"d M, Y" }}</p>
+                                        </div>
+                                        {% endif %}
+
+                                        <!-- Billed To Information -->
+                                        <div class="mt-4">
+                                            {% if quotation.institution %}
+                                                <h5 class="font-size-15 mb-2">{{ quotation.institution_name }}</h5>
+                                            {% endif %}
+
+                                            {% if quotation.recipient_name %}
+                                                <p class="mb-2">{{ quotation.recipient_name }}</p>
+                                            {% endif %}
+
+                                            {% if quotation.recipient_address %}
+                                                <p class="mb-1">{{ quotation.recipient_address|linebreaksbr }}</p>
+                                            {% elif quotation.created_by.address %}
+                                                <p class="mb-1">{{ quotation.created_by.address }}</p>
+                                            {% endif %}
+
+                                            {% if quotation.created_by.role == 'customer' %}
+                                                {% if quotation.recipient_email %}
+                                                    <p class="mb-1">{{ quotation.recipient_email }}</p>
+                                                {% else %}
+                                                    <p class="mb-1">{{ quotation.created_by.email }}</p>
+                                                {% endif %}
+                                            {% endif %}
+
+                                            {% if quotation.recipient_phone %}
+                                                <p>{{ quotation.recipient_phone }}</p>
+                                            {% elif quotation.created_by.phone %}
+                                                <p>{{ quotation.created_by.phone }}</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Order Summary -->
+                    <div class="py-2 order-summary">
+                        <h5 class="font-size-15">Order summary</h5>
+
+                        <div class="table-responsive">
+                            <table class="table table-nowrap table-centered mb-0">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 70px;">No.</th>
+                                        <th>Item</th>
+                                        <th>Price</th>
+                                        <th>Quantity</th>
+                                        <th class="text-end" style="width: 120px;">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in items %}
+                                    <tr>
+                                        <th scope="row">{{ forloop.counter|stringformat:"02d" }}</th>
+                                        <td>
+                                            <h5 class="font-size-15 mb-1">{{ item.product_name }}</h5>
+                                            {% if item.variations %}
+                                            <ul class="list-inline mb-0">
+                                                {% if item.product_sku %}
+                                                <li class="list-inline-item">SKU : <span class="fw-medium">{{ item.product_sku }}</span></li>
+                                                {% endif %}
+                                                {% if item.variations.size %}
+                                                <li class="list-inline-item">Size : <span class="fw-medium">{{ item.variations.size }}</span></li>
+                                                {% endif %}
+                                                {% if item.variations.color %}
+                                                <li class="list-inline-item">Color : <span class="fw-medium">{{ item.variations.color }}</span></li>
+                                                {% endif %}
+                                            </ul>
+                                            {% endif %}
+                                            {% if item.notes %}
+                                            <small class="text-muted">Note: {{ item.notes }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>${{ item.unit_price|floatformat:2 }}</td>
+                                        <td>{{ item.quantity }}</td>
+                                        <td class="text-end">${{ item.line_total|floatformat:2 }}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">No items in this quotation</td>
+                                    </tr>
+                                    {% endfor %}
+
+                                    <!-- Totals -->
+                                    <tr>
+                                        <th scope="row" colspan="4" class="text-end">Sub Total</th>
+                                        <td class="text-end">${{ quotation.subtotal|floatformat:2|intcomma }}</td>
+                                    </tr>
+                                    {% if discount_amount > 0 %}
+                                    <tr>
+                                        <th scope="row" colspan="4" class="border-0 text-end">
+                                            Discount {% if quotation.discount_percentage %}({{ quotation.discount_percentage }}%){% endif %}
+                                        </th>
+                                        <td class="border-0 text-end text-danger">- ${{ discount_amount|floatformat:2|intcomma }}</td>
+                                    </tr>
+                                    {% endif %}
+                                    <tr>
+                                        <th scope="row" colspan="4" class="border-0 text-end">Tax (GST {{ quotation.tax_percentage }}%)</th>
+                                        <td class="border-0 text-end">${{ quotation.tax_amount|floatformat:2|intcomma }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="row" colspan="4" class="border-0 text-end">Total</th>
+                                        <td class="border-0 text-end"><h4 class="m-0">${{ quotation.total|floatformat:2|intcomma }}</h4></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Note -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <p class="text-muted"><small>* Note: This is a system generated quotation. No signature required.</small></p>
+                        </div>
+                    </div>
+
+                    <!-- Terms & Conditions -->
+                    <hr class="my-4">
+                    <div class="row">
+                        <div class="col-12">
+                            <div>
+                                <h5 class="font-size-15 mb-3">Terms and Conditions:</h5>
+                                <div class="text-muted" style="font-size: 10px; line-height: 1.6;">
+                                    <ol style="padding-left: 20px;">
+                                        <li class="mb-2">
+                                            <strong>Quotation Validity:</strong> This quotation is valid for 30 days from the date of issue. Prices and availability are subject to change after the validity period.
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Pricing:</strong> All prices are quoted in NZD and include GST unless otherwise stated. Additional charges may apply for customization, rush orders, or special requirements.
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Shipping & Handling:</strong> Shipping costs are not included in this quotation unless specifically stated. Delivery timeframes are estimated and may vary based on stock availability and location.
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Lead Time:</strong> Standard lead time is 2-4 weeks from order confirmation. Custom or large orders may require additional time. We will notify you of any delays.
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Order Confirmation:</strong> Orders must be confirmed in writing. A purchase order or written acceptance of this quotation constitutes a binding agreement.
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Cancellations & Changes:</strong> Order cancellations or modifications must be made in writing within 48 hours of order confirmation. Cancellation fees may apply for custom or processed orders.
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Returns & Exchanges:</strong> Custom orders and embroidered/printed items cannot be returned or exchanged unless faulty. Standard stock items may be returned within 14 days in original condition.
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Payment Terms:</strong> Payment is due as per agreed terms. Standard terms are 30 days from invoice date unless otherwise specified. Late payments may incur interest charges.
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Ownership & Risk:</strong> Goods remain the property of SAS Corporate until payment is received in full. Risk passes to the customer upon delivery or collection.
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Confidentiality:</strong> This quotation and its contents are confidential and intended solely for the named recipient. Unauthorized distribution or reproduction is prohibited.
+                                        </li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-print-none mt-4">
+                        <div class="float-end">
+                            <a href="javascript:window.print()" class="btn btn-success waves-effect waves-light me-1">
+                                <i class="fa fa-print"></i>
+                            </a>
+                            <a href="javascript:window.print()" class="btn btn-primary w-md waves-effect waves-light">Download PDF</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Toastr for notifications -->
+<link href="{% static 'assets/libs/toastr/build/toastr.min.css' %}" rel="stylesheet" />
+<script src="{% static 'assets/libs/toastr/build/toastr.min.js' %}"></script>
+
+<script>
+// Configure Toastr
+toastr.options = {
+    "closeButton": true,
+    "debug": false,
+    "newestOnTop": true,
+    "progressBar": true,
+    "positionClass": "toast-top-right",
+    "preventDuplicates": true,
+    "onclick": null,
+    "showDuration": "300",
+    "hideDuration": "1000",
+    "timeOut": "5000",
+    "extendedTimeOut": "1000",
+    "showEasing": "swing",
+    "hideEasing": "linear",
+    "showMethod": "fadeIn",
+    "hideMethod": "fadeOut"
+};
+
+// Show success message if redirected from save
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('generated') === 'true') {
+        toastr.success('Quotation {{ quotation.quotation_number }} generated successfully!');
+    }
+
+    // Set document title to quotation number for PDF filename
+    document.title = '{{ quotation.quotation_number }}';
+});
+
+// Ensure the title is set before printing
+window.onbeforeprint = function() {
+    document.title = '{{ quotation.quotation_number }}';
+};
+</script>
+{% endblock %}

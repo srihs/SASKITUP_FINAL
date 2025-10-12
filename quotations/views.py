@@ -453,6 +453,43 @@ class QuotationCartView(LoginRequiredMixin, View):
     def get(self, request):
         quotation_data = get_quotation_session(request)
 
+        # Get user's accessible institutions for dropdown
+        institutions_list = []
+        if request.user.is_authenticated:
+            institutions = get_user_institutions(request.user)
+
+            # Format TUS schools
+            for school in institutions.get('tus_schools', []):
+                institutions_list.append({
+                    'id': f'tusschool_{school.id}',
+                    'text': f'{school.name} - TUS School',
+                    'type': 'tusschool'
+                })
+
+            # Format wholesale schools
+            for school in institutions.get('wholesale_schools', []):
+                institutions_list.append({
+                    'id': f'wholesaleschool_{school.id}',
+                    'text': f'{school.name} - Wholesale School',
+                    'type': 'wholesaleschool'
+                })
+
+            # Format LOTTO clubs
+            for club in institutions.get('lotto_clubs', []):
+                institutions_list.append({
+                    'id': f'lottoclub_{club.id}',
+                    'text': f'{club.name} - LOTTO Club',
+                    'type': 'lottoclub'
+                })
+
+            # Format SAS clubs
+            for club in institutions.get('sas_clubs', []):
+                institutions_list.append({
+                    'id': f'sasclub_{club.id}',
+                    'text': f'{club.name} - SAS Club',
+                    'type': 'sasclub'
+                })
+
         # Enrich items with product details
         enriched_items = []
         total_savings = Decimal('0.00')
@@ -603,6 +640,16 @@ class QuotationCartView(LoginRequiredMixin, View):
             user_full_name = request.user.get_full_name()
             user_address = getattr(request.user, 'address', '')
 
+        # Prepare institutions_json for Select2
+        import json
+        institutions_json = json.dumps(institutions_list)
+
+        # Get currently selected institution if any
+        current_institution_id = None
+        if institution:
+            if institution_type:
+                current_institution_id = f'{institution_type.lower()}_{institution.id}'
+
         context = {
             'cart_items': enriched_items,  # Changed from 'items' to match template
             'subtotal': totals['subtotal'],
@@ -615,6 +662,8 @@ class QuotationCartView(LoginRequiredMixin, View):
             'user_full_name': user_full_name,
             'user_address': user_address,
             'is_customer': request.user.is_customer,
+            'institutions_json': institutions_json,
+            'current_institution_id': current_institution_id,
         }
 
         return render(request, self.template_name, context)
@@ -907,54 +956,66 @@ class SaveQuotationView(LoginRequiredMixin, View):
                     'error': 'Your quotation cart is empty. Please add items before submitting.'
                 }, status=400)
 
-            # Validate institution is set
-            if not quotation_data.get('institution_type') or not quotation_data.get('institution_id'):
-                return JsonResponse({
-                    'success': False,
-                    'error': 'No institution selected. Please select an institution before submitting your quotation.'
-                }, status=400)
+            # Get institution from POST data (optional)
+            institution_id_param = request.POST.get('institution_id', '').strip()
+            institution = None
+            institution_content_type = None
 
-            # Get institution
-            from schools.models_tus import TUSSchool
+            if institution_id_param:
+                # Parse institution_id parameter (format: "institutiontype_id")
+                try:
+                    institution_type, institution_id = institution_id_param.split('_', 1)
+                    institution_id = int(institution_id)
 
-            institution_models = {
-                'tusschool': TUSSchool,
-                'wholesaleschool': WholesaleSchool,
-                'lottoclub': LottoClub,
-                'sasclub': SASClub,
-            }
-            model_class = institution_models.get(quotation_data['institution_type'].lower())
-            if not model_class:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Invalid institution type'
-                }, status=400)
+                    # Get institution object
+                    from schools.models_tus import TUSSchool
 
-            try:
-                institution = model_class.objects.get(pk=quotation_data['institution_id'])
-            except model_class.DoesNotExist:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Institution not found'
-                }, status=404)
+                    institution_models = {
+                        'tusschool': TUSSchool,
+                        'wholesaleschool': WholesaleSchool,
+                        'lottoclub': LottoClub,
+                        'sasclub': SASClub,
+                    }
+                    model_class = institution_models.get(institution_type.lower())
+                    if not model_class:
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Invalid institution type'
+                        }, status=400)
 
-            # Verify user has access to this institution
-            if not user_can_access_institution(request.user, quotation_data['institution_type'], quotation_data['institution_id']):
-                return JsonResponse({
-                    'success': False,
-                    'error': 'You do not have permission to create quotations for this institution'
-                }, status=403)
+                    try:
+                        institution = model_class.objects.get(pk=institution_id)
+                    except model_class.DoesNotExist:
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Institution not found'
+                        }, status=404)
+
+                    # Verify user has access to this institution
+                    if not user_can_access_institution(request.user, institution_type, institution_id):
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'You do not have permission to create quotations for this institution'
+                        }, status=403)
+
+                    # Get content type for institution
+                    institution_content_type = ContentType.objects.get_for_model(institution)
+
+                except (ValueError, IndexError) as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Invalid institution ID format'
+                    }, status=400)
 
             # Get recipient information from POST data
             recipient_name = request.POST.get('recipient_name', '').strip()
             recipient_address = request.POST.get('recipient_address', '').strip()
 
-            # Create Quotation
-            institution_content_type = ContentType.objects.get_for_model(institution)
+            # Create Quotation (with or without institution)
             quotation = Quotation.objects.create(
                 created_by=request.user,
                 institution_content_type=institution_content_type,
-                institution_object_id=institution.id,
+                institution_object_id=institution.id if institution else None,
                 status='pending',  # Changed from 'draft' to 'pending' for approval workflow
                 recipient_name=recipient_name,
                 recipient_address=recipient_address,
@@ -1020,8 +1081,8 @@ class SaveQuotationView(LoginRequiredMixin, View):
                 'quotation_number': quotation.quotation_number,
                 'item_count': items_created,
                 'total_amount': str(quotation.total),
-                'redirect_url': reverse('quotations:my-quotations'),
-                'message': f'Quotation {quotation.quotation_number} submitted successfully!'
+                'redirect_url': reverse('quotations:quotation-preview', kwargs={'pk': quotation.id}),
+                'message': f'Quotation {quotation.quotation_number} generated successfully!'
             })
 
         except ValidationError as e:
@@ -1112,6 +1173,55 @@ class QuotationDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['items'] = self.object.items.all().select_related('product_content_type')
+        return context
+
+
+# =====================================
+# QUOTATION PREVIEW VIEW
+# =====================================
+
+class QuotationPreviewView(LoginRequiredMixin, DetailView):
+    """
+    Preview quotation with professional invoice-style design.
+    Accessible by quotation creator and admin/account managers.
+    """
+    model = Quotation
+    template_name = 'quotations/quotation_preview.html'
+    context_object_name = 'quotation'
+
+    def get_queryset(self):
+        """Ensure user can only view their own quotations (or all if admin/account manager)"""
+        if self.request.user.is_admin or self.request.user.is_account_manager:
+            return Quotation.objects.all()
+        return Quotation.objects.filter(created_by=self.request.user)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Get quotation items with product details
+        context['items'] = self.object.items.all().select_related('product_content_type').order_by('sort_order', 'created_at')
+
+        # Company details
+        context['company'] = {
+            'name': 'SAS CORPORATE',
+            'address': '521 ROSEBANK ROAD, AVONDALE, AUCKLAND, NEW ZEALAND',
+            'email': 'CUSTOMERSERVICES@SAS.CO.NZ',
+            'phone': '09 2998412',
+            'logo': 'assets/images/logo-dark.png'
+        }
+
+        # Calculate subtotal before discount
+        context['subtotal_before_discount'] = self.object.subtotal
+
+        # Calculate discount amount
+        if self.object.discount_percentage:
+            context['discount_amount'] = (self.object.subtotal * self.object.discount_percentage / Decimal('100')).quantize(Decimal('0.01'))
+        else:
+            context['discount_amount'] = self.object.discount_amount
+
+        # Calculate taxable amount (subtotal - discount)
+        context['taxable_amount'] = self.object.subtotal - context['discount_amount']
+
         return context
 
 

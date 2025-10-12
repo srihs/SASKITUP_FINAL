@@ -96,18 +96,23 @@ class Quotation(models.Model):
         help_text="User who created this quotation (sales rep/account manager/customer)"
     )
 
-    # Institution reference using GenericForeignKey
+    # Institution reference using GenericForeignKey (OPTIONAL)
     # Supports: School, WholesaleSchool, LottoClub, SASClub
+    # Institution helps with organization but is not mandatory
     institution_content_type = models.ForeignKey(
         ContentType,
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         limit_choices_to={
             'model__in': ['school', 'wholesaleschool', 'lottoclub', 'sasclub']
         },
-        help_text="Type of institution (school or club)"
+        help_text="Type of institution (school or club) - optional"
     )
     institution_object_id = models.PositiveIntegerField(
-        help_text="ID of the institution"
+        null=True,
+        blank=True,
+        help_text="ID of the institution - optional"
     )
     institution = GenericForeignKey('institution_content_type', 'institution_object_id')
 
@@ -264,8 +269,11 @@ class Quotation(models.Model):
         ]
 
     def __str__(self):
-        institution_name = getattr(self.institution, 'name', None) or getattr(self.institution, 'org_name', 'Unknown')
-        return f"{self.quotation_number} - {institution_name} ({self.get_status_display()})"
+        if self.institution:
+            institution_name = getattr(self.institution, 'name', None) or getattr(self.institution, 'org_name', 'Unknown')
+            return f"{self.quotation_number} - {institution_name} ({self.get_status_display()})"
+        else:
+            return f"{self.quotation_number} - No Institution ({self.get_status_display()})"
 
     def save(self, *args, **kwargs):
         # Auto-generate quotation number if not set
@@ -355,14 +363,14 @@ class Quotation(models.Model):
     def institution_name(self):
         """Get the institution name"""
         if not self.institution:
-            return 'Unknown'
+            return 'No Institution'
         return getattr(self.institution, 'name', None) or getattr(self.institution, 'org_name', 'Unknown')
 
     @property
     def institution_type(self):
         """Get the institution type as a readable string"""
         if not self.institution_content_type:
-            return 'Unknown'
+            return 'No Institution'
 
         model_name = self.institution_content_type.model
         type_map = {

@@ -56,6 +56,11 @@
     color: #6f42c1 !important;
 }
 
+.badge.type-no {
+    background-color: #e2e3e5 !important;
+    color: #383d41 !important;
+}
+
 /* Action Icons */
 .action-icon {
     font-size: 18px;
@@ -140,11 +145,23 @@
                                     </a>
                                 </td>
                                 <td>{{ quotation.created_at|date:"M d, Y" }}</td>
-                                <td>{{ quotation.institution_name }}</td>
                                 <td>
-                                    <span class="badge bg-pill font-size-12 type-{{ quotation.institution_type }}">
-                                        {{ quotation.institution_type|title }}
-                                    </span>
+                                    {% if quotation.institution %}
+                                        {{ quotation.institution_name }}
+                                    {% else %}
+                                        <em class="text-muted">No Institution</em>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if quotation.institution %}
+                                        <span class="badge bg-pill font-size-12 type-{{ quotation.institution_type|lower|cut:' ' }}">
+                                            {{ quotation.institution_type }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-pill font-size-12 type-no">
+                                            Direct Customer
+                                        </span>
+                                    {% endif %}
                                 </td>
                                 <td>
                                     <span class="badge bg-primary-subtle text-primary font-size-12">

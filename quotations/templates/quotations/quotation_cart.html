@@ -8,6 +8,9 @@
 <!-- bootstrap-touchspin -->
 <link href="{% static 'assets/libs/bootstrap-touchspin/jquery.bootstrap-touchspin.min.css' %}" rel="stylesheet" />
 
+<!-- Select2 -->
+<link href="{% static 'assets/libs/select2/css/select2.min.css' %}" rel="stylesheet" type="text/css" />
+
 <style>
 /* Match Reference Design - No Custom Gradients or Colors */
 
@@ -863,6 +866,26 @@
                     </div>
                 </div>
 
+                <!-- Institution Selection Section -->
+                <div class="card border shadow-none mt-3">
+                    <div class="card-header bg-transparent border-bottom py-3 px-4">
+                        <h5 class="font-size-16 mb-0">Select School/Club <span class="text-muted font-size-13">(Optional)</span></h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="mb-0">
+                            <label for="institution_select" class="form-label">Institution</label>
+                            <select class="form-control select2" id="institution_select" name="institution_select">
+                                <option value="">No Institution (Direct Customer)</option>
+                            </select>
+                            <div class="form-text mt-2">
+                                <i class="uil uil-info-circle me-1"></i>
+                                Institution helps with organization but is not mandatory. Leave empty for direct customer quotations.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- end Institution Selection Section -->
+
                 <!-- Recipient Information Section -->
                 <div class="card border shadow-none mt-3">
                     <div class="card-header bg-transparent border-bottom py-3 px-4">
@@ -941,6 +964,9 @@
 <!-- Toastr for notifications -->
 <link href="{% static 'assets/libs/toastr/build/toastr.min.css' %}" rel="stylesheet" />
 <script src="{% static 'assets/libs/toastr/build/toastr.min.js' %}"></script>
+
+<!-- Select2 -->
+<script src="{% static 'assets/libs/select2/js/select2.min.js' %}"></script>
 
 <!-- Bootrstrap touchspin -->
 <script src="{% static 'assets/libs/bootstrap-touchspin/jquery.bootstrap-touchspin.min.js' %}"></script>
@@ -1027,6 +1053,50 @@ function updateAllGroupTotals() {
 
 // Initialize TouchSpin and Group Totals
 $(document).ready(function() {
+    // Initialize Select2 for institution dropdown
+    const institutionsData = {{ institutions_json|safe }};
+    const currentInstitutionId = "{{ current_institution_id|default:'' }}";
+
+    $('#institution_select').select2({
+        data: institutionsData,
+        placeholder: 'Search for a school or club...',
+        allowClear: true,
+        width: '100%',
+        templateResult: formatInstitutionOption,
+        templateSelection: formatInstitutionSelection
+    });
+
+    // Set current institution if available
+    if (currentInstitutionId) {
+        $('#institution_select').val(currentInstitutionId).trigger('change');
+    }
+
+    // Format function for Select2 options
+    function formatInstitutionOption(institution) {
+        if (!institution.id) {
+            return institution.text;
+        }
+
+        // Add icon based on type
+        let icon = 'uil-university';
+        if (institution.type === 'lottoclub' || institution.type === 'sasclub') {
+            icon = 'uil-users-alt';
+        }
+
+        var $option = $(
+            '<span><i class="uil ' + icon + ' me-2"></i>' + institution.text + '</span>'
+        );
+
+        return $option;
+    }
+
+    function formatInstitutionSelection(institution) {
+        if (!institution.id) {
+            return institution.text || 'No Institution (Direct Customer)';
+        }
+        return institution.text;
+    }
+
     $('[data-toggle="touchspin"]').each(function() {
         const input = $(this);
         const itemIndex = input.attr('id').split('-')[2];
@@ -1206,7 +1276,7 @@ function updateSummary(data) {
 
 // Save Quotation
 function saveQuotation() {
-    if (!confirm('Are you ready to submit this quotation request?')) {
+    if (!confirm('Are you ready to generate this quotation?')) {
         return;
     }
 
@@ -1216,10 +1286,18 @@ function saveQuotation() {
     const recipientName = document.getElementById('recipient_name').value;
     const recipientAddress = document.getElementById('recipient_address').value;
 
+    // Get selected institution (optional)
+    const institutionSelect = $('#institution_select').val();
+
     // Prepare form data
     const formData = new URLSearchParams();
     formData.append('recipient_name', recipientName);
     formData.append('recipient_address', recipientAddress);
+
+    // Add institution if selected
+    if (institutionSelect) {
+        formData.append('institution_id', institutionSelect);
+    }
 
     // Send AJAX request to save quotation
     fetch('{% url "quotations:save" %}', {
@@ -1234,13 +1312,13 @@ function saveQuotation() {
     .then(data => {
         hideLoading();
         if (data.success) {
-            toastr.success(data.message || 'Quotation request submitted successfully!');
-            // Redirect to quotations list or confirmation page after a short delay
+            toastr.success(data.message || 'Quotation generated successfully!');
+            // Redirect to quotation preview page after a short delay
             setTimeout(() => {
-                window.location.href = data.redirect_url || '{% url "quotations:my-quotations" %}';
-            }, 1500);
+                window.location.href = data.redirect_url + '?generated=true';
+            }, 1000);
         } else {
-            toastr.error(data.error || 'Failed to save quotation');
+            toastr.error(data.error || 'Failed to generate quotation');
         }
     })
     .catch(error => {
