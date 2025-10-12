@@ -894,11 +894,6 @@
                     <div class="product-club-info">
                         <div>
                             <div class="club-name">{{ product_type|upper }}</div>
-                            {% if product.sku or product.cin7_sku or product.barcode or product.style_code %}
-                            <small class="text-muted">
-                                SKU: <span id="productSku">{% if product.sku %}{{ product.sku }}{% elif product.cin7_sku %}{{ product.cin7_sku }}{% elif product.barcode %}{{ product.barcode }}{% elif product.style_code %}{{ product.style_code }}{% else %}N/A{% endif %}</span>
-                            </small>
-                            {% endif %}
                         </div>
                         <span class="badge badge-lotto ms-auto">{{ product_type|upper }}</span>
                     </div>
@@ -916,7 +911,17 @@
                     <!-- SKU Display -->
                     <div class="product-sku mb-3">
                         <small class="text-muted">
-                            SKU: <span id="productSkuDisplay">{% if product.sku %}{{ product.sku }}{% elif product.cin7_sku %}{{ product.cin7_sku }}{% elif product.barcode %}{{ product.barcode }}{% elif product.style_code %}{{ product.style_code }}{% else %}N/A{% endif %}</span>
+                            SKU: <span id="productSkuDisplay">
+                                {% if product_type == 'TUSProduct' %}
+                                    {% if product.sku %}{{ product.sku }}{% else %}N/A{% endif %}
+                                {% elif product_type == 'WholesaleProduct' %}
+                                    {% if product.cin7_sku %}{{ product.cin7_sku }}{% else %}N/A{% endif %}
+                                {% elif product_type == 'SASProduct' or product_type == 'LottoProduct' %}
+                                    {% if product.sku_suffix %}{{ product.sku_suffix }}{% elif product.sku %}{{ product.sku }}{% else %}N/A{% endif %}
+                                {% else %}
+                                    {% if product.sku %}{{ product.sku }}{% elif product.cin7_sku %}{{ product.cin7_sku }}{% elif product.sku_suffix %}{{ product.sku_suffix }}{% else %}N/A{% endif %}
+                                {% endif %}
+                            </span>
                         </small>
                     </div>
 
@@ -1248,14 +1253,11 @@ function selectColor(color, variationMap, buttonElement) {
 function updateProductDisplay(variation) {
     console.log('Updating product display with variation:', variation);
 
-    // Update SKU in both locations
-    const skuElement = document.getElementById('productSku');
+    // Update SKU display
+    // Note: The view already sets the correct SKU field based on product type in variation.sku
     const skuDisplayElement = document.getElementById('productSkuDisplay');
     const skuValue = variation.sku || 'N/A';
 
-    if (skuElement) {
-        skuElement.textContent = skuValue;
-    }
     if (skuDisplayElement) {
         skuDisplayElement.textContent = skuValue;
     }
