@@ -73,6 +73,24 @@
     h5, h5.font-size-15, .font-size-15, .table h5.font-size-15 {
         font-size: 12px !important;
     }
+
+    /* P.T.O (Please Turn Over) at bottom of first page */
+    .pto-marker {
+        display: block;
+        position: fixed;
+        bottom: 20px;
+        right: 30px;
+        font-size: 11px;
+        font-weight: bold;
+        color: #666;
+    }
+
+    /* Hide P.T.O on subsequent pages */
+    @page:not(:first) {
+        .pto-marker {
+            display: none;
+        }
+    }
 }
 
 /* Quotation Body Font Size */
@@ -466,6 +484,9 @@
             </div>
         </div>
     </div>
+
+    <!-- P.T.O marker (Please Turn Over) - only visible in print when content spans multiple pages -->
+    <div class="pto-marker d-none d-print-block">P.T.O</div>
 </div>
 {% endblock %}
 
