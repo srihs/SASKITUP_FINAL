@@ -913,6 +913,13 @@
                         {% endif %}
                     </h1>
 
+                    <!-- SKU Display -->
+                    <div class="product-sku mb-3">
+                        <small class="text-muted">
+                            SKU: <span id="productSkuDisplay">{% if product.sku %}{{ product.sku }}{% elif product.cin7_sku %}{{ product.cin7_sku }}{% elif product.barcode %}{{ product.barcode }}{% elif product.style_code %}{{ product.style_code }}{% else %}N/A{% endif %}</span>
+                        </small>
+                    </div>
+
                     <!-- Product Pricing -->
                     <div class="product-pricing">
                         <div class="price-container" id="priceContainer">
@@ -1241,10 +1248,16 @@ function selectColor(color, variationMap, buttonElement) {
 function updateProductDisplay(variation) {
     console.log('Updating product display with variation:', variation);
 
-    // Update SKU
+    // Update SKU in both locations
     const skuElement = document.getElementById('productSku');
-    if (skuElement && variation.sku) {
-        skuElement.textContent = variation.sku;
+    const skuDisplayElement = document.getElementById('productSkuDisplay');
+    const skuValue = variation.sku || 'N/A';
+
+    if (skuElement) {
+        skuElement.textContent = skuValue;
+    }
+    if (skuDisplayElement) {
+        skuDisplayElement.textContent = skuValue;
     }
 
     // Update product title with cost price indicator if applicable
