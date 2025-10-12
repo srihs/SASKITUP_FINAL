@@ -1,0 +1,333 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body_class %}site-settings{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Form Styling */
+.form-control:focus {
+    border-color: #556ee6;
+    box-shadow: 0 0 0 0.2rem rgba(85, 110, 230, 0.25);
+}
+
+.form-label {
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.form-text {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+/* Button Styling */
+.btn-primary {
+    background-color: #556ee6;
+    border-color: #556ee6;
+}
+
+.btn-primary:hover {
+    background-color: #4558d1;
+    border-color: #4558d1;
+}
+
+.btn-secondary {
+    background-color: #74788d;
+    border-color: #74788d;
+}
+
+.btn-secondary:hover {
+    background-color: #5f6377;
+    border-color: #5f6377;
+}
+
+/* Card Styling */
+.settings-card {
+    box-shadow: 0 0.75rem 1.5rem rgba(18, 38, 63, 0.03);
+}
+
+/* Alert Styling */
+.alert {
+    border-radius: 0.25rem;
+}
+
+/* Input Group Styling */
+.input-group-text {
+    background-color: #f8f9fa;
+    border-color: #ced4da;
+    color: #495057;
+}
+
+/* Current Values Display */
+.current-value {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 0.25rem;
+    padding: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.current-value h6 {
+    color: #495057;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.current-value .value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #556ee6;
+}
+
+.current-value .label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Display Messages -->
+{% if messages %}
+<div class="row">
+    <div class="col-12">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            <i class="mdi mdi-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}alert-circle{% else %}information{% endif %} me-2"></i>
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-lg-8 offset-lg-2">
+        <div class="card settings-card">
+            <div class="card-body">
+                <h4 class="card-title mb-4">
+                    <i class="uil-cog me-2"></i>Quotation Settings
+                </h4>
+
+                <!-- Current Settings Display -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="current-value">
+                            <h6>Current GST Percentage</h6>
+                            <div class="value">{{ settings.gst_percentage }}%</div>
+                            <div class="label">Applied to new quotations</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="current-value">
+                            <h6>Current Quotation Validity</h6>
+                            <div class="value">{{ settings.quotation_validity_days }} days</div>
+                            <div class="label">Default expiry period</div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="mb-4">
+
+                <!-- Settings Form -->
+                <form method="post" action="{% url 'quotations:site-settings' %}" id="settingsForm">
+                    {% csrf_token %}
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.gst_percentage.id_for_label }}" class="form-label">
+                                    {{ form.gst_percentage.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    {{ form.gst_percentage }}
+                                    <span class="input-group-text">%</span>
+                                </div>
+                                {% if form.gst_percentage.help_text %}
+                                <div class="form-text">{{ form.gst_percentage.help_text }}</div>
+                                {% endif %}
+                                {% if form.gst_percentage.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.gst_percentage.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.quotation_validity_days.id_for_label }}" class="form-label">
+                                    {{ form.quotation_validity_days.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    {{ form.quotation_validity_days }}
+                                    <span class="input-group-text">days</span>
+                                </div>
+                                {% if form.quotation_validity_days.help_text %}
+                                <div class="form-text">{{ form.quotation_validity_days.help_text }}</div>
+                                {% endif %}
+                                {% if form.quotation_validity_days.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.quotation_validity_days.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Information -->
+                    <div class="alert alert-info" role="alert">
+                        <i class="mdi mdi-information me-2"></i>
+                        <strong>Note:</strong> These settings will apply to all new quotations created after saving. Existing quotations will retain their original settings.
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <div class="text-muted">
+                            <small>
+                                {% if settings.updated_at %}
+                                Last updated: {{ settings.updated_at|date:"M d, Y g:i A" }}
+                                {% if settings.updated_by %}
+                                by {{ settings.updated_by.get_full_name }}
+                                {% endif %}
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-secondary me-2" onclick="resetForm()">
+                                <i class="mdi mdi-refresh me-1"></i> Reset
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="mdi mdi-content-save me-1"></i> Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Help Card -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="uil-question-circle me-2"></i>Settings Information
+                </h5>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6 class="font-size-14 mb-2">GST Percentage</h6>
+                        <p class="text-muted font-size-13">
+                            The GST/VAT percentage that will be automatically applied to all new quotations. This value is captured at quotation creation time, so changing it won't affect existing quotations.
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="font-size-14 mb-2">Quotation Validity</h6>
+                        <p class="text-muted font-size-13">
+                            The default number of days a quotation remains valid after creation. Customers must accept quotations before they expire. Expired quotations can be viewed but cannot be accepted.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function resetForm() {
+    // Reset the form to original values
+    document.getElementById('settingsForm').reset();
+
+    // Optionally show a message
+    showToast('Form reset to current saved values', 'info');
+}
+
+function showToast(message, type = 'success') {
+    // Create a simple toast notification
+    const alertClass = type === 'success' ? 'alert-success' :
+                      type === 'error' ? 'alert-danger' :
+                      'alert-info';
+
+    const iconClass = type === 'success' ? 'mdi-check-circle' :
+                     type === 'error' ? 'mdi-alert-circle' :
+                     'mdi-information';
+
+    const toast = document.createElement('div');
+    toast.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    toast.innerHTML = `
+        <i class="mdi ${iconClass} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+
+    document.body.appendChild(toast);
+
+    // Auto-dismiss after 3 seconds
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 150);
+    }, 3000);
+}
+
+// Form validation
+document.getElementById('settingsForm').addEventListener('submit', function(e) {
+    const gstInput = document.getElementById('{{ form.gst_percentage.id_for_label }}');
+    const validityInput = document.getElementById('{{ form.quotation_validity_days.id_for_label }}');
+
+    let isValid = true;
+
+    // Validate GST percentage (0-100)
+    const gstValue = parseFloat(gstInput.value);
+    if (isNaN(gstValue) || gstValue < 0 || gstValue > 100) {
+        isValid = false;
+        gstInput.classList.add('is-invalid');
+        showToast('GST percentage must be between 0 and 100', 'error');
+    } else {
+        gstInput.classList.remove('is-invalid');
+    }
+
+    // Validate quotation validity (1-365)
+    const validityValue = parseInt(validityInput.value);
+    if (isNaN(validityValue) || validityValue < 1 || validityValue > 365) {
+        isValid = false;
+        validityInput.classList.add('is-invalid');
+        showToast('Quotation validity must be between 1 and 365 days', 'error');
+    } else {
+        validityInput.classList.remove('is-invalid');
+    }
+
+    if (!isValid) {
+        e.preventDefault();
+    }
+});
+
+// Real-time validation
+document.getElementById('{{ form.gst_percentage.id_for_label }}').addEventListener('input', function() {
+    const value = parseFloat(this.value);
+    if (isNaN(value) || value < 0 || value > 100) {
+        this.classList.add('is-invalid');
+    } else {
+        this.classList.remove('is-invalid');
+    }
+});
+
+document.getElementById('{{ form.quotation_validity_days.id_for_label }}').addEventListener('input', function() {
+    const value = parseInt(this.value);
+    if (isNaN(value) || value < 1 || value > 365) {
+        this.classList.add('is-invalid');
+    } else {
+        this.classList.remove('is-invalid');
+    }
+});
+</script>
+{% endblock %}
