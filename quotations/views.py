@@ -10,7 +10,7 @@ This module provides comprehensive quotation workflow views:
 """
 
 from decimal import Decimal
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.contenttypes.models import ContentType
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Q, Prefetch
@@ -20,6 +20,7 @@ from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import ListView, DetailView, FormView
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.contrib import messages
 import logging
 
 from authentication.permissions import (
@@ -31,7 +32,8 @@ from schools.models import School, WholesaleSchool, WholesaleProduct, WholesaleP
 from schools.models_tus import TUSProductVariation
 from clubs.models_lotto import LottoClub, LottoProduct
 from clubs.models_sas import SASClub, SASProduct
-from .models import Quotation, QuotationItem, CustomerInstitutionAssignment
+from .models import Quotation, QuotationItem, CustomerInstitutionAssignment, SiteSettings
+from .forms import SiteSettingsForm
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +68,13 @@ def clear_quotation_session(request):
 
 def calculate_quotation_totals(quotation_data):
     """Calculate totals for quotation session data"""
+    from .models import SiteSettings
+
     subtotal = Decimal('0.00')
-    tax_percentage = Decimal('15.00')  # 15% VAT
+
+    # Get GST percentage from site settings
+    settings = SiteSettings.objects.get_settings()
+    tax_percentage = settings.gst_percentage
 
     for item in quotation_data.get('items', []):
         line_total = Decimal(str(item['unit_price'])) * Decimal(str(item['quantity']))
@@ -1171,8 +1178,22 @@ class QuotationDetailView(LoginRequiredMixin, DetailView):
         return Quotation.objects.filter(created_by=self.request.user)
 
     def get_context_data(self, **kwargs):
+        from .models import SiteSettings
+        from decimal import Decimal
+
         context = super().get_context_data(**kwargs)
-        context['items'] = self.object.items.all().select_related('product_content_type')
+        context['items'] = self.object.items.all().select_related('product_content_type').order_by('sort_order', 'created_at')
+
+        # Calculate discount amount
+        if self.object.discount_percentage:
+            context['discount_amount'] = (self.object.subtotal * self.object.discount_percentage / Decimal('100')).quantize(Decimal('0.01'))
+        else:
+            context['discount_amount'] = self.object.discount_amount
+
+        # Get quotation validity days from settings
+        settings = SiteSettings.objects.get_settings()
+        context['quotation_validity_days'] = settings.quotation_validity_days
+
         return context
 
 
@@ -1196,6 +1217,8 @@ class QuotationPreviewView(LoginRequiredMixin, DetailView):
         return Quotation.objects.filter(created_by=self.request.user)
 
     def get_context_data(self, **kwargs):
+        from .models import SiteSettings
+
         context = super().get_context_data(**kwargs)
 
         # Get quotation items with product details
@@ -1221,6 +1244,10 @@ class QuotationPreviewView(LoginRequiredMixin, DetailView):
 
         # Calculate taxable amount (subtotal - discount)
         context['taxable_amount'] = self.object.subtotal - context['discount_amount']
+
+        # Get quotation validity days from settings
+        settings = SiteSettings.objects.get_settings()
+        context['quotation_validity_days'] = settings.quotation_validity_days
 
         return context
 
@@ -1962,3 +1989,127 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
             'skus': skus,  # List of SKU information
             'has_skus': len(skus) > 0,  # Quick check for template
         }
+
+
+# =====================================
+# SITE SETTINGS VIEW
+# =====================================
+
+class SiteSettingsView(LoginRequiredMixin, UserPassesTestMixin, FormView):
+    """
+    Site Settings management view.
+    Allows admin users to configure site-wide settings like GST percentage
+    and quotation validity days.
+    """
+    template_name = 'quotations/site_settings.html'
+    form_class = SiteSettingsForm
+    success_url = reverse_lazy('quotations:site-settings')
+
+    def test_func(self):
+        """Only admin users can access site settings"""
+        return self.request.user.is_authenticated and self.request.user.is_admin
+
+    def get_object(self):
+        """Get or create the singleton SiteSettings instance"""
+        return SiteSettings.objects.get_settings()
+
+    def get_form_kwargs(self):
+        """Pass the SiteSettings instance to the form"""
+        kwargs = super().get_form_kwargs()
+        kwargs['instance'] = self.get_object()
+        return kwargs
+
+    def form_valid(self, form):
+        """Save the form and show success message"""
+        settings = form.save(commit=False)
+        settings.updated_by = self.request.user
+        settings.save()
+
+        # Log action
+        AuditLog.log_action(
+            user=self.request.user,
+            action_type='data_update',
+            description=f'Updated site settings: GST={settings.gst_percentage}%, Validity={settings.quotation_validity_days} days',
+            request=self.request,
+            gst_percentage=str(settings.gst_percentage),
+            quotation_validity_days=settings.quotation_validity_days
+        )
+
+        messages.success(self.request, 'Site settings updated successfully!')
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        """Show error message if form validation fails"""
+        messages.error(self.request, 'Please correct the errors below.')
+        return super().form_invalid(form)
+
+    def get_context_data(self, **kwargs):
+        """Add additional context for template"""
+        context = super().get_context_data(**kwargs)
+        settings = self.get_object()
+        context['settings'] = settings
+        context['page_title'] = 'Site Settings'
+        return context
+
+
+# =====================================
+# APPROVE QUOTATION VIEW
+# =====================================
+
+class ApproveQuotationView(LoginRequiredMixin, UserPassesTestMixin, View):
+    """
+    Approve a pending quotation.
+    Only accessible to account managers.
+    """
+
+    def test_func(self):
+        """Only account managers can approve quotations"""
+        return self.request.user.is_authenticated and self.request.user.is_account_manager
+
+    def post(self, request, pk):
+        try:
+            # Get quotation
+            quotation = get_object_or_404(Quotation, pk=pk)
+
+            # Check if quotation is pending
+            if quotation.status != 'pending':
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Cannot approve quotation with status: {quotation.get_status_display()}'
+                }, status=400)
+
+            # Approve the quotation
+            quotation.approve(
+                approved_by=request.user,
+                notes=f'Approved by {request.user.get_full_name()}'
+            )
+
+            # Log action
+            AuditLog.log_action(
+                user=request.user,
+                action_type='data_update',
+                description=f'Approved quotation {quotation.quotation_number}',
+                request=request,
+                quotation_id=str(quotation.id),
+                quotation_number=quotation.quotation_number
+            )
+
+            return JsonResponse({
+                'success': True,
+                'message': f'Quotation {quotation.quotation_number} approved successfully',
+                'quotation_number': quotation.quotation_number,
+                'approved_at': quotation.approved_at.strftime('%Y-%m-%d %H:%M:%S') if quotation.approved_at else None
+            })
+
+        except ValidationError as e:
+            logger.error(f"Validation error approving quotation {pk}: {e}")
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=400)
+        except Exception as e:
+            logger.error(f"Error approving quotation {pk}: {e}")
+            return JsonResponse({
+                'success': False,
+                'error': 'An error occurred while approving the quotation'
+            }, status=500)

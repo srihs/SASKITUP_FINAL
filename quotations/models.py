@@ -30,6 +30,71 @@ from django.utils import timezone
 from django.urls import reverse
 
 
+class SiteSettingsManager(models.Manager):
+    """Custom manager for singleton SiteSettings model"""
+
+    def get_settings(self):
+        """Get or create the singleton settings instance"""
+        settings, created = self.get_or_create(pk=1)
+        return settings
+
+
+class SiteSettings(models.Model):
+    """
+    Singleton model for site-wide settings.
+    Only one instance should exist (pk=1).
+    """
+
+    gst_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('15.00'),
+        validators=[MinValueValidator(Decimal('0.00')), MaxValueValidator(Decimal('100.00'))],
+        help_text="GST/VAT percentage applied to quotations"
+    )
+
+    quotation_validity_days = models.PositiveIntegerField(
+        default=30,
+        validators=[MinValueValidator(1), MaxValueValidator(365)],
+        help_text="Default number of days a quotation remains valid"
+    )
+
+    # Metadata
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        'authentication.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='settings_updates',
+        help_text="User who last updated the settings"
+    )
+
+    objects = SiteSettingsManager()
+
+    class Meta:
+        db_table = 'site_settings'
+        verbose_name = 'Site Settings'
+        verbose_name_plural = 'Site Settings'
+
+    def __str__(self):
+        return f"Site Settings (GST: {self.gst_percentage}%, Validity: {self.quotation_validity_days} days)"
+
+    def save(self, *args, **kwargs):
+        # Enforce singleton pattern
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        # Prevent deletion of singleton instance
+        pass
+
+    @classmethod
+    def load(cls):
+        """Convenience method to load settings"""
+        return cls.objects.get_settings()
+
+
 class QuotationManager(models.Manager):
     """Custom manager for Quotation model with common query methods"""
 
@@ -276,13 +341,26 @@ class Quotation(models.Model):
             return f"{self.quotation_number} - No Institution ({self.get_status_display()})"
 
     def save(self, *args, **kwargs):
+        # Check if this is a new quotation by looking for absence of created_at
+        # (created_at is set by auto_now_add only after first save)
+        is_new = self._state.adding
+
         # Auto-generate quotation number if not set
         if not self.quotation_number:
             self.quotation_number = self._generate_quotation_number()
 
-        # Set default expiry date (30 days from creation)
-        if not self.expires_at and not self.pk:
-            self.expires_at = timezone.now() + timedelta(days=30)
+        # For new quotations, capture settings from SiteSettings
+        if is_new:
+            settings = SiteSettings.objects.get_settings()
+
+            # Set default expiry date from settings
+            if not self.expires_at:
+                self.expires_at = timezone.now() + timedelta(days=settings.quotation_validity_days)
+
+            # Capture GST percentage from settings (snapshot at creation time)
+            # Only set if tax_percentage is still at default value
+            if self.tax_percentage == Decimal('15.00'):
+                self.tax_percentage = settings.gst_percentage
 
         # Auto-update status if expired
         if self.expires_at and self.expires_at <= timezone.now() and self.status in ['draft', 'pending']:

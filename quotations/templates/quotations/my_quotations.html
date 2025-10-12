@@ -140,7 +140,7 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <a href="{% url 'quotations:quotation_detail' quotation.id %}" class="text-dark fw-bold">
+                                    <a href="{% url 'quotations:quotation-detail' quotation.id %}" class="text-dark fw-bold">
                                         {{ quotation.quotation_number }}
                                     </a>
                                 </td>
@@ -185,7 +185,7 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <a href="{% url 'quotations:quotation_detail' quotation.id %}" class="text-primary px-3" title="View Details">
+                                    <a href="{% url 'quotations:quotation-detail' quotation.id %}" class="text-primary px-3" title="View Details">
                                         <i class="uil uil-eye font-size-18"></i>
                                     </a>
                                     {% if quotation.status == 'draft' %}

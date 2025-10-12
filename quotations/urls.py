@@ -59,4 +59,10 @@ urlpatterns = [
 
     # Quotation Preview
     path('preview/<uuid:pk>/', views.QuotationPreviewView.as_view(), name='quotation-preview'),
+
+    # Site Settings
+    path('settings/', views.SiteSettingsView.as_view(), name='site-settings'),
+
+    # Approve Quotation
+    path('approve/<uuid:pk>/', views.ApproveQuotationView.as_view(), name='approve-quotation'),
 ]

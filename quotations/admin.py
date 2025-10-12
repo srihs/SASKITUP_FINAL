@@ -7,11 +7,55 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django.db.models import Q
 from .models import (
+    SiteSettings,
     Quotation,
     QuotationItem,
     CustomerInstitutionAssignment,
     QuotationVersion
 )
+
+
+@admin.register(SiteSettings)
+class SiteSettingsAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for SiteSettings singleton model.
+    Simplified interface for managing site-wide quotation settings.
+    """
+
+    fieldsets = (
+        ('Quotation Settings', {
+            'fields': (
+                'gst_percentage',
+                'quotation_validity_days',
+            ),
+            'description': 'Configure default values for quotations. These settings affect all new quotations created.'
+        }),
+        ('Last Update', {
+            'fields': ('updated_at', 'updated_by'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    readonly_fields = ('updated_at', 'updated_by')
+
+    def has_add_permission(self, request):
+        """Prevent adding new instances (singleton pattern)"""
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        """Prevent deletion of the singleton instance"""
+        return False
+
+    def save_model(self, request, obj, form, change):
+        """Save with current user"""
+        obj.updated_by = request.user
+        super().save_model(request, obj, form, change)
+
+    def changelist_view(self, request, extra_context=None):
+        """Redirect to the single instance edit page"""
+        from django.shortcuts import redirect
+        settings_obj = SiteSettings.objects.get_settings()
+        return redirect('admin:quotations_sitesettings_change', object_id=settings_obj.pk)
 
 
 class QuotationItemInline(admin.TabularInline):
