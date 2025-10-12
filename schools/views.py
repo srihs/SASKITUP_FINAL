@@ -3589,6 +3589,10 @@ def cin7_price_fetch(request):
                     # Calculate discount: (Margin - RRP) / Margin * 100
                     if rrp and rrp > 0:
                         discount_pct = ((margin_75 - rrp) / margin_75) * 100
+                        # Clamp to valid range (0-100) to prevent database errors
+                        # DecimalField(max_digits=5, decimal_places=2) max is 999.99
+                        # but discount percentages should be 0-100%
+                        discount_pct = max(Decimal('0'), min(discount_pct, Decimal('100')))
 
                 cin7_products.append(Cin7Product(
                     cin7_id=option_data.get('cin7_id'),

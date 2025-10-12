@@ -457,7 +457,8 @@ class WholesaleProduct(models.Model):
         """Calculate discount percentage from 75% margin price"""
         if self.margin_75_price and self.wholesale_price and self.margin_75_price > 0:
             discount = ((self.margin_75_price - self.wholesale_price) / self.margin_75_price) * 100
-            return max(Decimal('0'), discount)  # Don't allow negative discounts
+            # Clamp to valid range (0-100) to prevent database errors
+            return max(Decimal('0'), min(discount, Decimal('100')))
         return None
 
     def update_calculated_pricing(self):
@@ -733,7 +734,10 @@ class Cin7Product(models.Model):
         # Calculate discount percentage
         if self.margin_75_price and self.retail_price and self.margin_75_price > 0:
             discount = ((self.margin_75_price - self.retail_price) / self.margin_75_price) * 100
-            self.discount_percentage = max(Decimal('0'), discount)
+            # Clamp to valid range (0-100) to prevent database errors
+            # DecimalField(max_digits=5, decimal_places=2) supports up to 999.99
+            # but discount percentages should be 0-100%
+            self.discount_percentage = max(Decimal('0'), min(discount, Decimal('100')))
 
         super().save(*args, **kwargs)
 
