@@ -846,6 +846,17 @@ class UpdateQuotationItemView(LoginRequiredMixin, View):
             # Calculate line total
             line_total = Decimal(str(item['unit_price'])) * Decimal(str(quantity))
 
+            # Calculate discounts for response
+            unit_price_decimal = Decimal(str(item.get('unit_price', 0)))
+            margin_price = Decimal(str(item.get('margin_75_price', 0))) if item.get('margin_75_price') else Decimal('0')
+
+            unit_discount = Decimal('0')
+            item_discount = Decimal('0')
+
+            if margin_price > 0:
+                unit_discount = margin_price - unit_price_decimal
+                item_discount = unit_discount * Decimal(str(quantity))
+
             # Log action
             AuditLog.log_action(
                 user=request.user,
@@ -860,6 +871,8 @@ class UpdateQuotationItemView(LoginRequiredMixin, View):
                 'success': True,
                 'line_total': str(line_total),
                 'item_total': str(line_total),  # Alternative key for compatibility
+                'unit_discount': str(unit_discount),
+                'item_discount': str(item_discount),
                 'subtotal': str(totals['subtotal']),
                 'tax': str(totals['tax_amount']),
                 'tax_amount': str(totals['tax_amount']),

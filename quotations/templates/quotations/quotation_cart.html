@@ -768,11 +768,13 @@
                                 <!-- Column 4: Discount (Per Unit) -->
                                 <div class="variation-col variation-col-unit-discount">
                                     <div class="variation-label">Discount</div>
-                                    {% if item.margin_75_price and item.margin_75_price > 0 and item.unit_discount > 0 %}
-                                        <div class="variation-discount">${{ item.unit_discount|floatformat:2|intcomma }}</div>
-                                    {% else %}
-                                        <div class="variation-value text-muted">$0.00</div>
-                                    {% endif %}
+                                    <div id="unit-discount-{{ item.index }}">
+                                        {% if item.margin_75_price and item.margin_75_price > 0 and item.unit_discount > 0 %}
+                                            <span class="variation-discount">${{ item.unit_discount|floatformat:2|intcomma }}</span>
+                                        {% else %}
+                                            <span class="variation-value text-muted">$0.00</span>
+                                        {% endif %}
+                                    </div>
                                 </div>
 
                                 <!-- Column 5: Price (After Discount) -->
@@ -797,11 +799,13 @@
                                 <!-- Column 7: Total Line Item Discount -->
                                 <div class="variation-col variation-col-total-discount">
                                     <div class="variation-label">Total Discount</div>
-                                    {% if item.margin_75_price and item.margin_75_price > 0 and item.item_discount > 0 %}
-                                        <div class="variation-discount">${{ item.item_discount|floatformat:2|intcomma }}</div>
-                                    {% else %}
-                                        <div class="variation-value text-muted">$0.00</div>
-                                    {% endif %}
+                                    <div id="total-discount-{{ item.index }}">
+                                        {% if item.margin_75_price and item.margin_75_price > 0 and item.item_discount > 0 %}
+                                            <span class="variation-discount">${{ item.item_discount|floatformat:2|intcomma }}</span>
+                                        {% else %}
+                                            <span class="variation-value text-muted">$0.00</span>
+                                        {% endif %}
+                                    </div>
                                 </div>
 
                                 <!-- Column 8: Line Item Total -->
@@ -1251,6 +1255,28 @@ function updateCartQuantityValue(itemIndex, newQty) {
                 const groupId = itemTotal.getAttribute('data-group-id');
                 if (groupId) {
                     updateGroupTotal(groupId);
+                }
+            }
+
+            // Update unit discount
+            const unitDiscountElement = document.getElementById('unit-discount-' + itemIndex);
+            if (unitDiscountElement && data.unit_discount !== undefined) {
+                const unitDiscount = parseFloat(data.unit_discount);
+                if (unitDiscount > 0) {
+                    unitDiscountElement.innerHTML = '<span class="variation-discount">$' + unitDiscount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '</span>';
+                } else {
+                    unitDiscountElement.innerHTML = '<span class="variation-value text-muted">$0.00</span>';
+                }
+            }
+
+            // Update total discount
+            const totalDiscountElement = document.getElementById('total-discount-' + itemIndex);
+            if (totalDiscountElement && data.item_discount !== undefined) {
+                const itemDiscount = parseFloat(data.item_discount);
+                if (itemDiscount > 0) {
+                    totalDiscountElement.innerHTML = '<span class="variation-discount">$' + itemDiscount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '</span>';
+                } else {
+                    totalDiscountElement.innerHTML = '<span class="variation-value text-muted">$0.00</span>';
                 }
             }
 
