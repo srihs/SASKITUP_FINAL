@@ -808,7 +808,7 @@
                 <div class="col-sm-6">
                     <div class="text-sm-end mt-2 mt-sm-0">
                         <!-- CHANGED: Updated button text from "Submit Quotation" to "Generate Quotation" -->
-                        <button type="button" class="btn btn-success" onclick="saveQuotation()">
+                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#generateQuotationModal">
                             <i class="uil uil-shopping-cart-alt me-1"></i> Generate Quotation
                         </button>
                         <!-- NEW: Added Clear Quotation button with secondary/danger styling -->
@@ -931,6 +931,32 @@
 <!-- Loading Overlay -->
 <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-spinner"></div>
+</div>
+
+<!-- Generate Quotation Confirmation Modal -->
+<div class="modal fade" id="generateQuotationModal" tabindex="-1" aria-labelledby="generateQuotationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title" id="generateQuotationModalLabel">
+                    <i class="uil uil-shopping-cart-alt text-success me-2"></i>
+                    Confirm Generate Quotation
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Are you ready to generate this quotation? Please ensure all items and recipient information are correct.</p>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="uil-times me-1"></i> Cancel
+                </button>
+                <button type="button" class="btn btn-success" onclick="confirmGenerateQuotation()">
+                    <i class="uil uil-shopping-cart-alt me-1"></i> Yes, Generate
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Clear Quotation Confirmation Modal -->
@@ -1274,12 +1300,18 @@ function updateSummary(data) {
     }
 }
 
+// Confirm Generate Quotation (called from modal)
+function confirmGenerateQuotation() {
+    // Close the modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('generateQuotationModal'));
+    modal.hide();
+
+    // Call the actual save function
+    saveQuotation();
+}
+
 // Save Quotation
 function saveQuotation() {
-    if (!confirm('Are you ready to generate this quotation?')) {
-        return;
-    }
-
     showLoading();
 
     // Get recipient information from the form
