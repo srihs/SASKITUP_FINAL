@@ -1106,14 +1106,8 @@ body[class*="quotation"] .variation-section .size-button.low-stock {
     border-color: #ffc107 !important;
 }
 
-body[class*="quotation"] .variation-section .size-button.out-of-stock,
-body[class*="quotation"] .variation-section .size-button.disabled {
-    opacity: 0.6 !important;
-    background-color: #f8f9fa !important;
-    border-color: #dee2e6 !important;
-    color: #adb5bd !important;
-    cursor: not-allowed !important;
-}
+/* Removed disabled styling for out-of-stock buttons on quotation pages
+   All size tiles should be clickable regardless of stock status */
 
 /* LOTTO Club Pages - Use LOTTO Brand Colors (red) */
 .lotto-page .variation-section .size-button,
@@ -1141,13 +1135,7 @@ body[class*="quotation"] .variation-section .size-button.disabled {
     box-shadow: 0 2px 8px var(--lotto-shadow-focus) !important;
 }
 
-.lotto-page .variation-section .size-button.disabled,
-.lotto-product-page .variation-section .size-button.disabled {
-    opacity: 0.4 !important;
-    background-color: #f8f9fa !important;
-    border-color: #dee2e6 !important;
-    color: #6c757d !important;
-}
+/* Removed disabled styling for LOTTO pages - all size tiles should be clickable */
 
 /* Ensure size labels are not focusable */
 .variation-section .size-button:focus {

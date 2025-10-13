@@ -443,16 +443,20 @@ class ProductVariationManager {
         button.setAttribute('role', 'text');
         button.setAttribute('aria-label', `Size ${variation.value}`);
         button.textContent = variation.value;
-        
-        if (!variation.is_available) {
+
+        // Check if we're on a quotation page
+        const isQuotationPage = document.body.className.includes('quotation');
+
+        // Don't add disabled styling on quotation pages - all tiles should be clickable
+        if (!variation.is_available && !isQuotationPage) {
             button.classList.add('disabled');
             button.setAttribute('aria-disabled', 'true');
         }
-        
+
         // Make completely non-interactive
         button.style.pointerEvents = 'none';
         button.style.cursor = 'default';
-        
+
         return button;
     }
     
@@ -573,7 +577,11 @@ class ProductVariationManager {
         button.setAttribute('aria-label', `Select ${variation.value}`);
         button.textContent = variation.value;
 
-        if (!variation.is_available) {
+        // Check if we're on a quotation page
+        const isQuotationPage = document.body.className.includes('quotation');
+
+        // Don't add disabled styling on quotation pages - all tiles should be clickable
+        if (!variation.is_available && !isQuotationPage) {
             button.disabled = true;
             button.classList.add('disabled');
             button.setAttribute('aria-disabled', 'true');
@@ -622,13 +630,17 @@ class ProductVariationManager {
         button.setAttribute('role', 'button');
         button.setAttribute('aria-label', `Select ${variation.value}`);
         button.textContent = variation.value;
-        
-        if (!variation.is_available) {
+
+        // Check if we're on a quotation page
+        const isQuotationPage = document.body.className.includes('quotation');
+
+        // Don't add disabled styling on quotation pages - all tiles should be clickable
+        if (!variation.is_available && !isQuotationPage) {
             button.disabled = true;
             button.classList.add('disabled');
             button.setAttribute('aria-disabled', 'true');
         }
-        
+
         return button;
     }
     

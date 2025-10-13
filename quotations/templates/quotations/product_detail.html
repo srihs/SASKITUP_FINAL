@@ -221,11 +221,7 @@
     color: white;
 }
 
-.variation-option.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background-color: #f8f9fa;
-}
+/* Removed disabled state - all variations should be clickable regardless of stock */
 
 /* Responsive Design */
 @media (max-width: 1024px) {
@@ -449,11 +445,7 @@
     transform: none;
 }
 
-.color-swatch.disabled {
-    opacity: 0.5;
-    border-color: #dee2e6;
-    box-shadow: none;
-}
+/* Removed disabled state - all color swatches should be clickable regardless of stock */
 
 .color-swatch-image {
     width: 100%;
@@ -597,18 +589,15 @@
     color: #2c3e50;
 }
 
+/* Removed out-of-stock disabled styling - all size buttons should be clickable regardless of stock */
 .size-button.out-of-stock {
-    background: #f8f9fa;
+    background: white;
     border-color: #dee2e6;
-    color: #adb5bd;
-    cursor: not-allowed;
-    opacity: 0.6;
+    color: #2c3e50;
 }
 
 .size-button.out-of-stock:hover {
-    transform: none;
-    box-shadow: none;
-    border-color: #dee2e6;
+    border-color: #0065F8;
 }
 
 /* Size Inventory Grid Styles */
@@ -674,16 +663,17 @@
     border-color: rgba(255, 255, 255, 0.3);
 }
 
+/* Removed out-of-stock disabled styling - all size tiles should be clickable regardless of stock */
 .size-inventory-tile.out-of-stock {
-    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
-    color: #f8f9fa;
-    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
-    cursor: not-allowed;
+    background: linear-gradient(135deg, #0065F8 0%, #0052CC 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 101, 248, 0.2);
 }
 
 .size-inventory-tile.out-of-stock:hover {
-    transform: none;
-    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 101, 248, 0.3);
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 .size-name {
@@ -1189,15 +1179,11 @@ function createSizeButton(size, variation) {
     // Just show the size text (simple style like the image)
     sizeBtn.textContent = size;
 
-    // Only enable click if in stock
-    if (stockQty > 0) {
-        sizeBtn.onclick = function(e) {
-            e.preventDefault();
-            addVariationToQuote(size, variation, sizeBtn);
-        };
-    } else {
-        sizeBtn.disabled = true;
-    }
+    // Allow selection regardless of stock
+    sizeBtn.onclick = function(e) {
+        e.preventDefault();
+        addVariationToQuote(size, variation, sizeBtn);
+    };
 
     return sizeBtn;
 }
@@ -1324,12 +1310,6 @@ function addVariationToQuote(size, variation, buttonElement) {
     // Get stock quantity
     const stockQty = variation.stock_quantity || 0;
 
-    // Business Rule 1: Cannot select out-of-stock items
-    if (stockQty === 0) {
-        console.error('Cannot select out-of-stock item');
-        return;
-    }
-
     // Update selected size
     selectedVariations.size = size;
     selectedVariations.variation_id = variation.id;
@@ -1347,17 +1327,10 @@ function addVariationToQuote(size, variation, buttonElement) {
     // Update SKU and pricing display
     updateProductDisplay(variation);
 
-    // Update quantity input max attribute to stock quantity
+    // Reset quantity to 1 when new size selected
     const quantityInput = document.getElementById('productQuantity');
     if (quantityInput) {
-        quantityInput.max = stockQty;
-        quantityInput.value = 1; // Reset to 1 when new size selected
-
-        // Update placeholder or helper text to show max quantity
-        const quantityLabel = document.querySelector('label[for="productQuantity"]');
-        if (quantityLabel) {
-            quantityLabel.textContent = `Quantity (Max: ${stockQty}):`;
-        }
+        quantityInput.value = 1;
     }
 
     console.log('Selected variation:', selectedVariations);
@@ -1562,13 +1535,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (variationsData && variationsData.length > 0) {
                 if (!selectedVariations.size || !selectedVariations.variation_id) {
                     showErrorNotification('Please select a size first');
-                    return;
-                }
-
-                // Validation: Check if quantity exceeds stock
-                const maxStock = selectedVariations.stock_quantity || 0;
-                if (quantity > maxStock) {
-                    showErrorNotification(`Cannot order more than ${maxStock} units (available stock)`);
                     return;
                 }
             }

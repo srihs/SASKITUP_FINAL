@@ -736,16 +736,6 @@ class AddToQuotationView(LoginRequiredMixin, View):
             if not product:
                 return JsonResponse({'success': False, 'error': 'Product not found'}, status=404)
 
-            # BUSINESS RULE ENFORCEMENT: Stock quantity validation
-            stock_qty = variations.get('stock_quantity', 0)
-
-            # Rule 1: Cannot order out-of-stock items
-            if stock_qty == 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'This item is out of stock and cannot be added to your quote.'
-                }, status=400)
-
             # Get quotation session
             quotation_data = get_quotation_session(request)
 
@@ -761,23 +751,8 @@ class AddToQuotationView(LoginRequiredMixin, View):
             if existing_item:
                 # Update quantity for existing variation
                 new_quantity = existing_item['quantity'] + quantity
-
-                # Rule 2: Cannot order more than stock quantity
-                if stock_qty > 0 and new_quantity > stock_qty:
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'Cannot add {quantity} more. Only {stock_qty - existing_item["quantity"]} units available (stock limit: {stock_qty}).'
-                    }, status=400)
-
                 existing_item['quantity'] = new_quantity
             else:
-                # Rule 2: Cannot order more than stock quantity (for new items)
-                if stock_qty > 0 and quantity > stock_qty:
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'Cannot add {quantity} units. Only {stock_qty} units available in stock.'
-                    }, status=400)
-
                 # Add new item with variation
                 product_name = product.name
                 product_sku = getattr(product, 'cin7_sku', '') or getattr(product, 'sku', '')
@@ -855,18 +830,8 @@ class UpdateQuotationItemView(LoginRequiredMixin, View):
             if item_index < 0 or item_index >= len(quotation_data['items']):
                 return JsonResponse({'success': False, 'error': 'Invalid item index'}, status=400)
 
-            # Get the item to check stock limits
+            # Get the item
             item = quotation_data['items'][item_index]
-
-            # BUSINESS RULE ENFORCEMENT: Stock quantity validation
-            stock_qty = item.get('variations', {}).get('stock_quantity', 0)
-
-            # Rule 1: Cannot order more than stock quantity
-            if stock_qty > 0 and quantity > stock_qty:
-                return JsonResponse({
-                    'success': False,
-                    'error': f'Cannot set quantity to {quantity}. Only {stock_qty} units available in stock.'
-                }, status=400)
 
             # Update quantity
             quotation_data['items'][item_index]['quantity'] = quantity
@@ -2188,7 +2153,11 @@ class ApproveQuotationView(LoginRequiredMixin, View):
 
 class ProductsMissingCostView(LoginRequiredMixin, UserPassesTestMixin, View):
     """
-    Report showing products with missing or zero cost_nzd.
+    Report showing products and variations with missing or zero cost_price.
+
+    For products with variations: Shows only variations with missing cost_price.
+    For products without variations: Shows products with missing cost_price.
+
     Accessible to Admin, Account Managers, and Sales Reps only.
     """
     template_name = 'quotations/reports/products_missing_cost.html'
@@ -2201,7 +2170,8 @@ class ProductsMissingCostView(LoginRequiredMixin, UserPassesTestMixin, View):
                 user.is_admin or user.is_account_manager or user.is_sales_rep)
 
     def get(self, request):
-        from schools.models_tus import TUSProduct
+        from schools.models_tus import TUSProduct, TUSProductVariation
+        from schools.models import WholesaleProduct, WholesaleProductVariation
 
         # Get filter parameter
         product_type_filter = request.GET.get('product_type', 'all')
@@ -2216,9 +2186,8 @@ class ProductsMissingCostView(LoginRequiredMixin, UserPassesTestMixin, View):
 
         # Query TUS Products with missing cost
         if product_type_filter in ['all', 'tus']:
-            tus_products = TUSProduct.objects.filter(
-                Q(cost_price__isnull=True) | Q(cost_price=0)
-            ).order_by('name')
+            # Get all TUS products with prefetch of variations
+            tus_products = TUSProduct.objects.prefetch_related('variations').order_by('name')
 
             for product in tus_products:
                 # Get school name
@@ -2227,61 +2196,157 @@ class ProductsMissingCostView(LoginRequiredMixin, UserPassesTestMixin, View):
                     if product.primary_category_assignment.school_category and product.primary_category_assignment.school_category.school:
                         school_name = product.primary_category_assignment.school_category.school.name
 
-                products_by_type['tus'].append({
-                    'product': product,
-                    'product_name': product.name,
-                    'sku': getattr(product, 'sku', ''),
-                    'category': school_name,
-                    'status': product.stock_status if hasattr(product, 'stock_status') else 'unknown',
-                })
+                # Check if product has variations
+                variations = product.variations.all()
+                if variations.exists():
+                    # If product has variations, check each variation for missing cost
+                    for variation in variations:
+                        if variation.cost_price is None or variation.cost_price == 0:
+                            # Build variation display name
+                            variation_name = f"{product.name} - {variation.variation_value}"
+
+                            products_by_type['tus'].append({
+                                'product': product,
+                                'variation': variation,
+                                'product_name': variation_name,
+                                'sku': getattr(variation, 'sku', ''),
+                                'category': school_name,
+                                'status': getattr(variation, 'stock_status', 'unknown'),
+                                'is_variation': True,
+                            })
+                else:
+                    # No variations - check product cost
+                    if product.cost_price is None or product.cost_price == 0:
+                        products_by_type['tus'].append({
+                            'product': product,
+                            'variation': None,
+                            'product_name': product.name,
+                            'sku': getattr(product, 'sku', ''),
+                            'category': school_name,
+                            'status': product.stock_status if hasattr(product, 'stock_status') else 'unknown',
+                            'is_variation': False,
+                        })
 
         # Query LOTTO Products with missing cost
         if product_type_filter in ['all', 'lotto']:
-            lotto_products = LottoProduct.objects.filter(
-                Q(cost_price__isnull=True) | Q(cost_price=0)
-            ).order_by('name')
+            from clubs.models_lotto import LottoProductVariation
+
+            # Get all LOTTO products with prefetch of variations
+            lotto_products = LottoProduct.objects.prefetch_related('variations').order_by('name')
 
             for product in lotto_products:
                 club_name = product.category.club.name if product.category and product.category.club else "Unknown"
-                products_by_type['lotto'].append({
-                    'product': product,
-                    'product_name': product.name,
-                    'sku': getattr(product, 'sku', ''),
-                    'category': club_name,
-                    'status': product.stock_status if hasattr(product, 'stock_status') else 'unknown',
-                })
+
+                # Check if product has variations
+                variations = product.variations.all()
+                if variations.exists():
+                    # If product has variations, check each variation for missing cost
+                    for variation in variations:
+                        if variation.cost_price is None or variation.cost_price == 0:
+                            # Build variation display name
+                            variation_name = f"{product.name} - {variation.variation_value}"
+
+                            products_by_type['lotto'].append({
+                                'product': product,
+                                'variation': variation,
+                                'product_name': variation_name,
+                                'sku': getattr(variation, 'sku', ''),
+                                'category': club_name,
+                                'status': getattr(variation, 'stock_status', 'unknown'),
+                                'is_variation': True,
+                            })
+                else:
+                    # No variations - check product cost
+                    if product.cost_price is None or product.cost_price == 0:
+                        products_by_type['lotto'].append({
+                            'product': product,
+                            'variation': None,
+                            'product_name': product.name,
+                            'sku': getattr(product, 'sku', ''),
+                            'category': club_name,
+                            'status': product.stock_status if hasattr(product, 'stock_status') else 'unknown',
+                            'is_variation': False,
+                        })
 
         # Query SAS Products with missing cost
         if product_type_filter in ['all', 'sas']:
-            sas_products = SASProduct.objects.filter(
-                Q(cost_price__isnull=True) | Q(cost_price=0)
-            ).order_by('name')
+            from clubs.models_sas import SASProductVariation
+
+            # Get all SAS products with prefetch of variations
+            sas_products = SASProduct.objects.prefetch_related('variations').order_by('name')
 
             for product in sas_products:
                 club_name = product.club.name if product.club else "Unknown"
-                products_by_type['sas'].append({
-                    'product': product,
-                    'product_name': product.name,
-                    'sku': getattr(product, 'sku', ''),
-                    'category': club_name,
-                    'status': product.stock_status if hasattr(product, 'stock_status') else 'unknown',
-                })
+
+                # Check if product has variations
+                variations = product.variations.all()
+                if variations.exists():
+                    # If product has variations, check each variation for missing cost
+                    for variation in variations:
+                        if variation.cost_price is None or variation.cost_price == 0:
+                            # Build variation display name
+                            variation_name = f"{product.name} - {variation.variation_value}"
+
+                            products_by_type['sas'].append({
+                                'product': product,
+                                'variation': variation,
+                                'product_name': variation_name,
+                                'sku': getattr(variation, 'sku', ''),
+                                'category': club_name,
+                                'status': getattr(variation, 'stock_status', 'unknown'),
+                                'is_variation': True,
+                            })
+                else:
+                    # No variations - check product cost
+                    if product.cost_price is None or product.cost_price == 0:
+                        products_by_type['sas'].append({
+                            'product': product,
+                            'variation': None,
+                            'product_name': product.name,
+                            'sku': getattr(product, 'sku', ''),
+                            'category': club_name,
+                            'status': product.stock_status if hasattr(product, 'stock_status') else 'unknown',
+                            'is_variation': False,
+                        })
 
         # Query Wholesale Products with missing cost
         if product_type_filter in ['all', 'wholesale']:
-            wholesale_products = WholesaleProduct.objects.filter(
-                Q(cost_price__isnull=True) | Q(cost_price=0)
-            ).order_by('name')
+            # Get all Wholesale products with prefetch of variations
+            wholesale_products = WholesaleProduct.objects.prefetch_related('variations').order_by('name')
 
             for product in wholesale_products:
                 school_name = product.school.name if product.school else "Unknown"
-                products_by_type['wholesale'].append({
-                    'product': product,
-                    'product_name': product.name,
-                    'sku': getattr(product, 'cin7_sku', ''),
-                    'category': school_name,
-                    'status': 'active' if product.is_active else 'inactive',
-                })
+
+                # Check if product has variations
+                variations = product.variations.all()
+                if variations.exists():
+                    # If product has variations, check each variation for missing cost
+                    for variation in variations:
+                        if variation.cost_price is None or variation.cost_price == 0:
+                            # Build variation display name
+                            variation_name = f"{product.name} - {variation.variation_value}"
+
+                            products_by_type['wholesale'].append({
+                                'product': product,
+                                'variation': variation,
+                                'product_name': variation_name,
+                                'sku': getattr(variation, 'cin7_sku', ''),
+                                'category': school_name,
+                                'status': 'active' if product.is_active else 'inactive',
+                                'is_variation': True,
+                            })
+                else:
+                    # No variations - check product cost
+                    if product.cost_price is None or product.cost_price == 0:
+                        products_by_type['wholesale'].append({
+                            'product': product,
+                            'variation': None,
+                            'product_name': product.name,
+                            'sku': getattr(product, 'cin7_sku', ''),
+                            'category': school_name,
+                            'status': 'active' if product.is_active else 'inactive',
+                            'is_variation': False,
+                        })
 
         # Calculate counts
         counts = {
