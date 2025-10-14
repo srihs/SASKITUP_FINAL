@@ -838,7 +838,12 @@ class UpdateQuotationItemView(LoginRequiredMixin, View):
 
             quotation_data = get_quotation_session(request)
 
+            # Log cart state before update
+            items_before = len(quotation_data.get('items', []))
+            logger.info(f"Updating item {item_index}, cart has {items_before} items before update")
+
             if item_index < 0 or item_index >= len(quotation_data['items']):
+                logger.error(f"Invalid item index {item_index}, cart has {len(quotation_data['items'])} items")
                 return JsonResponse({'success': False, 'error': 'Invalid item index'}, status=400)
 
             # Get the item
@@ -849,6 +854,19 @@ class UpdateQuotationItemView(LoginRequiredMixin, View):
 
             # Save session
             save_quotation_session(request, quotation_data)
+
+            # Verify session was saved correctly
+            verification_data = get_quotation_session(request)
+            items_after = len(verification_data.get('items', []))
+
+            if items_before != items_after:
+                logger.error(f"Cart corruption detected! Had {items_before} items before, {items_after} after update")
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Cart data integrity error. Please refresh the page.'
+                }, status=500)
+
+            logger.info(f"Successfully updated item {item_index}, cart has {items_after} items after update")
 
             # Calculate totals
             totals = calculate_quotation_totals(quotation_data)
@@ -892,8 +910,37 @@ class UpdateQuotationItemView(LoginRequiredMixin, View):
                 quantity=quantity
             )
 
+            # Build complete cart data for verification
+            cart_items = []
+            for idx, cart_item in enumerate(quotation_data.get('items', [])):
+                item_unit_price = Decimal(str(cart_item.get('unit_price', 0)))
+                item_margin_price = Decimal(str(cart_item.get('margin_75_price', 0))) if cart_item.get('margin_75_price') else Decimal('0')
+                item_qty = int(cart_item.get('quantity', 0))
+                item_line_total = item_unit_price * Decimal(str(item_qty))
+
+                item_unit_discount = Decimal('0')
+                item_total_discount = Decimal('0')
+                item_discount_pct = 0
+
+                if item_margin_price > 0 and item_margin_price > item_unit_price:
+                    item_unit_discount = item_margin_price - item_unit_price
+                    item_total_discount = item_unit_discount * Decimal(str(item_qty))
+                    item_discount_pct = int(((item_margin_price - item_unit_price) / item_margin_price) * 100)
+
+                cart_items.append({
+                    'index': idx,
+                    'product_name': cart_item.get('product_name', ''),
+                    'quantity': item_qty,
+                    'unit_price': str(item_unit_price),
+                    'line_total': str(item_line_total),
+                    'unit_discount': str(item_unit_discount),
+                    'item_discount': str(item_total_discount),
+                    'discount_percentage': item_discount_pct,
+                })
+
             return JsonResponse({
                 'success': True,
+                'item_index': item_index,  # Index of updated item
                 'line_total': str(line_total),
                 'item_total': str(line_total),  # Alternative key for compatibility
                 'unit_discount': str(unit_discount),
@@ -904,6 +951,8 @@ class UpdateQuotationItemView(LoginRequiredMixin, View):
                 'tax_amount': str(totals['tax_amount']),
                 'total': str(totals['total']),
                 'total_savings': str(total_savings),
+                'cart_items': cart_items,  # Complete cart for verification
+                'total_items': len(cart_items),  # Total number of items in cart
             })
 
         except ValueError as e:

@@ -1256,6 +1256,35 @@ function updateCartQuantityValue(itemIndex, newQty) {
         const data = result.data;
 
         if (result.ok && data.success) {
+            // Validate cart integrity
+            console.log('Cart update successful');
+            console.log('Total items in cart:', data.total_items);
+            console.log('Cart items:', data.cart_items);
+
+            // Verify that we still have all items
+            if (data.cart_items && data.cart_items.length > 0) {
+                console.log(`✓ Cart verified: ${data.cart_items.length} items present`);
+
+                // Optional: Verify each item still exists in DOM
+                let missingItems = [];
+                data.cart_items.forEach(item => {
+                    const itemElement = document.getElementById('total-' + item.index);
+                    if (!itemElement) {
+                        missingItems.push(item.index);
+                    }
+                });
+
+                if (missingItems.length > 0) {
+                    console.warn('⚠️  Warning: Some items are missing from DOM:', missingItems);
+                    console.warn('This may indicate a display issue. Reloading page...');
+                    // Reload page to fix any display inconsistencies
+                    setTimeout(() => location.reload(), 500);
+                    return;
+                }
+            } else {
+                console.error('❌ Cart validation failed: No items in response');
+            }
+
             // Update item total
             const itemTotal = document.getElementById('total-' + itemIndex);
             if (itemTotal && data.item_total) {
@@ -1292,6 +1321,9 @@ function updateCartQuantityValue(itemIndex, newQty) {
 
             // Update summary
             updateSummary(data);
+
+            // Show success message
+            toastr.success('Quantity updated successfully');
         } else {
             toastr.error(data.error || 'Failed to update quantity');
             // Reset input to previous value
