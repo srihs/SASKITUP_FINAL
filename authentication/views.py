@@ -903,6 +903,11 @@ class AuditLogListView(AdminRequiredMixin, ListView):
         date_from = self.request.GET.get('date_from', '')
         date_to = self.request.GET.get('date_to', '')
         search = self.request.GET.get('search', '')
+        quotations_only = self.request.GET.get('quotations_only', '')
+
+        # Filter for quotation-related actions only
+        if quotations_only:
+            queryset = queryset.filter(action_type__startswith='quotation_')
 
         if action_type:
             queryset = queryset.filter(action_type=action_type)

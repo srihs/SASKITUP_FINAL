@@ -387,7 +387,7 @@
                                 </a>
                                 <ul class="sub-menu" aria-expanded="false">
                                     <li><a href="{% url 'authentication:audit-log-list' %}">All Audit Logs</a></li>
-                                    <li><a href="{% url 'authentication:audit-log-list' %}?action_type=&search=quotation">Quotation Audit Trail</a></li>
+                                    <li><a href="{% url 'authentication:audit-log-list' %}?quotations_only=1">Quotation Audit Trail</a></li>
                                 </ul>
                             </li>
                             {% endif %}
