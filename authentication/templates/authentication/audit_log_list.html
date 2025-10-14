@@ -329,7 +329,28 @@
                                             </span>
                                         </div>
 
-                                        <p class="mb-1">{{ log.description }}</p>
+                                        <p class="mb-1">
+                                            {{ log.description }}
+                                            {% if log.metadata %}
+                                                {% if log.action_type == 'quotation_item_updated' %}
+                                                    <span class="text-muted font-size-12">
+                                                        (Quantity: {{ log.metadata.old_quantity|default:"?" }} → {{ log.metadata.new_quantity|default:"?" }})
+                                                    </span>
+                                                {% elif log.action_type == 'quotation_item_added' %}
+                                                    <span class="text-muted font-size-12">
+                                                        (Qty: {{ log.metadata.quantity|default:"?" }}, Price: ${{ log.metadata.unit_price|default:"0.00" }})
+                                                    </span>
+                                                {% elif log.action_type == 'quotation_item_removed' %}
+                                                    <span class="text-muted font-size-12">
+                                                        (Qty: {{ log.metadata.quantity|default:"?" }}, Price: ${{ log.metadata.unit_price|default:"0.00" }})
+                                                    </span>
+                                                {% elif log.action_type == 'quotation_updated' and log.metadata.old_status and log.metadata.new_status %}
+                                                    <span class="text-muted font-size-12">
+                                                        (Status: {{ log.metadata.old_status }} → {{ log.metadata.new_status }})
+                                                    </span>
+                                                {% endif %}
+                                            {% endif %}
+                                        </p>
 
                                         <div class="d-flex justify-content-between align-items-end">
                                             <div class="d-flex gap-3 text-muted font-size-12">
@@ -477,6 +498,17 @@
                                     </td>
                                     <td>
                                         <span class="font-size-13">{{ log.description|slice:":80" }}{% if log.description|length > 80 %}...{% endif %}</span>
+                                        {% if log.metadata %}
+                                            {% if log.action_type == 'quotation_item_updated' %}
+                                                <br><span class="text-muted font-size-11">(Qty: {{ log.metadata.old_quantity|default:"?" }} → {{ log.metadata.new_quantity|default:"?" }})</span>
+                                            {% elif log.action_type == 'quotation_item_added' %}
+                                                <br><span class="text-muted font-size-11">(Qty: {{ log.metadata.quantity|default:"?" }}, ${{ log.metadata.unit_price|default:"0.00" }})</span>
+                                            {% elif log.action_type == 'quotation_item_removed' %}
+                                                <br><span class="text-muted font-size-11">(Qty: {{ log.metadata.quantity|default:"?" }}, ${{ log.metadata.unit_price|default:"0.00" }})</span>
+                                            {% elif log.action_type == 'quotation_updated' and log.metadata.old_status and log.metadata.new_status %}
+                                                <br><span class="text-muted font-size-11">({{ log.metadata.old_status }} → {{ log.metadata.new_status }})</span>
+                                            {% endif %}
+                                        {% endif %}
                                     </td>
                                     <td>
                                         {% if log.ip_address %}

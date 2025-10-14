@@ -851,8 +851,9 @@ class UpdateQuotationItemView(LoginRequiredMixin, View):
                 logger.error(f"Invalid item index {item_index}, cart has {len(quotation_data['items'])} items")
                 return JsonResponse({'success': False, 'error': 'Invalid item index'}, status=400)
 
-            # Get the item
+            # Get the item and store old quantity
             item = quotation_data['items'][item_index]
+            old_quantity = item.get('quantity', 0)
 
             # Update quantity
             quotation_data['items'][item_index]['quantity'] = quantity
@@ -909,13 +910,13 @@ class UpdateQuotationItemView(LoginRequiredMixin, View):
             AuditLog.log_action(
                 user=request.user,
                 action_type='quotation_item_updated',
-                description=f'Updated "{item["product_name"]}" quantity to {quantity} in quotation cart',
+                description=f'Updated "{item["product_name"]}" quantity from {old_quantity} to {quantity} in quotation cart',
                 request=request,
                 affected_model='QuotationItem',
                 product_name=item['product_name'],
                 product_type=item.get('product_type', 'unknown'),
                 item_index=item_index,
-                old_quantity=item.get('quantity', 0),
+                old_quantity=old_quantity,
                 new_quantity=quantity,
                 unit_price=str(item.get('unit_price', 0)),
                 line_total=str(line_total)
