@@ -690,6 +690,15 @@ class QuotationCartView(LoginRequiredMixin, View):
             if institution_type:
                 current_institution_id = f'{institution_type.lower()}_{institution.id}'
 
+        # Check if we're editing an existing quotation
+        editing_quotation_id = quotation_data.get('editing_quotation_id')
+        editing_quotation = None
+        if editing_quotation_id:
+            try:
+                editing_quotation = Quotation.objects.get(pk=editing_quotation_id)
+            except Quotation.DoesNotExist:
+                pass
+
         context = {
             'cart_items': enriched_items,  # Changed from 'items' to match template
             'subtotal': totals['subtotal'],
@@ -704,6 +713,8 @@ class QuotationCartView(LoginRequiredMixin, View):
             'is_customer': request.user.is_customer,
             'institutions_json': institutions_json,
             'current_institution_id': current_institution_id,
+            'is_editing': editing_quotation is not None,
+            'editing_quotation': editing_quotation,
         }
 
         return render(request, self.template_name, context)
@@ -995,72 +1006,115 @@ class SaveQuotationView(LoginRequiredMixin, View):
                     'error': 'Your quotation cart is empty. Please add items before submitting.'
                 }, status=400)
 
-            # Get institution from POST data (optional)
-            institution_id_param = request.POST.get('institution_id', '').strip()
-            institution = None
-            institution_content_type = None
+            # Check if we're editing an existing quotation
+            editing_quotation_id = quotation_data.get('editing_quotation_id')
+            is_editing = editing_quotation_id is not None
 
-            if institution_id_param:
-                # Parse institution_id parameter (format: "institutiontype_id")
+            if is_editing:
+                # Get existing quotation
                 try:
-                    institution_type, institution_id = institution_id_param.split('_', 1)
-                    institution_id = int(institution_id)
+                    quotation = Quotation.objects.get(pk=editing_quotation_id)
 
-                    # Get institution object
-                    from schools.models_tus import TUSSchool
-
-                    institution_models = {
-                        'tusschool': TUSSchool,
-                        'wholesaleschool': WholesaleSchool,
-                        'lottoclub': LottoClub,
-                        'sasclub': SASClub,
-                    }
-                    model_class = institution_models.get(institution_type.lower())
-                    if not model_class:
+                    # Verify ownership
+                    if not (quotation.created_by == request.user or
+                            request.user.is_admin or
+                            request.user.is_account_manager):
                         return JsonResponse({
                             'success': False,
-                            'error': 'Invalid institution type'
-                        }, status=400)
-
-                    try:
-                        institution = model_class.objects.get(pk=institution_id)
-                    except model_class.DoesNotExist:
-                        return JsonResponse({
-                            'success': False,
-                            'error': 'Institution not found'
-                        }, status=404)
-
-                    # Verify user has access to this institution
-                    if not user_can_access_institution(request.user, institution_type, institution_id):
-                        return JsonResponse({
-                            'success': False,
-                            'error': 'You do not have permission to create quotations for this institution'
+                            'error': 'You do not have permission to edit this quotation.'
                         }, status=403)
 
-                    # Get content type for institution
-                    institution_content_type = ContentType.objects.get_for_model(institution)
+                    # Verify quotation is not approved/confirmed
+                    if quotation.status in ['approved', 'confirmed']:
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Approved quotations cannot be edited.'
+                        }, status=400)
 
-                except (ValueError, IndexError) as e:
+                    # Delete existing quotation items
+                    quotation.items.all().delete()
+
+                    # Update recipient information if provided
+                    recipient_name = request.POST.get('recipient_name', '').strip()
+                    recipient_address = request.POST.get('recipient_address', '').strip()
+                    if recipient_name:
+                        quotation.recipient_name = recipient_name
+                    if recipient_address:
+                        quotation.recipient_address = recipient_address
+
+                except Quotation.DoesNotExist:
                     return JsonResponse({
                         'success': False,
-                        'error': 'Invalid institution ID format'
-                    }, status=400)
+                        'error': 'Quotation not found.'
+                    }, status=404)
 
-            # Get recipient information from POST data
-            recipient_name = request.POST.get('recipient_name', '').strip()
-            recipient_address = request.POST.get('recipient_address', '').strip()
+            else:
+                # Get institution from POST data (optional)
+                institution_id_param = request.POST.get('institution_id', '').strip()
+                institution = None
+                institution_content_type = None
 
-            # Create Quotation (with or without institution)
-            quotation = Quotation.objects.create(
-                created_by=request.user,
-                institution_content_type=institution_content_type,
-                institution_object_id=institution.id if institution else None,
-                status='pending',  # Changed from 'draft' to 'pending' for approval workflow
-                recipient_name=recipient_name,
-                recipient_address=recipient_address,
-            )
+                if institution_id_param:
+                    # Parse institution_id parameter (format: "institutiontype_id")
+                    try:
+                        institution_type, institution_id = institution_id_param.split('_', 1)
+                        institution_id = int(institution_id)
 
-            # Create QuotationItems
+                        # Get institution object
+                        from schools.models_tus import TUSSchool
+
+                        institution_models = {
+                            'tusschool': TUSSchool,
+                            'wholesaleschool': WholesaleSchool,
+                            'lottoclub': LottoClub,
+                            'sasclub': SASClub,
+                        }
+                        model_class = institution_models.get(institution_type.lower())
+                        if not model_class:
+                            return JsonResponse({
+                                'success': False,
+                                'error': 'Invalid institution type'
+                            }, status=400)
+
+                        try:
+                            institution = model_class.objects.get(pk=institution_id)
+                        except model_class.DoesNotExist:
+                            return JsonResponse({
+                                'success': False,
+                                'error': 'Institution not found'
+                            }, status=404)
+
+                        # Verify user has access to this institution
+                        if not user_can_access_institution(request.user, institution_type, institution_id):
+                            return JsonResponse({
+                                'success': False,
+                                'error': 'You do not have permission to create quotations for this institution'
+                            }, status=403)
+
+                        # Get content type for institution
+                        institution_content_type = ContentType.objects.get_for_model(institution)
+
+                    except (ValueError, IndexError) as e:
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Invalid institution ID format'
+                        }, status=400)
+
+                # Get recipient information from POST data
+                recipient_name = request.POST.get('recipient_name', '').strip()
+                recipient_address = request.POST.get('recipient_address', '').strip()
+
+                # Create Quotation (with or without institution)
+                quotation = Quotation.objects.create(
+                    created_by=request.user,
+                    institution_content_type=institution_content_type,
+                    institution_object_id=institution.id if institution else None,
+                    status='pending',  # Changed from 'draft' to 'pending' for approval workflow
+                    recipient_name=recipient_name,
+                    recipient_address=recipient_address,
+                )
+
+            # Create QuotationItems (for both new and edited quotations)
             items_created = 0
             for item_data in quotation_data['items']:
                 product = get_product_by_type_and_id(item_data['product_type'], item_data['product_id'])
@@ -1091,7 +1145,8 @@ class SaveQuotationView(LoginRequiredMixin, View):
                 items_created += 1
 
             if items_created == 0:
-                quotation.delete()
+                if not is_editing:
+                    quotation.delete()
                 return JsonResponse({
                     'success': False,
                     'error': 'No valid products found in your cart. Please try again.'
@@ -1104,15 +1159,18 @@ class SaveQuotationView(LoginRequiredMixin, View):
             clear_quotation_session(request)
 
             # Log action
+            action_description = f'Updated quotation {quotation.quotation_number} with {items_created} items' if is_editing else f'Created quotation {quotation.quotation_number} with {items_created} items'
             AuditLog.log_action(
                 user=request.user,
-                action_type='data_creation',
-                description=f'Created quotation {quotation.quotation_number} with {items_created} items',
+                action_type='data_modification' if is_editing else 'data_creation',
+                description=action_description,
                 request=request,
                 quotation_id=str(quotation.id),
                 quotation_number=quotation.quotation_number,
                 item_count=items_created
             )
+
+            success_message = f'Quotation {quotation.quotation_number} updated successfully!' if is_editing else f'Quotation {quotation.quotation_number} generated successfully!'
 
             return JsonResponse({
                 'success': True,
@@ -1121,7 +1179,7 @@ class SaveQuotationView(LoginRequiredMixin, View):
                 'item_count': items_created,
                 'total_amount': str(quotation.total),
                 'redirect_url': reverse('quotations:quotation-preview', kwargs={'pk': quotation.id}),
-                'message': f'Quotation {quotation.quotation_number} generated successfully!'
+                'message': success_message
             })
 
         except ValidationError as e:
@@ -1191,6 +1249,84 @@ class MyQuotationsListView(LoginRequiredMixin, ListView):
         context['date_from'] = self.request.GET.get('date_from', '')
         context['date_to'] = self.request.GET.get('date_to', '')
         return context
+
+
+# =====================================
+# EDIT QUOTATION VIEW
+# =====================================
+
+class EditQuotationView(LoginRequiredMixin, View):
+    """
+    Edit an existing quotation by loading it into the session cart.
+    Only allows editing of unapproved quotations (draft, pending, rejected).
+    """
+
+    def get(self, request, pk):
+        try:
+            # Get the quotation
+            quotation = get_object_or_404(Quotation, pk=pk)
+
+            # Check ownership (user must own the quotation or be admin/account manager)
+            if not (quotation.created_by == request.user or
+                    request.user.is_admin or
+                    request.user.is_account_manager):
+                messages.error(request, 'You do not have permission to edit this quotation.')
+                return redirect('quotations:my-quotations')
+
+            # Check if quotation is approved/confirmed - these cannot be edited
+            if quotation.status in ['approved', 'confirmed']:
+                messages.error(request, 'Approved quotations cannot be edited.')
+                return redirect('quotations:quotation-detail', pk=quotation.id)
+
+            # Clear any existing cart session
+            clear_quotation_session(request)
+
+            # Load quotation into session
+            quotation_data = {
+                'editing_quotation_id': str(quotation.id),  # Track that we're editing
+                'items': [],
+                'institution_type': None,
+                'institution_id': None,
+            }
+
+            # Set institution data if exists
+            if quotation.institution:
+                quotation_data['institution_type'] = quotation.institution_content_type.model
+                quotation_data['institution_id'] = quotation.institution_object_id
+
+            # Load quotation items into session
+            for item in quotation.items.all():
+                quotation_data['items'].append({
+                    'product_type': item.product_content_type.model,
+                    'product_id': item.product_object_id,
+                    'product_name': item.product_name,
+                    'product_sku': item.product_sku,
+                    'quantity': item.quantity,
+                    'unit_price': str(item.unit_price),
+                    'margin_75_price': '',  # Will be populated if available
+                    'variations': item.variations,
+                })
+
+            # Save to session
+            save_quotation_session(request, quotation_data)
+
+            # Log action
+            AuditLog.log_action(
+                user=request.user,
+                action_type='data_access',
+                description=f'Started editing quotation {quotation.quotation_number}',
+                request=request,
+                quotation_id=str(quotation.id),
+                quotation_number=quotation.quotation_number
+            )
+
+            messages.success(request, f'Quotation {quotation.quotation_number} loaded for editing.')
+            return redirect('quotations:cart')
+
+        except Exception as e:
+            logger.error(f"Error loading quotation for editing: {e}")
+            messages.error(request, 'An error occurred while loading the quotation for editing.')
+            return redirect('quotations:my-quotations')
 
 
 # =====================================

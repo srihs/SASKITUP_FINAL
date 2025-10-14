@@ -711,6 +711,11 @@
                     <!-- Action Buttons -->
                     <div class="d-print-none mt-4">
                         <div class="float-end">
+                            {% if quotation.status not in 'approved,confirmed' %}
+                            <a href="{% url 'quotations:edit-quotation' quotation.id %}" class="btn btn-warning waves-effect waves-light me-1">
+                                <i class="uil uil-pen"></i> Edit Quotation
+                            </a>
+                            {% endif %}
                             {% if quotation.status == 'pending' and quotation.created_by == user %}
                             <button type="button" class="btn btn-success waves-effect waves-light me-1" data-bs-toggle="modal" data-bs-target="#approveModal">
                                 <i class="fa fa-check"></i> Approve Quotation

@@ -57,6 +57,9 @@ urlpatterns = [
     # Quotation Detail
     path('detail/<uuid:pk>/', views.QuotationDetailView.as_view(), name='quotation-detail'),
 
+    # Edit Quotation
+    path('edit/<uuid:pk>/', views.EditQuotationView.as_view(), name='edit-quotation'),
+
     # Quotation Preview
     path('preview/<uuid:pk>/', views.QuotationPreviewView.as_view(), name='quotation-preview'),
 

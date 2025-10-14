@@ -188,13 +188,13 @@
                                     <a href="{% url 'quotations:quotation-detail' quotation.id %}" class="text-primary px-3" title="View Details">
                                         <i class="uil uil-eye font-size-18"></i>
                                     </a>
-                                    {% if quotation.status == 'draft' %}
-                                    <a href="{% url 'quotations:edit_quotation' quotation.id %}" class="text-warning px-3" title="Edit">
+                                    {% if quotation.status not in 'approved,confirmed' %}
+                                    <a href="{% url 'quotations:edit-quotation' quotation.id %}" class="text-warning px-3" title="Edit Quotation">
                                         <i class="uil uil-pen font-size-18"></i>
                                     </a>
                                     {% endif %}
-                                    {% if quotation.status in 'approved,rejected' %}
-                                    <a href="javascript:void(0);" onclick="downloadPDF({{ quotation.id }})" class="text-success px-3" title="Download PDF">
+                                    {% if quotation.status in 'approved,confirmed,rejected' %}
+                                    <a href="javascript:void(0);" onclick="downloadPDF('{{ quotation.id }}')" class="text-success px-3" title="Download PDF">
                                         <i class="uil uil-download-alt font-size-18"></i>
                                     </a>
                                     {% endif %}

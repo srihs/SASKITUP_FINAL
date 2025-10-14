@@ -689,6 +689,18 @@
 
 {% block content %}
 <div class="container-fluid">
+    {% if is_editing %}
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="alert alert-info alert-dismissible fade show" role="alert">
+                <i class="uil uil-info-circle me-2"></i>
+                <strong>Editing Quotation:</strong> You are currently editing quotation <strong>{{ editing_quotation.quotation_number }}</strong>.
+                Make your changes below and click "Update Quotation" when done.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     {% if cart_items %}
     <div class="row mb-3">
         <div class="col-xl-8">
@@ -835,7 +847,11 @@
                     <div class="text-sm-end mt-2 mt-sm-0">
                         <!-- CHANGED: Updated button text from "Submit Quotation" to "Generate Quotation" -->
                         <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#generateQuotationModal">
+                            {% if is_editing %}
+                            <i class="uil uil-check-circle me-1"></i> Update Quotation
+                            {% else %}
                             <i class="uil uil-shopping-cart-alt me-1"></i> Generate Quotation
+                            {% endif %}
                         </button>
                         <!-- NEW: Added Clear Quotation button with secondary/danger styling -->
                         <button type="button" class="btn btn-outline-danger ms-2" onclick="clearQuotation()">
@@ -953,20 +969,33 @@
         <div class="modal-content">
             <div class="modal-header border-bottom">
                 <h5 class="modal-title" id="generateQuotationModalLabel">
+                    {% if is_editing %}
+                    <i class="uil uil-check-circle text-success me-2"></i>
+                    Confirm Update Quotation
+                    {% else %}
                     <i class="uil uil-shopping-cart-alt text-success me-2"></i>
                     Confirm Generate Quotation
+                    {% endif %}
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                {% if is_editing %}
+                <p class="mb-0">Are you ready to update quotation <strong>{{ editing_quotation.quotation_number }}</strong>? Please ensure all items and recipient information are correct.</p>
+                {% else %}
                 <p class="mb-0">Are you ready to generate this quotation? Please ensure all items and recipient information are correct.</p>
+                {% endif %}
             </div>
             <div class="modal-footer border-top">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="uil-times me-1"></i> Cancel
                 </button>
                 <button type="button" class="btn btn-success" onclick="confirmGenerateQuotation()">
+                    {% if is_editing %}
+                    <i class="uil uil-check-circle me-1"></i> Yes, Update
+                    {% else %}
                     <i class="uil uil-shopping-cart-alt me-1"></i> Yes, Generate
+                    {% endif %}
                 </button>
             </div>
         </div>
