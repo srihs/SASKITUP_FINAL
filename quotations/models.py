@@ -293,6 +293,10 @@ class Quotation(models.Model):
         blank=True,
         help_text="Address of the quotation recipient"
     )
+    additional_emails = models.TextField(
+        blank=True,
+        help_text="Additional email addresses to send quotation copies to (separated by semicolons)"
+    )
 
     # Version tracking
     version = models.PositiveIntegerField(
@@ -566,6 +570,34 @@ class Quotation(models.Model):
     def get_absolute_url(self):
         """Get absolute URL for quotation detail"""
         return reverse('quotations:quotation-detail', kwargs={'pk': self.pk})
+
+    def get_all_email_recipients(self):
+        """
+        Get all email recipients for this quotation.
+
+        Returns:
+            list: List of email addresses including primary recipient and additional emails
+        """
+        recipients = []
+
+        # Add primary recipient email (created_by user)
+        if self.created_by and self.created_by.email:
+            recipients.append(self.created_by.email)
+
+        # Add additional emails if provided
+        if self.additional_emails:
+            additional = [email.strip() for email in self.additional_emails.split(';') if email.strip()]
+            recipients.extend(additional)
+
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_recipients = []
+        for email in recipients:
+            if email.lower() not in seen:
+                seen.add(email.lower())
+                unique_recipients.append(email)
+
+        return unique_recipients
 
 
 class QuotationItem(models.Model):

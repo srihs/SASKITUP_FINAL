@@ -926,9 +926,20 @@
                             <label for="recipient_name" class="form-label">Recipient Name</label>
                             <input type="text" class="form-control" id="recipient_name" placeholder="Enter recipient name" value="{% if is_customer %}{{ user_full_name }}{% endif %}">
                         </div>
-                        <div class="mb-0">
+                        <div class="mb-3">
                             <label for="recipient_address" class="form-label">Recipient Address</label>
                             <textarea class="form-control" id="recipient_address" rows="3" placeholder="Enter recipient address">{% if is_customer %}{{ user_address }}{% endif %}</textarea>
+                        </div>
+                        <div class="mb-0">
+                            <label for="additional_emails" class="form-label">Additional Email Recipients <span class="text-muted">(Optional)</span></label>
+                            <input type="text" class="form-control" id="additional_emails" placeholder="email1@example.com; email2@example.com" value="{% if editing_quotation.additional_emails %}{{ editing_quotation.additional_emails }}{% endif %}">
+                            <div class="form-text mt-2">
+                                <i class="uil uil-info-circle me-1"></i>
+                                Separate multiple email addresses with semicolons (;). These recipients will receive copies of the quotation.
+                            </div>
+                            <div id="email-validation-error" class="invalid-feedback" style="display: none;">
+                                Please enter valid email addresses.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1407,13 +1418,56 @@ function confirmGenerateQuotation() {
     saveQuotation();
 }
 
+// Email validation function
+function validateEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email.trim());
+}
+
+// Validate additional emails
+function validateAdditionalEmails() {
+    const additionalEmailsInput = document.getElementById('additional_emails');
+    const emailValidationError = document.getElementById('email-validation-error');
+    const additionalEmails = additionalEmailsInput.value.trim();
+
+    // Reset validation state
+    additionalEmailsInput.classList.remove('is-invalid');
+    emailValidationError.style.display = 'none';
+
+    if (!additionalEmails) {
+        return true; // Empty is valid (optional field)
+    }
+
+    // Split by semicolon and validate each email
+    const emails = additionalEmails.split(';').map(e => e.trim()).filter(e => e);
+
+    for (const email of emails) {
+        if (!validateEmail(email)) {
+            additionalEmailsInput.classList.add('is-invalid');
+            emailValidationError.textContent = `Invalid email address: ${email}`;
+            emailValidationError.style.display = 'block';
+            return false;
+        }
+    }
+
+    return true;
+}
+
 // Save Quotation
 function saveQuotation() {
+    // Validate additional emails before saving
+    if (!validateAdditionalEmails()) {
+        hideLoading();
+        toastr.error('Please correct the email addresses before saving.');
+        return;
+    }
+
     showLoading();
 
     // Get recipient information from the form
     const recipientName = document.getElementById('recipient_name').value;
     const recipientAddress = document.getElementById('recipient_address').value;
+    const additionalEmails = document.getElementById('additional_emails').value.trim();
 
     // Get selected institution (optional)
     const institutionSelect = $('#institution_select').val();
@@ -1422,6 +1476,7 @@ function saveQuotation() {
     const formData = new URLSearchParams();
     formData.append('recipient_name', recipientName);
     formData.append('recipient_address', recipientAddress);
+    formData.append('additional_emails', additionalEmails);
 
     // Add institution if selected
     if (institutionSelect) {

@@ -576,6 +576,17 @@
                                             {% elif quotation.created_by.phone %}
                                                 <p>{{ quotation.created_by.phone }}</p>
                                             {% endif %}
+
+                                            {% if quotation.additional_emails %}
+                                                <div class="mt-3 pt-2 border-top">
+                                                    <p class="mb-1 text-muted" style="font-size: 10px; text-transform: uppercase;">Additional Recipients:</p>
+                                                    {% for email in quotation.additional_emails.split:';' %}
+                                                        {% if email.strip %}
+                                                            <p class="mb-1" style="font-size: 11px;"><i class="uil uil-envelope-alt me-1"></i>{{ email.strip }}</p>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </div>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </div>

@@ -13,6 +13,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.contenttypes.models import ContentType
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.core.validators import validate_email
 from django.db.models import Q, Prefetch
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -63,6 +64,32 @@ def round_to_nearest_5(value):
         return Decimal('0')
     # Divide by 5, round to nearest integer, multiply by 5
     return (value / Decimal('5')).quantize(Decimal('1'), rounding=ROUND_HALF_UP) * Decimal('5')
+
+
+def validate_additional_emails(emails_string):
+    """
+    Validate semicolon-separated email addresses.
+
+    Args:
+        emails_string: String of email addresses separated by semicolons
+
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if not emails_string or not emails_string.strip():
+        return True, None
+
+    # Split by semicolon and clean up
+    emails = [email.strip() for email in emails_string.split(';') if email.strip()]
+
+    # Validate each email
+    for email in emails:
+        try:
+            validate_email(email)
+        except ValidationError:
+            return False, f"Invalid email address: {email}"
+
+    return True, None
 
 def get_quotation_session(request):
     """Get or create quotation session data"""
@@ -1105,10 +1132,21 @@ class SaveQuotationView(LoginRequiredMixin, View):
                     # Update recipient information if provided
                     recipient_name = request.POST.get('recipient_name', '').strip()
                     recipient_address = request.POST.get('recipient_address', '').strip()
+                    additional_emails = request.POST.get('additional_emails', '').strip()
+
+                    # Validate additional emails
+                    is_valid, error_message = validate_additional_emails(additional_emails)
+                    if not is_valid:
+                        return JsonResponse({
+                            'success': False,
+                            'error': error_message
+                        }, status=400)
+
                     if recipient_name:
                         quotation.recipient_name = recipient_name
                     if recipient_address:
                         quotation.recipient_address = recipient_address
+                    quotation.additional_emails = additional_emails
 
                 except Quotation.DoesNotExist:
                     return JsonResponse({
@@ -1171,6 +1209,15 @@ class SaveQuotationView(LoginRequiredMixin, View):
                 # Get recipient information from POST data
                 recipient_name = request.POST.get('recipient_name', '').strip()
                 recipient_address = request.POST.get('recipient_address', '').strip()
+                additional_emails = request.POST.get('additional_emails', '').strip()
+
+                # Validate additional emails
+                is_valid, error_message = validate_additional_emails(additional_emails)
+                if not is_valid:
+                    return JsonResponse({
+                        'success': False,
+                        'error': error_message
+                    }, status=400)
 
                 # Create Quotation (with or without institution)
                 quotation = Quotation.objects.create(
@@ -1180,6 +1227,7 @@ class SaveQuotationView(LoginRequiredMixin, View):
                     status='pending',  # Changed from 'draft' to 'pending' for approval workflow
                     recipient_name=recipient_name,
                     recipient_address=recipient_address,
+                    additional_emails=additional_emails,
                 )
 
             # Create QuotationItems (for both new and edited quotations)
