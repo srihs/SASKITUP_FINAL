@@ -803,14 +803,19 @@ class AddToQuotationView(LoginRequiredMixin, View):
 
             # Log action
             variation_info = f" ({variations.get('size', '')})" if variations.get('size') else ""
+            action_desc = f'Updated quantity for "{product.name}{variation_info}"' if existing_item else f'Added "{product.name}{variation_info}" to quotation cart'
             AuditLog.log_action(
                 user=request.user,
-                action_type='data_access',
-                description=f'Added {product.name}{variation_info} to quotation',
+                action_type='quotation_item_added',
+                description=action_desc,
                 request=request,
+                affected_model='QuotationItem',
+                product_name=product.name,
                 product_type=product_type,
                 product_id=product_id,
-                quantity=quantity
+                quantity=quantity,
+                unit_price=str(unit_price),
+                variations=str(variations) if variations else None
             )
 
             return JsonResponse({
@@ -903,11 +908,17 @@ class UpdateQuotationItemView(LoginRequiredMixin, View):
             # Log action
             AuditLog.log_action(
                 user=request.user,
-                action_type='data_modification',
-                description=f'Updated quotation item quantity to {quantity}',
+                action_type='quotation_item_updated',
+                description=f'Updated "{item["product_name"]}" quantity to {quantity} in quotation cart',
                 request=request,
+                affected_model='QuotationItem',
+                product_name=item['product_name'],
+                product_type=item.get('product_type', 'unknown'),
                 item_index=item_index,
-                quantity=quantity
+                old_quantity=item.get('quantity', 0),
+                new_quantity=quantity,
+                unit_price=str(item.get('unit_price', 0)),
+                line_total=str(line_total)
             )
 
             # Build complete cart data for verification
@@ -987,10 +998,14 @@ class RemoveQuotationItemView(LoginRequiredMixin, View):
             # Log action
             AuditLog.log_action(
                 user=request.user,
-                action_type='data_modification',
-                description=f'Removed {removed_item["product_name"]} from quotation',
+                action_type='quotation_item_removed',
+                description=f'Removed "{removed_item["product_name"]}" from quotation cart',
                 request=request,
-                product_name=removed_item['product_name']
+                affected_model='QuotationItem',
+                product_name=removed_item['product_name'],
+                product_type=removed_item.get('product_type', 'unknown'),
+                quantity=removed_item.get('quantity', 0),
+                unit_price=str(removed_item.get('unit_price', 0))
             )
 
             return JsonResponse({
@@ -1021,8 +1036,8 @@ class ClearQuotationView(LoginRequiredMixin, View):
             # Log action
             AuditLog.log_action(
                 user=request.user,
-                action_type='data_access',
-                description='Cleared quotation cart',
+                action_type='quotation_cart_cleared',
+                description='Cleared all items from quotation cart',
                 request=request
             )
 
@@ -1208,15 +1223,27 @@ class SaveQuotationView(LoginRequiredMixin, View):
             clear_quotation_session(request)
 
             # Log action
-            action_description = f'Updated quotation {quotation.quotation_number} with {items_created} items' if is_editing else f'Created quotation {quotation.quotation_number} with {items_created} items'
+            if is_editing:
+                action_type = 'quotation_updated'
+                action_description = f'Updated quotation {quotation.quotation_number} with {items_created} items'
+            else:
+                action_type = 'quotation_created'
+                action_description = f'Created quotation {quotation.quotation_number} with {items_created} items'
+
             AuditLog.log_action(
                 user=request.user,
-                action_type='data_modification' if is_editing else 'data_creation',
+                action_type=action_type,
                 description=action_description,
                 request=request,
+                affected_model='Quotation',
+                affected_object_id=str(quotation.id),
                 quotation_id=str(quotation.id),
                 quotation_number=quotation.quotation_number,
-                item_count=items_created
+                item_count=items_created,
+                institution_id=quotation.institution_object_id if quotation.institution else None,
+                institution_type=quotation.institution_content_type.model if quotation.institution_content_type else None,
+                status=quotation.status,
+                total_amount=str(quotation.total)
             )
 
             success_message = f'Quotation {quotation.quotation_number} updated successfully!' if is_editing else f'Quotation {quotation.quotation_number} generated successfully!'
@@ -1362,11 +1389,16 @@ class EditQuotationView(LoginRequiredMixin, View):
             # Log action
             AuditLog.log_action(
                 user=request.user,
-                action_type='data_access',
+                action_type='quotation_edit_started',
                 description=f'Started editing quotation {quotation.quotation_number}',
                 request=request,
+                affected_model='Quotation',
+                affected_object_id=str(quotation.id),
                 quotation_id=str(quotation.id),
-                quotation_number=quotation.quotation_number
+                quotation_number=quotation.quotation_number,
+                status=quotation.status,
+                institution_id=quotation.institution_object_id if quotation.institution else None,
+                institution_type=quotation.institution_content_type.model if quotation.institution_content_type else None
             )
 
             messages.success(request, f'Quotation {quotation.quotation_number} loaded for editing.')
@@ -1410,6 +1442,19 @@ class QuotationDetailView(LoginRequiredMixin, DetailView):
         # Get quotation validity days from settings
         settings = SiteSettings.objects.get_settings()
         context['quotation_validity_days'] = settings.quotation_validity_days
+
+        # Log quotation view
+        AuditLog.log_action(
+            user=self.request.user,
+            action_type='quotation_viewed',
+            description=f'Viewed quotation {self.object.quotation_number}',
+            request=self.request,
+            affected_model='Quotation',
+            affected_object_id=str(self.object.id),
+            quotation_id=str(self.object.id),
+            quotation_number=self.object.quotation_number,
+            status=self.object.status
+        )
 
         return context
 
@@ -2304,11 +2349,18 @@ class ApproveQuotationView(LoginRequiredMixin, View):
             # Log action
             AuditLog.log_action(
                 user=request.user,
-                action_type='data_update',
+                action_type='quotation_approved',
                 description=f'Approved quotation {quotation.quotation_number}',
                 request=request,
+                affected_model='Quotation',
+                affected_object_id=str(quotation.id),
                 quotation_id=str(quotation.id),
-                quotation_number=quotation.quotation_number
+                quotation_number=quotation.quotation_number,
+                old_status='pending',
+                new_status='confirmed',
+                institution_id=quotation.institution_object_id if quotation.institution else None,
+                institution_type=quotation.institution_content_type.model if quotation.institution_content_type else None,
+                total_amount=str(quotation.total)
             )
 
             return JsonResponse({

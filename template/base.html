@@ -339,6 +339,9 @@
                                 <ul class="sub-menu" aria-expanded="false">
                                     <li><a href="{% url 'quotations:new-quotation' %}">New Quotation</a></li>
                                     <li><a href="{% url 'quotations:my-quotations' %}">My Quotations</a></li>
+                                    {% if user.is_authenticated and user.is_admin %}
+                                    <li><a href="{% url 'authentication:audit-log-list' %}?action_type=&search=quotation">Quotation Audit Trail</a></li>
+                                    {% endif %}
                                 </ul>
                             </li>
 

@@ -888,14 +888,70 @@ class SettingsDashboardView(AdminRequiredMixin, TemplateView):
 
 
 class AuditLogListView(AdminRequiredMixin, ListView):
-    """List audit logs"""
+    """List audit logs with filtering"""
     model = AuditLog
     template_name = 'authentication/audit_log_list.html'
-    context_object_name = 'logs'
-    paginate_by = 50
+    context_object_name = 'audit_logs'
+    paginate_by = 100
 
     def get_queryset(self):
-        return AuditLog.objects.select_related('user').order_by('-timestamp')
+        queryset = AuditLog.objects.select_related('user').order_by('-timestamp')
+
+        # Apply filters
+        action_type = self.request.GET.get('action_type', '')
+        user_filter = self.request.GET.get('user_filter', '')
+        date_from = self.request.GET.get('date_from', '')
+        date_to = self.request.GET.get('date_to', '')
+        search = self.request.GET.get('search', '')
+
+        if action_type:
+            queryset = queryset.filter(action_type=action_type)
+
+        if user_filter:
+            queryset = queryset.filter(user_id=user_filter)
+
+        if date_from:
+            from django.utils import timezone as tz
+            from datetime import datetime
+            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d')
+            queryset = queryset.filter(timestamp__gte=date_from_obj)
+
+        if date_to:
+            from django.utils import timezone as tz
+            from datetime import datetime
+            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d')
+            # Include the entire day by adding 23:59:59
+            date_to_obj = date_to_obj.replace(hour=23, minute=59, second=59)
+            queryset = queryset.filter(timestamp__lte=date_to_obj)
+
+        if search:
+            queryset = queryset.filter(description__icontains=search)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Get all users for filter dropdown
+        context['users'] = User.objects.filter(is_active=True).order_by('first_name', 'last_name')
+
+        # Calculate audit statistics
+        from django.utils import timezone
+        from django.db.models import Count
+        from datetime import timedelta
+
+        today = timezone.now().date()
+
+        context['audit_stats'] = {
+            'total_events': AuditLog.objects.count(),
+            'today_events': AuditLog.objects.filter(timestamp__date=today).count(),
+            'unique_users': AuditLog.objects.filter(user__isnull=False).values('user').distinct().count(),
+            'critical_events': AuditLog.objects.filter(
+                action_type__in=['user_deactivated', 'permission_revoked', 'admin_action', 'quotation_deleted']
+            ).count()
+        }
+
+        return context
 
 
 # AJAX view for user search

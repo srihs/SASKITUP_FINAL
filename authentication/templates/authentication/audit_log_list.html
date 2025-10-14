@@ -31,6 +31,18 @@
 .audit-entry.admin_action { border-left-color: #6f42c1; }
 .audit-entry.data_access { border-left-color: #20c997; }
 
+/* Quotation Actions */
+.audit-entry.quotation_created { border-left-color: #28a745; }
+.audit-entry.quotation_updated { border-left-color: #17a2b8; }
+.audit-entry.quotation_deleted { border-left-color: #dc3545; }
+.audit-entry.quotation_viewed { border-left-color: #6c757d; }
+.audit-entry.quotation_approved { border-left-color: #28a745; }
+.audit-entry.quotation_rejected { border-left-color: #dc3545; }
+.audit-entry.quotation_item_added { border-left-color: #007bff; }
+.audit-entry.quotation_item_updated { border-left-color: #ffc107; }
+.audit-entry.quotation_item_removed { border-left-color: #fd7e14; }
+.audit-entry.quotation_edit_started { border-left-color: #17a2b8; }
+
 .action-badge {
     font-size: 0.75rem;
     padding: 0.25rem 0.5rem;
@@ -156,15 +168,35 @@
                             <label for="action_type" class="form-label">Action Type</label>
                             <select class="form-select" name="action_type" id="action_type">
                                 <option value="">All Actions</option>
-                                <option value="login" {% if request.GET.action_type == 'login' %}selected{% endif %}>User Login</option>
-                                <option value="logout" {% if request.GET.action_type == 'logout' %}selected{% endif %}>User Logout</option>
-                                <option value="password_change" {% if request.GET.action_type == 'password_change' %}selected{% endif %}>Password Change</option>
-                                <option value="assignment_created" {% if request.GET.action_type == 'assignment_created' %}selected{% endif %}>Assignment Created</option>
-                                <option value="assignment_updated" {% if request.GET.action_type == 'assignment_updated' %}selected{% endif %}>Assignment Updated</option>
-                                <option value="assignment_deleted" {% if request.GET.action_type == 'assignment_deleted' %}selected{% endif %}>Assignment Deleted</option>
-                                <option value="user_created" {% if request.GET.action_type == 'user_created' %}selected{% endif %}>User Created</option>
-                                <option value="user-updated" {% if request.GET.action_type == 'user-updated' %}selected{% endif %}>User Updated</option>
-                                <option value="admin_action" {% if request.GET.action_type == 'admin_action' %}selected{% endif %}>Admin Action</option>
+                                <optgroup label="Authentication">
+                                    <option value="login" {% if request.GET.action_type == 'login' %}selected{% endif %}>User Login</option>
+                                    <option value="logout" {% if request.GET.action_type == 'logout' %}selected{% endif %}>User Logout</option>
+                                    <option value="password_change" {% if request.GET.action_type == 'password_change' %}selected{% endif %}>Password Change</option>
+                                </optgroup>
+                                <optgroup label="User Management">
+                                    <option value="user_created" {% if request.GET.action_type == 'user_created' %}selected{% endif %}>User Created</option>
+                                    <option value="user-updated" {% if request.GET.action_type == 'user-updated' %}selected{% endif %}>User Updated</option>
+                                    <option value="user_deactivated" {% if request.GET.action_type == 'user_deactivated' %}selected{% endif %}>User Deactivated</option>
+                                    <option value="assignment_created" {% if request.GET.action_type == 'assignment_created' %}selected{% endif %}>Assignment Created</option>
+                                    <option value="assignment_updated" {% if request.GET.action_type == 'assignment_updated' %}selected{% endif %}>Assignment Updated</option>
+                                    <option value="assignment_deleted" {% if request.GET.action_type == 'assignment_deleted' %}selected{% endif %}>Assignment Deleted</option>
+                                </optgroup>
+                                <optgroup label="Quotations">
+                                    <option value="quotation_created" {% if request.GET.action_type == 'quotation_created' %}selected{% endif %}>Quotation Created</option>
+                                    <option value="quotation_updated" {% if request.GET.action_type == 'quotation_updated' %}selected{% endif %}>Quotation Updated</option>
+                                    <option value="quotation_deleted" {% if request.GET.action_type == 'quotation_deleted' %}selected{% endif %}>Quotation Deleted</option>
+                                    <option value="quotation_viewed" {% if request.GET.action_type == 'quotation_viewed' %}selected{% endif %}>Quotation Viewed</option>
+                                    <option value="quotation_approved" {% if request.GET.action_type == 'quotation_approved' %}selected{% endif %}>Quotation Approved</option>
+                                    <option value="quotation_rejected" {% if request.GET.action_type == 'quotation_rejected' %}selected{% endif %}>Quotation Rejected</option>
+                                    <option value="quotation_item_added" {% if request.GET.action_type == 'quotation_item_added' %}selected{% endif %}>Item Added</option>
+                                    <option value="quotation_item_updated" {% if request.GET.action_type == 'quotation_item_updated' %}selected{% endif %}>Item Updated</option>
+                                    <option value="quotation_item_removed" {% if request.GET.action_type == 'quotation_item_removed' %}selected{% endif %}>Item Removed</option>
+                                    <option value="quotation_edit_started" {% if request.GET.action_type == 'quotation_edit_started' %}selected{% endif %}>Edit Started</option>
+                                </optgroup>
+                                <optgroup label="Administrative">
+                                    <option value="admin_action" {% if request.GET.action_type == 'admin_action' %}selected{% endif %}>Admin Action</option>
+                                    <option value="data_access" {% if request.GET.action_type == 'data_access' %}selected{% endif %}>Data Access</option>
+                                </optgroup>
                             </select>
                         </div>
                         <div class="col-md-2">
@@ -258,6 +290,10 @@
                                                         {% elif log.action_type|slice:':4' == 'user' %}bg-primary border-primary
                                                         {% elif log.action_type|slice:':10' == 'assignment' %}bg-info border-info
                                                         {% elif log.action_type == 'admin_action' %}bg-warning border-warning
+                                                        {% elif log.action_type == 'quotation_created' or log.action_type == 'quotation_approved' %}bg-success border-success
+                                                        {% elif log.action_type == 'quotation_deleted' or log.action_type == 'quotation_rejected' %}bg-danger border-danger
+                                                        {% elif log.action_type == 'quotation_updated' or log.action_type == 'quotation_edit_started' %}bg-info border-info
+                                                        {% elif log.action_type|slice:':10' == 'quotation_' %}bg-primary border-primary
                                                         {% else %}bg-light border-light{% endif %}"></div>
 
                             <div class="audit-entry {{ log.action_type }}" onclick="toggleLogDetails('{{ log.id }}')">
@@ -284,6 +320,10 @@
                                                 {% elif log.action_type|slice:':4' == 'user' %}bg-primary
                                                 {% elif log.action_type|slice:':10' == 'assignment' %}bg-info
                                                 {% elif log.action_type == 'admin_action' %}bg-warning
+                                                {% elif log.action_type == 'quotation_created' or log.action_type == 'quotation_approved' %}bg-success
+                                                {% elif log.action_type == 'quotation_deleted' or log.action_type == 'quotation_rejected' %}bg-danger
+                                                {% elif log.action_type == 'quotation_updated' or log.action_type == 'quotation_edit_started' %}bg-info
+                                                {% elif log.action_type|slice:':10' == 'quotation_' %}bg-primary
                                                 {% else %}bg-light text-dark{% endif %}">
                                                 {{ log.get_action_type_display }}
                                             </span>
@@ -427,6 +467,10 @@
                                             {% elif log.action_type|slice:':4' == 'user' %}bg-primary
                                             {% elif log.action_type|slice:':10' == 'assignment' %}bg-info
                                             {% elif log.action_type == 'admin_action' %}bg-warning
+                                            {% elif log.action_type == 'quotation_created' or log.action_type == 'quotation_approved' %}bg-success
+                                            {% elif log.action_type == 'quotation_deleted' or log.action_type == 'quotation_rejected' %}bg-danger
+                                            {% elif log.action_type == 'quotation_updated' or log.action_type == 'quotation_edit_started' %}bg-info
+                                            {% elif log.action_type|slice:':10' == 'quotation_' %}bg-primary
                                             {% else %}bg-light text-dark{% endif %}">
                                             {{ log.get_action_type_display }}
                                         </span>

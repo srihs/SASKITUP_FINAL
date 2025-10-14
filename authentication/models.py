@@ -759,6 +759,23 @@ class AuditLog(models.Model):
         ('club_product_image_uploaded', 'Club Product Image Uploaded'),
         ('club_variation_image_uploaded', 'Club Variation Image Uploaded'),
         ('club_image_proxy_accessed', 'Club Image Proxy Accessed'),
+
+        # Quotation Operations
+        ('quotation_created', 'Quotation Created'),
+        ('quotation_updated', 'Quotation Updated'),
+        ('quotation_deleted', 'Quotation Deleted'),
+        ('quotation_viewed', 'Quotation Viewed'),
+        ('quotation_approved', 'Quotation Approved'),
+        ('quotation_rejected', 'Quotation Rejected'),
+        ('quotation_confirmed', 'Quotation Confirmed'),
+        ('quotation_cancelled', 'Quotation Cancelled'),
+        ('quotation_expired', 'Quotation Expired'),
+        ('quotation_item_added', 'Quotation Item Added'),
+        ('quotation_item_updated', 'Quotation Item Updated'),
+        ('quotation_item_removed', 'Quotation Item Removed'),
+        ('quotation_cart_cleared', 'Quotation Cart Cleared'),
+        ('quotation_edit_started', 'Quotation Edit Started'),
+        ('quotation_status_changed', 'Quotation Status Changed'),
     ]
 
     # Primary identification
