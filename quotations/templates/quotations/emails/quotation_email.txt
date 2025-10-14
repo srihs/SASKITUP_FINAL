@@ -4,7 +4,11 @@
 Dear {% if quotation.recipient_name %}{{ quotation.recipient_name }}{% elif institution_name %}{{ institution_name }}{% else %}Valued Customer{% endif %},
 
 {% if is_update %}
-We are writing to inform you that your quotation has been updated. Please review the changes below.
+Thank you for your continued interest in SAS Sports.
+
+We've updated your quotation based on the changes you requested. Please find the revised quotation below for your review.
+
+NOTE: This updated quotation supersedes any previous version and remains valid for 30 days from the date of this email.
 {% else %}
 Thank you for your interest in SAS SPORTS LTD and for reaching out to us for a quotation on our products. We appreciate your inquiry, and we are pleased to provide you with our pricing.
 {% endif %}
@@ -36,7 +40,7 @@ GST (15%):         ${{ quotation.tax_amount|floatformat:2 }}
 TOTAL (incl. GST): ${{ quotation.total|floatformat:2 }}
 ========================================================================
 
-Please note that these prices are exclusive of shipping and handling charges. You'll receive a shipping estimate once we receive the shipping address details.
+{% if is_update %}Kindly note that the prices listed are{% else %}Please note that these prices are{% endif %} exclusive of shipping and handling charges. {% if is_update %}A shipping estimate will be provided once we receive your delivery address details.{% else %}You'll receive a shipping estimate once we receive the shipping address details.{% endif %}
 
 ========================================================================
 IMPORTANT TERMS
@@ -44,11 +48,12 @@ IMPORTANT TERMS
 
 * Validity: This quotation is valid for 30 days from the date above.
 
-* Delivery Timeline: Approximately 4-6 weeks from the date of order confirmation.
+* Delivery Timeline: {% if is_update %}The estimated delivery timeframe is 6–8 weeks from the date of order confirmation.{% else %}Approximately 4-6 weeks from the date of order confirmation.{% endif %}
 
 * Payment Terms: 50% advance upon order confirmation and the remaining 50% before shipment.
-
+{% if not is_update %}
 * Quality Assurance: Our products pass stringent quality checks and come with the necessary warranties.
+{% endif %}
 
 {% if quotation.customer_notes %}
 ========================================================================
@@ -62,15 +67,24 @@ ADDITIONAL NOTES
 
 View your quotation online: {{ quotation_url }}
 
+{% if is_update %}
+If you have any questions or require further clarification on the updates, please feel free to reach out to us directly.
+
+Thank you once again for considering SAS Sports. We appreciate your trust and look forward to working with you.
+
+Warm regards,
+{% else %}
 We hope to have the opportunity to serve your needs. If you have any questions or require further information, please feel free to contact us directly.
 
-Thank you {% if is_update %}for your continued interest{% else %}once again for considering SAS SPORTS LTD{% endif %}. We look forward to the possibility of working with you.
+Thank you once again for considering SAS SPORTS LTD. We look forward to the possibility of working with you.
 
 Best regards,
+{% endif %}
 SAS Team
+SAS Sports (Pvt) Ltd
 
 ------------------------------------------------------------------------
-SAS SPORTS LTD
+SAS SPORTS (PVT) LTD
 Phone: 09 2998412
 Email: {{ EMAIL_HOST_USER }}
 

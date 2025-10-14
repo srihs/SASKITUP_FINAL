@@ -186,7 +186,9 @@
 
             <p>
                 {% if is_update %}
-                We are writing to inform you that your quotation has been updated. Please review the changes below.
+                Thank you for your continued interest in SAS Sports.
+                <br><br>
+                We've updated your quotation based on the changes you requested. Please find the revised quotation below for your review.
                 {% else %}
                 Thank you for your interest in SAS SPORTS LTD and for reaching out to us for a quotation on our products. We appreciate your inquiry, and we are pleased to provide you with our pricing.
                 {% endif %}
@@ -203,7 +205,13 @@
                 {% endif %}
             </div>
 
-            <p>Here is the price quote for the items you requested:</p>
+            {% if is_update %}
+            <p style="background-color: #fff3cd; padding: 10px; border-radius: 5px; border-left: 4px solid #ffc107;">
+                <strong>Note:</strong> This updated quotation supersedes any previous version and remains valid for 30 days from the date of this email.
+            </p>
+            {% endif %}
+
+            <p>{% if is_update %}Here is your updated price quote:{% else %}Here is the price quote for the items you requested:{% endif %}</p>
 
             <!-- Items Table -->
             <table class="items-table">
@@ -246,7 +254,7 @@
             </div>
 
             <p style="font-size: 13px; color: #666; margin-top: 20px;">
-                <em>Please note that these prices are exclusive of shipping and handling charges. You'll receive a shipping estimate once we receive the shipping address details.</em>
+                <em>{% if is_update %}Kindly note that the prices listed are{% else %}Please note that these prices are{% endif %} exclusive of shipping and handling charges. {% if is_update %}A shipping estimate will be provided once we receive your delivery address details.{% else %}You'll receive a shipping estimate once we receive the shipping address details.{% endif %}</em>
             </p>
 
             <!-- Terms and Conditions -->
@@ -254,9 +262,11 @@
                 <h3>Important Terms</h3>
                 <ul>
                     <li><strong>Validity:</strong> This quotation is valid for 30 days from the date above.</li>
-                    <li><strong>Delivery Timeline:</strong> Approximately 4-6 weeks from the date of order confirmation.</li>
+                    <li><strong>Delivery Timeline:</strong> {% if is_update %}The estimated delivery timeframe is 6–8 weeks from the date of order confirmation.{% else %}Approximately 4-6 weeks from the date of order confirmation.{% endif %}</li>
                     <li><strong>Payment Terms:</strong> 50% advance upon order confirmation and the remaining 50% before shipment.</li>
+                    {% if not is_update %}
                     <li><strong>Quality Assurance:</strong> Our products pass stringent quality checks and come with the necessary warranties.</li>
+                    {% endif %}
                 </ul>
             </div>
 
@@ -272,16 +282,25 @@
             </div>
 
             <p>
+                {% if is_update %}
+                If you have any questions or require further clarification on the updates, please feel free to reach out to us directly.
+                {% else %}
                 We hope to have the opportunity to serve your needs. If you have any questions or require further information, please feel free to contact us directly.
+                {% endif %}
             </p>
 
             <p style="margin-top: 30px;">
-                Thank you {% if is_update %}for your continued interest{% else %}once again for considering SAS SPORTS LTD{% endif %}. We look forward to the possibility of working with you.
+                {% if is_update %}
+                Thank you once again for considering SAS Sports. We appreciate your trust and look forward to working with you.
+                {% else %}
+                Thank you once again for considering SAS SPORTS LTD. We look forward to the possibility of working with you.
+                {% endif %}
             </p>
 
             <p style="margin-top: 20px;">
-                <strong>Best regards,</strong><br>
-                <strong>SAS Team</strong>
+                <strong>{% if is_update %}Warm regards,{% else %}Best regards,{% endif %}</strong><br>
+                <strong>SAS Team</strong><br>
+                <strong>SAS Sports (Pvt) Ltd</strong>
             </p>
         </div>
 
