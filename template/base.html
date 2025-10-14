@@ -339,9 +339,6 @@
                                 <ul class="sub-menu" aria-expanded="false">
                                     <li><a href="{% url 'quotations:new-quotation' %}">New Quotation</a></li>
                                     <li><a href="{% url 'quotations:my-quotations' %}">My Quotations</a></li>
-                                    {% if user.is_authenticated and user.is_admin %}
-                                    <li><a href="{% url 'authentication:audit-log-list' %}?action_type=&search=quotation">Quotation Audit Trail</a></li>
-                                    {% endif %}
                                 </ul>
                             </li>
 
@@ -380,7 +377,17 @@
                                     <li><a href="{% url 'authentication:user-list' %}">All Users</a></li>
                                     <li><a href="{% url 'authentication:user-create' %}">Add User</a></li>
                                     <li><a href="{% url 'authentication:bulk-assignment' %}">Assignments</a></li>
-                                    <li><a href="{% url 'authentication:audit-log-list' %}">Audit Logs</a></li>
+                                </ul>
+                            </li>
+
+                            <li>
+                                <a href="javascript: void(0);" class="has-arrow waves-effect">
+                                    <i class="uil-history"></i>
+                                    <span>Audit Trails</span>
+                                </a>
+                                <ul class="sub-menu" aria-expanded="false">
+                                    <li><a href="{% url 'authentication:audit-log-list' %}">All Audit Logs</a></li>
+                                    <li><a href="{% url 'authentication:audit-log-list' %}?action_type=&search=quotation">Quotation Audit Trail</a></li>
                                 </ul>
                             </li>
                             {% endif %}
