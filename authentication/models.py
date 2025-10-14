@@ -767,6 +767,12 @@ class AuditLog(models.Model):
         ('quotation_viewed', 'Quotation Viewed'),
         ('quotation_approved', 'Quotation Approved'),
         ('quotation_rejected', 'Quotation Rejected'),
+
+        # Quotation Email Operations
+        ('quotation_email_sent', 'Quotation Email Sent'),
+        ('quotation_update_email_sent', 'Quotation Update Email Sent'),
+        ('quotation_approval_email_sent', 'Quotation Approval Email Sent'),
+        ('quotation_email_failed', 'Quotation Email Failed'),
     ]
 
     # Primary identification

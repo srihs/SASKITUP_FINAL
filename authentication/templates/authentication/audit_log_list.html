@@ -184,6 +184,10 @@
                                     <option value="quotation_viewed" {% if request.GET.action_type == 'quotation_viewed' %}selected{% endif %}>Quotation Viewed</option>
                                     <option value="quotation_approved" {% if request.GET.action_type == 'quotation_approved' %}selected{% endif %}>Quotation Approved</option>
                                     <option value="quotation_rejected" {% if request.GET.action_type == 'quotation_rejected' %}selected{% endif %}>Quotation Rejected</option>
+                                    <option value="quotation_email_sent" {% if request.GET.action_type == 'quotation_email_sent' %}selected{% endif %}>Email Sent (New)</option>
+                                    <option value="quotation_update_email_sent" {% if request.GET.action_type == 'quotation_update_email_sent' %}selected{% endif %}>Email Sent (Update)</option>
+                                    <option value="quotation_approval_email_sent" {% if request.GET.action_type == 'quotation_approval_email_sent' %}selected{% endif %}>Email Sent (Approval)</option>
+                                    <option value="quotation_email_failed" {% if request.GET.action_type == 'quotation_email_failed' %}selected{% endif %}>Email Failed</option>
                                 </optgroup>
                                 <optgroup label="Administrative">
                                     <option value="admin_action" {% if request.GET.action_type == 'admin_action' %}selected{% endif %}>Admin Action</option>
@@ -286,6 +290,8 @@
                                                         {% elif log.action_type == 'quotation_deleted' or log.action_type == 'quotation_rejected' %}bg-danger border-danger
                                                         {% elif log.action_type == 'quotation_updated' %}bg-info border-info
                                                         {% elif log.action_type == 'quotation_viewed' %}bg-secondary border-secondary
+                                                        {% elif log.action_type == 'quotation_email_sent' or log.action_type == 'quotation_update_email_sent' or log.action_type == 'quotation_approval_email_sent' %}bg-primary border-primary
+                                                        {% elif log.action_type == 'quotation_email_failed' %}bg-danger border-danger
                                                         {% else %}bg-light border-light{% endif %}"></div>
 
                             <div class="audit-entry {{ log.action_type }}" onclick="toggleLogDetails('{{ log.id }}')">
@@ -316,6 +322,8 @@
                                                 {% elif log.action_type == 'quotation_deleted' or log.action_type == 'quotation_rejected' %}bg-danger
                                                 {% elif log.action_type == 'quotation_updated' %}bg-info
                                                 {% elif log.action_type == 'quotation_viewed' %}bg-secondary
+                                                {% elif log.action_type == 'quotation_email_sent' or log.action_type == 'quotation_update_email_sent' or log.action_type == 'quotation_approval_email_sent' %}bg-primary
+                                                {% elif log.action_type == 'quotation_email_failed' %}bg-danger
                                                 {% else %}bg-light text-dark{% endif %}">
                                                 {{ log.get_action_type_display }}
                                             </span>
@@ -465,6 +473,8 @@
                                             {% elif log.action_type == 'quotation_deleted' or log.action_type == 'quotation_rejected' %}bg-danger
                                             {% elif log.action_type == 'quotation_updated' %}bg-info
                                             {% elif log.action_type == 'quotation_viewed' %}bg-secondary
+                                            {% elif log.action_type == 'quotation_email_sent' or log.action_type == 'quotation_update_email_sent' or log.action_type == 'quotation_approval_email_sent' %}bg-primary
+                                            {% elif log.action_type == 'quotation_email_failed' %}bg-danger
                                             {% else %}bg-light text-dark{% endif %}">
                                             {{ log.get_action_type_display }}
                                         </span>
