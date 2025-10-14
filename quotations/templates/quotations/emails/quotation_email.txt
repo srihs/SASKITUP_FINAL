@@ -1,0 +1,78 @@
+{% if is_update %}UPDATED QUOTATION{% else %}QUOTATION{% endif %} - {{ quotation.quotation_number }}
+========================================================================
+
+Dear {% if quotation.recipient_name %}{{ quotation.recipient_name }}{% elif institution_name %}{{ institution_name }}{% else %}Valued Customer{% endif %},
+
+{% if is_update %}
+We are writing to inform you that your quotation has been updated. Please review the changes below.
+{% else %}
+Thank you for your interest in SAS SPORTS LTD and for reaching out to us for a quotation on our products. We appreciate your inquiry, and we are pleased to provide you with our pricing.
+{% endif %}
+
+========================================================================
+QUOTATION DETAILS
+========================================================================
+
+Quotation Number:  {{ quotation.quotation_number }}
+Date:              {{ quotation.created_at|date:"d M Y" }}
+Valid Until:       {{ quotation.expires_at|date:"d M Y" }} (30 days)
+{% if quotation.recipient_address %}Delivery Address:  {{ quotation.recipient_address }}{% endif %}
+
+========================================================================
+ITEMS REQUESTED
+========================================================================
+
+{% for item in items %}
+{{ forloop.counter }}. {{ item.product_name }}
+   {% if item.product_sku %}SKU: {{ item.product_sku }}{% endif %}
+   Quantity: {{ item.quantity }} x ${{ item.unit_price|floatformat:2 }} = ${{ item.line_total|floatformat:2 }}
+
+{% endfor %}
+
+------------------------------------------------------------------------
+Subtotal:          ${{ quotation.subtotal|floatformat:2 }}
+GST (15%):         ${{ quotation.tax_amount|floatformat:2 }}
+------------------------------------------------------------------------
+TOTAL (incl. GST): ${{ quotation.total|floatformat:2 }}
+========================================================================
+
+Please note that these prices are exclusive of shipping and handling charges. You'll receive a shipping estimate once we receive the shipping address details.
+
+========================================================================
+IMPORTANT TERMS
+========================================================================
+
+* Validity: This quotation is valid for 30 days from the date above.
+
+* Delivery Timeline: Approximately 4-6 weeks from the date of order confirmation.
+
+* Payment Terms: 50% advance upon order confirmation and the remaining 50% before shipment.
+
+* Quality Assurance: Our products pass stringent quality checks and come with the necessary warranties.
+
+{% if quotation.customer_notes %}
+========================================================================
+ADDITIONAL NOTES
+========================================================================
+
+{{ quotation.customer_notes }}
+
+{% endif %}
+========================================================================
+
+View your quotation online: {{ quotation_url }}
+
+We hope to have the opportunity to serve your needs. If you have any questions or require further information, please feel free to contact us directly.
+
+Thank you {% if is_update %}for your continued interest{% else %}once again for considering SAS SPORTS LTD{% endif %}. We look forward to the possibility of working with you.
+
+Best regards,
+SAS Team
+
+------------------------------------------------------------------------
+SAS SPORTS LTD
+Phone: 09 2998412
+Email: {{ EMAIL_HOST_USER }}
+
+This is an automated email. Please do not reply directly to this email.
+========================================================================

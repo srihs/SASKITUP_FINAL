@@ -1274,6 +1274,23 @@ class SaveQuotationView(LoginRequiredMixin, View):
             # Clear session
             clear_quotation_session(request)
 
+            # Send email notification
+            from .emails import send_quotation_email
+
+            try:
+                email_success, email_error = send_quotation_email(
+                    quotation=quotation,
+                    is_update=is_editing,
+                    request=request
+                )
+
+                if not email_success:
+                    logger.warning(f"Email send failed for {quotation.quotation_number}: {email_error}")
+                    # Continue with quotation creation even if email fails
+            except Exception as e:
+                logger.error(f"Unexpected error sending email for {quotation.quotation_number}: {e}", exc_info=True)
+                # Continue with quotation creation even if email fails
+
             # Log action
             if is_editing:
                 action_type = 'quotation_updated'

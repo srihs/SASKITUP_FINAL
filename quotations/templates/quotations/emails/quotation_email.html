@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if is_update %}Updated {% endif %}Quotation {{ quotation.quotation_number }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .email-container {
+            max-width: 700px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .email-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .company-logo {
+            max-width: 180px;
+            height: auto;
+            margin-bottom: 15px;
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .email-body {
+            padding: 30px 25px;
+        }
+        .greeting {
+            font-size: 18px;
+            color: #333333;
+            margin-bottom: 20px;
+        }
+        .quotation-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+        }
+        .quotation-info h3 {
+            margin: 0 0 10px 0;
+            color: #667eea;
+            font-size: 16px;
+        }
+        .quotation-info p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 25px 0;
+        }
+        .items-table th {
+            background-color: #667eea;
+            color: #ffffff;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .items-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 14px;
+        }
+        .items-table tr:last-child td {
+            border-bottom: none;
+        }
+        .items-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        .totals-section {
+            margin-top: 20px;
+            text-align: right;
+        }
+        .totals-row {
+            padding: 8px 0;
+            font-size: 14px;
+        }
+        .totals-row.subtotal {
+            color: #666666;
+        }
+        .totals-row.tax {
+            color: #666666;
+        }
+        .totals-row.total {
+            font-size: 18px;
+            font-weight: bold;
+            color: #667eea;
+            border-top: 2px solid #667eea;
+            padding-top: 12px;
+            margin-top: 8px;
+        }
+        .terms-section {
+            background-color: #fff8e1;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 25px 0;
+            border-left: 4px solid #ffc107;
+        }
+        .terms-section h3 {
+            margin: 0 0 15px 0;
+            color: #f57c00;
+            font-size: 16px;
+        }
+        .terms-section ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .terms-section li {
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff !important;
+            padding: 14px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: 600;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .cta-button:hover {
+            opacity: 0.9;
+        }
+        .email-footer {
+            background-color: #f8f9fa;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #e0e0e0;
+        }
+        .contact-info {
+            margin: 15px 0;
+            font-size: 14px;
+            color: #666666;
+        }
+        .contact-info a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .update-badge {
+            display: inline-block;
+            background-color: #ffc107;
+            color: #000000;
+            padding: 5px 12px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="email-header">
+            <img src="cid:company_logo" alt="SAS SPORTS LTD" class="company-logo">
+            <h1 style="margin: 10px 0; font-size: 24px;">
+                {% if is_update %}Updated {% endif %}Quotation
+                {% if is_update %}<span class="update-badge">UPDATED</span>{% endif %}
+            </h1>
+            <p style="margin: 5px 0; font-size: 16px;">Quotation #{{ quotation.quotation_number }}</p>
+        </div>
+
+        <!-- Body -->
+        <div class="email-body">
+            <div class="greeting">
+                Dear {% if quotation.recipient_name %}{{ quotation.recipient_name }}{% elif institution_name %}{{ institution_name }}{% else %}Valued Customer{% endif %},
+            </div>
+
+            <p>
+                {% if is_update %}
+                We are writing to inform you that your quotation has been updated. Please review the changes below.
+                {% else %}
+                Thank you for your interest in SAS SPORTS LTD and for reaching out to us for a quotation on our products. We appreciate your inquiry, and we are pleased to provide you with our pricing.
+                {% endif %}
+            </p>
+
+            <!-- Quotation Info -->
+            <div class="quotation-info">
+                <h3>Quotation Details</h3>
+                <p><strong>Quotation Number:</strong> {{ quotation.quotation_number }}</p>
+                <p><strong>Date:</strong> {{ quotation.created_at|date:"d M Y" }}</p>
+                <p><strong>Valid Until:</strong> {{ quotation.expires_at|date:"d M Y" }} (30 days)</p>
+                {% if quotation.recipient_address %}
+                <p><strong>Delivery Address:</strong> {{ quotation.recipient_address }}</p>
+                {% endif %}
+            </div>
+
+            <p>Here is the price quote for the items you requested:</p>
+
+            <!-- Items Table -->
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th>Item Description</th>
+                        <th style="text-align: center;">Quantity</th>
+                        <th style="text-align: right;">Unit Price</th>
+                        <th style="text-align: right;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>
+                            <strong>{{ item.product_name }}</strong>
+                            {% if item.product_sku %}
+                            <br><small style="color: #666;">SKU: {{ item.product_sku }}</small>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: center;">{{ item.quantity }}</td>
+                        <td style="text-align: right;">${{ item.unit_price|floatformat:2 }}</td>
+                        <td style="text-align: right;"><strong>${{ item.line_total|floatformat:2 }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Totals -->
+            <div class="totals-section">
+                <div class="totals-row subtotal">
+                    <strong>Subtotal:</strong> ${{ quotation.subtotal|floatformat:2 }}
+                </div>
+                <div class="totals-row tax">
+                    <strong>GST (15%):</strong> ${{ quotation.tax_amount|floatformat:2 }}
+                </div>
+                <div class="totals-row total">
+                    <strong>Total (incl. GST):</strong> ${{ quotation.total|floatformat:2 }}
+                </div>
+            </div>
+
+            <p style="font-size: 13px; color: #666; margin-top: 20px;">
+                <em>Please note that these prices are exclusive of shipping and handling charges. You'll receive a shipping estimate once we receive the shipping address details.</em>
+            </p>
+
+            <!-- Terms and Conditions -->
+            <div class="terms-section">
+                <h3>Important Terms</h3>
+                <ul>
+                    <li><strong>Validity:</strong> This quotation is valid for 30 days from the date above.</li>
+                    <li><strong>Delivery Timeline:</strong> Approximately 4-6 weeks from the date of order confirmation.</li>
+                    <li><strong>Payment Terms:</strong> 50% advance upon order confirmation and the remaining 50% before shipment.</li>
+                    <li><strong>Quality Assurance:</strong> Our products pass stringent quality checks and come with the necessary warranties.</li>
+                </ul>
+            </div>
+
+            {% if quotation.customer_notes %}
+            <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #2196f3;">
+                <h3 style="margin: 0 0 10px 0; color: #1976d2; font-size: 14px;">Additional Notes:</h3>
+                <p style="margin: 0; font-size: 14px;">{{ quotation.customer_notes }}</p>
+            </div>
+            {% endif %}
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{ quotation_url }}" class="cta-button">View Quotation Online</a>
+            </div>
+
+            <p>
+                We hope to have the opportunity to serve your needs. If you have any questions or require further information, please feel free to contact us directly.
+            </p>
+
+            <p style="margin-top: 30px;">
+                Thank you {% if is_update %}for your continued interest{% else %}once again for considering SAS SPORTS LTD{% endif %}. We look forward to the possibility of working with you.
+            </p>
+
+            <p style="margin-top: 20px;">
+                <strong>Best regards,</strong><br>
+                <strong>SAS Team</strong>
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="email-footer">
+            <p style="margin: 0 0 10px 0; font-weight: 600; color: #333;">SAS SPORTS LTD</p>
+            <div class="contact-info">
+                <p style="margin: 5px 0;">
+                    📞 Phone: <a href="tel:092998412">09 2998412</a>
+                </p>
+                <p style="margin: 5px 0;">
+                    📧 Email: <a href="mailto:{{ EMAIL_HOST_USER }}">{{ EMAIL_HOST_USER }}</a>
+                </p>
+            </div>
+            <p style="margin: 15px 0 5px 0; font-size: 12px; color: #999999;">
+                This is an automated email. Please do not reply directly to this email.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
