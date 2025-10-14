@@ -803,10 +803,13 @@ class AddToQuotationView(LoginRequiredMixin, View):
 
             # Log action
             variation_info = f" ({variations.get('size', '')})" if variations.get('size') else ""
-            action_desc = f'Updated quantity for "{product.name}{variation_info}"' if existing_item else f'Added "{product.name}{variation_info}" to quotation cart'
+            if existing_item:
+                action_desc = f'Updated quotation: Changed "{product.name}{variation_info}" quantity to {quantity}'
+            else:
+                action_desc = f'Updated quotation: Added item "{product.name}{variation_info}" (Qty: {quantity}, Price: ${unit_price})'
             AuditLog.log_action(
                 user=request.user,
-                action_type='quotation_item_added',
+                action_type='quotation_updated',
                 description=action_desc,
                 request=request,
                 affected_model='QuotationItem',
@@ -909,8 +912,8 @@ class UpdateQuotationItemView(LoginRequiredMixin, View):
             # Log action
             AuditLog.log_action(
                 user=request.user,
-                action_type='quotation_item_updated',
-                description=f'Updated "{item["product_name"]}" quantity from {old_quantity} to {quantity} in quotation cart',
+                action_type='quotation_updated',
+                description=f'Updated quotation: Changed "{item["product_name"]}" quantity from {old_quantity} to {quantity}',
                 request=request,
                 affected_model='QuotationItem',
                 product_name=item['product_name'],
@@ -999,8 +1002,8 @@ class RemoveQuotationItemView(LoginRequiredMixin, View):
             # Log action
             AuditLog.log_action(
                 user=request.user,
-                action_type='quotation_item_removed',
-                description=f'Removed "{removed_item["product_name"]}" from quotation cart',
+                action_type='quotation_updated',
+                description=f'Updated quotation: Removed item "{removed_item["product_name"]}" (Qty: {removed_item.get("quantity", 0)})',
                 request=request,
                 affected_model='QuotationItem',
                 product_name=removed_item['product_name'],
@@ -1037,8 +1040,8 @@ class ClearQuotationView(LoginRequiredMixin, View):
             # Log action
             AuditLog.log_action(
                 user=request.user,
-                action_type='quotation_cart_cleared',
-                description='Cleared all items from quotation cart',
+                action_type='quotation_updated',
+                description='Updated quotation: Cleared all items from cart',
                 request=request
             )
 
@@ -1390,8 +1393,8 @@ class EditQuotationView(LoginRequiredMixin, View):
             # Log action
             AuditLog.log_action(
                 user=request.user,
-                action_type='quotation_edit_started',
-                description=f'Started editing quotation {quotation.quotation_number}',
+                action_type='quotation_updated',
+                description=f'Updated quotation: Started editing quotation {quotation.quotation_number}',
                 request=request,
                 affected_model='Quotation',
                 affected_object_id=str(quotation.id),

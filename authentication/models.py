@@ -767,15 +767,6 @@ class AuditLog(models.Model):
         ('quotation_viewed', 'Quotation Viewed'),
         ('quotation_approved', 'Quotation Approved'),
         ('quotation_rejected', 'Quotation Rejected'),
-        ('quotation_confirmed', 'Quotation Confirmed'),
-        ('quotation_cancelled', 'Quotation Cancelled'),
-        ('quotation_expired', 'Quotation Expired'),
-        ('quotation_item_added', 'Quotation Item Added'),
-        ('quotation_item_updated', 'Quotation Item Updated'),
-        ('quotation_item_removed', 'Quotation Item Removed'),
-        ('quotation_cart_cleared', 'Quotation Cart Cleared'),
-        ('quotation_edit_started', 'Quotation Edit Started'),
-        ('quotation_status_changed', 'Quotation Status Changed'),
     ]
 
     # Primary identification

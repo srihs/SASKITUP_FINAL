@@ -38,10 +38,6 @@
 .audit-entry.quotation_viewed { border-left-color: #6c757d; }
 .audit-entry.quotation_approved { border-left-color: #28a745; }
 .audit-entry.quotation_rejected { border-left-color: #dc3545; }
-.audit-entry.quotation_item_added { border-left-color: #007bff; }
-.audit-entry.quotation_item_updated { border-left-color: #ffc107; }
-.audit-entry.quotation_item_removed { border-left-color: #fd7e14; }
-.audit-entry.quotation_edit_started { border-left-color: #17a2b8; }
 
 .action-badge {
     font-size: 0.75rem;
@@ -188,10 +184,6 @@
                                     <option value="quotation_viewed" {% if request.GET.action_type == 'quotation_viewed' %}selected{% endif %}>Quotation Viewed</option>
                                     <option value="quotation_approved" {% if request.GET.action_type == 'quotation_approved' %}selected{% endif %}>Quotation Approved</option>
                                     <option value="quotation_rejected" {% if request.GET.action_type == 'quotation_rejected' %}selected{% endif %}>Quotation Rejected</option>
-                                    <option value="quotation_item_added" {% if request.GET.action_type == 'quotation_item_added' %}selected{% endif %}>Item Added</option>
-                                    <option value="quotation_item_updated" {% if request.GET.action_type == 'quotation_item_updated' %}selected{% endif %}>Item Updated</option>
-                                    <option value="quotation_item_removed" {% if request.GET.action_type == 'quotation_item_removed' %}selected{% endif %}>Item Removed</option>
-                                    <option value="quotation_edit_started" {% if request.GET.action_type == 'quotation_edit_started' %}selected{% endif %}>Edit Started</option>
                                 </optgroup>
                                 <optgroup label="Administrative">
                                     <option value="admin_action" {% if request.GET.action_type == 'admin_action' %}selected{% endif %}>Admin Action</option>
@@ -292,8 +284,8 @@
                                                         {% elif log.action_type == 'admin_action' %}bg-warning border-warning
                                                         {% elif log.action_type == 'quotation_created' or log.action_type == 'quotation_approved' %}bg-success border-success
                                                         {% elif log.action_type == 'quotation_deleted' or log.action_type == 'quotation_rejected' %}bg-danger border-danger
-                                                        {% elif log.action_type == 'quotation_updated' or log.action_type == 'quotation_edit_started' %}bg-info border-info
-                                                        {% elif log.action_type|slice:':10' == 'quotation_' %}bg-primary border-primary
+                                                        {% elif log.action_type == 'quotation_updated' %}bg-info border-info
+                                                        {% elif log.action_type == 'quotation_viewed' %}bg-secondary border-secondary
                                                         {% else %}bg-light border-light{% endif %}"></div>
 
                             <div class="audit-entry {{ log.action_type }}" onclick="toggleLogDetails('{{ log.id }}')">
@@ -322,8 +314,8 @@
                                                 {% elif log.action_type == 'admin_action' %}bg-warning
                                                 {% elif log.action_type == 'quotation_created' or log.action_type == 'quotation_approved' %}bg-success
                                                 {% elif log.action_type == 'quotation_deleted' or log.action_type == 'quotation_rejected' %}bg-danger
-                                                {% elif log.action_type == 'quotation_updated' or log.action_type == 'quotation_edit_started' %}bg-info
-                                                {% elif log.action_type|slice:':10' == 'quotation_' %}bg-primary
+                                                {% elif log.action_type == 'quotation_updated' %}bg-info
+                                                {% elif log.action_type == 'quotation_viewed' %}bg-secondary
                                                 {% else %}bg-light text-dark{% endif %}">
                                                 {{ log.get_action_type_display }}
                                             </span>
@@ -331,25 +323,6 @@
 
                                         <p class="mb-1">
                                             {{ log.description }}
-                                            {% if log.metadata %}
-                                                {% if log.action_type == 'quotation_item_updated' %}
-                                                    <span class="text-muted font-size-12">
-                                                        (Quantity: {{ log.metadata.old_quantity|default:"?" }} → {{ log.metadata.new_quantity|default:"?" }})
-                                                    </span>
-                                                {% elif log.action_type == 'quotation_item_added' %}
-                                                    <span class="text-muted font-size-12">
-                                                        (Qty: {{ log.metadata.quantity|default:"?" }}, Price: ${{ log.metadata.unit_price|default:"0.00" }})
-                                                    </span>
-                                                {% elif log.action_type == 'quotation_item_removed' %}
-                                                    <span class="text-muted font-size-12">
-                                                        (Qty: {{ log.metadata.quantity|default:"?" }}, Price: ${{ log.metadata.unit_price|default:"0.00" }})
-                                                    </span>
-                                                {% elif log.action_type == 'quotation_updated' and log.metadata.old_status and log.metadata.new_status %}
-                                                    <span class="text-muted font-size-12">
-                                                        (Status: {{ log.metadata.old_status }} → {{ log.metadata.new_status }})
-                                                    </span>
-                                                {% endif %}
-                                            {% endif %}
                                         </p>
 
                                         <div class="d-flex justify-content-between align-items-end">
@@ -490,25 +463,14 @@
                                             {% elif log.action_type == 'admin_action' %}bg-warning
                                             {% elif log.action_type == 'quotation_created' or log.action_type == 'quotation_approved' %}bg-success
                                             {% elif log.action_type == 'quotation_deleted' or log.action_type == 'quotation_rejected' %}bg-danger
-                                            {% elif log.action_type == 'quotation_updated' or log.action_type == 'quotation_edit_started' %}bg-info
-                                            {% elif log.action_type|slice:':10' == 'quotation_' %}bg-primary
+                                            {% elif log.action_type == 'quotation_updated' %}bg-info
+                                            {% elif log.action_type == 'quotation_viewed' %}bg-secondary
                                             {% else %}bg-light text-dark{% endif %}">
                                             {{ log.get_action_type_display }}
                                         </span>
                                     </td>
                                     <td>
                                         <span class="font-size-13">{{ log.description|slice:":80" }}{% if log.description|length > 80 %}...{% endif %}</span>
-                                        {% if log.metadata %}
-                                            {% if log.action_type == 'quotation_item_updated' %}
-                                                <br><span class="text-muted font-size-11">(Qty: {{ log.metadata.old_quantity|default:"?" }} → {{ log.metadata.new_quantity|default:"?" }})</span>
-                                            {% elif log.action_type == 'quotation_item_added' %}
-                                                <br><span class="text-muted font-size-11">(Qty: {{ log.metadata.quantity|default:"?" }}, ${{ log.metadata.unit_price|default:"0.00" }})</span>
-                                            {% elif log.action_type == 'quotation_item_removed' %}
-                                                <br><span class="text-muted font-size-11">(Qty: {{ log.metadata.quantity|default:"?" }}, ${{ log.metadata.unit_price|default:"0.00" }})</span>
-                                            {% elif log.action_type == 'quotation_updated' and log.metadata.old_status and log.metadata.new_status %}
-                                                <br><span class="text-muted font-size-11">({{ log.metadata.old_status }} → {{ log.metadata.new_status }})</span>
-                                            {% endif %}
-                                        {% endif %}
                                     </td>
                                     <td>
                                         {% if log.ip_address %}
