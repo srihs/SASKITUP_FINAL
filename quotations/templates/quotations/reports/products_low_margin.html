@@ -41,11 +41,25 @@
         box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
     }
 
-    .anomaly-badge {
+    .status-badge {
         padding: 0.25rem 0.75rem;
         border-radius: 0.25rem;
         font-size: 0.75rem;
         font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .status-instock, .status-in_stock {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .status-outofstock, .status-out_of_stock {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .status-onbackorder {
         background-color: #fff3cd;
         color: #856404;
     }
@@ -55,18 +69,13 @@
         color: #f5576c;
     }
 
-    .difference-highlight {
-        font-weight: 600;
-        color: #dc3545;
-    }
-
-    .percentage-badge {
+    .margin-badge {
+        background-color: #fff3cd;
+        color: #856404;
         padding: 0.25rem 0.5rem;
         border-radius: 0.25rem;
         font-size: 0.75rem;
         font-weight: 600;
-        background-color: #f8d7da;
-        color: #721c24;
     }
 
     /* Table Alignment and Layout Fixes */
@@ -125,7 +134,8 @@
         white-space: nowrap;
     }
 
-    .percentage-badge {
+    .status-badge,
+    .margin-badge {
         display: inline-block;
         white-space: nowrap;
     }
@@ -139,13 +149,13 @@
         <div class="report-header">
             <div class="row align-items-center">
                 <div class="col-md-6">
-                    <h3 class="mb-2">Products with Selling Price > 75% Margin</h3>
-                    <p class="mb-0 opacity-75">Products where unit price exceeds the 75% margin price</p>
+                    <h3 class="mb-2">Products with Margin Below {{ target_margin }}%</h3>
+                    <p class="mb-0 opacity-75">Products and variations where current price is below target margin threshold</p>
                 </div>
                 <div class="col-md-6 text-md-end">
                     <div class="count-badge bg-white text-dark">
-                        <i class="uil-exclamation-octagon text-danger me-2"></i>
-                        {{ counts.total }} Anomalies
+                        <i class="uil-exclamation-triangle text-warning me-2"></i>
+                        {{ counts.total }} Items
                     </div>
                 </div>
             </div>
@@ -153,7 +163,7 @@
     </div>
 </div>
 
-<!-- Filter Controls -->
+<!-- Filter and Search Controls -->
 <div class="row mb-3">
     <div class="col-12">
         <div class="card">
@@ -169,7 +179,21 @@
                             <option value="wholesale" {% if product_type_filter == 'wholesale' %}selected{% endif %}>Wholesale ({{ counts.wholesale }})</option>
                         </select>
                     </div>
-                    <div class="col-md-8 d-flex align-items-end">
+                    <div class="col-md-4">
+                        <label for="search" class="form-label">Search</label>
+                        <input type="text" name="search" id="search" class="form-control"
+                               placeholder="SKU, Barcode, Style Code, or Product Name"
+                               value="{{ search_query }}">
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary me-2">
+                            <i class="uil-search me-1"></i> Search
+                        </button>
+                        {% if search_query %}
+                        <a href="?product_type={{ product_type_filter }}" class="btn btn-secondary me-2">
+                            <i class="uil-times me-1"></i> Clear
+                        </a>
+                        {% endif %}
                         <button type="button" class="btn btn-success me-2" onclick="exportToCSV()">
                             <i class="uil-export me-1"></i> Export CSV
                         </button>
@@ -190,7 +214,7 @@
         <h5 class="mb-0">
             <i class="uil-shopping-cart-alt me-2"></i>
             TUS Products
-            <span class="badge bg-danger ms-2">{{ counts.tus }}</span>
+            <span class="badge bg-warning ms-2">{{ counts.tus }}</span>
         </h5>
     </div>
     <div class="table-wrapper">
@@ -198,13 +222,14 @@
             <table class="table table-hover mb-0 datatable">
                 <thead class="table-light">
                     <tr>
-                        <th>Product Name</th>
+                        <th>Name</th>
                         <th>SKU</th>
-                        <th>School</th>
-                        <th class="text-end">Selling Price</th>
-                        <th class="text-end">75% Margin Price</th>
-                        <th class="text-end">Difference</th>
-                        <th class="text-center">% Over</th>
+                        <th>Barcode</th>
+                        <th>Cost Price</th>
+                        <th>Current Price</th>
+                        <th>Target Price</th>
+                        <th>Margin</th>
+                        <th>Shortfall</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -212,13 +237,12 @@
                     <tr>
                         <td>{{ item.product_name }}</td>
                         <td><code>{{ item.sku|default:"N/A" }}</code></td>
-                        <td>{{ item.category }}</td>
-                        <td class="text-end price-highlight">${{ item.unit_price|floatformat:2 }}</td>
-                        <td class="text-end">${{ item.margin_75_price|floatformat:2 }}</td>
-                        <td class="text-end difference-highlight">${{ item.difference|floatformat:2 }}</td>
-                        <td class="text-center">
-                            <span class="percentage-badge">+{{ item.percentage_over|floatformat:0 }}%</span>
-                        </td>
+                        <td><code>{{ item.barcode|default:"N/A" }}</code></td>
+                        <td>${{ item.cost_price|floatformat:2 }}</td>
+                        <td class="price-highlight">${{ item.current_price|floatformat:2 }}</td>
+                        <td>${{ item.target_price|floatformat:2 }}</td>
+                        <td><span class="margin-badge">{{ item.actual_margin|floatformat:1 }}%</span></td>
+                        <td class="price-highlight">${{ item.price_shortfall|floatformat:2 }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -235,7 +259,7 @@
         <h5 class="mb-0">
             <i class="uil-ticket me-2"></i>
             LOTTO Products
-            <span class="badge bg-danger ms-2">{{ counts.lotto }}</span>
+            <span class="badge bg-warning ms-2">{{ counts.lotto }}</span>
         </h5>
     </div>
     <div class="table-wrapper">
@@ -243,13 +267,14 @@
             <table class="table table-hover mb-0 datatable">
                 <thead class="table-light">
                     <tr>
-                        <th>Product Name</th>
+                        <th>Name</th>
                         <th>SKU</th>
-                        <th>Club</th>
-                        <th class="text-end">Selling Price</th>
-                        <th class="text-end">75% Margin Price</th>
-                        <th class="text-end">Difference</th>
-                        <th class="text-center">% Over</th>
+                        <th>Barcode</th>
+                        <th>Cost Price</th>
+                        <th>Current Price</th>
+                        <th>Target Price</th>
+                        <th>Margin</th>
+                        <th>Shortfall</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -257,13 +282,12 @@
                     <tr>
                         <td>{{ item.product_name }}</td>
                         <td><code>{{ item.sku|default:"N/A" }}</code></td>
-                        <td>{{ item.category }}</td>
-                        <td class="text-end price-highlight">${{ item.unit_price|floatformat:2 }}</td>
-                        <td class="text-end">${{ item.margin_75_price|floatformat:2 }}</td>
-                        <td class="text-end difference-highlight">${{ item.difference|floatformat:2 }}</td>
-                        <td class="text-center">
-                            <span class="percentage-badge">+{{ item.percentage_over|floatformat:0 }}%</span>
-                        </td>
+                        <td><code>{{ item.barcode|default:"N/A" }}</code></td>
+                        <td>${{ item.cost_price|floatformat:2 }}</td>
+                        <td class="price-highlight">${{ item.current_price|floatformat:2 }}</td>
+                        <td>${{ item.target_price|floatformat:2 }}</td>
+                        <td><span class="margin-badge">{{ item.actual_margin|floatformat:1 }}%</span></td>
+                        <td class="price-highlight">${{ item.price_shortfall|floatformat:2 }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -280,7 +304,7 @@
         <h5 class="mb-0">
             <i class="uil-trophy me-2"></i>
             SAS Products
-            <span class="badge bg-danger ms-2">{{ counts.sas }}</span>
+            <span class="badge bg-warning ms-2">{{ counts.sas }}</span>
         </h5>
     </div>
     <div class="table-wrapper">
@@ -288,13 +312,14 @@
             <table class="table table-hover mb-0 datatable">
                 <thead class="table-light">
                     <tr>
-                        <th>Product Name</th>
+                        <th>Name</th>
                         <th>SKU</th>
-                        <th>Club</th>
-                        <th class="text-end">Selling Price</th>
-                        <th class="text-end">75% Margin Price</th>
-                        <th class="text-end">Difference</th>
-                        <th class="text-center">% Over</th>
+                        <th>Barcode</th>
+                        <th>Cost Price</th>
+                        <th>Current Price</th>
+                        <th>Target Price</th>
+                        <th>Margin</th>
+                        <th>Shortfall</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -302,13 +327,12 @@
                     <tr>
                         <td>{{ item.product_name }}</td>
                         <td><code>{{ item.sku|default:"N/A" }}</code></td>
-                        <td>{{ item.category }}</td>
-                        <td class="text-end price-highlight">${{ item.unit_price|floatformat:2 }}</td>
-                        <td class="text-end">${{ item.margin_75_price|floatformat:2 }}</td>
-                        <td class="text-end difference-highlight">${{ item.difference|floatformat:2 }}</td>
-                        <td class="text-center">
-                            <span class="percentage-badge">+{{ item.percentage_over|floatformat:0 }}%</span>
-                        </td>
+                        <td><code>{{ item.barcode|default:"N/A" }}</code></td>
+                        <td>${{ item.cost_price|floatformat:2 }}</td>
+                        <td class="price-highlight">${{ item.current_price|floatformat:2 }}</td>
+                        <td>${{ item.target_price|floatformat:2 }}</td>
+                        <td><span class="margin-badge">{{ item.actual_margin|floatformat:1 }}%</span></td>
+                        <td class="price-highlight">${{ item.price_shortfall|floatformat:2 }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -325,7 +349,7 @@
         <h5 class="mb-0">
             <i class="uil-store me-2"></i>
             Wholesale Products
-            <span class="badge bg-danger ms-2">{{ counts.wholesale }}</span>
+            <span class="badge bg-warning ms-2">{{ counts.wholesale }}</span>
         </h5>
     </div>
     <div class="table-wrapper">
@@ -333,13 +357,15 @@
             <table class="table table-hover mb-0 datatable">
                 <thead class="table-light">
                     <tr>
-                        <th>Product Name</th>
+                        <th>Name</th>
                         <th>SKU</th>
-                        <th>School</th>
-                        <th class="text-end">Selling Price</th>
-                        <th class="text-end">75% Margin Price</th>
-                        <th class="text-end">Difference</th>
-                        <th class="text-center">% Over</th>
+                        <th>Barcode</th>
+                        <th>Style Code</th>
+                        <th>Cost Price</th>
+                        <th>Current Price</th>
+                        <th>Target Price</th>
+                        <th>Margin</th>
+                        <th>Shortfall</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -347,13 +373,13 @@
                     <tr>
                         <td>{{ item.product_name }}</td>
                         <td><code>{{ item.sku|default:"N/A" }}</code></td>
-                        <td>{{ item.category }}</td>
-                        <td class="text-end price-highlight">${{ item.unit_price|floatformat:2 }}</td>
-                        <td class="text-end">${{ item.margin_75_price|floatformat:2 }}</td>
-                        <td class="text-end difference-highlight">${{ item.difference|floatformat:2 }}</td>
-                        <td class="text-center">
-                            <span class="percentage-badge">+{{ item.percentage_over|floatformat:0 }}%</span>
-                        </td>
+                        <td><code>{{ item.barcode|default:"N/A" }}</code></td>
+                        <td><code>{{ item.style_code|default:"N/A" }}</code></td>
+                        <td>${{ item.cost_price|floatformat:2 }}</td>
+                        <td class="price-highlight">${{ item.current_price|floatformat:2 }}</td>
+                        <td>${{ item.target_price|floatformat:2 }}</td>
+                        <td><span class="margin-badge">{{ item.actual_margin|floatformat:1 }}%</span></td>
+                        <td class="price-highlight">${{ item.price_shortfall|floatformat:2 }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -370,8 +396,20 @@
         <div class="card">
             <div class="card-body text-center py-5">
                 <i class="uil-check-circle text-success" style="font-size: 4rem;"></i>
-                <h4 class="mt-3">No Price Anomalies Found</h4>
-                <p class="text-muted">All products have selling prices within the 75% margin price range.</p>
+                <h4 class="mt-3">
+                    {% if search_query %}
+                        No matching products found
+                    {% else %}
+                        All Products Meet Margin Requirements
+                    {% endif %}
+                </h4>
+                <p class="text-muted">
+                    {% if search_query %}
+                        No products or variations found matching "{{ search_query }}" with low margins.
+                    {% else %}
+                        No products or variations found with margin below {{ target_margin }}%.
+                    {% endif %}
+                </p>
             </div>
         </div>
     </div>
@@ -396,7 +434,7 @@ $(document).ready(function() {
     // Initialize DataTables for each table
     $('.datatable').DataTable({
         pageLength: 25,
-        order: [[6, 'desc']], // Sort by percentage over (descending)
+        order: [[9, 'desc']],  // Sort by Shortfall descending
         responsive: true,
         language: {
             paginate: {
@@ -412,23 +450,43 @@ $(document).ready(function() {
 
 function exportToCSV() {
     // Collect all visible table data
-    let csv = 'Product Type,Product Name,SKU,Category,Selling Price,75% Margin Price,Difference,% Over\n';
+    let csv = 'Product Type,Name,SKU,Barcode,Style Code,Cost Price,Current Price,Target Price,Margin %,Shortfall\n';
 
     $('.datatable').each(function() {
         const productType = $(this).closest('.product-type-section').find('.section-header h5').text().trim().split('\n')[0].trim();
 
         $(this).find('tbody tr').each(function() {
             const cols = $(this).find('td');
-            const row = [
-                productType,
-                $(cols[0]).text().trim(),
-                $(cols[1]).text().trim(),
-                $(cols[2]).text().trim(),
-                $(cols[3]).text().trim(),
-                $(cols[4]).text().trim(),
-                $(cols[5]).text().trim(),
-                $(cols[6]).text().trim()
-            ];
+            const isWholesale = cols.length > 8; // Wholesale has style code column (9 columns vs 8)
+
+            let row;
+            if (isWholesale) {
+                row = [
+                    productType,
+                    $(cols[0]).text().trim(),  // Name
+                    $(cols[1]).text().trim(),  // SKU
+                    $(cols[2]).text().trim(),  // Barcode
+                    $(cols[3]).text().trim(),  // Style Code
+                    $(cols[4]).text().trim(),  // Cost Price
+                    $(cols[5]).text().trim(),  // Current Price
+                    $(cols[6]).text().trim(),  // Target Price
+                    $(cols[7]).text().trim(),  // Margin
+                    $(cols[8]).text().trim()   // Shortfall
+                ];
+            } else {
+                row = [
+                    productType,
+                    $(cols[0]).text().trim(),  // Name
+                    $(cols[1]).text().trim(),  // SKU
+                    $(cols[2]).text().trim(),  // Barcode
+                    '',  // No style code for non-wholesale
+                    $(cols[3]).text().trim(),  // Cost Price
+                    $(cols[4]).text().trim(),  // Current Price
+                    $(cols[5]).text().trim(),  // Target Price
+                    $(cols[6]).text().trim(),  // Margin
+                    $(cols[7]).text().trim()   // Shortfall
+                ];
+            }
             csv += row.map(val => '"' + val + '"').join(',') + '\n';
         });
     });
@@ -438,7 +496,7 @@ function exportToCSV() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'products_price_anomaly_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.download = 'low_margin_products_' + new Date().toISOString().slice(0,10) + '.csv';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

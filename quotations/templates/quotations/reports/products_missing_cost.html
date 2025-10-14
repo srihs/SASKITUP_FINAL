@@ -73,26 +73,71 @@
         background-color: #e2e3e5;
         color: #6c757d;
     }
+
+    /* Table Alignment and Layout Fixes */
+    .table-wrapper {
+        padding: 1rem;
+        overflow: hidden;
+    }
+
+    .table-wrapper .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table-wrapper table.dataTable {
+        width: 100% !important;
+        margin-bottom: 1rem !important;
+        border-collapse: collapse;
+    }
+
+    .table-wrapper table.dataTable thead th {
+        padding: 0.75rem;
+        vertical-align: middle;
+        border-bottom: 2px solid #dee2e6;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .table-wrapper table.dataTable tbody td {
+        padding: 0.75rem;
+        vertical-align: middle;
+        border-top: 1px solid #dee2e6;
+    }
+
+    /* Override DataTables default styles */
+    table.dataTable.no-footer {
+        border-bottom: 1px solid #dee2e6 !important;
+    }
+
+    .dataTables_wrapper {
+        padding: 0 !important;
+    }
+
+    .dataTables_wrapper .dataTables_length,
+    .dataTables_wrapper .dataTables_filter {
+        padding: 0.5rem 0;
+    }
+
+    .dataTables_wrapper .dataTables_info,
+    .dataTables_wrapper .dataTables_paginate {
+        padding: 0.5rem 0;
+    }
+
+    /* Ensure badges don't break alignment */
+    .badge {
+        display: inline-block;
+        white-space: nowrap;
+    }
+
+    .status-badge {
+        display: inline-block;
+        white-space: nowrap;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Page Title -->
-<div class="row">
-    <div class="col-12">
-        <div class="page-title-box d-flex align-items-center justify-content-between">
-            <h4 class="mb-0">Products Missing Cost Report</h4>
-            <div class="page-title-right">
-                <ol class="breadcrumb m-0">
-                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
-                    <li class="breadcrumb-item">Reports</li>
-                    <li class="breadcrumb-item active">Products Missing Cost</li>
-                </ol>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- Report Header -->
 <div class="row">
     <div class="col-12">

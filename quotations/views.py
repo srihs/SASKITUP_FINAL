@@ -2551,3 +2551,341 @@ class ProductsPriceAnomalyView(LoginRequiredMixin, UserPassesTestMixin, View):
         }
 
         return render(request, self.template_name, context)
+
+
+# =====================================
+# REPORTS - LOW MARGIN PRODUCTS
+# =====================================
+class ProductsLowMarginView(LoginRequiredMixin, UserPassesTestMixin, View):
+    """
+    Report showing products with margin below 66% (price < cost_price / 0.34).
+    Products should have 66% margin of their cost price.
+    Accessible to Admin, Account Managers, and Sales Reps only.
+    Supports search by SKU, Barcode, Style Code (for wholesale), and Product Name.
+    """
+    template_name = 'quotations/reports/products_low_margin.html'
+
+    def test_func(self):
+        """Check if user has permission to view reports"""
+        user = self.request.user
+        return (user.is_staff or user.is_superuser or
+                user.groups.filter(name__in=['account_manager', 'sales_rep']).exists() or
+                user.is_admin or user.is_account_manager or user.is_sales_rep)
+
+    def get(self, request):
+        from schools.models_tus import TUSProduct, TUSProductVariation
+        from schools.models import WholesaleProduct, WholesaleProductVariation
+        from clubs.models import LottoProduct, LottoProductVariation, SASProduct, SASProductVariation
+
+        # Get filter parameters
+        product_type_filter = request.GET.get('product_type', 'all')
+        search_query = request.GET.get('search', '').strip()
+
+        # Initialize product collections
+        products_by_type = {
+            'tus': [],
+            'lotto': [],
+            'sas': [],
+            'wholesale': [],
+        }
+
+        # Target margin is 66% (price should be cost / 0.34 = cost * 2.94117647)
+        TARGET_MARGIN = Decimal('0.66')
+        COST_MULTIPLIER = Decimal('1') / (Decimal('1') - TARGET_MARGIN)  # 1 / 0.34 = 2.94117647
+
+        # Query TUS Products with low margin
+        if product_type_filter in ['all', 'tus']:
+            tus_query = TUSProduct.objects.filter(
+                cost_price__isnull=False,
+                cost_price__gt=0,
+                price__isnull=False,
+                price__gt=0
+            )
+
+            # Apply search filter
+            if search_query:
+                from django.db.models import Q
+                tus_query = tus_query.filter(
+                    Q(sku__icontains=search_query) |
+                    Q(barcode__icontains=search_query) |
+                    Q(name__icontains=search_query)
+                )
+
+            tus_products = tus_query.prefetch_related('variations').order_by('name')
+
+            for product in tus_products:
+                # Get school name
+                school_name = "Unknown"
+                if hasattr(product, 'primary_category_assignment') and product.primary_category_assignment:
+                    if product.primary_category_assignment.school_category and product.primary_category_assignment.school_category.school:
+                        school_name = product.primary_category_assignment.school_category.school.name
+
+                # Check if product has variations
+                variations = product.variations.all()
+                if variations.exists():
+                    # Check each variation for low margin
+                    for variation in variations:
+                        if variation.cost_price and variation.cost_price > 0 and variation.price and variation.price > 0:
+                            target_price = variation.cost_price * COST_MULTIPLIER
+                            if variation.price < target_price:
+                                actual_margin = ((variation.price - variation.cost_price) / variation.price * 100).quantize(Decimal('0.01'))
+                                price_shortfall = target_price - variation.price
+
+                                products_by_type['tus'].append({
+                                    'is_variation': True,
+                                    'product_name': f"{product.name} - {variation.variation_value or 'Variation'}",
+                                    'sku': variation.sku or product.sku or '',
+                                    'barcode': variation.barcode or product.barcode or '',
+                                    'category': school_name,
+                                    'cost_price': variation.cost_price,
+                                    'current_price': variation.price,
+                                    'target_price': target_price,
+                                    'actual_margin': actual_margin,
+                                    'price_shortfall': price_shortfall,
+                                    'status': variation.stock_status,
+                                })
+                else:
+                    # Product without variations
+                    target_price = product.cost_price * COST_MULTIPLIER
+                    if product.price < target_price:
+                        actual_margin = ((product.price - product.cost_price) / product.price * 100).quantize(Decimal('0.01'))
+                        price_shortfall = target_price - product.price
+
+                        products_by_type['tus'].append({
+                            'is_variation': False,
+                            'product_name': product.name,
+                            'sku': product.sku or '',
+                            'barcode': product.barcode or '',
+                            'category': school_name,
+                            'cost_price': product.cost_price,
+                            'current_price': product.price,
+                            'target_price': target_price,
+                            'actual_margin': actual_margin,
+                            'price_shortfall': price_shortfall,
+                            'status': product.stock_status,
+                        })
+
+        # Query LOTTO Products with low margin
+        if product_type_filter in ['all', 'lotto']:
+            lotto_query = LottoProduct.objects.filter(
+                cost_price__isnull=False,
+                cost_price__gt=0,
+                price__isnull=False,
+                price__gt=0
+            )
+
+            if search_query:
+                from django.db.models import Q
+                lotto_query = lotto_query.filter(
+                    Q(sku__icontains=search_query) |
+                    Q(barcode__icontains=search_query) |
+                    Q(name__icontains=search_query)
+                )
+
+            lotto_products = lotto_query.prefetch_related('variations').order_by('name')
+
+            for product in lotto_products:
+                club_name = product.category.club.name if product.category and product.category.club else "Unknown"
+
+                variations = product.variations.all()
+                if variations.exists():
+                    for variation in variations:
+                        if variation.cost_price and variation.cost_price > 0 and variation.price and variation.price > 0:
+                            target_price = variation.cost_price * COST_MULTIPLIER
+                            if variation.price < target_price:
+                                actual_margin = ((variation.price - variation.cost_price) / variation.price * 100).quantize(Decimal('0.01'))
+                                price_shortfall = target_price - variation.price
+
+                                products_by_type['lotto'].append({
+                                    'is_variation': True,
+                                    'product_name': f"{product.name} - {variation.variation_value or 'Variation'}",
+                                    'sku': getattr(variation, 'full_sku', product.sku or ''),
+                                    'barcode': product.barcode or '',
+                                    'category': club_name,
+                                    'cost_price': variation.cost_price,
+                                    'current_price': variation.price,
+                                    'target_price': target_price,
+                                    'actual_margin': actual_margin,
+                                    'price_shortfall': price_shortfall,
+                                    'status': variation.stock_status,
+                                })
+                else:
+                    target_price = product.cost_price * COST_MULTIPLIER
+                    if product.price < target_price:
+                        actual_margin = ((product.price - product.cost_price) / product.price * 100).quantize(Decimal('0.01'))
+                        price_shortfall = target_price - product.price
+
+                        products_by_type['lotto'].append({
+                            'is_variation': False,
+                            'product_name': product.name,
+                            'sku': product.sku or '',
+                            'barcode': product.barcode or '',
+                            'category': club_name,
+                            'cost_price': product.cost_price,
+                            'current_price': product.price,
+                            'target_price': target_price,
+                            'actual_margin': actual_margin,
+                            'price_shortfall': price_shortfall,
+                            'status': product.stock_status,
+                        })
+
+        # Query SAS Products with low margin
+        if product_type_filter in ['all', 'sas']:
+            sas_query = SASProduct.objects.filter(
+                cost_price__isnull=False,
+                cost_price__gt=0,
+                price__isnull=False,
+                price__gt=0
+            )
+
+            if search_query:
+                from django.db.models import Q
+                sas_query = sas_query.filter(
+                    Q(sku__icontains=search_query) |
+                    Q(barcode__icontains=search_query) |
+                    Q(name__icontains=search_query)
+                )
+
+            sas_products = sas_query.prefetch_related('variations').order_by('name')
+
+            for product in sas_products:
+                club_name = product.club.name if product.club else "Unknown"
+
+                variations = product.variations.all()
+                if variations.exists():
+                    for variation in variations:
+                        if variation.cost_price and variation.cost_price > 0 and variation.price and variation.price > 0:
+                            target_price = variation.cost_price * COST_MULTIPLIER
+                            if variation.price < target_price:
+                                actual_margin = ((variation.price - variation.cost_price) / variation.price * 100).quantize(Decimal('0.01'))
+                                price_shortfall = target_price - variation.price
+
+                                products_by_type['sas'].append({
+                                    'is_variation': True,
+                                    'product_name': f"{product.name} - {variation.variation_value or 'Variation'}",
+                                    'sku': getattr(variation, 'full_sku', product.sku or ''),
+                                    'barcode': product.barcode or '',
+                                    'category': club_name,
+                                    'cost_price': variation.cost_price,
+                                    'current_price': variation.price,
+                                    'target_price': target_price,
+                                    'actual_margin': actual_margin,
+                                    'price_shortfall': price_shortfall,
+                                    'status': variation.stock_status,
+                                })
+                else:
+                    target_price = product.cost_price * COST_MULTIPLIER
+                    if product.price < target_price:
+                        actual_margin = ((product.price - product.cost_price) / product.price * 100).quantize(Decimal('0.01'))
+                        price_shortfall = target_price - product.price
+
+                        products_by_type['sas'].append({
+                            'is_variation': False,
+                            'product_name': product.name,
+                            'sku': product.sku or '',
+                            'barcode': product.barcode or '',
+                            'category': club_name,
+                            'cost_price': product.cost_price,
+                            'current_price': product.price,
+                            'target_price': target_price,
+                            'actual_margin': actual_margin,
+                            'price_shortfall': price_shortfall,
+                            'status': product.stock_status,
+                        })
+
+        # Query Wholesale Products with low margin
+        if product_type_filter in ['all', 'wholesale']:
+            wholesale_query = WholesaleProduct.objects.filter(
+                cost_price__isnull=False,
+                cost_price__gt=0,
+                wholesale_price__isnull=False,
+                wholesale_price__gt=0
+            )
+
+            if search_query:
+                from django.db.models import Q
+                wholesale_query = wholesale_query.filter(
+                    Q(cin7_sku__icontains=search_query) |
+                    Q(cin7_barcode__icontains=search_query) |
+                    Q(name__icontains=search_query)
+                )
+
+            wholesale_products = wholesale_query.prefetch_related('variations').order_by('name')
+
+            for product in wholesale_products:
+                school_name = product.school.name if product.school else "Unknown"
+
+                variations = product.variations.all()
+                if variations.exists():
+                    for variation in variations:
+                        if variation.cost_price and variation.cost_price > 0 and variation.wholesale_price and variation.wholesale_price > 0:
+                            target_price = variation.cost_price * COST_MULTIPLIER
+                            if variation.wholesale_price < target_price:
+                                actual_margin = ((variation.wholesale_price - variation.cost_price) / variation.wholesale_price * 100).quantize(Decimal('0.01'))
+                                price_shortfall = target_price - variation.wholesale_price
+
+                                products_by_type['wholesale'].append({
+                                    'is_variation': True,
+                                    'product_name': f"{product.name} - {variation.variation_value or 'Variation'}",
+                                    'sku': variation.cin7_sku or product.cin7_sku or '',
+                                    'barcode': variation.cin7_barcode or product.cin7_barcode or '',
+                                    'style_code': variation.variation_value or '',
+                                    'category': school_name,
+                                    'cost_price': variation.cost_price,
+                                    'current_price': variation.wholesale_price,
+                                    'target_price': target_price,
+                                    'actual_margin': actual_margin,
+                                    'price_shortfall': price_shortfall,
+                                    'status': 'in_stock' if variation.is_in_stock else 'out_of_stock',
+                                })
+                else:
+                    target_price = product.cost_price * COST_MULTIPLIER
+                    if product.wholesale_price < target_price:
+                        actual_margin = ((product.wholesale_price - product.cost_price) / product.wholesale_price * 100).quantize(Decimal('0.01'))
+                        price_shortfall = target_price - product.wholesale_price
+
+                        products_by_type['wholesale'].append({
+                            'is_variation': False,
+                            'product_name': product.name,
+                            'sku': product.cin7_sku or '',
+                            'barcode': product.cin7_barcode or '',
+                            'style_code': '',
+                            'category': school_name,
+                            'cost_price': product.cost_price,
+                            'current_price': product.wholesale_price,
+                            'target_price': target_price,
+                            'actual_margin': actual_margin,
+                            'price_shortfall': price_shortfall,
+                            'status': product.stock_status,
+                        })
+
+        # Calculate counts
+        counts = {
+            'tus': len(products_by_type['tus']),
+            'lotto': len(products_by_type['lotto']),
+            'sas': len(products_by_type['sas']),
+            'wholesale': len(products_by_type['wholesale']),
+        }
+        counts['total'] = sum(counts.values())
+
+        # Log access
+        AuditLog.log_action(
+            user=request.user,
+            action_type='report_access',
+            description=f'Viewed Low Margin Products report (filter: {product_type_filter}, search: {search_query or "none"})',
+            request=request,
+            product_type_filter=product_type_filter,
+            search_query=search_query,
+            total_products=counts['total']
+        )
+
+        context = {
+            'products_by_type': products_by_type,
+            'counts': counts,
+            'product_type_filter': product_type_filter,
+            'search_query': search_query,
+            'page_title': 'Low Margin Products (Below 66%)',
+            'target_margin': TARGET_MARGIN * 100,
+        }
+
+        return render(request, self.template_name, context)
