@@ -5,15 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% if is_update %}Updated {% endif %}Quotation {{ quotation.quotation_number }}</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap');
-
+        * {
+            font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+        }
         body {
-            font-family: 'Jost', sans-serif;
+            font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
             line-height: 1.6;
             color: #333333;
             margin: 0;
             padding: 0;
             background-color: #ffffff;
+            font-size: 14px;
         }
         .email-container {
             max-width: 800px;
@@ -37,7 +39,7 @@
             background-color: #ffffff;
         }
         .greeting {
-            font-size: 16px;
+            font-size: 14px;
             color: #333333;
             margin-bottom: 20px;
             font-weight: 400;
@@ -51,105 +53,13 @@
         .quotation-info h3 {
             margin: 0 0 10px 0;
             color: #333333;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
         }
         .quotation-info p {
             margin: 5px 0;
             font-size: 14px;
-            color: #666666;
-        }
-        .items-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 30px 0;
-        }
-        .items-table thead {
-            border-bottom: 1px solid #e0e0e0;
-        }
-        .items-table th {
-            background-color: #f5f5f5;
             color: #333333;
-            padding: 12px 15px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .items-table th:first-child {
-            width: 5%;
-            text-align: center;
-        }
-        .items-table th:nth-child(2) {
-            width: 45%;
-        }
-        .items-table th:nth-child(3) {
-            width: 20%;
-            text-align: right;
-        }
-        .items-table th:nth-child(4) {
-            width: 15%;
-            text-align: center;
-        }
-        .items-table th:last-child {
-            width: 15%;
-            text-align: right;
-        }
-        .items-table td {
-            padding: 20px 15px;
-            border-bottom: 1px solid #f0f0f0;
-            font-size: 14px;
-            vertical-align: top;
-        }
-        .items-table td:first-child {
-            text-align: center;
-            color: #666666;
-            font-weight: 600;
-        }
-        .items-table td:nth-child(3),
-        .items-table td:last-child {
-            text-align: right;
-            font-weight: 500;
-        }
-        .items-table td:nth-child(4) {
-            text-align: center;
-        }
-        .items-table tbody tr:last-child td {
-            border-bottom: 1px solid #e0e0e0;
-        }
-        .item-name {
-            font-weight: 500;
-            color: #333333;
-            margin-bottom: 5px;
-        }
-        .item-details {
-            font-size: 13px;
-            color: #666666;
-            line-height: 1.5;
-        }
-        .totals-section {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 2px solid #e0e0e0;
-        }
-        .totals-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 15px;
-            font-size: 14px;
-        }
-        .totals-row.subtotal,
-        .totals-row.tax {
-            color: #666666;
-        }
-        .totals-row.total {
-            font-size: 18px;
-            font-weight: 700;
-            color: #333333;
-            padding-top: 15px;
-            margin-top: 10px;
-            border-top: 1px solid #e0e0e0;
         }
         .terms-section {
             padding: 20px 0;
@@ -159,7 +69,7 @@
         .terms-section h3 {
             margin: 0 0 15px 0;
             color: #333333;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
         }
         .terms-section ul {
@@ -169,7 +79,7 @@
         .terms-section li {
             margin: 8px 0;
             font-size: 14px;
-            color: #666666;
+            color: #333333;
         }
         .cta-button {
             display: inline-block;
@@ -196,7 +106,7 @@
         .contact-info {
             margin: 15px 0;
             font-size: 14px;
-            color: #666666;
+            color: #333333;
         }
         .contact-info a {
             color: #333333;
@@ -219,109 +129,71 @@
             margin: 20px 0;
             border-left: 3px solid #333333;
             font-size: 14px;
-            color: #666666;
+            color: #333333;
         }
     </style>
+    <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="email-container">
-        <!-- Header -->
-        <div class="email-header">
-            <img src="cid:company_logo" alt="SAS SPORTS LTD" class="company-logo">
-            <h1 style="margin: 10px 0; font-size: 24px;">Quotation</h1>
-            <p style="margin: 5px 0; font-size: 16px;">Quotation #{{ quotation.quotation_number }}</p>
-        </div>
-
-        <!-- Body -->
-        <div class="email-body">
-            <div class="greeting">
-                Dear {% if quotation.recipient_name %}{{ quotation.recipient_name }}{% elif institution_name %}{{ institution_name }}{% else %}Valued Customer{% endif %},
-            </div>
-
-            <p>
-                {% if is_update %}
-                Thank you for your continued interest in SAS Sports.
-                <br><br>
-                We've updated your quotation based on the changes you requested. Please find the revised quotation below for your review.
-                {% else %}
-                Thank you for your interest in SAS SPORTS LTD and for reaching out to us for a quotation on our products. We appreciate your inquiry, and we are pleased to provide you with our pricing.
-                {% endif %}
-            </p>
-
-            <p>{% if is_update %}Here is your updated price quote:{% else %}Here is the price quote for the items you requested:{% endif %}</p>
-
-            <!-- Items Table -->
-            <table class="items-table">
-                <thead>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 800px; margin: 20px auto; background-color: #ffffff;">
+        <tr>
+            <td>
+                <!-- Header -->
+                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-bottom: 1px solid #e0e0e0;">
                     <tr>
-                        <th>No.</th>
-                        <th>Item</th>
-                        <th style="text-align: right;">Price</th>
-                        <th style="text-align: center;">Quantity</th>
-                        <th style="text-align: right;">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in items %}
-                    <tr>
-                        <td>{{ forloop.counter|stringformat:"02d" }}</td>
-                        <td>
-                            <div class="item-name">{{ item.product_name }}</div>
-                            <div class="item-details">
-                                {% if item.product_sku %}SKU: {{ item.product_sku }}{% endif %}
-                                {% if item.product_sku and item.size %} | {% endif %}
-                                {% if item.size %}Size: {{ item.size }}{% endif %}
-                            </div>
+                        <td align="center" style="padding: 30px 20px; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                            <img src="cid:company_logo" alt="SAS SPORTS LTD" style="max-width: 200px; height: auto; margin-bottom: 20px; display: block; margin-left: auto; margin-right: auto;">
+                            <h1 style="margin: 10px 0; font-size: 18px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">Quotation</h1>
+                            <p style="margin: 5px 0; font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">Quotation #{{ quotation.quotation_number }}</p>
                         </td>
-                        <td style="text-align: right;">${{ item.unit_price|floatformat:2 }}</td>
-                        <td style="text-align: center;">{{ item.quantity }}</td>
-                        <td style="text-align: right;">${{ item.line_total|floatformat:2 }}</td>
                     </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                </table>
 
-            <!-- Totals -->
-            <div class="totals-section">
-                <div class="totals-row subtotal">
-                    <strong>Subtotal:</strong> ${{ quotation.subtotal|floatformat:2 }}
-                </div>
-                <div class="totals-row tax">
-                    <strong>GST (15%):</strong> ${{ quotation.tax_amount|floatformat:2 }}
-                </div>
-                <div class="totals-row total">
-                    <strong>Total (incl. GST):</strong> ${{ quotation.total|floatformat:2 }}
-                </div>
-            </div>
+                <!-- Body -->
+                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff;">
+                    <tr>
+                        <td style="padding: 30px 25px; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                            <p style="font-size: 14px; color: #333333; margin-bottom: 20px; font-weight: 400; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                Dear {% if quotation.recipient_name %}{{ quotation.recipient_name }}{% elif institution_name %}{{ institution_name }}{% else %}Valued Customer{% endif %},
+                            </p>
 
-            <p style="font-size: 13px; color: #666; margin-top: 20px;">
-                <em>{% if is_update %}Kindly note that the prices listed are{% else %}Please note that these prices are{% endif %} exclusive of shipping and handling charges. {% if is_update %}A shipping estimate will be provided once we receive your delivery address details.{% else %}You'll receive a shipping estimate once we receive the shipping address details.{% endif %}</em>
-            </p>
+                            <p style="font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                {% if is_update %}
+                                Thank you for your continued interest in SAS Sports.
+                                <br><br>
+                                We've updated your quotation based on the changes you requested. Please find the revised quotation below for your review.
+                                {% else %}
+                                Thank you for your interest in SAS SPORTS LTD and for reaching out to us for a quotation on our products. We appreciate your inquiry, and we are pleased to provide you with our pricing.
+                                {% endif %}
+                            </p>
+
+                            <p style="font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">{% if is_update %}Please find the attachment for your updated price quote.{% else %}Please find the attachment for the price quote for the items you requested.{% endif %}</p>
 
             <!-- Terms and Conditions -->
-            <div class="terms-section">
-                <h3>Important Terms</h3>
-                <ul>
+            <div class="terms-section" style="font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                <h3 style="font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">Important Terms</h3>
+                <ul style="font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
                     {% if is_update %}
-                    <li><strong>Note:</strong> This updated quotation supersedes any previous version and remains valid for 30 days from the date of this email.</li>
+                    <li style="font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;"><strong>Note:</strong> This updated quotation supersedes any previous version and remains valid for 30 days from the date of this email.</li>
                     {% endif %}
-                    <li><strong>Validity:</strong> This quotation is valid for 30 days from the date above.</li>
-                    <li><strong>Delivery Timeline:</strong> {% if is_update %}The estimated delivery timeframe is 6–8 weeks from the date of order confirmation.{% else %}Approximately 4-6 weeks from the date of order confirmation.{% endif %}</li>
-                    <li><strong>Payment Terms:</strong> 50% advance upon order confirmation and the remaining 50% before shipment.</li>
+                    <li style="font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;"><strong>Validity:</strong> This quotation is valid for 30 days from the date above.</li>
+                    <li style="font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;"><strong>Delivery Timeline:</strong> {% if is_update %}The estimated delivery timeframe is 6–8 weeks from the date of order confirmation.{% else %}Approximately 4-6 weeks from the date of order confirmation.{% endif %}</li>
+                    <li style="font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;"><strong>Payment Terms:</strong> 50% advance upon order confirmation and the remaining 50% before shipment.</li>
+                    <li style="font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;"><strong>Shipping:</strong> {% if is_update %}Kindly note that the prices listed are{% else %}Please note that these prices are{% endif %} exclusive of shipping and handling charges. {% if is_update %}A shipping estimate will be provided once we receive your delivery address details.{% else %}You'll receive a shipping estimate once we receive the shipping address details.{% endif %}</li>
                     {% if not is_update %}
-                    <li><strong>Quality Assurance:</strong> Our products pass stringent quality checks and come with the necessary warranties.</li>
+                    <li style="font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;"><strong>Quality Assurance:</strong> Our products pass stringent quality checks and come with the necessary warranties.</li>
                     {% endif %}
                 </ul>
             </div>
 
             {% if quotation.customer_notes %}
-            <div class="note-box">
-                <h3 style="margin: 0 0 10px 0; color: #333333; font-size: 14px; font-weight: 600;">Additional Notes:</h3>
-                <p style="margin: 0; font-size: 14px;">{{ quotation.customer_notes }}</p>
+            <div class="note-box" style="font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                <h3 style="margin: 0 0 10px 0; color: #333333; font-size: 14px; font-weight: 600; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">Additional Notes:</h3>
+                <p style="margin: 0; font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">{{ quotation.customer_notes }}</p>
             </div>
             {% endif %}
 
-            <p>
+            <p style="font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
                 {% if is_update %}
                 If you have any questions or require further clarification on the updates, please feel free to reach out to us directly.
                 {% else %}
@@ -329,7 +201,7 @@
                 {% endif %}
             </p>
 
-            <p style="margin-top: 30px;">
+            <p style="margin-top: 30px; font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
                 {% if is_update %}
                 Thank you once again for considering SAS Sports. We appreciate your trust and look forward to working with you.
                 {% else %}
@@ -337,28 +209,34 @@
                 {% endif %}
             </p>
 
-            <p style="margin-top: 20px;">
+            <p style="margin-top: 20px; font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
                 <strong>{% if is_update %}Warm regards,{% else %}Best regards,{% endif %}</strong><br>
                 <strong>SAS Team</strong><br>
                 <strong>SAS Sports (Pvt) Ltd</strong>
             </p>
-        </div>
+                        </td>
+                    </tr>
+                </table>
 
-        <!-- Footer -->
-        <div class="email-footer">
-            <p style="margin: 0 0 10px 0; font-weight: 600; color: #333;">SAS SPORTS LTD</p>
-            <div class="contact-info">
-                <p style="margin: 5px 0;">
-                    📞 Phone: <a href="tel:092998412">09 2998412</a>
-                </p>
-                <p style="margin: 5px 0;">
-                    📧 Email: <a href="mailto:{{ EMAIL_HOST_USER }}">{{ EMAIL_HOST_USER }}</a>
-                </p>
-            </div>
-            <p style="margin: 15px 0 5px 0; font-size: 12px; color: #999999;">
-                This is an automated email. Please do not reply directly to this email.
-            </p>
-        </div>
-    </div>
+                <!-- Footer -->
+                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-top: 1px solid #e0e0e0; margin-top: 30px;">
+                    <tr>
+                        <td align="center" style="padding: 25px; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                            <p style="margin: 0 0 10px 0; font-weight: 600; color: #333333; font-size: 14px; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">SAS SPORTS LTD</p>
+                            <p style="margin: 5px 0; font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                📞 Phone: <a href="tel:092998412" style="color: #333333; text-decoration: none; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">09 2998412</a>
+                            </p>
+                            <p style="margin: 5px 0; font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                📧 Email: <a href="mailto:{{ EMAIL_HOST_USER }}" style="color: #333333; text-decoration: none; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">{{ EMAIL_HOST_USER }}</a>
+                            </p>
+                            <p style="margin: 15px 0 5px 0; font-size: 12px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                This is an automated email. Please do not reply directly to this email.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>

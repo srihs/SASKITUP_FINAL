@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quotation {{ quotation.quotation_number }}</title>
+    <style>
+        /* Reset and Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', 'Helvetica', sans-serif;
+            font-size: 11px;
+            line-height: 1.6;
+            color: #333;
+            background: white;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Invoice Title Section */
+        .invoice-header {
+            margin-bottom: 30px;
+        }
+
+        .header-row {
+            display: table;
+            width: 100%;
+        }
+
+        .header-left,
+        .header-right {
+            display: table-cell;
+            vertical-align: top;
+            width: 50%;
+        }
+
+        .header-right {
+            text-align: right;
+        }
+
+        .company-logo {
+            max-height: 75px;
+            margin-bottom: 15px;
+        }
+
+        .company-info p {
+            margin: 2px 0;
+            font-weight: bold;
+        }
+
+        .quotation-title {
+            font-size: 16px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .quotation-info {
+            margin-top: 20px;
+        }
+
+        .quotation-info h5 {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 3px;
+            margin-top: 15px;
+        }
+
+        .quotation-info p {
+            font-size: 11px;
+            margin: 2px 0;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            font-size: 10px;
+            font-weight: bold;
+            border-radius: 3px;
+            margin-left: 8px;
+        }
+
+        .badge-success { background-color: #34c38f; color: white; }
+        .badge-warning { background-color: #f1b44c; color: white; }
+        .badge-info { background-color: #50a5f1; color: white; }
+        .badge-danger { background-color: #f46a6a; color: white; }
+        .badge-secondary { background-color: #74788d; color: white; }
+
+        /* Order Summary Section */
+        .order-summary {
+            margin: 20px 0;
+        }
+
+        .order-summary h5 {
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        /* Table Styles */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+
+        thead th {
+            background-color: #f8f9fa;
+            border-bottom: 2px solid #eff2f7;
+            padding: 10px;
+            font-weight: 600;
+            color: #495057;
+            text-align: left;
+            font-size: 11px;
+        }
+
+        thead th.text-end {
+            text-align: right;
+        }
+
+        tbody td {
+            padding: 10px;
+            border-bottom: 1px solid #eff2f7;
+            font-size: 11px;
+        }
+
+        tbody td.text-end {
+            text-align: right;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .item-name {
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 3px;
+        }
+
+        .item-details {
+            font-size: 10px;
+            color: #666;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .item-details li {
+            display: inline-block;
+            margin-right: 10px;
+            padding-right: 10px;
+            border-right: 1px solid #dee2e6;
+        }
+
+        .item-details li:last-child {
+            border-right: none;
+        }
+
+        .item-notes {
+            font-size: 10px;
+            color: #999;
+            margin-top: 3px;
+        }
+
+        /* Totals Section */
+        .totals-row th,
+        .totals-row td {
+            font-weight: bold;
+            border-top: 2px solid #eff2f7;
+        }
+
+        .grand-total {
+            font-size: 14px;
+        }
+
+        .text-danger {
+            color: #f46a6a;
+        }
+
+        /* Note Section */
+        .note-section {
+            margin: 15px 0;
+            font-size: 10px;
+            color: #666;
+        }
+
+        /* Terms & Conditions */
+        .terms-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eff2f7;
+        }
+
+        .terms-section h5 {
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .terms-section ol {
+            padding-left: 20px;
+            font-size: 10px;
+            line-height: 1.6;
+        }
+
+        .terms-section li {
+            margin-bottom: 8px;
+        }
+
+        .terms-section strong {
+            font-weight: bold;
+        }
+
+        /* Page Break Control */
+        @page {
+            size: A4;
+            margin: 20mm;
+        }
+
+        .no-break {
+            page-break-inside: avoid;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Invoice Header -->
+        <div class="invoice-header">
+            <div class="header-row">
+                <div class="header-left">
+                    <div>
+                        <!-- Note: WeasyPrint requires absolute file paths or data URIs for images -->
+                        <!-- The image path will be resolved relative to BASE_DIR -->
+                        <img src="static/assets/images/sas-logo.png" alt="SAS Corporate" class="company-logo">
+                    </div>
+                    <div class="company-info">
+                        <p>521 ROSEBANK ROAD,</p>
+                        <p>AVONDALE,</p>
+                        <p>AUCKLAND,</p>
+                        <p>NEW ZEALAND</p>
+                        <p style="margin-top: 10px;">CUSTOMERSERVICES@SAS.CO.NZ</p>
+                        <p>09 2998412</p>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="quotation-title">
+                        Quotation #{{ quotation.quotation_number }}
+                        {% if quotation.status == 'approved' %}
+                            <span class="badge badge-success">Approved</span>
+                        {% elif quotation.status == 'pending' %}
+                            <span class="badge badge-warning">Pending</span>
+                        {% elif quotation.status == 'draft' %}
+                            <span class="badge badge-info">Draft</span>
+                        {% elif quotation.status == 'rejected' %}
+                            <span class="badge badge-danger">Rejected</span>
+                        {% elif quotation.status == 'expired' %}
+                            <span class="badge badge-danger">Expired</span>
+                        {% elif quotation.status == 'cancelled' %}
+                            <span class="badge badge-secondary">Cancelled</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="quotation-info">
+                        <div>
+                            <h5>Quotation No:</h5>
+                            <p>#{{ quotation.quotation_number }}</p>
+                        </div>
+                        <div>
+                            <h5>Quotation Date:</h5>
+                            <p>{{ quotation.created_at|date:"d M, Y" }}</p>
+                        </div>
+                        {% if quotation.expires_at %}
+                        <div>
+                            <h5>Valid Until:</h5>
+                            <p>{{ quotation.expires_at|date:"d M, Y" }}</p>
+                        </div>
+                        {% endif %}
+
+                        <!-- Billed To Information -->
+                        <div style="margin-top: 20px;">
+                            {% if quotation.institution %}
+                                <h5>{{ quotation.institution_name }}</h5>
+                            {% endif %}
+
+                            {% if quotation.recipient_name %}
+                                <p>{{ quotation.recipient_name }}</p>
+                            {% endif %}
+
+                            {% if quotation.recipient_address %}
+                                <p>{{ quotation.recipient_address|linebreaksbr }}</p>
+                            {% elif quotation.created_by.address %}
+                                <p>{{ quotation.created_by.address }}</p>
+                            {% endif %}
+
+                            {% if quotation.created_by.role == 'customer' %}
+                                {% if quotation.recipient_email %}
+                                    <p>{{ quotation.recipient_email }}</p>
+                                {% else %}
+                                    <p>{{ quotation.created_by.email }}</p>
+                                {% endif %}
+                            {% endif %}
+
+                            {% if quotation.recipient_phone %}
+                                <p>{{ quotation.recipient_phone }}</p>
+                            {% elif quotation.created_by.phone %}
+                                <p>{{ quotation.created_by.phone }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Summary -->
+        <div class="order-summary">
+            <h5>Order summary</h5>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 70px;">No.</th>
+                        <th>Item</th>
+                        <th style="width: 80px;">Price</th>
+                        <th style="width: 80px;">Quantity</th>
+                        <th class="text-end" style="width: 100px;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ forloop.counter|stringformat:"02d" }}</td>
+                        <td>
+                            <div class="item-name">{{ item.product_name }}</div>
+                            {% if item.variations %}
+                            <ul class="item-details">
+                                {% if item.product_sku %}
+                                <li>SKU: {{ item.product_sku }}</li>
+                                {% endif %}
+                                {% if item.variations.size %}
+                                <li>Size: {{ item.variations.size }}</li>
+                                {% endif %}
+                                {% if item.variations.color %}
+                                <li>Color: {{ item.variations.color }}</li>
+                                {% endif %}
+                            </ul>
+                            {% endif %}
+                            {% if item.notes %}
+                            <div class="item-notes">Note: {{ item.notes }}</div>
+                            {% endif %}
+                        </td>
+                        <td>${{ item.unit_price|floatformat:2 }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td class="text-end">${{ item.line_total|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #999;">No items in this quotation</td>
+                    </tr>
+                    {% endfor %}
+
+                    <!-- Totals -->
+                    <tr>
+                        <td colspan="4" class="text-end" style="font-weight: bold;">Sub Total</td>
+                        <td class="text-end" style="font-weight: bold;">${{ quotation.subtotal|floatformat:2 }}</td>
+                    </tr>
+                    {% if discount_amount > 0 %}
+                    <tr>
+                        <td colspan="4" class="text-end" style="font-weight: bold;">
+                            Discount {% if quotation.discount_percentage %}({{ quotation.discount_percentage }}%){% endif %}
+                        </td>
+                        <td class="text-end text-danger" style="font-weight: bold;">- ${{ discount_amount|floatformat:2 }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td colspan="4" class="text-end" style="font-weight: bold;">Tax (GST {{ quotation.tax_percentage }}%)</td>
+                        <td class="text-end" style="font-weight: bold;">${{ quotation.tax_amount|floatformat:2 }}</td>
+                    </tr>
+                    <tr class="totals-row">
+                        <td colspan="4" class="text-end">Total</td>
+                        <td class="text-end grand-total">${{ quotation.total|floatformat:2 }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Note -->
+        <div class="note-section">
+            <p>* Note: This is a system generated quotation. No signature required.</p>
+        </div>
+
+        <!-- Terms & Conditions -->
+        <div class="terms-section no-break">
+            <h5>Terms and Conditions:</h5>
+            <ol>
+                <li>
+                    <strong>Quotation Validity:</strong> This quotation is valid for {{ quotation_validity_days }} days from the date of issue. Prices and availability are subject to change after the validity period.
+                </li>
+                <li>
+                    <strong>Pricing:</strong> All prices are quoted in NZD and include GST unless otherwise stated. Additional charges may apply for customization, rush orders, or special requirements.
+                </li>
+                <li>
+                    <strong>Shipping & Handling:</strong> Shipping costs are not included in this quotation unless specifically stated. Delivery timeframes are estimated and may vary based on stock availability and location.
+                </li>
+                <li>
+                    <strong>Lead Time:</strong> Standard lead time is 2-4 weeks from order confirmation. Custom or large orders may require additional time. We will notify you of any delays.
+                </li>
+                <li>
+                    <strong>Order Confirmation:</strong> Orders must be confirmed in writing. A purchase order or written acceptance of this quotation constitutes a binding agreement.
+                </li>
+                <li>
+                    <strong>Cancellations & Changes:</strong> Order cancellations or modifications must be made in writing within 48 hours of order confirmation. Cancellation fees may apply for custom or processed orders.
+                </li>
+                <li>
+                    <strong>Returns & Exchanges:</strong> Custom orders and embroidered/printed items cannot be returned or exchanged unless faulty. Standard stock items may be returned within 14 days in original condition.
+                </li>
+                <li>
+                    <strong>Payment Terms:</strong> Payment is due as per agreed terms. Standard terms are 30 days from invoice date unless otherwise specified. Late payments may incur interest charges.
+                </li>
+                <li>
+                    <strong>Ownership & Risk:</strong> Goods remain the property of SAS Corporate until payment is received in full. Risk passes to the customer upon delivery or collection.
+                </li>
+                <li>
+                    <strong>Confidentiality:</strong> This quotation and its contents are confidential and intended solely for the named recipient. Unauthorized distribution or reproduction is prohibited.
+                </li>
+            </ol>
+        </div>
+    </div>
+</body>
+</html>

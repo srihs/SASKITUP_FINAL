@@ -45,6 +45,16 @@ websocket-client==1.8.0
 WooCommerce==3.0.0
 wsproto==1.2.0
 
+# PDF Generation
+xhtml2pdf==0.2.17
+reportlab==4.2.5
+arabic-reshaper>=3.0.0
+html5lib>=1.1
+pyHanko>=0.12.1
+pyhanko-certvalidator>=0.19.5
+pypdf>=3.1.0
+python-bidi>=0.4.2
+
 # Django REST Framework for API development
 djangorestframework==3.15.2
 django-filter==24.3
