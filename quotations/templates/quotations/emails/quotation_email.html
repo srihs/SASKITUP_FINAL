@@ -228,10 +228,7 @@
         <!-- Header -->
         <div class="email-header">
             <img src="cid:company_logo" alt="SAS SPORTS LTD" class="company-logo">
-            <h1 style="margin: 10px 0; font-size: 24px;">
-                {% if is_update %}Updated {% endif %}Quotation
-                {% if is_update %}<span class="update-badge">UPDATED</span>{% endif %}
-            </h1>
+            <h1 style="margin: 10px 0; font-size: 24px;">Quotation</h1>
             <p style="margin: 5px 0; font-size: 16px;">Quotation #{{ quotation.quotation_number }}</p>
         </div>
 
@@ -250,23 +247,6 @@
                 Thank you for your interest in SAS SPORTS LTD and for reaching out to us for a quotation on our products. We appreciate your inquiry, and we are pleased to provide you with our pricing.
                 {% endif %}
             </p>
-
-            <!-- Quotation Info -->
-            <div class="quotation-info">
-                <h3>Quotation Details</h3>
-                <p><strong>Quotation Number:</strong> {{ quotation.quotation_number }}</p>
-                <p><strong>Date:</strong> {{ quotation.created_at|date:"d M Y" }}</p>
-                <p><strong>Valid Until:</strong> {{ quotation.expires_at|date:"d M Y" }} (30 days)</p>
-                {% if quotation.recipient_address %}
-                <p><strong>Delivery Address:</strong> {{ quotation.recipient_address }}</p>
-                {% endif %}
-            </div>
-
-            {% if is_update %}
-            <div class="note-box">
-                <strong>Note:</strong> This updated quotation supersedes any previous version and remains valid for 30 days from the date of this email.
-            </div>
-            {% endif %}
 
             <p>{% if is_update %}Here is your updated price quote:{% else %}Here is the price quote for the items you requested:{% endif %}</p>
 
@@ -322,6 +302,9 @@
             <div class="terms-section">
                 <h3>Important Terms</h3>
                 <ul>
+                    {% if is_update %}
+                    <li><strong>Note:</strong> This updated quotation supersedes any previous version and remains valid for 30 days from the date of this email.</li>
+                    {% endif %}
                     <li><strong>Validity:</strong> This quotation is valid for 30 days from the date above.</li>
                     <li><strong>Delivery Timeline:</strong> {% if is_update %}The estimated delivery timeframe is 6–8 weeks from the date of order confirmation.{% else %}Approximately 4-6 weeks from the date of order confirmation.{% endif %}</li>
                     <li><strong>Payment Terms:</strong> 50% advance upon order confirmation and the remaining 50% before shipment.</li>
