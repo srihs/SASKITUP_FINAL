@@ -55,6 +55,9 @@ class LoginView(FormView):
         user = form.get_user()
         login(self.request, user)
 
+        # Force session save to ensure Set-Cookie header is included in redirect response
+        self.request.session.save()
+
         # Log successful login
         AuditLog.log_action(
             user=user,

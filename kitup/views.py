@@ -265,6 +265,9 @@ def frontend_landing_view(request):
         if user is not None:
             login(request, user)
 
+            # Force session save to ensure Set-Cookie header is included in redirect response
+            request.session.save()
+
             # Log successful login
             AuditLog.log_action(
                 user=user,
