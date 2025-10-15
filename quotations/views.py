@@ -208,9 +208,30 @@ def get_assigned_staff_from_products(quotation_items):
                     account_manager = assignment.sales_rep if assignment.sales_rep.user_type == 'account_manager' else None
 
         elif product_type == 'tusproduct':
-            # TUSProduct → Need to find associated TUSSchool through categories
-            # For now, skip TUS products as the relationship is complex
-            pass
+            # TUSProduct → category_assignments → school_category → school
+            # Get the primary school category assignment
+            category_assignment = getattr(product, 'category_assignments', None)
+            if category_assignment:
+                # Try to get the first school category (primary if possible)
+                school_assignment = category_assignment.filter(
+                    school_category__isnull=False
+                ).select_related('school_category__school').first()
+
+                if school_assignment and school_assignment.school_category:
+                    school = school_assignment.school_category.school
+                    if school:
+                        institution_key = ('tusschool', school.id)
+                        institution_name = school.name
+
+                        # Find assignment for this TUS school
+                        assignment = SalesRepSchoolAssignment.objects.filter(
+                            tus_school=school,
+                            is_active=True
+                        ).first()
+
+                        if assignment:
+                            sales_rep = assignment.sales_rep if assignment.sales_rep.user_type == 'sales_rep' else None
+                            account_manager = assignment.sales_rep if assignment.sales_rep.user_type == 'account_manager' else None
 
         elif product_type == 'lottoproduct':
             # LottoProduct → category → club
