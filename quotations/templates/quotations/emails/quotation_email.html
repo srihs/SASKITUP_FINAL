@@ -154,7 +154,7 @@
                     <tr>
                         <td style="padding: 30px 25px; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
                             <p style="font-size: 14px; color: #333333; margin-bottom: 20px; font-weight: 400; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-                                Dear {% if quotation.recipient_name %}{{ quotation.recipient_name }}{% elif institution_name %}{{ institution_name }}{% else %}Valued Customer{% endif %},
+                                Dear {% if quotation.recipient_name %}{{ quotation.recipient_name }}{% elif institution_name and institution_name != 'No Institution' %}{{ institution_name }}{% else %}Customer{% endif %},
                             </p>
 
                             <p style="font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
