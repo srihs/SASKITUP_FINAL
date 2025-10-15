@@ -916,59 +916,19 @@
                 </div>
                 <!-- end Institution Selection Section -->
 
-                <!-- Assignment Information Section (Auto-assigned) -->
-                <div class="card border shadow-none mt-3">
-                    <div class="card-header bg-transparent border-bottom py-3 px-4">
-                        <h5 class="font-size-16 mb-0">Assignment Information <span class="text-muted font-size-13">(Auto-assigned)</span></h5>
-                    </div>
-                    <div class="card-body p-4">
-                        {% if auto_assigned_sales_rep or auto_assigned_account_manager %}
-                            <div class="alert alert-info mb-3" role="alert">
-                                <i class="uil uil-check-circle me-1"></i>
-                                Automatically assigned based on products from: <strong>{{ assignment_institutions }}</strong>
-                            </div>
-                        {% endif %}
+                <!-- Hidden Assignment Information (Auto-assigned in background) -->
+                {% if auto_assigned_sales_rep %}
+                    <input type="hidden" id="assigned_sales_rep" name="assigned_sales_rep" value="{{ auto_assigned_sales_rep.id }}">
+                {% else %}
+                    <input type="hidden" id="assigned_sales_rep" name="assigned_sales_rep" value="">
+                {% endif %}
 
-                        <div class="mb-3">
-                            <label class="form-label">Assigned Sales Representative</label>
-                            <div class="form-control-plaintext ps-3">
-                                {% if auto_assigned_sales_rep %}
-                                    <i class="uil uil-user me-2"></i>{{ auto_assigned_sales_rep.get_full_name }}
-                                    <input type="hidden" id="assigned_sales_rep" name="assigned_sales_rep" value="{{ auto_assigned_sales_rep.id }}">
-                                {% else %}
-                                    <span class="text-muted"><i class="uil uil-minus-circle me-2"></i>No sales representative assigned</span>
-                                    <input type="hidden" id="assigned_sales_rep" name="assigned_sales_rep" value="">
-                                {% endif %}
-                            </div>
-                            {% if not auto_assigned_sales_rep and assignment_institution_count > 1 %}
-                                <div class="form-text mt-2 text-warning">
-                                    <i class="uil uil-exclamation-triangle me-1"></i>
-                                    Products from multiple institutions with different sales reps. Manual assignment may be required.
-                                </div>
-                            {% endif %}
-                        </div>
-
-                        <div class="mb-0">
-                            <label class="form-label">Account Manager</label>
-                            <div class="form-control-plaintext ps-3">
-                                {% if auto_assigned_account_manager %}
-                                    <i class="uil uil-user-check me-2"></i>{{ auto_assigned_account_manager.get_full_name }}
-                                    <input type="hidden" id="account_manager" name="account_manager" value="{{ auto_assigned_account_manager.id }}">
-                                {% else %}
-                                    <span class="text-muted"><i class="uil uil-minus-circle me-2"></i>No account manager assigned</span>
-                                    <input type="hidden" id="account_manager" name="account_manager" value="">
-                                {% endif %}
-                            </div>
-                            {% if not auto_assigned_account_manager and assignment_institution_count > 1 %}
-                                <div class="form-text mt-2 text-warning">
-                                    <i class="uil uil-exclamation-triangle me-1"></i>
-                                    Products from multiple institutions with different account managers. Manual assignment may be required.
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-                <!-- end Assignment Information Section -->
+                {% if auto_assigned_account_manager %}
+                    <input type="hidden" id="account_manager" name="account_manager" value="{{ auto_assigned_account_manager.id }}">
+                {% else %}
+                    <input type="hidden" id="account_manager" name="account_manager" value="">
+                {% endif %}
+                <!-- end Hidden Assignment Information -->
 
                 <!-- Recipient Information Section -->
                 <div class="card border shadow-none mt-3">
