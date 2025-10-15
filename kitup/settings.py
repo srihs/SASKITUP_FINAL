@@ -335,7 +335,7 @@ AUTHENTICATION_BACKENDS = [
 
 # Authentication Settings
 LOGIN_URL = '/'  # Home page is the login page
-LOGIN_REDIRECT_URL = '/clubs/dashboard/'
+LOGIN_REDIRECT_URL = '/dashboard/'  # Unified global dashboard
 LOGOUT_REDIRECT_URL = '/'  # Redirect to home page with login form
 
 # Session Configuration
