@@ -10,6 +10,7 @@ This module handles sending quotation emails to customers with support for:
 
 import logging
 import os
+import tempfile
 from typing import List, Optional, Tuple
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
@@ -17,28 +18,29 @@ from django.conf import settings
 from django.db import transaction
 from email.mime.image import MIMEImage
 from io import BytesIO
+from decimal import Decimal
 
 from .models import Quotation
 from authentication.models import AuditLog
 
 logger = logging.getLogger(__name__)
 
+# Check if Playwright is available for PDF generation
 try:
-    from xhtml2pdf import pisa
-    from decimal import Decimal
+    from playwright.sync_api import sync_playwright
     PDF_AVAILABLE = True
 except ImportError:
     PDF_AVAILABLE = False
-    logger.warning("xhtml2pdf not installed. PDF generation will be disabled.")
+    logger.warning("Playwright not installed. PDF generation will be disabled.")
 
 
 def generate_quotation_pdf(quotation: Quotation) -> Optional[bytes]:
     """
-    Generate professional PDF quotation using xhtml2pdf with the existing preview template.
+    Generate professional PDF quotation using Playwright headless browser.
 
     This function renders the same HTML template used for the quotation preview
-    (/quotations/preview/<pk>/) and converts it to PDF, ensuring consistency
-    between the web preview and the PDF output.
+    (/quotations/preview/<pk>/) and converts it to PDF using Chromium's print-to-PDF
+    functionality, ensuring consistency between the web preview and the PDF output.
 
     Args:
         quotation: Quotation instance to generate PDF for
@@ -53,8 +55,10 @@ def generate_quotation_pdf(quotation: Quotation) -> Optional[bytes]:
         >>>         f.write(pdf_bytes)
     """
     if not PDF_AVAILABLE:
-        logger.error("xhtml2pdf not available. Cannot generate PDF.")
+        logger.error("Playwright not available. Cannot generate PDF.")
         return None
+
+    html_file_path = None
 
     try:
         from .models import SiteSettings
@@ -90,25 +94,60 @@ def generate_quotation_pdf(quotation: Quotation) -> Optional[bytes]:
             context
         )
 
-        # Generate PDF from HTML using xhtml2pdf
-        result_file = BytesIO()
-        pisa_status = pisa.pisaDocument(
-            BytesIO(html_string.encode("UTF-8")),
-            result_file
-        )
+        # Create temporary HTML file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+            f.write(html_string)
+            html_file_path = f.name
 
-        if pisa_status.err:
-            logger.error(f"Failed to generate PDF for quotation {quotation.quotation_number}: pisa error code {pisa_status.err}")
-            return None
+        logger.debug(f"Created temporary HTML file: {html_file_path}")
 
-        pdf_bytes = result_file.getvalue()
-        logger.info(f"Generated PDF for quotation {quotation.quotation_number} ({len(pdf_bytes)} bytes)")
+        # Generate PDF using Playwright's headless Chrome
+        with sync_playwright() as p:
+            # Launch headless browser
+            browser = p.chromium.launch(headless=True)
 
-        return pdf_bytes
+            try:
+                # Create a new page
+                page = browser.new_page()
+
+                # Navigate to the HTML file
+                page.goto(f'file://{html_file_path}')
+
+                # Wait for page to be fully loaded
+                page.wait_for_load_state('networkidle')
+
+                # Generate PDF with A4 format
+                pdf_bytes = page.pdf(
+                    format='A4',
+                    print_background=True,
+                    margin={
+                        'top': '20mm',
+                        'right': '20mm',
+                        'bottom': '20mm',
+                        'left': '20mm'
+                    }
+                )
+
+                logger.info(f"Generated PDF for quotation {quotation.quotation_number} ({len(pdf_bytes)} bytes)")
+
+                return pdf_bytes
+
+            finally:
+                # Always close browser
+                browser.close()
 
     except Exception as e:
         logger.error(f"Failed to generate PDF for quotation {quotation.quotation_number}: {str(e)}", exc_info=True)
         return None
+
+    finally:
+        # Clean up temporary HTML file
+        if html_file_path and os.path.exists(html_file_path):
+            try:
+                os.unlink(html_file_path)
+                logger.debug(f"Deleted temporary HTML file: {html_file_path}")
+            except Exception as cleanup_error:
+                logger.warning(f"Failed to delete temporary HTML file {html_file_path}: {str(cleanup_error)}")
 
 
 def send_quotation_email(
