@@ -110,6 +110,15 @@ def logout_view(request):
             user=user
         ).update(is_active=False)
 
+    # Clear all messages before logout
+    storage = messages.get_messages(request)
+    storage.used = True
+
+    # Clear quotation session data
+    for key in list(request.session.keys()):
+        if key.startswith('quotation_'):
+            del request.session[key]
+
     logout(request)
     messages.success(request, 'You have been logged out successfully.')
     return redirect('frontend-home')
