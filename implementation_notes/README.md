@@ -1,111 +1,51 @@
-# Schools App
+# Implementation Notes
 
-Django app for managing New Zealand school data from the government API.
+This folder contains all technical documentation, implementation summaries, test reports, and analysis documents for the SASKITUP project.
 
-## Features
+## Recently Added
+- **DIAGNOSTIC_REPORT_SALES_REP_LOGIN.md** - Sales rep login redirect loop diagnosis and fix (Oct 15, 2024)
+  - Issue: `is_active_sales_rep` field was False, causing middleware to immediately logout users
+  - Fix: Set `is_active_sales_rep = True` for sales rep users
+  - Middleware check: `authentication/middleware.py` lines 52-54
 
-- **School Database**: Comprehensive list of NZ schools with search and filtering
-- **School Detail Pages**: Detailed information for each school including enrollment data
-- **API Integration**: Syncs with NZ Government Schools API
-- **Admin Interface**: Django admin integration for data management
-- **Responsive UI**: Clean, responsive interface consistent with existing design
+## Document Categories
 
-## Models
+### Authentication & User Management
+- Email authentication implementation
+- Role-based access control
+- User management UI
+- Login/logout flows
+- Password validation
 
-### School
-Main model for storing school information with fields:
-- Basic info: School ID, name, type, authority, status
-- Contact: Phone, fax, email, contact person, website
-- Location: Physical and postal addresses, coordinates
-- Administrative: Regional council, territorial authority, education region
-- Enrollment: Student counts by ethnicity, total enrollment
-- Characteristics: Co-ed status, language of instruction, boarding facilities
+### Quotation System
+- Quotation workflow implementation
+- Email integration
+- PDF generation
+- Price calculations
+- Testing reports
 
-## API Integration
+### Clubs & Schools
+- LOTTO club sync
+- SAS club sync  
+- TUS retail schools
+- Wholesale schools
+- School matching system
 
-### Data Source
-- **API URL**: https://catalogue.data.govt.nz/api/3/action/datastore_search
-- **Resource ID**: 4b292323-9fcc-41f8-814b-3c7b19cf14b3
-- **Total Schools**: ~2,574 schools
+### Price Management
+- Wholesale price updates
+- Bulk updates & optimizations
+- CSV import/export
+- CIN7 integration
 
-### Management Commands
+### Performance & Testing
+- Performance testing architecture
+- Optimization guides
+- Test reports and summaries
 
-```bash
-# Test API connection
-python manage.py sync_schools --dry-run
+### API & Integration
+- REST API documentation
+- WooCommerce integration
+- CIN7 API integration
+- External sync processes
 
-# Sync all schools
-python manage.py sync_schools
-
-# Sync limited number
-python manage.py sync_schools --limit 100
-```
-
-## URL Structure
-
-- `/schools/` - School database list
-- `/schools/school/<school_id>/` - School detail page
-- `/schools/search/` - AJAX search endpoint
-- `/schools/retail/` - Retail schools (placeholder)
-- `/schools/wholesale/` - Wholesale schools (placeholder)
-
-## Navigation
-
-Added to main navigation under "Schools" section:
-- School Database
-- Retail Schools
-- Wholesale Schools
-
-## Usage Examples
-
-### Search and Filter Schools
-```python
-from schools.services import SchoolAPIService
-
-# Search schools
-schools = SchoolAPIService.search_schools(
-    query="Auckland",
-    filters={'org_type': 'Full Primary'}
-)
-
-# Get filter options
-options = SchoolAPIService.get_filter_options()
-```
-
-### Sync Data
-```python
-from schools.services import SchoolAPIService
-
-# Sync schools from API
-stats = SchoolAPIService.sync_schools(limit=50)
-print(f"Created: {stats['created']}, Updated: {stats['updated']}")
-```
-
-## File Structure
-
-```
-schools/
-├── models.py              # School model
-├── views.py               # List, detail, and placeholder views
-├── services.py            # API integration service
-├── urls.py                # URL configuration
-├── admin.py               # Django admin configuration
-├── management/
-│   └── commands/
-│       └── sync_schools.py # Management command
-└── templates/schools/
-    ├── school_list.html    # Main database page
-    ├── school_detail.html  # Individual school page
-    ├── retail_schools.html # Placeholder page
-    └── wholesale_schools.html # Placeholder page
-```
-
-## Implementation Notes
-
-- Model fields mapped to API response structure
-- Timezone-aware datetime handling
-- Error handling for API failures
-- Pagination for large datasets
-- Search across multiple fields
-- Database indexes for performance
-- Admin interface with organized fieldsets
+For complete documentation, browse the individual markdown files in this directory.
