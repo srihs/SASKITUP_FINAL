@@ -260,7 +260,7 @@ def send_quotation_email(
         email.send(fail_silently=False)
 
         # Log successful email send
-        _log_email_sent(quotation, recipients, is_update, request)
+        _log_email_sent(quotation, recipients, is_update=is_update, request=request)
 
         logger.info(
             f"Quotation {quotation.quotation_number} email sent to "
@@ -274,7 +274,7 @@ def send_quotation_email(
         logger.error(error_msg, exc_info=True)
 
         # Log failed email attempt
-        _log_email_failed(quotation, str(e), is_update, request)
+        _log_email_failed(quotation, str(e), is_update=is_update, request=request)
 
         return False, error_msg
 
