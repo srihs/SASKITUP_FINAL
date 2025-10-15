@@ -141,6 +141,176 @@ def calculate_quotation_totals(quotation_data):
     }
 
 
+def get_assigned_staff_from_products(quotation_items):
+    """
+    Automatically determine sales rep and account manager based on products in quotation.
+
+    Logic:
+    - Extract all unique schools/clubs from quotation products
+    - Find assigned sales reps and account managers for those institutions
+    - If all products belong to same institution: return that institution's assignments
+    - If products from multiple institutions with same assignments: return those
+    - If products from multiple institutions with different assignments: return None (ambiguous)
+
+    Args:
+        quotation_items: List of quotation item dictionaries with product_type and product_id
+
+    Returns:
+        dict: {
+            'sales_rep': User instance or None,
+            'account_manager': User instance or None,
+            'institution_count': Number of unique institutions,
+            'institutions': List of institution names (for display)
+        }
+    """
+    from schools.models_tus import TUSSchool
+    from collections import defaultdict
+
+    if not quotation_items:
+        return {
+            'sales_rep': None,
+            'account_manager': None,
+            'institution_count': 0,
+            'institutions': []
+        }
+
+    # Track institutions and their assigned staff
+    institution_staff = {}  # Key: (institution_type, institution_id), Value: {'sales_rep': User, 'account_manager': User, 'name': str}
+
+    for item in quotation_items:
+        product = get_product_by_type_and_id(item['product_type'], item['product_id'])
+        if not product:
+            continue
+
+        institution_key = None
+        institution_name = None
+        sales_rep = None
+        account_manager = None
+
+        # Determine institution based on product type
+        product_type = item['product_type'].lower()
+
+        if product_type == 'wholesaleproduct':
+            # WholesaleProduct → school FK → WholesaleSchool
+            school = getattr(product, 'school', None)
+            if school:
+                institution_key = ('wholesaleschool', school.id)
+                institution_name = school.name
+
+                # Find assignment for this wholesale school
+                assignment = SalesRepSchoolAssignment.objects.filter(
+                    wholesale_school=school,
+                    is_active=True
+                ).first()
+
+                if assignment:
+                    sales_rep = assignment.sales_rep if assignment.sales_rep.user_type == 'sales_rep' else None
+                    account_manager = assignment.sales_rep if assignment.sales_rep.user_type == 'account_manager' else None
+
+        elif product_type == 'tusproduct':
+            # TUSProduct → Need to find associated TUSSchool through categories
+            # For now, skip TUS products as the relationship is complex
+            pass
+
+        elif product_type == 'lottoproduct':
+            # LottoProduct → category → club
+            category = getattr(product, 'category', None)
+            if category:
+                club = getattr(category, 'club', None)
+                if club:
+                    institution_key = ('lottoclub', club.id)
+                    institution_name = club.name
+
+                    # Find assignment for this LOTTO club
+                    from django.contrib.contenttypes.models import ContentType
+                    club_ct = ContentType.objects.get_for_model(club)
+
+                    assignment = SalesRepClubAssignment.objects.filter(
+                        club_content_type=club_ct,
+                        club_object_id=club.id,
+                        is_active=True
+                    ).first()
+
+                    if assignment:
+                        sales_rep = assignment.sales_rep if assignment.sales_rep.user_type == 'sales_rep' else None
+                        account_manager = assignment.sales_rep if assignment.sales_rep.user_type == 'account_manager' else None
+
+        elif product_type == 'sasproduct':
+            # SASProduct → club FK → SASClub
+            club = getattr(product, 'club', None)
+            if club:
+                institution_key = ('sasclub', club.id)
+                institution_name = club.name
+
+                # Find assignment for this SAS club
+                from django.contrib.contenttypes.models import ContentType
+                club_ct = ContentType.objects.get_for_model(club)
+
+                assignment = SalesRepClubAssignment.objects.filter(
+                    club_content_type=club_ct,
+                    club_object_id=club.id,
+                    is_active=True
+                ).first()
+
+                if assignment:
+                    sales_rep = assignment.sales_rep if assignment.sales_rep.user_type == 'sales_rep' else None
+                    account_manager = assignment.sales_rep if assignment.sales_rep.user_type == 'account_manager' else None
+
+        # Store institution and its staff
+        if institution_key:
+            if institution_key not in institution_staff:
+                institution_staff[institution_key] = {
+                    'sales_rep': sales_rep,
+                    'account_manager': account_manager,
+                    'name': institution_name
+                }
+
+    # Analyze results
+    unique_institutions = list(institution_staff.values())
+    institution_count = len(unique_institutions)
+    institution_names = [inst['name'] for inst in unique_institutions if inst['name']]
+
+    # If no institutions found, return None
+    if institution_count == 0:
+        return {
+            'sales_rep': None,
+            'account_manager': None,
+            'institution_count': 0,
+            'institutions': []
+        }
+
+    # If single institution, return its assignments
+    if institution_count == 1:
+        inst = unique_institutions[0]
+        return {
+            'sales_rep': inst['sales_rep'],
+            'account_manager': inst['account_manager'],
+            'institution_count': 1,
+            'institutions': institution_names
+        }
+
+    # If multiple institutions, check if they have the same assignments
+    first_inst = unique_institutions[0]
+    first_sales_rep = first_inst['sales_rep']
+    first_account_manager = first_inst['account_manager']
+
+    all_same_sales_rep = all(
+        inst['sales_rep'] == first_sales_rep
+        for inst in unique_institutions
+    )
+    all_same_account_manager = all(
+        inst['account_manager'] == first_account_manager
+        for inst in unique_institutions
+    )
+
+    return {
+        'sales_rep': first_sales_rep if all_same_sales_rep else None,
+        'account_manager': first_account_manager if all_same_account_manager else None,
+        'institution_count': institution_count,
+        'institutions': institution_names
+    }
+
+
 def get_product_by_type_and_id(product_type, product_id):
     """Get product object by type and ID"""
     from schools.models_tus import TUSProduct
@@ -722,6 +892,10 @@ class QuotationCartView(LoginRequiredMixin, View):
         editing_quotation = None
         current_sales_rep_id = None
         current_account_manager_id = None
+        auto_assigned_sales_rep = None
+        auto_assigned_account_manager = None
+        assignment_info = {}
+
         if editing_quotation_id:
             try:
                 editing_quotation = Quotation.objects.get(pk=editing_quotation_id)
@@ -732,28 +906,17 @@ class QuotationCartView(LoginRequiredMixin, View):
             except Quotation.DoesNotExist:
                 pass
 
-        # Get sales representatives for dropdown
-        from authentication.models import User
-        sales_reps_list = []
-        sales_reps = User.objects.filter(user_type='sales_rep', is_active=True).order_by('first_name', 'last_name')
-        for rep in sales_reps:
-            full_name = rep.get_full_name() or rep.username
-            sales_reps_list.append({
-                'id': str(rep.id),
-                'text': full_name
-            })
-        sales_reps_json = json.dumps(sales_reps_list)
+        # Automatically determine sales rep and account manager from products
+        if not editing_quotation_id:  # Only auto-assign for new quotations
+            assignment_info = get_assigned_staff_from_products(quotation_data.get('items', []))
+            auto_assigned_sales_rep = assignment_info.get('sales_rep')
+            auto_assigned_account_manager = assignment_info.get('account_manager')
 
-        # Get account managers for dropdown
-        account_managers_list = []
-        account_managers = User.objects.filter(user_type='account_manager', is_active=True).order_by('first_name', 'last_name')
-        for manager in account_managers:
-            full_name = manager.get_full_name() or manager.username
-            account_managers_list.append({
-                'id': str(manager.id),
-                'text': full_name
-            })
-        account_managers_json = json.dumps(account_managers_list)
+            # Set current IDs to auto-assigned values if available
+            if auto_assigned_sales_rep:
+                current_sales_rep_id = str(auto_assigned_sales_rep.id)
+            if auto_assigned_account_manager:
+                current_account_manager_id = str(auto_assigned_account_manager.id)
 
         context = {
             'cart_items': enriched_items,  # Changed from 'items' to match template
@@ -769,10 +932,12 @@ class QuotationCartView(LoginRequiredMixin, View):
             'is_customer': request.user.is_customer,
             'institutions_json': institutions_json,
             'current_institution_id': current_institution_id,
-            'sales_reps_json': sales_reps_json,
             'current_sales_rep_id': current_sales_rep_id,
-            'account_managers_json': account_managers_json,
             'current_account_manager_id': current_account_manager_id,
+            'auto_assigned_sales_rep': auto_assigned_sales_rep,
+            'auto_assigned_account_manager': auto_assigned_account_manager,
+            'assignment_institution_count': assignment_info.get('institution_count', 0),
+            'assignment_institutions': ', '.join(assignment_info.get('institutions', [])),
             'is_editing': editing_quotation is not None,
             'editing_quotation': editing_quotation,
         }
@@ -1293,11 +1458,12 @@ class SaveQuotationView(LoginRequiredMixin, View):
                         'error': error_message
                     }, status=400)
 
-                # Get assigned sales rep and account manager from POST data (optional)
+                # Get assigned sales rep and account manager from POST data or auto-assign
                 from authentication.models import User
                 assigned_sales_rep = None
                 account_manager = None
 
+                # Try to get from POST data first (for manual override)
                 assigned_sales_rep_id = request.POST.get('assigned_sales_rep', '').strip()
                 if assigned_sales_rep_id:
                     try:
@@ -1329,6 +1495,19 @@ class SaveQuotationView(LoginRequiredMixin, View):
                             'success': False,
                             'error': 'Invalid account manager selected'
                         }, status=400)
+
+                # Auto-assign if not explicitly provided
+                if not assigned_sales_rep or not account_manager:
+                    assignment_info = get_assigned_staff_from_products(quotation_data.get('items', []))
+
+                    # Use auto-assignment if not manually set
+                    if not assigned_sales_rep and assignment_info.get('sales_rep'):
+                        assigned_sales_rep = assignment_info['sales_rep']
+                        logger.info(f"Auto-assigned sales rep: {assigned_sales_rep.get_full_name()}")
+
+                    if not account_manager and assignment_info.get('account_manager'):
+                        account_manager = assignment_info['account_manager']
+                        logger.info(f"Auto-assigned account manager: {account_manager.get_full_name()}")
 
                 # Create Quotation (with or without institution)
                 quotation = Quotation.objects.create(

@@ -916,31 +916,55 @@
                 </div>
                 <!-- end Institution Selection Section -->
 
-                <!-- Assignment Information Section -->
+                <!-- Assignment Information Section (Auto-assigned) -->
                 <div class="card border shadow-none mt-3">
                     <div class="card-header bg-transparent border-bottom py-3 px-4">
-                        <h5 class="font-size-16 mb-0">Assignment Information <span class="text-muted font-size-13">(Optional)</span></h5>
+                        <h5 class="font-size-16 mb-0">Assignment Information <span class="text-muted font-size-13">(Auto-assigned)</span></h5>
                     </div>
                     <div class="card-body p-4">
+                        {% if auto_assigned_sales_rep or auto_assigned_account_manager %}
+                            <div class="alert alert-info mb-3" role="alert">
+                                <i class="uil uil-check-circle me-1"></i>
+                                Automatically assigned based on products from: <strong>{{ assignment_institutions }}</strong>
+                            </div>
+                        {% endif %}
+
                         <div class="mb-3">
-                            <label for="assigned_sales_rep" class="form-label">Assigned Sales Representative</label>
-                            <select class="form-control select2" id="assigned_sales_rep" name="assigned_sales_rep">
-                                <option value="">No Sales Rep Assigned</option>
-                            </select>
-                            <div class="form-text mt-2">
-                                <i class="uil uil-info-circle me-1"></i>
-                                Assign a sales representative to this quotation for tracking and commission purposes.
+                            <label class="form-label">Assigned Sales Representative</label>
+                            <div class="form-control-plaintext ps-3">
+                                {% if auto_assigned_sales_rep %}
+                                    <i class="uil uil-user me-2"></i>{{ auto_assigned_sales_rep.get_full_name }}
+                                    <input type="hidden" id="assigned_sales_rep" name="assigned_sales_rep" value="{{ auto_assigned_sales_rep.id }}">
+                                {% else %}
+                                    <span class="text-muted"><i class="uil uil-minus-circle me-2"></i>No sales representative assigned</span>
+                                    <input type="hidden" id="assigned_sales_rep" name="assigned_sales_rep" value="">
+                                {% endif %}
                             </div>
+                            {% if not auto_assigned_sales_rep and assignment_institution_count > 1 %}
+                                <div class="form-text mt-2 text-warning">
+                                    <i class="uil uil-exclamation-triangle me-1"></i>
+                                    Products from multiple institutions with different sales reps. Manual assignment may be required.
+                                </div>
+                            {% endif %}
                         </div>
+
                         <div class="mb-0">
-                            <label for="account_manager" class="form-label">Account Manager</label>
-                            <select class="form-control select2" id="account_manager" name="account_manager">
-                                <option value="">No Account Manager Assigned</option>
-                            </select>
-                            <div class="form-text mt-2">
-                                <i class="uil uil-info-circle me-1"></i>
-                                Assign an account manager to oversee this quotation.
+                            <label class="form-label">Account Manager</label>
+                            <div class="form-control-plaintext ps-3">
+                                {% if auto_assigned_account_manager %}
+                                    <i class="uil uil-user-check me-2"></i>{{ auto_assigned_account_manager.get_full_name }}
+                                    <input type="hidden" id="account_manager" name="account_manager" value="{{ auto_assigned_account_manager.id }}">
+                                {% else %}
+                                    <span class="text-muted"><i class="uil uil-minus-circle me-2"></i>No account manager assigned</span>
+                                    <input type="hidden" id="account_manager" name="account_manager" value="">
+                                {% endif %}
                             </div>
+                            {% if not auto_assigned_account_manager and assignment_institution_count > 1 %}
+                                <div class="form-text mt-2 text-warning">
+                                    <i class="uil uil-exclamation-triangle me-1"></i>
+                                    Products from multiple institutions with different account managers. Manual assignment may be required.
+                                </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -1181,41 +1205,8 @@ $(document).ready(function() {
         $('#institution_select').val(currentInstitutionId).trigger('change');
     }
 
-    // Initialize Select2 for sales rep dropdown
-    const salesRepsData = {{ sales_reps_json|safe }};
-    const currentSalesRepId = "{{ current_sales_rep_id|default:'' }}";
-
-    $('#assigned_sales_rep').select2({
-        data: salesRepsData,
-        placeholder: 'Search for a sales representative...',
-        allowClear: true,
-        width: '100%',
-        templateResult: formatUserOption,
-        templateSelection: formatUserSelection
-    });
-
-    // Set current sales rep if available
-    if (currentSalesRepId) {
-        $('#assigned_sales_rep').val(currentSalesRepId).trigger('change');
-    }
-
-    // Initialize Select2 for account manager dropdown
-    const accountManagersData = {{ account_managers_json|safe }};
-    const currentAccountManagerId = "{{ current_account_manager_id|default:'' }}";
-
-    $('#account_manager').select2({
-        data: accountManagersData,
-        placeholder: 'Search for an account manager...',
-        allowClear: true,
-        width: '100%',
-        templateResult: formatUserOption,
-        templateSelection: formatUserSelection
-    });
-
-    // Set current account manager if available
-    if (currentAccountManagerId) {
-        $('#account_manager').val(currentAccountManagerId).trigger('change');
-    }
+    // Sales rep and account manager are now auto-assigned based on products
+    // No need for Select2 dropdowns - values are set as hidden inputs
 
     // Format function for Select2 options
     function formatInstitutionOption(institution) {
