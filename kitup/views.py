@@ -12,7 +12,6 @@ from clubs.models_sas import SASClub, SASProduct
 from schools.models_tus import TUSSchool
 
 
-@method_decorator(login_required, name='dispatch')
 class GlobalDashboardView(LoginRequiredMixin, TemplateView):
     """
     Unified dashboard for all user roles.
@@ -23,7 +22,6 @@ class GlobalDashboardView(LoginRequiredMixin, TemplateView):
     - Customers: See ONLY own data
     """
     template_name = 'dashboard/global_dashboard.html'
-    login_url = '/'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
