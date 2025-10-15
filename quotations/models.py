@@ -162,6 +162,26 @@ class Quotation(models.Model):
         help_text="User who created this quotation (sales rep/account manager/customer)"
     )
 
+    # Assigned staff for notifications
+    assigned_sales_rep = models.ForeignKey(
+        'authentication.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_quotations_sales',
+        limit_choices_to={'user_type': 'sales_rep'},
+        help_text="Sales representative assigned to this quotation"
+    )
+    account_manager = models.ForeignKey(
+        'authentication.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_quotations_manager',
+        limit_choices_to={'user_type': 'account_manager'},
+        help_text="Account manager assigned to this quotation"
+    )
+
     # Institution reference using GenericForeignKey (OPTIONAL)
     # Supports: School, WholesaleSchool, LottoClub, SASClub
     # Institution helps with organization but is not mandatory

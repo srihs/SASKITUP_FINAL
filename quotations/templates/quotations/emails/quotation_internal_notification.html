@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if is_update %}Quotation Updated{% else %}New Quotation Generated{% endif %} - {{ quotation.quotation_number }}</title>
+    <style>
+        * {
+            font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+        }
+        body {
+            font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+            line-height: 1.6;
+            color: #333333;
+            margin: 0;
+            padding: 0;
+            background-color: #ffffff;
+            font-size: 14px;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 800px; margin: 20px auto; background-color: #ffffff;">
+        <tr>
+            <td>
+                <!-- Header -->
+                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-bottom: 1px solid #e0e0e0;">
+                    <tr>
+                        <td align="center" style="padding: 30px 20px; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                            <img src="cid:company_logo" alt="SAS SPORTS LTD" style="max-width: 200px; height: auto; margin-bottom: 20px; display: block; margin-left: auto; margin-right: auto;">
+                            <h1 style="margin: 10px 0; font-size: 18px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                {% if is_update %}Quotation Updated{% else %}New Quotation Generated{% endif %}
+                            </h1>
+                            <p style="margin: 5px 0; font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">Quotation #{{ quotation.quotation_number }}</p>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Body -->
+                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff;">
+                    <tr>
+                        <td style="padding: 30px 25px; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                            <p style="font-size: 14px; color: #333333; margin-bottom: 20px; font-weight: 400; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                Hi {{ recipient_name }},
+                            </p>
+
+                            <p style="font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                This is to inform you that {% if is_update %}a quotation has been updated{% else %}a new quotation has been generated{% endif %} for your customer.
+                            </p>
+
+                            <p style="font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                Please find the attached quotation for your reference.
+                            </p>
+
+                            <!-- Quotation Details -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0; border-top: 1px solid #e0e0e0; border-bottom: 1px solid #e0e0e0; padding: 15px 0;">
+                                <tr>
+                                    <td style="font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                        <h3 style="margin: 0 0 10px 0; color: #333333; font-size: 14px; font-weight: 600; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">Quotation Details</h3>
+                                        <p style="margin: 5px 0; font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                            <strong>Quotation Number:</strong> {{ quotation.quotation_number }}
+                                        </p>
+                                        {% if institution_name and institution_name != 'No Institution' %}
+                                        <p style="margin: 5px 0; font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                            <strong>Customer:</strong> {{ institution_name }}
+                                        </p>
+                                        {% endif %}
+                                        {% if quotation.recipient_name %}
+                                        <p style="margin: 5px 0; font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                            <strong>Recipient:</strong> {{ quotation.recipient_name }}
+                                        </p>
+                                        {% endif %}
+                                        <p style="margin: 5px 0; font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                            <strong>Total Amount:</strong> ${{ quotation.total|floatformat:2 }}
+                                        </p>
+                                        <p style="margin: 5px 0; font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                            <strong>Status:</strong> {{ quotation.get_status_display }}
+                                        </p>
+                                        {% if quotation.expires_at %}
+                                        <p style="margin: 5px 0; font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                            <strong>Valid Until:</strong> {{ quotation.expires_at|date:"F j, Y" }}
+                                        </p>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                Kindly review the details and follow up with the customer as needed.
+                            </p>
+
+                            <p style="margin-top: 30px; font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                <strong>Best regards,</strong><br>
+                                <strong>SAS Team</strong><br>
+                                <strong>SAS Sports (Pvt) Ltd</strong>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Footer -->
+                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-top: 1px solid #e0e0e0; margin-top: 30px;">
+                    <tr>
+                        <td align="center" style="padding: 25px; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                            <p style="margin: 0 0 10px 0; font-weight: 600; color: #333333; font-size: 14px; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">SAS SPORTS LTD</p>
+                            <p style="margin: 5px 0; font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                📞 Phone: <a href="tel:092998412" style="color: #333333; text-decoration: none; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">09 2998412</a>
+                            </p>
+                            <p style="margin: 5px 0; font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                📧 Email: <a href="mailto:{{ EMAIL_HOST_USER }}" style="color: #333333; text-decoration: none; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">{{ EMAIL_HOST_USER }}</a>
+                            </p>
+                            <p style="margin: 15px 0 5px 0; font-size: 12px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                This is an automated email. Please do not reply directly to this email.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

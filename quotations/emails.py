@@ -156,7 +156,8 @@ def send_quotation_email(
     request=None
 ) -> Tuple[bool, Optional[str]]:
     """
-    Send quotation email to all recipients.
+    Send quotation email to all recipients with CC to sales rep and account manager.
+    Also sends separate internal notification emails to sales rep and account manager.
 
     Args:
         quotation: Quotation instance to send
@@ -181,6 +182,16 @@ def send_quotation_email(
             error_msg = f"No email recipients for quotation {quotation.quotation_number}"
             logger.warning(error_msg)
             return False, error_msg
+
+        # Collect CC recipients (sales rep and account manager)
+        cc_recipients = []
+        if quotation.assigned_sales_rep and quotation.assigned_sales_rep.email:
+            cc_recipients.append(quotation.assigned_sales_rep.email)
+        if quotation.account_manager and quotation.account_manager.email:
+            cc_recipients.append(quotation.account_manager.email)
+
+        # Remove duplicates from CC list
+        cc_recipients = list(set(cc_recipients))
 
         # Prepare email subject
         action_text = "Updated" if is_update else "New"
@@ -218,13 +229,21 @@ def send_quotation_email(
             email_context
         )
 
+        # Build combined CC list (additional emails + staff)
+        combined_cc = []
+        if len(recipients) > 1:
+            combined_cc.extend(recipients[1:])  # Additional customer emails
+        combined_cc.extend(cc_recipients)  # Sales rep and account manager
+        # Remove duplicates while preserving order
+        combined_cc = list(dict.fromkeys(combined_cc))
+
         # Create email with primary recipient
         email = EmailMultiAlternatives(
             subject=subject,
             body=text_content,
             from_email=_get_from_email(),
             to=[recipients[0]],  # Primary recipient
-            cc=recipients[1:] if len(recipients) > 1 else [],  # Additional as CC
+            cc=combined_cc if combined_cc else [],  # Combined CC list
         )
 
         # Attach HTML version
@@ -255,17 +274,44 @@ def send_quotation_email(
             # Don't fail the entire email if PDF generation fails
             logger.error(f"Failed to attach PDF for quotation {quotation.quotation_number}: {str(pdf_error)}", exc_info=True)
 
-        # Send email
+        # Send customer email
         # Django automatically uses settings.EMAIL_SSL_CONTEXT if defined
         email.send(fail_silently=False)
 
-        # Log successful email send
+        # Log successful customer email send
         _log_email_sent(quotation, recipients, is_update=is_update, request=request)
 
         logger.info(
             f"Quotation {quotation.quotation_number} email sent to "
             f"{len(recipients)} recipient(s): {', '.join(recipients)}"
         )
+
+        # Send internal notification emails to sales rep and account manager
+        internal_recipients = []
+        if quotation.assigned_sales_rep and quotation.assigned_sales_rep.email:
+            internal_recipients.append(quotation.assigned_sales_rep)
+        if quotation.account_manager and quotation.account_manager.email:
+            internal_recipients.append(quotation.account_manager)
+
+        # Send internal notifications if there are staff assigned
+        if internal_recipients:
+            try:
+                # Generate PDF once for all emails (reuse from customer email)
+                pdf_bytes = generate_quotation_pdf(quotation)
+
+                _send_internal_notifications(
+                    quotation=quotation,
+                    internal_recipients=internal_recipients,
+                    is_update=is_update,
+                    pdf_bytes=pdf_bytes,
+                    request=request
+                )
+            except Exception as internal_error:
+                # Don't fail the entire operation if internal emails fail
+                logger.error(
+                    f"Failed to send internal notifications for quotation {quotation.quotation_number}: {str(internal_error)}",
+                    exc_info=True
+                )
 
         return True, None
 
@@ -356,6 +402,108 @@ def send_quotation_approval_email(
         error_msg = f"Failed to send approval email for {quotation.quotation_number}: {str(e)}"
         logger.error(error_msg, exc_info=True)
         return False, error_msg
+
+
+def _send_internal_notifications(
+    quotation: Quotation,
+    internal_recipients: List,
+    is_update: bool = False,
+    pdf_bytes: Optional[bytes] = None,
+    request=None
+) -> None:
+    """
+    Send internal notification emails to sales rep and account manager.
+
+    Args:
+        quotation: Quotation instance
+        internal_recipients: List of User objects (sales rep and/or account manager)
+        is_update: True if this is an update notification
+        pdf_bytes: Pre-generated PDF bytes (optional, will generate if not provided)
+        request: HTTP request object for audit logging (optional)
+    """
+    # Prepare subject
+    subject = f"{'Quotation Updated' if is_update else 'New Quotation Generated'} for {quotation.institution_name if quotation.institution_name != 'No Institution' else 'Customer'}"
+
+    # Get company logo path
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'assets', 'images', 'sas-logo.png')
+
+    # Generate PDF if not provided
+    if pdf_bytes is None:
+        pdf_bytes = generate_quotation_pdf(quotation)
+
+    # Send to each internal recipient
+    for recipient_user in internal_recipients:
+        try:
+            # Context for internal notification template
+            internal_context = {
+                'quotation': quotation,
+                'recipient_name': recipient_user.first_name or recipient_user.get_full_name(),
+                'is_update': is_update,
+                'institution_name': quotation.institution_name,
+                'EMAIL_HOST_USER': settings.EMAIL_HOST_USER,
+            }
+
+            # Render internal notification templates
+            html_content = render_to_string(
+                'quotations/emails/quotation_internal_notification.html',
+                internal_context
+            )
+
+            text_content = render_to_string(
+                'quotations/emails/quotation_internal_notification.txt',
+                internal_context
+            )
+
+            # Create email
+            internal_email = EmailMultiAlternatives(
+                subject=subject,
+                body=text_content,
+                from_email=_get_from_email(),
+                to=[recipient_user.email],
+            )
+
+            # Attach HTML version
+            internal_email.attach_alternative(html_content, "text/html")
+
+            # Embed company logo
+            if os.path.exists(logo_path):
+                with open(logo_path, 'rb') as logo_file:
+                    logo_image = MIMEImage(logo_file.read())
+                    logo_image.add_header('Content-ID', '<company_logo>')
+                    logo_image.add_header('Content-Disposition', 'inline', filename='sas-logo.png')
+                    internal_email.attach(logo_image)
+
+            # Attach PDF quotation if available
+            if pdf_bytes:
+                internal_email.attach(
+                    f'Quotation_{quotation.quotation_number}.pdf',
+                    pdf_bytes,
+                    'application/pdf'
+                )
+
+            # Send email
+            internal_email.send(fail_silently=False)
+
+            # Log successful internal notification
+            _log_internal_notification_sent(
+                quotation=quotation,
+                recipient=recipient_user,
+                is_update=is_update,
+                request=request
+            )
+
+            logger.info(
+                f"Internal notification for quotation {quotation.quotation_number} "
+                f"sent to {recipient_user.get_full_name()} ({recipient_user.email})"
+            )
+
+        except Exception as e:
+            logger.error(
+                f"Failed to send internal notification to {recipient_user.email} "
+                f"for quotation {quotation.quotation_number}: {str(e)}",
+                exc_info=True
+            )
+            # Continue to next recipient even if one fails
 
 
 def _get_from_email() -> str:
@@ -461,6 +609,42 @@ def _log_email_failed(
         quotation_id=str(quotation.id),
         quotation_number=quotation.quotation_number,
         error_message=error_message
+    )
+
+
+def _log_internal_notification_sent(
+    quotation: Quotation,
+    recipient,
+    is_update: bool = False,
+    request=None
+) -> None:
+    """
+    Log successful internal notification email to audit trail.
+
+    Args:
+        quotation: Quotation instance
+        recipient: User object who received the notification
+        is_update: True if this was an update notification
+        request: HTTP request object (optional)
+    """
+    action_type = 'quotation_internal_notification_sent'
+    description = (
+        f'Internal {"update" if is_update else "new quotation"} notification sent for '
+        f'quotation {quotation.quotation_number} to {recipient.get_full_name()} ({recipient.email})'
+    )
+
+    AuditLog.log_action(
+        user=quotation.created_by,
+        action_type=action_type,
+        description=description,
+        request=request,
+        affected_model='Quotation',
+        affected_object_id=str(quotation.id),
+        quotation_id=str(quotation.id),
+        quotation_number=quotation.quotation_number,
+        notification_recipient=recipient.email,
+        recipient_name=recipient.get_full_name(),
+        recipient_type='sales_rep' if recipient.is_sales_rep else 'account_manager'
     )
 
 
