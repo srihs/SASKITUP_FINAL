@@ -293,7 +293,8 @@ CIN7_BATCH_SIZE = config('CIN7_BATCH_SIZE', default=100, cast=int)
 # ==========================================
 # EMAIL CONFIGURATION
 # ==========================================
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# Use custom backend that supports SSL context configuration
+EMAIL_BACKEND = 'quotations.backends.email.EmailBackend'
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
@@ -301,6 +302,18 @@ EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=f'{EMAIL_HOST_USER}')
 EMAIL_TIMEOUT = 10
+
+# SSL/TLS Configuration for Email
+# For development: disable SSL certificate verification
+# For production: set EMAIL_SSL_VERIFY=True in .env
+import ssl
+EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
+EMAIL_SSL_CERTFILE = config('EMAIL_SSL_CERTFILE', default=None)
+EMAIL_SSL_KEYFILE = config('EMAIL_SSL_KEYFILE', default=None)
+
+# Create unverified SSL context for development (bypass certificate verification)
+if DEBUG and EMAIL_USE_TLS:
+    EMAIL_SSL_CONTEXT = ssl._create_unverified_context()
 
 # Custom User Model
 AUTH_USER_MODEL = 'authentication.User'

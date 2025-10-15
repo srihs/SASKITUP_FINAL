@@ -121,6 +121,7 @@ def send_quotation_email(
         # )
 
         # Send email
+        # Django automatically uses settings.EMAIL_SSL_CONTEXT if defined
         email.send(fail_silently=False)
 
         # Log successful email send
