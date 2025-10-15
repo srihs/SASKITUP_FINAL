@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quotation {{ quotation.quotation_number }}</title>
     <style>
         /* Reset and Base Styles */
@@ -13,7 +12,7 @@
         }
 
         body {
-            font-family: 'Arial', 'Helvetica', sans-serif;
+            font-family: Arial, Helvetica, sans-serif;
             font-size: 11px;
             line-height: 1.6;
             color: #333;
@@ -225,9 +224,38 @@
         @page {
             size: A4;
             margin: 20mm;
+
+            @bottom-right {
+                content: "P.T.O";
+                font-size: 11px;
+                font-weight: bold;
+                color: #666;
+            }
+        }
+
+        /* Hide P.T.O on last page */
+        @page :last {
+            @bottom-right {
+                content: "";
+            }
         }
 
         .no-break {
+            page-break-inside: avoid;
+        }
+
+        /* Ensure header stays together */
+        .invoice-header {
+            page-break-inside: avoid;
+        }
+
+        /* Keep table headers with content */
+        thead {
+            display: table-header-group;
+        }
+
+        /* Keep totals together */
+        .totals-section {
             page-break-inside: avoid;
         }
     </style>
@@ -239,9 +267,8 @@
             <div class="header-row">
                 <div class="header-left">
                     <div>
-                        <!-- Note: WeasyPrint requires absolute file paths or data URIs for images -->
-                        <!-- The image path will be resolved relative to BASE_DIR -->
-                        <img src="static/assets/images/sas-logo.png" alt="SAS Corporate" class="company-logo">
+                        <!-- WeasyPrint will resolve this relative to base_url (BASE_DIR) -->
+                        <img src="file://{{ logo_path }}" alt="SAS Corporate" class="company-logo">
                     </div>
                     <div class="company-info">
                         <p>521 ROSEBANK ROAD,</p>
@@ -367,30 +394,36 @@
                         <td colspan="5" style="text-align: center; color: #999;">No items in this quotation</td>
                     </tr>
                     {% endfor %}
-
-                    <!-- Totals -->
-                    <tr>
-                        <td colspan="4" class="text-end" style="font-weight: bold;">Sub Total</td>
-                        <td class="text-end" style="font-weight: bold;">${{ quotation.subtotal|floatformat:2 }}</td>
-                    </tr>
-                    {% if discount_amount > 0 %}
-                    <tr>
-                        <td colspan="4" class="text-end" style="font-weight: bold;">
-                            Discount {% if quotation.discount_percentage %}({{ quotation.discount_percentage }}%){% endif %}
-                        </td>
-                        <td class="text-end text-danger" style="font-weight: bold;">- ${{ discount_amount|floatformat:2 }}</td>
-                    </tr>
-                    {% endif %}
-                    <tr>
-                        <td colspan="4" class="text-end" style="font-weight: bold;">Tax (GST {{ quotation.tax_percentage }}%)</td>
-                        <td class="text-end" style="font-weight: bold;">${{ quotation.tax_amount|floatformat:2 }}</td>
-                    </tr>
-                    <tr class="totals-row">
-                        <td colspan="4" class="text-end">Total</td>
-                        <td class="text-end grand-total">${{ quotation.total|floatformat:2 }}</td>
-                    </tr>
                 </tbody>
             </table>
+
+            <!-- Totals Section - Wrapped to keep together -->
+            <div class="totals-section">
+                <table>
+                    <tbody>
+                        <tr>
+                            <td colspan="4" class="text-end" style="font-weight: bold;">Sub Total</td>
+                            <td class="text-end" style="font-weight: bold;">${{ quotation.subtotal|floatformat:2 }}</td>
+                        </tr>
+                        {% if discount_amount > 0 %}
+                        <tr>
+                            <td colspan="4" class="text-end" style="font-weight: bold;">
+                                Discount {% if quotation.discount_percentage %}({{ quotation.discount_percentage }}%){% endif %}
+                            </td>
+                            <td class="text-end text-danger" style="font-weight: bold;">- ${{ discount_amount|floatformat:2 }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <td colspan="4" class="text-end" style="font-weight: bold;">Tax (GST {{ quotation.tax_percentage }}%)</td>
+                            <td class="text-end" style="font-weight: bold;">${{ quotation.tax_amount|floatformat:2 }}</td>
+                        </tr>
+                        <tr class="totals-row">
+                            <td colspan="4" class="text-end">Total</td>
+                            <td class="text-end grand-total">${{ quotation.total|floatformat:2 }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <!-- Note -->
