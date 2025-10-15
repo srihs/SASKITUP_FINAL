@@ -277,6 +277,12 @@ class UserForm(forms.ModelForm):
         if user.user_type == 'admin':
             user.is_staff = True
 
+        # Auto-set is_active_sales_rep for sales reps and account managers
+        # This is required by the middleware (authentication/middleware.py lines 52-54)
+        # which logs out sales_rep/account_manager users if is_active_sales_rep is False
+        if user.user_type in ['sales_rep', 'account_manager']:
+            user.is_active_sales_rep = True
+
         if commit:
             user.save()
         return user
