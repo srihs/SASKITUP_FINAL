@@ -430,39 +430,34 @@
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0" id="auditTable">
+                        <table class="table table-hover align-middle mb-0" id="auditTable" style="table-layout: fixed; width: 100%;">
                             <thead>
                                 <tr>
-                                    <th>Timestamp</th>
-                                    <th>User</th>
-                                    <th>Action</th>
-                                    <th>Description</th>
-                                    <th>IP Address</th>
-                                    <th>Details</th>
+                                    <th style="width: 10%;">Timestamp</th>
+                                    <th style="width: 12%;">User</th>
+                                    <th style="width: 15%;">Action</th>
+                                    <th style="width: 45%;">Description</th>
+                                    <th style="width: 10%;">IP Address</th>
+                                    <th style="width: 8%;">Details</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for log in audit_logs %}
                                 <tr>
-                                    <td>
+                                    <td style="white-space: nowrap;">
                                         <span class="font-size-12">{{ log.timestamp|date:"M d, Y" }}</span><br>
                                         <span class="font-size-11 text-muted">{{ log.timestamp|date:"H:i:s" }}</span>
                                     </td>
-                                    <td>
+                                    <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                         {% if log.user %}
-                                        <div class="d-flex align-items-center">
-                                            <div class="user-avatar-sm bg-soft-primary text-primary me-2">
-                                                {{ log.user.first_name|first|default:log.user.username|first|upper }}
-                                            </div>
-                                            <span class="font-size-14">
-                                                {% if log.user.get_full_name %}{{ log.user.get_full_name }}{% else %}{{ log.user.username }}{% endif %}
-                                            </span>
-                                        </div>
+                                        <span class="font-size-13" title="{% if log.user.get_full_name %}{{ log.user.get_full_name }}{% else %}{{ log.user.username }}{% endif %}">
+                                            {% if log.user.get_full_name %}{{ log.user.get_full_name }}{% else %}{{ log.user.username }}{% endif %}
+                                        </span>
                                         {% else %}
                                         <span class="text-muted font-style-italic">System</span>
                                         {% endif %}
                                     </td>
-                                    <td>
+                                    <td style="white-space: nowrap;">
                                         <span class="badge action-badge
                                             {% if log.action_type == 'login' %}bg-success
                                             {% elif log.action_type == 'logout' %}bg-secondary
@@ -479,17 +474,17 @@
                                             {{ log.get_action_type_display }}
                                         </span>
                                     </td>
-                                    <td>
-                                        <span class="font-size-13">{{ log.description|slice:":80" }}{% if log.description|length > 80 %}...{% endif %}</span>
+                                    <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ log.description }}">
+                                        <span class="font-size-13">{{ log.description }}</span>
                                     </td>
-                                    <td>
+                                    <td style="white-space: nowrap; text-align: center;">
                                         {% if log.ip_address %}
                                         <span class="font-size-12 font-family-monospace">{{ log.ip_address }}</span>
                                         {% else %}
                                         <span class="text-muted">-</span>
                                         {% endif %}
                                     </td>
-                                    <td>
+                                    <td style="text-align: center;">
                                         <button class="btn btn-sm btn-outline-info" onclick="showLogModal('{{ log.id }}')">
                                             <i class="uil-eye"></i>
                                         </button>
