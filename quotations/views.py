@@ -720,11 +720,40 @@ class QuotationCartView(LoginRequiredMixin, View):
         # Check if we're editing an existing quotation
         editing_quotation_id = quotation_data.get('editing_quotation_id')
         editing_quotation = None
+        current_sales_rep_id = None
+        current_account_manager_id = None
         if editing_quotation_id:
             try:
                 editing_quotation = Quotation.objects.get(pk=editing_quotation_id)
+                if editing_quotation.assigned_sales_rep:
+                    current_sales_rep_id = str(editing_quotation.assigned_sales_rep.id)
+                if editing_quotation.account_manager:
+                    current_account_manager_id = str(editing_quotation.account_manager.id)
             except Quotation.DoesNotExist:
                 pass
+
+        # Get sales representatives for dropdown
+        from authentication.models import User
+        sales_reps_list = []
+        sales_reps = User.objects.filter(user_type='sales_rep', is_active=True).order_by('first_name', 'last_name')
+        for rep in sales_reps:
+            full_name = rep.get_full_name() or rep.username
+            sales_reps_list.append({
+                'id': str(rep.id),
+                'text': full_name
+            })
+        sales_reps_json = json.dumps(sales_reps_list)
+
+        # Get account managers for dropdown
+        account_managers_list = []
+        account_managers = User.objects.filter(user_type='account_manager', is_active=True).order_by('first_name', 'last_name')
+        for manager in account_managers:
+            full_name = manager.get_full_name() or manager.username
+            account_managers_list.append({
+                'id': str(manager.id),
+                'text': full_name
+            })
+        account_managers_json = json.dumps(account_managers_list)
 
         context = {
             'cart_items': enriched_items,  # Changed from 'items' to match template
@@ -740,6 +769,10 @@ class QuotationCartView(LoginRequiredMixin, View):
             'is_customer': request.user.is_customer,
             'institutions_json': institutions_json,
             'current_institution_id': current_institution_id,
+            'sales_reps_json': sales_reps_json,
+            'current_sales_rep_id': current_sales_rep_id,
+            'account_managers_json': account_managers_json,
+            'current_account_manager_id': current_account_manager_id,
             'is_editing': editing_quotation is not None,
             'editing_quotation': editing_quotation,
         }
@@ -1148,6 +1181,47 @@ class SaveQuotationView(LoginRequiredMixin, View):
                         quotation.recipient_address = recipient_address
                     quotation.additional_emails = additional_emails
 
+                    # Update assigned sales rep and account manager if provided
+                    from authentication.models import User
+
+                    assigned_sales_rep_id = request.POST.get('assigned_sales_rep', '').strip()
+                    if assigned_sales_rep_id:
+                        try:
+                            assigned_sales_rep = User.objects.get(pk=int(assigned_sales_rep_id))
+                            # Validate user type
+                            if assigned_sales_rep.user_type != 'sales_rep':
+                                return JsonResponse({
+                                    'success': False,
+                                    'error': 'Selected user is not a sales representative'
+                                }, status=400)
+                            quotation.assigned_sales_rep = assigned_sales_rep
+                        except (User.DoesNotExist, ValueError):
+                            return JsonResponse({
+                                'success': False,
+                                'error': 'Invalid sales representative selected'
+                            }, status=400)
+                    else:
+                        quotation.assigned_sales_rep = None
+
+                    account_manager_id = request.POST.get('account_manager', '').strip()
+                    if account_manager_id:
+                        try:
+                            account_manager = User.objects.get(pk=int(account_manager_id))
+                            # Validate user type
+                            if account_manager.user_type != 'account_manager':
+                                return JsonResponse({
+                                    'success': False,
+                                    'error': 'Selected user is not an account manager'
+                                }, status=400)
+                            quotation.account_manager = account_manager
+                        except (User.DoesNotExist, ValueError):
+                            return JsonResponse({
+                                'success': False,
+                                'error': 'Invalid account manager selected'
+                            }, status=400)
+                    else:
+                        quotation.account_manager = None
+
                 except Quotation.DoesNotExist:
                     return JsonResponse({
                         'success': False,
@@ -1219,6 +1293,43 @@ class SaveQuotationView(LoginRequiredMixin, View):
                         'error': error_message
                     }, status=400)
 
+                # Get assigned sales rep and account manager from POST data (optional)
+                from authentication.models import User
+                assigned_sales_rep = None
+                account_manager = None
+
+                assigned_sales_rep_id = request.POST.get('assigned_sales_rep', '').strip()
+                if assigned_sales_rep_id:
+                    try:
+                        assigned_sales_rep = User.objects.get(pk=int(assigned_sales_rep_id))
+                        # Validate user type
+                        if assigned_sales_rep.user_type != 'sales_rep':
+                            return JsonResponse({
+                                'success': False,
+                                'error': 'Selected user is not a sales representative'
+                            }, status=400)
+                    except (User.DoesNotExist, ValueError):
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Invalid sales representative selected'
+                        }, status=400)
+
+                account_manager_id = request.POST.get('account_manager', '').strip()
+                if account_manager_id:
+                    try:
+                        account_manager = User.objects.get(pk=int(account_manager_id))
+                        # Validate user type
+                        if account_manager.user_type != 'account_manager':
+                            return JsonResponse({
+                                'success': False,
+                                'error': 'Selected user is not an account manager'
+                            }, status=400)
+                    except (User.DoesNotExist, ValueError):
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Invalid account manager selected'
+                        }, status=400)
+
                 # Create Quotation (with or without institution)
                 quotation = Quotation.objects.create(
                     created_by=request.user,
@@ -1228,6 +1339,8 @@ class SaveQuotationView(LoginRequiredMixin, View):
                     recipient_name=recipient_name,
                     recipient_address=recipient_address,
                     additional_emails=additional_emails,
+                    assigned_sales_rep=assigned_sales_rep,
+                    account_manager=account_manager,
                 )
 
             # Create QuotationItems (for both new and edited quotations)

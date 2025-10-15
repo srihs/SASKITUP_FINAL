@@ -916,6 +916,36 @@
                 </div>
                 <!-- end Institution Selection Section -->
 
+                <!-- Assignment Information Section -->
+                <div class="card border shadow-none mt-3">
+                    <div class="card-header bg-transparent border-bottom py-3 px-4">
+                        <h5 class="font-size-16 mb-0">Assignment Information <span class="text-muted font-size-13">(Optional)</span></h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="mb-3">
+                            <label for="assigned_sales_rep" class="form-label">Assigned Sales Representative</label>
+                            <select class="form-control select2" id="assigned_sales_rep" name="assigned_sales_rep">
+                                <option value="">No Sales Rep Assigned</option>
+                            </select>
+                            <div class="form-text mt-2">
+                                <i class="uil uil-info-circle me-1"></i>
+                                Assign a sales representative to this quotation for tracking and commission purposes.
+                            </div>
+                        </div>
+                        <div class="mb-0">
+                            <label for="account_manager" class="form-label">Account Manager</label>
+                            <select class="form-control select2" id="account_manager" name="account_manager">
+                                <option value="">No Account Manager Assigned</option>
+                            </select>
+                            <div class="form-text mt-2">
+                                <i class="uil uil-info-circle me-1"></i>
+                                Assign an account manager to oversee this quotation.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- end Assignment Information Section -->
+
                 <!-- Recipient Information Section -->
                 <div class="card border shadow-none mt-3">
                     <div class="card-header bg-transparent border-bottom py-3 px-4">
@@ -1151,6 +1181,42 @@ $(document).ready(function() {
         $('#institution_select').val(currentInstitutionId).trigger('change');
     }
 
+    // Initialize Select2 for sales rep dropdown
+    const salesRepsData = {{ sales_reps_json|safe }};
+    const currentSalesRepId = "{{ current_sales_rep_id|default:'' }}";
+
+    $('#assigned_sales_rep').select2({
+        data: salesRepsData,
+        placeholder: 'Search for a sales representative...',
+        allowClear: true,
+        width: '100%',
+        templateResult: formatUserOption,
+        templateSelection: formatUserSelection
+    });
+
+    // Set current sales rep if available
+    if (currentSalesRepId) {
+        $('#assigned_sales_rep').val(currentSalesRepId).trigger('change');
+    }
+
+    // Initialize Select2 for account manager dropdown
+    const accountManagersData = {{ account_managers_json|safe }};
+    const currentAccountManagerId = "{{ current_account_manager_id|default:'' }}";
+
+    $('#account_manager').select2({
+        data: accountManagersData,
+        placeholder: 'Search for an account manager...',
+        allowClear: true,
+        width: '100%',
+        templateResult: formatUserOption,
+        templateSelection: formatUserSelection
+    });
+
+    // Set current account manager if available
+    if (currentAccountManagerId) {
+        $('#account_manager').val(currentAccountManagerId).trigger('change');
+    }
+
     // Format function for Select2 options
     function formatInstitutionOption(institution) {
         if (!institution.id) {
@@ -1175,6 +1241,26 @@ $(document).ready(function() {
             return institution.text || 'No Institution (Direct Customer)';
         }
         return institution.text;
+    }
+
+    // Format function for user Select2 options
+    function formatUserOption(user) {
+        if (!user.id) {
+            return user.text;
+        }
+
+        var $option = $(
+            '<span><i class="uil uil-user me-2"></i>' + user.text + '</span>'
+        );
+
+        return $option;
+    }
+
+    function formatUserSelection(user) {
+        if (!user.id) {
+            return user.text;
+        }
+        return user.text;
     }
 
     $('[data-toggle="touchspin"]').each(function() {
@@ -1472,6 +1558,10 @@ function saveQuotation() {
     // Get selected institution (optional)
     const institutionSelect = $('#institution_select').val();
 
+    // Get assigned sales rep and account manager (optional)
+    const assignedSalesRep = $('#assigned_sales_rep').val();
+    const accountManager = $('#account_manager').val();
+
     // Prepare form data
     const formData = new URLSearchParams();
     formData.append('recipient_name', recipientName);
@@ -1481,6 +1571,16 @@ function saveQuotation() {
     // Add institution if selected
     if (institutionSelect) {
         formData.append('institution_id', institutionSelect);
+    }
+
+    // Add assigned sales rep if selected
+    if (assignedSalesRep) {
+        formData.append('assigned_sales_rep', assignedSalesRep);
+    }
+
+    // Add account manager if selected
+    if (accountManager) {
+        formData.append('account_manager', accountManager);
     }
 
     // Send AJAX request to save quotation
