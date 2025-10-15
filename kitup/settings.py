@@ -293,8 +293,16 @@ CIN7_BATCH_SIZE = config('CIN7_BATCH_SIZE', default=100, cast=int)
 # ==========================================
 # EMAIL CONFIGURATION
 # ==========================================
-# Use custom backend that supports SSL context configuration
-EMAIL_BACKEND = 'quotations.backends.email.EmailBackend'
+# Backend selection: 'console' for development, 'smtp' for production
+email_backend_type = config('EMAIL_BACKEND', default='smtp')
+
+if email_backend_type == 'console':
+    # Console backend - prints emails to terminal (development only)
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+else:
+    # Use custom SMTP backend that supports SSL context configuration
+    EMAIL_BACKEND = 'quotations.backends.email.EmailBackend'
+
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
@@ -312,7 +320,8 @@ EMAIL_SSL_CERTFILE = config('EMAIL_SSL_CERTFILE', default=None)
 EMAIL_SSL_KEYFILE = config('EMAIL_SSL_KEYFILE', default=None)
 
 # Create unverified SSL context for development (bypass certificate verification)
-if DEBUG and EMAIL_USE_TLS:
+# Only applies to SMTP backend
+if DEBUG and EMAIL_USE_TLS and email_backend_type == 'smtp':
     EMAIL_SSL_CONTEXT = ssl._create_unverified_context()
 
 # Custom User Model
