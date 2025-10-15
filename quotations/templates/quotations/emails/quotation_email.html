@@ -5,115 +5,162 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% if is_update %}Updated {% endif %}Quotation {{ quotation.quotation_number }}</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap');
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Jost', sans-serif;
             line-height: 1.6;
             color: #333333;
             margin: 0;
             padding: 0;
-            background-color: #f4f4f4;
+            background-color: #ffffff;
         }
         .email-container {
-            max-width: 700px;
+            max-width: 800px;
             margin: 20px auto;
             background-color: #ffffff;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .email-header {
             background-color: #ffffff;
             color: #333333;
             padding: 30px 20px;
             text-align: center;
-            border-bottom: 2px solid #e0e0e0;
+            border-bottom: 1px solid #e0e0e0;
         }
         .company-logo {
-            max-width: 180px;
+            max-width: 200px;
             height: auto;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
         .email-body {
             padding: 30px 25px;
+            background-color: #ffffff;
         }
         .greeting {
-            font-size: 18px;
+            font-size: 16px;
             color: #333333;
             margin-bottom: 20px;
+            font-weight: 400;
         }
         .quotation-info {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
+            padding: 15px 0;
             margin: 20px 0;
-            border-left: 4px solid #667eea;
+            border-top: 1px solid #e0e0e0;
+            border-bottom: 1px solid #e0e0e0;
         }
         .quotation-info h3 {
             margin: 0 0 10px 0;
-            color: #667eea;
+            color: #333333;
             font-size: 16px;
+            font-weight: 600;
         }
         .quotation-info p {
             margin: 5px 0;
             font-size: 14px;
+            color: #666666;
         }
         .items-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 25px 0;
+            margin: 30px 0;
+        }
+        .items-table thead {
+            border-bottom: 1px solid #e0e0e0;
         }
         .items-table th {
-            background-color: #667eea;
-            color: #ffffff;
-            padding: 12px;
+            background-color: #f5f5f5;
+            color: #333333;
+            padding: 12px 15px;
             text-align: left;
             font-weight: 600;
-            font-size: 14px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
-        .items-table td {
-            padding: 12px;
-            border-bottom: 1px solid #e0e0e0;
-            font-size: 14px;
+        .items-table th:first-child {
+            width: 5%;
+            text-align: center;
         }
-        .items-table tr:last-child td {
-            border-bottom: none;
+        .items-table th:nth-child(2) {
+            width: 45%;
         }
-        .items-table tr:nth-child(even) {
-            background-color: #f8f9fa;
-        }
-        .totals-section {
-            margin-top: 20px;
+        .items-table th:nth-child(3) {
+            width: 20%;
             text-align: right;
         }
+        .items-table th:nth-child(4) {
+            width: 15%;
+            text-align: center;
+        }
+        .items-table th:last-child {
+            width: 15%;
+            text-align: right;
+        }
+        .items-table td {
+            padding: 20px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+            vertical-align: top;
+        }
+        .items-table td:first-child {
+            text-align: center;
+            color: #666666;
+            font-weight: 600;
+        }
+        .items-table td:nth-child(3),
+        .items-table td:last-child {
+            text-align: right;
+            font-weight: 500;
+        }
+        .items-table td:nth-child(4) {
+            text-align: center;
+        }
+        .items-table tbody tr:last-child td {
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .item-name {
+            font-weight: 500;
+            color: #333333;
+            margin-bottom: 5px;
+        }
+        .item-details {
+            font-size: 13px;
+            color: #666666;
+            line-height: 1.5;
+        }
+        .totals-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+        }
         .totals-row {
-            padding: 8px 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 15px;
             font-size: 14px;
         }
-        .totals-row.subtotal {
-            color: #666666;
-        }
+        .totals-row.subtotal,
         .totals-row.tax {
             color: #666666;
         }
         .totals-row.total {
             font-size: 18px;
-            font-weight: bold;
-            color: #667eea;
-            border-top: 2px solid #667eea;
-            padding-top: 12px;
-            margin-top: 8px;
+            font-weight: 700;
+            color: #333333;
+            padding-top: 15px;
+            margin-top: 10px;
+            border-top: 1px solid #e0e0e0;
         }
         .terms-section {
-            background-color: #fff8e1;
-            padding: 20px;
-            border-radius: 5px;
+            padding: 20px 0;
             margin: 25px 0;
-            border-left: 4px solid #ffc107;
+            border-top: 1px solid #e0e0e0;
         }
         .terms-section h3 {
             margin: 0 0 15px 0;
-            color: #f57c00;
+            color: #333333;
             font-size: 16px;
+            font-weight: 600;
         }
         .terms-section ul {
             margin: 10px 0;
@@ -122,26 +169,29 @@
         .terms-section li {
             margin: 8px 0;
             font-size: 14px;
+            color: #666666;
         }
         .cta-button {
             display: inline-block;
-            background-color: #667eea;
+            background-color: #000000;
             color: #ffffff !important;
-            padding: 14px 30px;
+            padding: 14px 35px;
             text-decoration: none;
-            border-radius: 5px;
-            font-weight: 600;
+            border-radius: 3px;
+            font-weight: 500;
             margin: 20px 0;
             text-align: center;
+            font-size: 14px;
         }
         .cta-button:hover {
-            opacity: 0.9;
+            opacity: 0.85;
         }
         .email-footer {
-            background-color: #f8f9fa;
+            background-color: #ffffff;
             padding: 25px;
             text-align: center;
             border-top: 1px solid #e0e0e0;
+            margin-top: 30px;
         }
         .contact-info {
             margin: 15px 0;
@@ -149,18 +199,27 @@
             color: #666666;
         }
         .contact-info a {
-            color: #667eea;
+            color: #333333;
             text-decoration: none;
         }
         .update-badge {
             display: inline-block;
-            background-color: #ffc107;
-            color: #000000;
+            background-color: #000000;
+            color: #ffffff;
             padding: 5px 12px;
             border-radius: 3px;
-            font-size: 12px;
-            font-weight: bold;
+            font-size: 11px;
+            font-weight: 600;
             margin-left: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .note-box {
+            padding: 15px;
+            margin: 20px 0;
+            border-left: 3px solid #333333;
+            font-size: 14px;
+            color: #666666;
         }
     </style>
 </head>
@@ -204,9 +263,9 @@
             </div>
 
             {% if is_update %}
-            <p style="background-color: #fff3cd; padding: 10px; border-radius: 5px; border-left: 4px solid #ffc107;">
+            <div class="note-box">
                 <strong>Note:</strong> This updated quotation supersedes any previous version and remains valid for 30 days from the date of this email.
-            </p>
+            </div>
             {% endif %}
 
             <p>{% if is_update %}Here is your updated price quote:{% else %}Here is the price quote for the items you requested:{% endif %}</p>
@@ -215,24 +274,28 @@
             <table class="items-table">
                 <thead>
                     <tr>
-                        <th>Item Description</th>
+                        <th>No.</th>
+                        <th>Item</th>
+                        <th style="text-align: right;">Price</th>
                         <th style="text-align: center;">Quantity</th>
-                        <th style="text-align: right;">Unit Price</th>
                         <th style="text-align: right;">Total</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in items %}
                     <tr>
+                        <td>{{ forloop.counter|stringformat:"02d" }}</td>
                         <td>
-                            <strong>{{ item.product_name }}</strong>
-                            {% if item.product_sku %}
-                            <br><small style="color: #666;">SKU: {{ item.product_sku }}</small>
-                            {% endif %}
+                            <div class="item-name">{{ item.product_name }}</div>
+                            <div class="item-details">
+                                {% if item.product_sku %}SKU: {{ item.product_sku }}{% endif %}
+                                {% if item.product_sku and item.size %} | {% endif %}
+                                {% if item.size %}Size: {{ item.size }}{% endif %}
+                            </div>
                         </td>
-                        <td style="text-align: center;">{{ item.quantity }}</td>
                         <td style="text-align: right;">${{ item.unit_price|floatformat:2 }}</td>
-                        <td style="text-align: right;"><strong>${{ item.line_total|floatformat:2 }}</strong></td>
+                        <td style="text-align: center;">{{ item.quantity }}</td>
+                        <td style="text-align: right;">${{ item.line_total|floatformat:2 }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -269,8 +332,8 @@
             </div>
 
             {% if quotation.customer_notes %}
-            <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #2196f3;">
-                <h3 style="margin: 0 0 10px 0; color: #1976d2; font-size: 14px;">Additional Notes:</h3>
+            <div class="note-box">
+                <h3 style="margin: 0 0 10px 0; color: #333333; font-size: 14px; font-weight: 600;">Additional Notes:</h3>
                 <p style="margin: 0; font-size: 14px;">{{ quotation.customer_notes }}</p>
             </div>
             {% endif %}
