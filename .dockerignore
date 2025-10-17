@@ -1,0 +1,83 @@
+# Docker ignore file - excludes files from Docker build context
+# This speeds up builds and reduces image size
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual Environment
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment files (use .env.docker instead)
+.env
+.env.local
+.env.*.local
+
+# Database
+*.sqlite3
+*.db
+
+# Logs
+*.log
+logs/
+django.log
+
+# Media files (mounted as volume)
+media/
+
+# Static files (collected during build)
+staticfiles/
+
+# Temporary files
+temp_uploads/
+*.tmp
+*.bak
+
+# Documentation
+README.md
+*.md
+docs/
+
+# Docker files
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Testing
+.tox/
+.coverage
+htmlcov/
+test-results/
+implementation_notes/

@@ -158,7 +158,7 @@
                             <button type="button" class="btn btn-sm btn-soft-secondary dropdown-toggle" data-bs-toggle="dropdown">
                                 <i class="uil-sort me-1"></i> Sort
                             </button>
-                            <div class="dropdown-menu">
+                            <div class="dropdown-menu dropdown-menu-end">
                                 <a class="dropdown-item" href="#">Name (A-Z)</a>
                                 <a class="dropdown-item" href="#">Name (Z-A)</a>
                                 <a class="dropdown-item" href="#">Price (Low to High)</a>
@@ -398,6 +398,15 @@
 .avatar-xl {
     width: 80px;
     height: 80px;
+}
+
+/* Fix dropdown alignment - remove margin-top gap */
+.wholesale-category-page .dropdown-menu {
+    margin-top: 0 !important;
+}
+
+.wholesale-category-page .dropdown {
+    position: relative;
 }
 
 .font-size-10 { font-size: 10px !important; }

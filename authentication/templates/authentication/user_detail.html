@@ -42,23 +42,6 @@
 
 {% block content %}
 <div class="row">
-    <div class="col-12">
-        <div class="page-title-box d-flex align-items-center justify-content-between">
-            <h4 class="mb-0">
-                <i class="uil-user text-primary me-2"></i>User Details
-            </h4>
-            <div class="page-title-right">
-                <ol class="breadcrumb m-0">
-                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'authentication:user-list' %}">User Management</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'authentication:user-list' %}">Users</a></li>
-                    <li class="breadcrumb-item active">{{ object.username }}</li>
-                </ol>
-            </div>
-        </div>
-    </div>
-</div>
-<div class="row">
     <!-- User Information -->
     <div class="col-md-8">
         <!-- Basic Information -->

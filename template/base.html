@@ -21,7 +21,9 @@
         <link href="{% static 'assets/css/custom/clubs.css' %}" rel="stylesheet" type="text/css" />
         <!-- Custom Mini Cart Css -->
         <link href="{% static 'assets/css/custom/minicart.css' %}" rel="stylesheet" type="text/css" />
-        
+        <!-- Custom Dropdown Fix Css -->
+        <link href="{% static 'assets/css/custom/dropdown-fix.css' %}" rel="stylesheet" type="text/css" />
+
         <!-- Extra CSS Block for page-specific styles -->
         {% block extra_css %}{% endblock %}
         
@@ -219,17 +221,10 @@
                             </button>
                             <div class="dropdown-menu dropdown-menu-end">
                                 <!-- item-->
-                                {% if user.is_admin %}
-                                <a class="dropdown-item" href="{% url 'authentication:admin-dashboard' %}"><i class="uil uil-user-circle font-size-18 align-middle text-muted me-1"></i> <span class="align-middle">Admin Dashboard</span></a>
-                                {% endif %}
                                 {% if user.is_customer %}
                                 <a class="dropdown-item" href="{% url 'authentication:customer-profile' %}"><i class="uil uil-cog font-size-18 align-middle me-1 text-muted"></i> <span class="align-middle">Profile Settings</span></a>
                                 {% elif user.id %}
                                 <a class="dropdown-item" href="{% url 'authentication:user-detail' user.id %}"><i class="uil uil-cog font-size-18 align-middle me-1 text-muted"></i> <span class="align-middle">Profile Settings</span></a>
-                                {% endif %}
-                                {% if user.is_staff %}
-                                <div class="dropdown-divider"></div>
-                                <a class="dropdown-item" href="{% url 'clubs:sync-lotto-clubs-page' %}"><i class="uil uil-sync font-size-18 align-middle me-1 text-muted"></i> <span class="align-middle">LOTTO Sync</span></a>
                                 {% endif %}
                                 <div class="dropdown-divider"></div>
                                 <a class="dropdown-item" href="{% url 'authentication:logout' %}"><i class="uil uil-sign-out-alt font-size-18 align-middle me-1 text-muted"></i> <span class="align-middle">Sign out</span></a>

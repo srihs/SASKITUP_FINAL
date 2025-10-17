@@ -1,0 +1,41 @@
+/*
+ * User Dropdown Alignment Fix
+ * Fixes the 72px gap between the user dropdown button and the dropdown menu
+ * The gap is caused by Bootstrap's Popper.js transform positioning
+ */
+
+/* Specifically target the user dropdown menu */
+#page-header-user-dropdown + .dropdown-menu.dropdown-menu-end {
+    /* Remove the transform that's creating the gap */
+    transform: none !important;
+
+    /* Position it directly below the button */
+    top: 100% !important;
+
+    /* Ensure it's positioned absolutely relative to its parent */
+    position: absolute !important;
+
+    /* Remove any margin-top that might be present */
+    margin-top: 0 !important;
+
+    /* Add a small spacing for visual separation */
+    margin-top: 2px !important;
+}
+
+/* Ensure the dropdown stays aligned when shown */
+#page-header-user-dropdown + .dropdown-menu.dropdown-menu-end.show {
+    transform: none !important;
+    top: 100% !important;
+}
+
+/* Alternative fix: Override Bootstrap's dropdown positioning for all header dropdowns */
+.navbar-header .dropdown-menu.dropdown-menu-end {
+    transform: none !important;
+    top: 100% !important;
+    margin-top: 2px !important;
+}
+
+/* Ensure smooth transition when dropdown opens/closes */
+.navbar-header .dropdown-menu {
+    transition: opacity 0.15s ease-in-out, visibility 0.15s ease-in-out;
+}

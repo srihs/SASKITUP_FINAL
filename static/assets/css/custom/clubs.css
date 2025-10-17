@@ -822,6 +822,18 @@
 }
 
 /* ============================================
+   Dropdown Menu Alignment Fix
+   ============================================ */
+/* Fix Bootstrap dropdown alignment - remove default margin-top gap */
+.dropdown-menu {
+    margin-top: 0 !important;
+}
+
+.dropdown {
+    position: relative;
+}
+
+/* ============================================
    Mobile Navigation Enhancements
    ============================================ */
 @media (max-width: 991.98px) {
@@ -840,11 +852,9 @@
         justify-content: center;
     }
     
-    /* Dropdown positioning fixes */
-    .dropdown-menu {
-        margin-top: 0.5rem;
-    }
-    
+    /* Dropdown positioning - removed margin-top to fix alignment issues */
+    /* Bootstrap's default positioning works correctly without additional margin */
+
     /* Mobile sidebar improvements */
     .main-content {
         margin-left: 0;

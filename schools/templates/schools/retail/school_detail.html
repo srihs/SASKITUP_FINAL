@@ -5,25 +5,6 @@
 
 {% block content %}
 <div class="tus-school-page">
-<!-- start page title -->
-<div class="row">
-    <div class="col-12">
-        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-            <h4 class="mb-sm-0">{{ school.name }}</h4>
-            <div class="page-title-right">
-                <ol class="breadcrumb m-0">
-                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'schools:school_list' %}">Schools</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'schools:retail_schools' %}">Retail Schools</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'schools:retail_location_detail' location_slug=school.location.slug %}">{{ school.location.name }}</a></li>
-                    <li class="breadcrumb-item active">{{ school.name }}</li>
-                </ol>
-            </div>
-        </div>
-    </div>
-</div>
-<!-- end page title -->
-
 <!-- School Header -->
 <div class="row">
     <div class="col-12">
@@ -48,25 +29,6 @@
                             </span>
                         </div>
                         <p class="text-muted mb-0">{{ school.location.name }}{% if school.contact_person %} • Contact: {{ school.contact_person }}{% endif %}</p>
-                    </div>
-                    <div class="flex-shrink-0">
-                        <div class="dropdown">
-                            <button type="button" class="btn btn-soft-tus-primary dropdown-toggle" data-bs-toggle="dropdown">
-                                <i class="uil-ellipsis-h me-1"></i> Actions
-                            </button>
-                            <div class="dropdown-menu dropdown-menu-end">
-                                <a class="dropdown-item" href="#">
-                                    <i class="uil-edit-alt me-1"></i> Edit School
-                                </a>
-                                <a class="dropdown-item" href="#">
-                                    <i class="uil-sync me-1"></i> Sync Products
-                                </a>
-                                <div class="dropdown-divider"></div>
-                                <a class="dropdown-item" href="{% url 'schools:retail_location_detail' location_slug=school.location.slug %}">
-                                    <i class="uil-arrow-left me-1"></i> Back to Location
-                                </a>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -647,6 +609,22 @@
 
 .font-weight-semibold {
     font-weight: 600;
+}
+
+/* Fix dropdown alignment - remove margin-top gap and transform offset */
+.tus-school-page .dropdown-menu {
+    margin-top: 0 !important;
+}
+
+/* Override Popper.js inline transform with higher specificity */
+.tus-school-page .dropdown-menu.show,
+.tus-school-page .dropdown-menu[data-popper-placement],
+.tus-school-page .dropdown-menu[style*="transform"] {
+    transform: translate(0px, 38px) !important;
+}
+
+.tus-school-page .dropdown {
+    position: relative;
 }
 
 /* Responsive Design - Simplified */

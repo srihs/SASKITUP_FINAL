@@ -5,24 +5,6 @@
 
 {% block content %}
 <div class="tus-location-page">
-<!-- start page title -->
-<div class="row">
-    <div class="col-12">
-        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-            <h4 class="mb-sm-0">{{ location.name }}</h4>
-            <div class="page-title-right">
-                <ol class="breadcrumb m-0">
-                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'schools:school_list' %}">Schools</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'schools:retail_schools' %}">Retail Schools</a></li>
-                    <li class="breadcrumb-item active">{{ location.name }}</li>
-                </ol>
-            </div>
-        </div>
-    </div>
-</div>
-<!-- end page title -->
-
 <!-- Location Header -->
 <div class="row">
     <div class="col-12">
@@ -49,25 +31,6 @@
                         {% if location.description %}
                         <p class="text-muted mb-0">{{ location.description }}</p>
                         {% endif %}
-                    </div>
-                    <div class="flex-shrink-0">
-                        <div class="dropdown">
-                            <button type="button" class="btn btn-soft-tus-primary dropdown-toggle" data-bs-toggle="dropdown">
-                                <i class="uil-ellipsis-h me-1"></i> Actions
-                            </button>
-                            <div class="dropdown-menu dropdown-menu-end">
-                                <a class="dropdown-item" href="#">
-                                    <i class="uil-edit-alt me-1"></i> Edit Location
-                                </a>
-                                <a class="dropdown-item" href="#">
-                                    <i class="uil-sync me-1"></i> Sync Schools
-                                </a>
-                                <div class="dropdown-divider"></div>
-                                <a class="dropdown-item" href="{% url 'schools:retail_schools' %}">
-                                    <i class="uil-arrow-left me-1"></i> Back to Locations
-                                </a>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
