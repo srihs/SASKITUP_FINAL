@@ -1345,6 +1345,14 @@ class SaveQuotationView(LoginRequiredMixin, View):
                             'error': 'Approved quotations cannot be edited.'
                         }, status=400)
 
+                    # Validate change note is provided when editing
+                    change_note = request.POST.get('change_note', '').strip()
+                    if not change_note:
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Please provide a note explaining the changes you made to this quotation.'
+                        }, status=400)
+
                     # Delete existing quotation items
                     quotation.items.all().delete()
 
@@ -1371,6 +1379,7 @@ class SaveQuotationView(LoginRequiredMixin, View):
                     from authentication.models import User
 
                     assigned_sales_rep_id = request.POST.get('assigned_sales_rep', '').strip()
+                    assigned_sales_rep = None
                     if assigned_sales_rep_id:
                         try:
                             assigned_sales_rep = User.objects.get(pk=int(assigned_sales_rep_id))
@@ -1380,16 +1389,24 @@ class SaveQuotationView(LoginRequiredMixin, View):
                                     'success': False,
                                     'error': 'Selected user is not a sales representative'
                                 }, status=400)
-                            quotation.assigned_sales_rep = assigned_sales_rep
                         except (User.DoesNotExist, ValueError):
                             return JsonResponse({
                                 'success': False,
                                 'error': 'Invalid sales representative selected'
                             }, status=400)
-                    else:
-                        quotation.assigned_sales_rep = None
+
+                    # Auto-assign sales rep and account manager if not manually set
+                    assignment_info = None
+                    if not assigned_sales_rep:
+                        assignment_info = get_assigned_staff_from_products(quotation_data.get('items', []))
+                        if assignment_info.get('sales_rep'):
+                            assigned_sales_rep = assignment_info['sales_rep']
+                            logger.info(f"Auto-assigned sales rep for editing: {assigned_sales_rep.get_full_name()}")
+
+                    quotation.assigned_sales_rep = assigned_sales_rep
 
                     account_manager_id = request.POST.get('account_manager', '').strip()
+                    account_manager = None
                     if account_manager_id:
                         try:
                             account_manager = User.objects.get(pk=int(account_manager_id))
@@ -1399,14 +1416,22 @@ class SaveQuotationView(LoginRequiredMixin, View):
                                     'success': False,
                                     'error': 'Selected user is not an account manager'
                                 }, status=400)
-                            quotation.account_manager = account_manager
                         except (User.DoesNotExist, ValueError):
                             return JsonResponse({
                                 'success': False,
                                 'error': 'Invalid account manager selected'
                             }, status=400)
-                    else:
-                        quotation.account_manager = None
+
+                    # Auto-assign account manager if not manually set
+                    if not account_manager:
+                        # Reuse assignment_info if already fetched, otherwise fetch it
+                        if not assignment_info:
+                            assignment_info = get_assigned_staff_from_products(quotation_data.get('items', []))
+                        if assignment_info.get('account_manager'):
+                            account_manager = assignment_info['account_manager']
+                            logger.info(f"Auto-assigned account manager for editing: {account_manager.get_full_name()}")
+
+                    quotation.account_manager = account_manager
 
                 except Quotation.DoesNotExist:
                     return JsonResponse({
@@ -1584,6 +1609,20 @@ class SaveQuotationView(LoginRequiredMixin, View):
             # Calculate quotation totals
             quotation.calculate_totals()
 
+            # Create version snapshot for edited quotations
+            if is_editing:
+                try:
+                    quotation.create_edit_snapshot(
+                        user=request.user,
+                        change_note=change_note,
+                        description=f'Edited by {request.user.get_full_name()}: {items_created} items'
+                    )
+                except ValueError as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': str(e)
+                    }, status=400)
+
             # Clear session
             clear_quotation_session(request)
 
@@ -1607,7 +1646,7 @@ class SaveQuotationView(LoginRequiredMixin, View):
             # Log action
             if is_editing:
                 action_type = 'quotation_updated'
-                action_description = f'Updated quotation {quotation.quotation_number} with {items_created} items'
+                action_description = f'Updated quotation {quotation.quotation_number} with {items_created} items. Change note: {change_note}'
             else:
                 action_type = 'quotation_created'
                 action_description = f'Created quotation {quotation.quotation_number} with {items_created} items'
@@ -1670,14 +1709,28 @@ class MyQuotationsListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         """Get quotations for current user"""
+        from django.db.models import Case, When, Value, BooleanField, OuterRef, Subquery
+        from quotations.models import QuotationVersion
+
+        # Subquery to get the latest change note for each quotation
+        latest_change_note = QuotationVersion.objects.filter(
+            quotation=OuterRef('pk')
+        ).order_by('-version_number').values('change_note')[:1]
+
         queryset = Quotation.objects.filter(
             created_by=self.request.user
         ).select_related(
-            'institution_content_type',
             'created_by',
             'approved_by',
             'rejected_by'
-        ).prefetch_related('items')
+        ).prefetch_related('items').annotate(
+            is_edited=Case(
+                When(version__gt=1, then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField()
+            ),
+            latest_change_note=Subquery(latest_change_note)
+        )
 
         # Apply filters
         status = self.request.GET.get('status')
@@ -1793,6 +1846,186 @@ class EditQuotationView(LoginRequiredMixin, View):
 
 
 # =====================================
+# QUOTATION HISTORY VIEW
+# =====================================
+
+class QuotationHistoryView(LoginRequiredMixin, View):
+    """
+    View quotation edit history and version snapshots.
+    Shows all versions with change notes and diffs.
+    """
+
+    def get(self, request, pk):
+        try:
+            # Get the quotation
+            quotation = get_object_or_404(Quotation, pk=pk)
+
+            # Check ownership (user must own the quotation or be admin/account manager)
+            if not (quotation.created_by == request.user or
+                    request.user.is_admin or
+                    request.user.is_account_manager):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'You do not have permission to view this quotation history.'
+                }, status=403)
+
+            # Get all versions
+            versions = quotation.get_version_history()
+
+            # Build version data with diffs
+            version_data = []
+            previous_snapshot = None
+
+            for version in versions:
+                current_snapshot = version.snapshot_data
+
+                # Calculate differences from previous version
+                diff_info = None
+                if previous_snapshot:
+                    diff_info = self._calculate_diff(previous_snapshot, current_snapshot)
+
+                version_data.append({
+                    'version_number': version.version_number,
+                    'created_at': version.created_at.isoformat(),
+                    'created_by': {
+                        'id': version.created_by.id if version.created_by else None,
+                        'name': version.created_by.get_full_name() if version.created_by else 'System',
+                        'email': version.created_by.email if version.created_by else None,
+                    },
+                    'change_description': version.change_description,
+                    'change_note': version.change_note,
+                    'snapshot': current_snapshot,
+                    'diff': diff_info
+                })
+
+                previous_snapshot = current_snapshot
+
+            # Transform version_data to match frontend expectations
+            history_data = []
+            for v_data in version_data:
+                # Calculate items changes summary
+                items_added = 0
+                items_removed = 0
+                items_modified = 0
+
+                if v_data['diff']:
+                    for change in v_data['diff'].get('changes', []):
+                        if change['field'] == 'item_count':
+                            diff = change['new_value'] - change['old_value']
+                            if diff > 0:
+                                items_added = diff
+                            else:
+                                items_removed = abs(diff)
+                        elif change['field'].startswith('item_') and '_' in change['field']:
+                            items_modified += 1
+
+                history_entry = {
+                    'version': v_data['version_number'],
+                    'date': v_data['created_at'],
+                    'user': v_data['created_by']['name'],
+                    'note': v_data['change_note'] or v_data['change_description'] or 'No note provided',
+                    'changes': {
+                        'items_added': items_added,
+                        'items_removed': items_removed,
+                        'items_modified': items_modified if items_modified > 0 else len(v_data['snapshot'].get('items', [])),
+                        'pricing_changed': v_data['diff']['pricing_changed'] if v_data['diff'] else False,
+                        'old_total': None,
+                        'new_total': v_data['snapshot'].get('total', '0.00'),
+                        'discount_changed': False
+                    }
+                }
+
+                # Extract old total from diff if available
+                if v_data['diff']:
+                    for change in v_data['diff'].get('changes', []):
+                        if change['field'] == 'total':
+                            history_entry['changes']['old_total'] = change.get('old_value')
+                        elif change['field'] in ['discount_percentage', 'discount_amount']:
+                            history_entry['changes']['discount_changed'] = True
+
+                history_data.append(history_entry)
+
+            return JsonResponse({
+                'success': True,
+                'quotation_number': quotation.quotation_number,
+                'current_version': quotation.version,
+                'total_versions': len(history_data),
+                'history': history_data  # Changed from 'versions' to 'history' for frontend compatibility
+            })
+
+        except Exception as e:
+            logger.error(f"Error retrieving quotation history: {e}", exc_info=True)
+            return JsonResponse({
+                'success': False,
+                'error': 'An error occurred while retrieving quotation history.'
+            }, status=500)
+
+    def _calculate_diff(self, old_snapshot, new_snapshot):
+        """
+        Calculate differences between two version snapshots
+
+        Args:
+            old_snapshot: Previous version snapshot data
+            new_snapshot: Current version snapshot data
+
+        Returns:
+            dict: Differences organized by category
+        """
+        diff = {
+            'status_changed': old_snapshot.get('status') != new_snapshot.get('status'),
+            'pricing_changed': False,
+            'items_changed': False,
+            'changes': []
+        }
+
+        # Check status change
+        if diff['status_changed']:
+            diff['changes'].append({
+                'field': 'status',
+                'old_value': old_snapshot.get('status'),
+                'new_value': new_snapshot.get('status')
+            })
+
+        # Check pricing changes
+        pricing_fields = ['subtotal', 'discount_percentage', 'discount_amount', 'tax_percentage', 'tax_amount', 'total']
+        for field in pricing_fields:
+            old_value = old_snapshot.get(field)
+            new_value = new_snapshot.get(field)
+            if old_value != new_value:
+                diff['pricing_changed'] = True
+                diff['changes'].append({
+                    'field': field,
+                    'old_value': old_value,
+                    'new_value': new_value
+                })
+
+        # Check items changes
+        old_items = old_snapshot.get('items', [])
+        new_items = new_snapshot.get('items', [])
+
+        if len(old_items) != len(new_items):
+            diff['items_changed'] = True
+            diff['changes'].append({
+                'field': 'item_count',
+                'old_value': len(old_items),
+                'new_value': len(new_items)
+            })
+        else:
+            # Compare individual items
+            for i, (old_item, new_item) in enumerate(zip(old_items, new_items)):
+                for key in ['product_name', 'quantity', 'unit_price', 'line_total']:
+                    if old_item.get(key) != new_item.get(key):
+                        diff['items_changed'] = True
+                        diff['changes'].append({
+                            'field': f'item_{i+1}_{key}',
+                            'old_value': old_item.get(key),
+                            'new_value': new_item.get(key)
+                        })
+
+        return diff
+
+
+# =====================================
 # QUOTATION DETAIL VIEW
 # =====================================
 
@@ -1824,6 +2057,16 @@ class QuotationDetailView(LoginRequiredMixin, DetailView):
         # Get quotation validity days from settings
         settings = SiteSettings.objects.get_settings()
         context['quotation_validity_days'] = settings.quotation_validity_days
+
+        # Split additional emails into a list for template iteration
+        if self.object.additional_emails:
+            context['additional_emails_list'] = [
+                email.strip()
+                for email in self.object.additional_emails.split(';')
+                if email.strip()
+            ]
+        else:
+            context['additional_emails_list'] = []
 
         # Log quotation view
         AuditLog.log_action(
@@ -3508,3 +3751,150 @@ class ProductsLowMarginView(LoginRequiredMixin, UserPassesTestMixin, View):
         }
 
         return render(request, self.template_name, context)
+
+
+# =====================================
+# API ENDPOINT - QUOTATION VERSION HISTORY
+# =====================================
+
+class QuotationVersionsAPIView(LoginRequiredMixin, View):
+    """
+    API endpoint to fetch all version history for a quotation.
+
+    Returns JSON with all QuotationVersion records including:
+    - version_number
+    - created_at (formatted timestamp)
+    - created_by (user name)
+    - change_note
+    - changes_summary (snapshot_data)
+
+    Permissions:
+    - User must own the quotation (created_by) or be admin/staff
+
+    URL: /quotations/<quotation_id>/versions/
+    """
+
+    def get(self, request, quotation_id):
+        """
+        Fetch all version history for a quotation
+
+        Args:
+            request: HTTP request object
+            quotation_id: UUID of the quotation
+
+        Returns:
+            JsonResponse with version history or error
+        """
+        try:
+            # Get the quotation
+            quotation = get_object_or_404(
+                Quotation.objects.select_related('created_by'),
+                pk=quotation_id
+            )
+
+            # Permission check: user must own quotation or be admin/staff
+            user = request.user
+            has_permission = False
+
+            if user.is_admin or user.is_staff or user.is_superuser:
+                has_permission = True
+            elif quotation.created_by == user:
+                has_permission = True
+            elif user.is_account_manager:
+                # Account managers can view all quotations
+                has_permission = True
+            elif user.is_sales_rep:
+                # Sales reps can view quotations they're assigned to
+                if quotation.assigned_sales_rep == user:
+                    has_permission = True
+
+            if not has_permission:
+                logger.warning(
+                    f"Permission denied: User {user.id} ({user.username}) "
+                    f"attempted to access version history for quotation {quotation_id}"
+                )
+                return JsonResponse({
+                    'success': False,
+                    'error': 'You do not have permission to view this quotation version history.'
+                }, status=403)
+
+            # Get all versions ordered by version_number descending (newest first)
+            versions = quotation.versions.all().select_related('created_by').order_by('-version_number')
+
+            # Build response data
+            version_data = []
+            for version in versions:
+                # Format the created_at timestamp
+                created_at_formatted = version.created_at.strftime('%Y-%m-%d %H:%M:%S')
+
+                # Get user name
+                user_name = 'Unknown User'
+                if version.created_by:
+                    user_name = version.created_by.get_full_name() or version.created_by.username
+
+                # Parse snapshot data to extract changes
+                snapshot = version.snapshot_data or {}
+
+                # Use detailed changes if available, otherwise fallback to basic info
+                if version.changes_detail:
+                    # Use the detailed changes we calculated
+                    changes = {
+                        'before_total': version.changes_detail.get('before_total'),
+                        'after_total': version.changes_detail.get('after_total'),
+                        'items_added': version.changes_detail.get('items_added', []),
+                        'items_removed': version.changes_detail.get('items_removed', []),
+                        'items_modified': version.changes_detail.get('items_modified', [])
+                    }
+                else:
+                    # Fallback for older versions without detailed changes
+                    items = snapshot.get('items', [])
+                    changes = {
+                        'before_total': None,
+                        'after_total': snapshot.get('total', '0.00'),
+                        'items_added': [],
+                        'items_removed': [],
+                        'items_modified': []
+                    }
+
+                # Build version object (format expected by frontend)
+                version_obj = {
+                    'version': version.version_number,
+                    'date': version.created_at.isoformat(),  # ISO format for JavaScript Date parsing
+                    'user': user_name,
+                    'note': version.change_note or version.change_description or 'No note provided',
+                    'changes': changes
+                }
+
+                version_data.append(version_obj)
+
+            # Log successful access
+            AuditLog.log_action(
+                user=request.user,
+                action_type='api_access',
+                description=f'Accessed version history API for quotation {quotation.quotation_number}',
+                request=request,
+                quotation_id=str(quotation_id),
+                version_count=len(version_data)
+            )
+
+            return JsonResponse({
+                'success': True,
+                'quotation_number': quotation.quotation_number,
+                'quotation_id': str(quotation.id),
+                'total_versions': len(version_data),
+                'versions': version_data
+            })
+
+        except Quotation.DoesNotExist:
+            logger.warning(f"Quotation not found: {quotation_id}")
+            return JsonResponse({
+                'success': False,
+                'error': 'Quotation not found.'
+            }, status=404)
+
+        except Exception as e:
+            logger.error(f"Error fetching version history for quotation {quotation_id}: {e}", exc_info=True)
+            return JsonResponse({
+                'success': False,
+                'error': 'An error occurred while fetching version history.'
+            }, status=500)

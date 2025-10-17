@@ -60,6 +60,9 @@ urlpatterns = [
     # Edit Quotation
     path('edit/<uuid:pk>/', views.EditQuotationView.as_view(), name='edit-quotation'),
 
+    # Quotation History
+    path('history/<uuid:pk>/', views.QuotationHistoryView.as_view(), name='quotation-history'),
+
     # Quotation Preview
     path('preview/<uuid:pk>/', views.QuotationPreviewView.as_view(), name='quotation-preview'),
 
@@ -73,4 +76,7 @@ urlpatterns = [
     path('reports/products/missing-cost/', views.ProductsMissingCostView.as_view(), name='products-missing-cost'),
     path('reports/products/price-anomaly/', views.ProductsPriceAnomalyView.as_view(), name='products-price-anomaly'),
     path('reports/products/low-margin/', views.ProductsLowMarginView.as_view(), name='products-low-margin'),
+
+    # API - Version History
+    path('<uuid:quotation_id>/versions/', views.QuotationVersionsAPIView.as_view(), name='quotation-versions-api'),
 ]

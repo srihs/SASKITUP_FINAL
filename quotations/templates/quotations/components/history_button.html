@@ -1,0 +1,77 @@
+<!-- Quotation History Button Component -->
+<!-- Usage: {% include 'quotations/components/history_button.html' with quotation=quotation %} -->
+
+{% if quotation.version > 1 %}
+<button type="button"
+        class="btn btn-info waves-effect waves-light history-btn"
+        onclick="loadQuotationHistory({{ quotation.id }})"
+        title="View edit history">
+    <i class="uil uil-history"></i>
+    <span class="d-none d-sm-inline-block ms-1">History</span>
+    <span class="badge bg-light text-dark ms-1">{{ quotation.version|add:"-1" }}</span>
+</button>
+{% endif %}
+
+<style>
+/* History Button Styles */
+.history-btn {
+    background: linear-gradient(135deg, #50a5f1 0%, #4c9ae8 100%);
+    color: white;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.history-btn:hover {
+    background: linear-gradient(135deg, #4c9ae8 0%, #4890df 100%);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(80, 165, 241, 0.3);
+}
+
+.history-btn .badge {
+    background-color: rgba(255, 255, 255, 0.9) !important;
+    color: #50a5f1 !important;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 10px;
+}
+
+/* For table action column */
+.action-icon.history-icon {
+    color: #50a5f1;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.action-icon.history-icon:hover {
+    color: #4890df;
+    transform: scale(1.1);
+}
+
+/* Inline history link (for lists) */
+.history-link {
+    color: #50a5f1;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.history-link:hover {
+    color: #4890df;
+    text-decoration: underline;
+}
+
+.history-link i {
+    margin-right: 0.25rem;
+}
+
+.history-badge {
+    background-color: #50a5f1;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 0.25rem;
+}
+</style>

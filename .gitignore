@@ -302,3 +302,10 @@ temp_uploads/
 
 test-results/
 chrome/
+implementation_notes/
+
+# Docker files
+.dockerignore
+.env.docker
+docker-compose.yml
+Dockerfile

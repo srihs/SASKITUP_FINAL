@@ -1451,8 +1451,14 @@ function confirmGenerateQuotation() {
     const modal = bootstrap.Modal.getInstance(document.getElementById('generateQuotationModal'));
     modal.hide();
 
-    // Call the actual save function
+    {% if is_editing %}
+    // For editing, show the edit note modal
+    const cartItems = {{ cart_items|length|default:0 }};
+    showEditNoteModal('{{ editing_quotation.quotation_number }}', '{{ editing_quotation.get_status_display }}', cartItems);
+    {% else %}
+    // For new quotations, save directly
     saveQuotation();
+    {% endif %}
 }
 
 // Email validation function
@@ -1490,8 +1496,13 @@ function validateAdditionalEmails() {
     return true;
 }
 
-// Save Quotation
+// Save Quotation (for new quotations)
 function saveQuotation() {
+    saveQuotationWithNote(''); // Empty note for new quotations
+}
+
+// Save Quotation with Note (for both new and edited quotations)
+function saveQuotationWithNote(changeNote) {
     // Validate additional emails before saving
     if (!validateAdditionalEmails()) {
         hideLoading();
@@ -1518,6 +1529,11 @@ function saveQuotation() {
     formData.append('recipient_name', recipientName);
     formData.append('recipient_address', recipientAddress);
     formData.append('additional_emails', additionalEmails);
+
+    // Add change note (for edited quotations)
+    if (changeNote) {
+        formData.append('change_note', changeNote);
+    }
 
     // Add institution if selected
     if (institutionSelect) {
@@ -1547,13 +1563,13 @@ function saveQuotation() {
     .then(data => {
         hideLoading();
         if (data.success) {
-            toastr.success(data.message || 'Quotation generated successfully!');
+            toastr.success(data.message || 'Quotation saved successfully!');
             // Redirect to quotation preview page after a short delay
             setTimeout(() => {
                 window.location.href = data.redirect_url + '?generated=true';
             }, 1000);
         } else {
-            toastr.error(data.error || 'Failed to generate quotation');
+            toastr.error(data.error || 'Failed to save quotation');
         }
     })
     .catch(error => {
@@ -1606,4 +1622,8 @@ function confirmClearQuotation() {
     });
 }
 </script>
+
+<!-- Include Edit History Modals -->
+{% include 'quotations/components/edit_history_modals.html' %}
+
 {% endblock %}

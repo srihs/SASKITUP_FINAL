@@ -553,8 +553,15 @@ class Quotation(models.Model):
         # Create version snapshot
         self.create_version_snapshot(f'Rejected by {rejected_by.get_full_name()}: {reason}')
 
-    def create_version_snapshot(self, description=''):
-        """Create a version snapshot of the current quotation state"""
+    def create_version_snapshot(self, description='', user=None, change_note=''):
+        """
+        Create a version snapshot of the current quotation state
+
+        Args:
+            description: Auto-generated description of the change
+            user: User who made the change (defaults to created_by)
+            change_note: User-provided note explaining the changes
+        """
         snapshot_data = {
             'quotation_number': self.quotation_number,
             'status': self.status,
@@ -575,17 +582,63 @@ class Quotation(models.Model):
             ]
         }
 
+        # Calculate detailed changes if there's a previous version
+        changes_detail = None
+        previous_version = self.versions.order_by('-version_number').first()
+        if previous_version and previous_version.snapshot_data:
+            changes_detail = calculate_detailed_changes(
+                previous_version.snapshot_data,
+                snapshot_data
+            )
+
         QuotationVersion.objects.create(
             quotation=self,
             version_number=self.version,
             snapshot_data=snapshot_data,
-            created_by=self.created_by,
-            change_description=description
+            changes_detail=changes_detail,
+            created_by=user or self.created_by,
+            change_description=description,
+            change_note=change_note
         )
 
         # Increment version
         self.version += 1
         self.save(update_fields=['version', 'updated_at'])
+
+    def get_version_history(self):
+        """
+        Get all version history for this quotation
+
+        Returns:
+            QuerySet: All QuotationVersion objects for this quotation, ordered by version_number descending
+        """
+        return self.versions.all().select_related('created_by')
+
+    def create_edit_snapshot(self, user, change_note, description=''):
+        """
+        Create a version snapshot when editing a quotation with user-provided change note
+
+        Args:
+            user: User who made the edit
+            change_note: User-provided note explaining the changes (required for edits)
+            description: Auto-generated description of the change (optional)
+
+        Raises:
+            ValueError: If change_note is empty
+        """
+        if not change_note or not change_note.strip():
+            raise ValueError('Change note is required when editing a quotation')
+
+        # Auto-generate description if not provided
+        if not description:
+            description = f'Edited by {user.get_full_name()}'
+
+        # Create the snapshot
+        self.create_version_snapshot(
+            description=description,
+            user=user,
+            change_note=change_note.strip()
+        )
 
     def get_absolute_url(self):
         """Get absolute URL for quotation detail"""
@@ -908,6 +961,78 @@ class CustomerInstitutionAssignment(models.Model):
         self.save(update_fields=['is_active', 'notes', 'updated_at'])
 
 
+def calculate_detailed_changes(old_snapshot, new_snapshot):
+    """
+    Calculate detailed changes between two quotation snapshots.
+
+    Args:
+        old_snapshot (dict): Previous version snapshot data
+        new_snapshot (dict): Current version snapshot data
+
+    Returns:
+        dict: Detailed changes with items added/removed/modified and totals
+    """
+    changes = {
+        'before_total': old_snapshot.get('total', '0.00'),
+        'after_total': new_snapshot.get('total', '0.00'),
+        'items_added': [],
+        'items_removed': [],
+        'items_modified': []
+    }
+
+    # Get item lists
+    old_items = old_snapshot.get('items', [])
+    new_items = new_snapshot.get('items', [])
+
+    # Create dictionaries for easier comparison (using product_name as key)
+    # Note: In a production system, you'd want a more robust identifier
+    old_items_dict = {item['product_name']: item for item in old_items}
+    new_items_dict = {item['product_name']: item for item in new_items}
+
+    # Find added items (in new but not in old)
+    for product_name, item in new_items_dict.items():
+        if product_name not in old_items_dict:
+            changes['items_added'].append({
+                'product_name': item['product_name'],
+                'quantity': item['quantity'],
+                'price': item['unit_price'],
+                'total': item['line_total']
+            })
+
+    # Find removed items (in old but not in new)
+    for product_name, item in old_items_dict.items():
+        if product_name not in new_items_dict:
+            changes['items_removed'].append({
+                'product_name': item['product_name'],
+                'quantity': item['quantity'],
+                'price': item['unit_price'],
+                'total': item['line_total']
+            })
+
+    # Find modified items (in both but with different quantity or price)
+    for product_name in old_items_dict.keys():
+        if product_name in new_items_dict:
+            old_item = old_items_dict[product_name]
+            new_item = new_items_dict[product_name]
+
+            # Check if quantity or price changed
+            quantity_changed = old_item['quantity'] != new_item['quantity']
+            price_changed = old_item['unit_price'] != new_item['unit_price']
+
+            if quantity_changed or price_changed:
+                changes['items_modified'].append({
+                    'product_name': product_name,
+                    'old_quantity': old_item['quantity'],
+                    'new_quantity': new_item['quantity'],
+                    'old_price': old_item['unit_price'],
+                    'new_price': new_item['unit_price'],
+                    'old_total': old_item['line_total'],
+                    'new_total': new_item['line_total']
+                })
+
+    return changes
+
+
 class QuotationVersion(models.Model):
     """
     Version history tracking for quotations.
@@ -932,9 +1057,18 @@ class QuotationVersion(models.Model):
     snapshot_data = models.JSONField(
         help_text="Complete snapshot of quotation data"
     )
+    changes_detail = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Detailed changes including items added/removed/modified and pricing changes"
+    )
     change_description = models.TextField(
         blank=True,
         help_text="Description of what changed in this version"
+    )
+    change_note = models.TextField(
+        blank=True,
+        help_text="User-provided note explaining the changes made in this version"
     )
 
     # Metadata

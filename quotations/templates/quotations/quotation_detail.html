@@ -577,13 +577,11 @@
                                                 <p>{{ quotation.created_by.phone }}</p>
                                             {% endif %}
 
-                                            {% if quotation.additional_emails %}
+                                            {% if additional_emails_list %}
                                                 <div class="mt-3 pt-2 border-top">
                                                     <p class="mb-1 text-muted" style="font-size: 10px; text-transform: uppercase;">Additional Recipients:</p>
-                                                    {% for email in quotation.additional_emails.split:';' %}
-                                                        {% if email.strip %}
-                                                            <p class="mb-1" style="font-size: 11px;"><i class="uil uil-envelope-alt me-1"></i>{{ email.strip }}</p>
-                                                        {% endif %}
+                                                    {% for email in additional_emails_list %}
+                                                        <p class="mb-1" style="font-size: 11px;"><i class="uil uil-envelope-alt me-1"></i>{{ email }}</p>
                                                     {% endfor %}
                                                 </div>
                                             {% endif %}
@@ -722,6 +720,12 @@
                     <!-- Action Buttons -->
                     <div class="d-print-none mt-4">
                         <div class="float-end">
+                            {% if quotation.version > 1 %}
+                            <button type="button" class="btn btn-info waves-effect waves-light me-1" onclick="loadQuotationHistory('{{ quotation.id }}')">
+                                <i class="uil uil-history"></i> History
+                                <span class="badge bg-white text-info ms-1">{{ quotation.version|add:"-1" }}</span>
+                            </button>
+                            {% endif %}
                             {% if quotation.status not in 'approved,confirmed' %}
                             <a href="{% url 'quotations:edit-quotation' quotation.id %}" class="btn btn-warning waves-effect waves-light me-1">
                                 <i class="uil uil-pen"></i> Edit Quotation
@@ -837,4 +841,8 @@ function confirmApproval() {
     });
 }
 </script>
+
+<!-- Include Edit History Modals -->
+{% include 'quotations/components/edit_history_modals.html' %}
+
 {% endblock %}

@@ -61,6 +61,33 @@
     color: #383d41 !important;
 }
 
+/* Edited Badge Style */
+.badge.bg-secondary-subtle {
+    background-color: #e7e8ea !important;
+    color: #41464b !important;
+}
+
+/* Change Note Styles */
+.change-note-text {
+    background-color: #f8f9fa;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-style: italic;
+    color: #6c757d;
+    display: inline-block;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.change-note-icon {
+    font-size: 14px;
+    margin-left: 4px;
+    color: #adb5bd;
+}
+
 /* Action Icons */
 .action-icon {
     font-size: 18px;
@@ -122,9 +149,9 @@
                                 </th>
                                 <th>Quotation ID</th>
                                 <th>Date</th>
-                                <th>Institution</th>
-                                <th>Type</th>
                                 <th>Items</th>
+                                <th>Edited</th>
+                                <th>Latest Change</th>
                                 <th>Total</th>
                                 <th>Status</th>
                                 <th style="width: 120px;">Action</th>
@@ -146,27 +173,33 @@
                                 </td>
                                 <td>{{ quotation.created_at|date:"M d, Y" }}</td>
                                 <td>
-                                    {% if quotation.institution %}
-                                        {{ quotation.institution_name }}
-                                    {% else %}
-                                        <em class="text-muted">No Institution</em>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if quotation.institution %}
-                                        <span class="badge bg-pill font-size-12 type-{{ quotation.institution_type|lower|cut:' ' }}">
-                                            {{ quotation.institution_type }}
-                                        </span>
-                                    {% else %}
-                                        <span class="badge bg-pill font-size-12 type-no">
-                                            Direct Customer
-                                        </span>
-                                    {% endif %}
-                                </td>
-                                <td>
                                     <span class="badge bg-primary-subtle text-primary font-size-12">
                                         {{ quotation.items.count }} item{{ quotation.items.count|pluralize }}
                                     </span>
+                                </td>
+                                <td>
+                                    {% if quotation.is_edited %}
+                                        <span class="badge bg-pill bg-secondary-subtle text-secondary font-size-12">
+                                            <i class="uil uil-pen me-1"></i>Edited
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if quotation.latest_change_note %}
+                                        <span class="change-note-text"
+                                              data-bs-toggle="tooltip"
+                                              data-bs-placement="top"
+                                              title="{{ quotation.latest_change_note }}">
+                                            {{ quotation.latest_change_note|truncatechars:50 }}
+                                            {% if quotation.latest_change_note|length > 47 %}
+                                                <i class="uil uil-info-circle change-note-icon"></i>
+                                            {% endif %}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
                                 </td>
                                 <td>
                                     <span class="fw-semibold">${{ quotation.total|floatformat:2 }}</span>
@@ -191,6 +224,11 @@
                                     {% if quotation.status not in 'approved,confirmed' %}
                                     <a href="{% url 'quotations:edit-quotation' quotation.id %}" class="text-warning px-3" title="Edit Quotation">
                                         <i class="uil uil-pen font-size-18"></i>
+                                    </a>
+                                    {% endif %}
+                                    {% if quotation.is_edited %}
+                                    <a href="javascript:void(0);" onclick="loadVersionHistory('{{ quotation.id }}')" class="text-info px-3" title="Version History">
+                                        <i class="uil uil-history font-size-18"></i>
                                     </a>
                                     {% endif %}
                                     {% if quotation.status in 'approved,confirmed,rejected' %}
@@ -251,19 +289,26 @@ $(document).ready(function() {
                 }
             },
             columnDefs: [
-                { orderable: false, targets: [0, 8] }, // Disable sorting for checkbox and action columns
-                { orderable: true, targets: [1, 2, 3, 4, 5, 6, 7] }
+                { orderable: false, targets: [0, 5, 8] }, // Disable sorting for checkbox, latest change, and action columns
+                { orderable: true, targets: [1, 2, 3, 4, 6, 7] }, // Enable sorting for other columns
+                { searchable: true, targets: [5] } // Make latest change column searchable
             ],
             dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
                  '<"row"<"col-sm-12"tr>>' +
                  '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>'
         });
 
+        // Initialize Bootstrap tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
         // Status filter dropdown
         $('#status-selectinput').on('change', function() {
             var status = $(this).val();
             if (status === 'all') {
-                quotationsTable.column(7).search('').draw(); // Column 7 is Status (updated for new Items column)
+                quotationsTable.column(7).search('').draw(); // Column 7 is now Status (was 6)
             } else {
                 quotationsTable.column(7).search(status, true, false).draw();
             }
@@ -292,5 +337,872 @@ $(document).ready(function() {
 function downloadPDF(quotationId) {
     window.location.href = `/quotations/${quotationId}/pdf/`;
 }
+
+// Load and display version history for a quotation
+function loadVersionHistory(quotationId) {
+    const modal = new bootstrap.Modal(document.getElementById('versionHistoryModal'));
+    modal.show();
+
+    // Show loading state
+    document.getElementById('version-loading').classList.remove('d-none');
+    document.getElementById('version-error').classList.add('d-none');
+    document.getElementById('version-timeline').classList.add('d-none');
+    document.getElementById('version-empty').classList.add('d-none');
+
+    // Fetch version history data
+    fetch(`/quotations/${quotationId}/versions/`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to load version history');
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Hide loading
+        document.getElementById('version-loading').classList.add('d-none');
+
+        if (data.success && data.versions && data.versions.length > 0) {
+            renderVersionTimeline(data.versions);
+            document.getElementById('version-timeline').classList.remove('d-none');
+        } else {
+            document.getElementById('version-empty').classList.remove('d-none');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading version history:', error);
+        document.getElementById('version-loading').classList.add('d-none');
+        document.getElementById('version-error').classList.remove('d-none');
+        document.getElementById('version-error-message').textContent = error.message;
+    });
+}
+
+// Render version history timeline
+function renderVersionTimeline(versionsData) {
+    const timeline = document.getElementById('version-timeline');
+    timeline.innerHTML = '';
+
+    const timelineContainer = document.createElement('div');
+    timelineContainer.className = 'version-timeline';
+
+    versionsData.forEach((version, index) => {
+        const isLatest = index === 0;
+        const item = createVersionTimelineItem(version, isLatest);
+        timelineContainer.appendChild(item);
+    });
+
+    timeline.appendChild(timelineContainer);
+}
+
+// Create version timeline item
+function createVersionTimelineItem(version, isLatest) {
+    const item = document.createElement('div');
+    item.className = 'timeline-item';
+
+    const marker = document.createElement('div');
+    marker.className = 'timeline-marker';
+
+    const content = document.createElement('div');
+    content.className = 'timeline-content';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'timeline-header';
+    header.innerHTML = `
+        <div>
+            <span class="version-badge">Version ${version.version}</span>
+            ${isLatest ? '<span class="latest-badge">CURRENT</span>' : ''}
+        </div>
+        <div class="timeline-date">
+            <i class="uil uil-clock me-1"></i>
+            ${formatVersionDate(version.date)}
+        </div>
+    `;
+
+    // Meta
+    const meta = document.createElement('div');
+    meta.className = 'timeline-meta';
+    meta.innerHTML = `
+        <div class="timeline-user">
+            <i class="uil uil-user me-1"></i>
+            ${escapeHtml(version.user)}
+        </div>
+    `;
+
+    // Change Note
+    const noteDiv = document.createElement('div');
+    noteDiv.className = 'change-note';
+    noteDiv.innerHTML = `
+        <div class="change-note-label">
+            <i class="uil uil-comment-notes me-1"></i>
+            Change Note
+        </div>
+        <p class="change-note-text">${escapeHtml(version.note || 'No note provided')}</p>
+    `;
+
+    // Changes Summary Toggle
+    // Calculate total changes count with defensive checks
+    const itemsAdded = Array.isArray(version.changes.items_added) ? version.changes.items_added.length : 0;
+    const itemsRemoved = Array.isArray(version.changes.items_removed) ? version.changes.items_removed.length : 0;
+    const itemsModified = Array.isArray(version.changes.items_modified) ? version.changes.items_modified.length : 0;
+    const totalChanges = itemsAdded + itemsRemoved + itemsModified;
+    const changesText = totalChanges === 1 ? '1 change' : `${totalChanges} changes`;
+
+    const changesToggle = document.createElement('div');
+    changesToggle.className = 'changes-toggle';
+    changesToggle.setAttribute('data-bs-toggle', 'collapse');
+    changesToggle.setAttribute('data-bs-target', `#version-changes-${version.version}`);
+    changesToggle.setAttribute('aria-expanded', 'false');
+    changesToggle.innerHTML = `
+        <span>
+            <i class="uil uil-list-ul me-2"></i>
+            <strong>Changes Summary</strong>
+            <span class="badge bg-primary ms-2">${changesText}</span>
+        </span>
+        <i class="uil uil-angle-down changes-toggle-icon"></i>
+    `;
+
+    // Changes Details (Collapsible)
+    const changesDetails = document.createElement('div');
+    changesDetails.className = 'collapse';
+    changesDetails.id = `version-changes-${version.version}`;
+
+    const changesContent = document.createElement('div');
+    changesContent.className = 'changes-details';
+    changesContent.innerHTML = formatVersionChanges(version.changes);
+    changesDetails.appendChild(changesContent);
+
+    // Assemble content
+    content.appendChild(header);
+    content.appendChild(meta);
+    content.appendChild(noteDiv);
+    content.appendChild(changesToggle);
+    content.appendChild(changesDetails);
+
+    // Assemble item
+    item.appendChild(marker);
+    item.appendChild(content);
+
+    return item;
+}
+
+// Format version changes data
+function formatVersionChanges(changes) {
+    let html = '<div class="version-changes-container">';
+
+    // Check if detailed changes are available
+    const hasDetailedChanges = changes.items_added || changes.items_removed || changes.items_modified;
+
+    if (!hasDetailedChanges) {
+        // Fallback for old versions without detailed changes
+        html += '<div class="alert alert-info mb-0"><i class="uil uil-info-circle me-2"></i>Detailed changes not available for this version</div>';
+        html += '</div>';
+        return html;
+    }
+
+    // Items Added Section
+    if (changes.items_added && changes.items_added.length > 0) {
+        html += `
+            <div class="change-section mb-3">
+                <div class="change-section-header added-header">
+                    <i class="uil uil-plus-circle me-2"></i>
+                    <strong>Items Added (${changes.items_added.length})</strong>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th class="text-center">Qty</th>
+                                <th class="text-end">Price</th>
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        changes.items_added.forEach(item => {
+            html += `
+                <tr class="added-row">
+                    <td>${escapeHtml(item.product_name)}</td>
+                    <td class="text-center">${item.quantity}</td>
+                    <td class="text-end">$${parseFloat(item.price).toFixed(2)}</td>
+                    <td class="text-end fw-semibold">$${parseFloat(item.total).toFixed(2)}</td>
+                </tr>
+            `;
+        });
+
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
+    // Items Removed Section
+    if (changes.items_removed && changes.items_removed.length > 0) {
+        html += `
+            <div class="change-section mb-3">
+                <div class="change-section-header removed-header">
+                    <i class="uil uil-minus-circle me-2"></i>
+                    <strong>Items Removed (${changes.items_removed.length})</strong>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th class="text-center">Qty</th>
+                                <th class="text-end">Price</th>
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        changes.items_removed.forEach(item => {
+            html += `
+                <tr class="removed-row">
+                    <td>${escapeHtml(item.product_name)}</td>
+                    <td class="text-center">${item.quantity}</td>
+                    <td class="text-end">$${parseFloat(item.price).toFixed(2)}</td>
+                    <td class="text-end fw-semibold">$${parseFloat(item.total).toFixed(2)}</td>
+                </tr>
+            `;
+        });
+
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
+    // Items Modified Section
+    if (changes.items_modified && changes.items_modified.length > 0) {
+        html += `
+            <div class="change-section mb-3">
+                <div class="change-section-header modified-header">
+                    <i class="uil uil-pen me-2"></i>
+                    <strong>Items Modified (${changes.items_modified.length})</strong>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th class="text-center">Quantity</th>
+                                <th class="text-end">Price</th>
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        changes.items_modified.forEach(item => {
+            const qtyChanged = item.old_quantity !== item.new_quantity;
+            const priceChanged = parseFloat(item.old_price) !== parseFloat(item.new_price);
+
+            html += `
+                <tr class="modified-row">
+                    <td>${escapeHtml(item.product_name)}</td>
+                    <td class="text-center">
+                        ${qtyChanged ? `
+                            <span class="change-comparison">
+                                <span class="old-value">${item.old_quantity}</span>
+                                <i class="uil uil-arrow-right mx-1"></i>
+                                <span class="new-value">${item.new_quantity}</span>
+                            </span>
+                        ` : item.new_quantity}
+                    </td>
+                    <td class="text-end">
+                        ${priceChanged ? `
+                            <span class="change-comparison">
+                                <span class="old-value">$${parseFloat(item.old_price).toFixed(2)}</span>
+                                <i class="uil uil-arrow-right mx-1"></i>
+                                <span class="new-value">$${parseFloat(item.new_price).toFixed(2)}</span>
+                            </span>
+                        ` : '$' + parseFloat(item.new_price).toFixed(2)}
+                    </td>
+                    <td class="text-end">
+                        <span class="change-comparison fw-semibold">
+                            <span class="old-value">$${parseFloat(item.old_total).toFixed(2)}</span>
+                            <i class="uil uil-arrow-right mx-1"></i>
+                            <span class="new-value">$${parseFloat(item.new_total).toFixed(2)}</span>
+                        </span>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
+    // Total Changes Summary
+    if (changes.before_total && changes.after_total) {
+        const beforeTotal = parseFloat(changes.before_total);
+        const afterTotal = parseFloat(changes.after_total);
+        const difference = afterTotal - beforeTotal;
+        const percentageChange = beforeTotal !== 0 ? ((difference / beforeTotal) * 100) : 0;
+        const isIncrease = difference > 0;
+        const isDecrease = difference < 0;
+
+        html += `
+            <div class="change-section">
+                <div class="change-section-header total-header">
+                    <i class="uil uil-calculator me-2"></i>
+                    <strong>Total Changes</strong>
+                </div>
+                <div class="total-changes-grid">
+                    <div class="total-change-item">
+                        <div class="total-change-label">Before</div>
+                        <div class="total-change-value">$${beforeTotal.toFixed(2)}</div>
+                    </div>
+                    <div class="total-change-arrow">
+                        <i class="uil uil-arrow-right"></i>
+                    </div>
+                    <div class="total-change-item">
+                        <div class="total-change-label">After</div>
+                        <div class="total-change-value">$${afterTotal.toFixed(2)}</div>
+                    </div>
+                    <div class="total-change-item highlight">
+                        <div class="total-change-label">Difference</div>
+                        <div class="total-change-value ${isIncrease ? 'text-success' : isDecrease ? 'text-danger' : ''}">
+                            ${isIncrease ? '+' : ''}$${difference.toFixed(2)}
+                            ${Math.abs(percentageChange).toFixed(1) !== '0.0' ? `
+                                <span class="percentage-badge ${isIncrease ? 'badge-success' : isDecrease ? 'badge-danger' : ''}">
+                                    ${isIncrease ? '+' : ''}${percentageChange.toFixed(1)}%
+                                </span>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    html += '</div>';
+    return html;
+}
+
+// Format date for version history
+function formatVersionDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) {
+        return 'Just now';
+    } else if (diffMins < 60) {
+        return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    } else if (diffHours < 24) {
+        return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    } else if (diffDays < 7) {
+        return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    } else {
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+}
+
+// Escape HTML for security
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
 </script>
+
+<!-- Version History Modal -->
+<div class="modal fade" id="versionHistoryModal" tabindex="-1" aria-labelledby="versionHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="versionHistoryModalLabel">
+                    <i class="uil uil-history text-primary me-2"></i>
+                    Version History
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Loading Spinner -->
+                <div id="version-loading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading version history...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Loading version history...</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="version-error" class="alert alert-danger d-none">
+                    <i class="uil uil-exclamation-triangle me-2"></i>
+                    <span id="version-error-message">Failed to load version history. Please try again.</span>
+                </div>
+
+                <!-- Timeline Content -->
+                <div id="version-timeline" class="d-none">
+                    <!-- Timeline items will be dynamically inserted here -->
+                </div>
+
+                <!-- Empty State -->
+                <div id="version-empty" class="text-center py-5 d-none">
+                    <i class="uil uil-history-alt" style="font-size: 4rem; color: #dee2e6;"></i>
+                    <h5 class="mt-3 text-muted">No Version History</h5>
+                    <p class="text-muted">This quotation has no version history yet.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="uil uil-times me-1"></i> Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Version History Timeline Styles */
+.version-timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+/* Vertical Line */
+.version-timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, #556ee6, #e9ecef);
+}
+
+/* Timeline Item */
+.timeline-item {
+    position: relative;
+    padding-bottom: 2rem;
+}
+
+.timeline-item:last-child {
+    padding-bottom: 0;
+}
+
+/* Timeline Marker */
+.timeline-marker {
+    position: absolute;
+    left: -26px;
+    top: 0;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid #556ee6;
+    z-index: 1;
+}
+
+.timeline-item:first-child .timeline-marker {
+    background: #556ee6;
+}
+
+/* Timeline Content Card */
+.timeline-content {
+    background: #f8f9fa;
+    border-radius: 0.375rem;
+    padding: 1.25rem;
+    border-left: 3px solid #556ee6;
+    transition: all 0.3s ease;
+}
+
+.timeline-content:hover {
+    background: #e9ecef;
+    transform: translateX(5px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Timeline Header */
+.timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.timeline-version {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+.timeline-date {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+/* Timeline Meta */
+.timeline-meta {
+    margin-bottom: 0.75rem;
+}
+
+.timeline-user {
+    font-size: 0.9rem;
+    color: #495057;
+}
+
+.timeline-user i {
+    color: #556ee6;
+}
+
+/* Change Note */
+.change-note {
+    background: white;
+    border-radius: 0.25rem;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+    border-left: 2px solid #34c38f;
+}
+
+.change-note-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: #6c757d;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.change-note-text {
+    color: #495057;
+    margin: 0;
+}
+
+/* Changes Summary Toggle */
+.changes-toggle {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.changes-toggle:hover {
+    background: #f8f9fa;
+    border-color: #556ee6;
+}
+
+.changes-toggle-icon {
+    transition: transform 0.3s ease;
+}
+
+.changes-toggle[aria-expanded="true"] .changes-toggle-icon {
+    transform: rotate(180deg);
+}
+
+/* Changes Details */
+.changes-details {
+    background: white;
+    border-radius: 0.25rem;
+    padding: 1rem;
+    margin-top: 0.75rem;
+}
+
+.change-item {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.change-item:last-child {
+    border-bottom: none;
+}
+
+.change-label {
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.875rem;
+}
+
+.change-value {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.change-value.added {
+    color: #34c38f;
+}
+
+.change-value.removed {
+    color: #f46a6a;
+}
+
+.change-value.modified {
+    color: #556ee6;
+}
+
+/* Badge Styles */
+.version-badge {
+    background: linear-gradient(135deg, #556ee6 0%, #4c63d2 100%);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.latest-badge {
+    background: linear-gradient(135deg, #34c38f 0%, #2ca87f 100%);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+    .version-timeline {
+        padding-left: 20px;
+    }
+
+    .timeline-marker {
+        left: -20px;
+        width: 14px;
+        height: 14px;
+    }
+
+    .timeline-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* Detailed Version Changes Styles */
+.version-changes-container {
+    font-size: 0.875rem;
+}
+
+/* Change Section Headers */
+.change-section {
+    background: white;
+    border-radius: 0.25rem;
+    overflow: hidden;
+}
+
+.change-section-header {
+    padding: 0.5rem 0.75rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+}
+
+.change-section-header.added-header {
+    background-color: #d1f4e0;
+    color: #0f5132;
+    border-left: 3px solid #34c38f;
+}
+
+.change-section-header.removed-header {
+    background-color: #f8d7da;
+    color: #842029;
+    border-left: 3px solid #f46a6a;
+}
+
+.change-section-header.modified-header {
+    background-color: #cfe2ff;
+    color: #084298;
+    border-left: 3px solid #556ee6;
+}
+
+.change-section-header.total-header {
+    background-color: #fff3cd;
+    color: #997404;
+    border-left: 3px solid #ffc107;
+}
+
+/* Change Section Tables */
+.change-section .table {
+    margin-bottom: 0;
+    font-size: 0.875rem;
+}
+
+.change-section .table th {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: #6c757d;
+    padding: 0.5rem;
+}
+
+.change-section .table td {
+    padding: 0.5rem;
+    vertical-align: middle;
+}
+
+/* Row Styling for Added/Removed/Modified Items */
+.added-row {
+    background-color: #f0fdf4;
+}
+
+.added-row:hover {
+    background-color: #dcfce7;
+}
+
+.removed-row {
+    background-color: #fef2f2;
+}
+
+.removed-row:hover {
+    background-color: #fee2e2;
+}
+
+.modified-row {
+    background-color: #eff6ff;
+}
+
+.modified-row:hover {
+    background-color: #dbeafe;
+}
+
+/* Before/After Comparison Styling */
+.change-comparison {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.change-comparison .old-value {
+    color: #6c757d;
+    text-decoration: line-through;
+    font-size: 0.8rem;
+}
+
+.change-comparison .new-value {
+    color: #0f5132;
+    font-weight: 600;
+}
+
+.change-comparison .uil {
+    color: #adb5bd;
+    font-size: 0.875rem;
+}
+
+/* Total Changes Grid */
+.total-changes-grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr 1fr;
+    gap: 1rem;
+    padding: 1rem;
+    align-items: center;
+}
+
+.total-change-item {
+    text-align: center;
+}
+
+.total-change-item.highlight {
+    background-color: #f8f9fa;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+}
+
+.total-change-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: #6c757d;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.total-change-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #495057;
+}
+
+.total-change-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.total-change-arrow .uil {
+    font-size: 1.5rem;
+    color: #adb5bd;
+}
+
+/* Percentage Badge */
+.percentage-badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+}
+
+.percentage-badge.badge-success {
+    background-color: #d1f4e0;
+    color: #0f5132;
+}
+
+.percentage-badge.badge-danger {
+    background-color: #f8d7da;
+    color: #842029;
+}
+
+/* Responsive adjustments for detailed changes */
+@media (max-width: 768px) {
+    .total-changes-grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+
+    .total-change-arrow {
+        transform: rotate(90deg);
+        margin: 0.5rem 0;
+    }
+
+    .change-comparison {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.125rem;
+    }
+
+    .change-comparison .uil {
+        transform: rotate(90deg);
+    }
+}
+</style>
 {% endblock %}

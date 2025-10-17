@@ -1,0 +1,426 @@
+<!-- ============================================= -->
+<!-- INTEGRATION EXAMPLES FOR EDIT HISTORY UI -->
+<!-- ============================================= -->
+
+<!--
+This file contains examples of how to integrate the edit history components
+into your existing quotation templates.
+-->
+
+
+<!-- ============================================= -->
+<!-- 1. QUOTATION CART PAGE (quotation_cart.html) -->
+<!-- ============================================= -->
+
+<!--
+Add this at the end of the file, just before {% endblock %}
+This includes the edit note modal that appears when saving edited quotations
+-->
+
+{% block extra_modals %}
+<!-- Include Edit History Modals -->
+{% include 'quotations/components/edit_history_modals.html' %}
+{% endblock %}
+
+
+<!--
+Modify the saveQuotation() function to check if editing and show note modal:
+Replace the existing confirmGenerateQuotation() function with this:
+-->
+
+<script>
+// Modified version for quotation_cart.html
+function confirmGenerateQuotation() {
+    // Close the confirmation modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('generateQuotationModal'));
+    modal.hide();
+
+    // Check if we're editing an existing quotation
+    const isEditing = {{ is_editing|yesno:"true,false" }};
+
+    if (isEditing) {
+        // Show edit note modal before saving
+        const quotationNumber = '{{ editing_quotation.quotation_number }}';
+        const quotationStatus = '{{ editing_quotation.get_status_display }}';
+        const itemsCount = {{ cart_items|length }};
+
+        showEditNoteModal(quotationNumber, quotationStatus, itemsCount);
+    } else {
+        // New quotation - save directly
+        saveQuotation();
+    }
+}
+
+// New function to save with note
+function saveQuotationWithNote(changeNote) {
+    showLoading();
+
+    // Get all form data
+    const recipientName = document.getElementById('recipient_name').value;
+    const recipientAddress = document.getElementById('recipient_address').value;
+    const additionalEmails = document.getElementById('additional_emails').value.trim();
+    const institutionSelect = $('#institution_select').val();
+    const assignedSalesRep = $('#assigned_sales_rep').val();
+    const accountManager = $('#account_manager').val();
+
+    // Prepare form data
+    const formData = new URLSearchParams();
+    formData.append('recipient_name', recipientName);
+    formData.append('recipient_address', recipientAddress);
+    formData.append('additional_emails', additionalEmails);
+    formData.append('change_note', changeNote); // Add change note
+
+    if (institutionSelect) {
+        formData.append('institution_id', institutionSelect);
+    }
+    if (assignedSalesRep) {
+        formData.append('assigned_sales_rep', assignedSalesRep);
+    }
+    if (accountManager) {
+        formData.append('account_manager', accountManager);
+    }
+
+    // Send AJAX request to save quotation
+    fetch('{% url "quotations:save" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrftoken
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            toastr.success(data.message || 'Quotation updated successfully!');
+            setTimeout(() => {
+                window.location.href = data.redirect_url + '?updated=true';
+            }, 1000);
+        } else {
+            toastr.error(data.error || 'Failed to save quotation');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        console.error('Error:', error);
+        toastr.error('An error occurred. Please try again.');
+    });
+}
+</script>
+
+
+<!-- ============================================= -->
+<!-- 2. MY QUOTATIONS PAGE (my_quotations.html) -->
+<!-- ============================================= -->
+
+<!--
+Add history button in the Action column.
+Modify the table body to include history button:
+-->
+
+<tbody>
+    {% for quotation in quotations %}
+    <tr data-status="{{ quotation.status }}">
+        <td>
+            <div class="form-check text-center font-size-16">
+                <input type="checkbox" class="form-check-input quotation-checkbox" id="quotationcheck{{ forloop.counter }}">
+                <label class="form-check-label" for="quotationcheck{{ forloop.counter }}"></label>
+            </div>
+        </td>
+        <td>
+            <a href="{% url 'quotations:quotation-detail' quotation.id %}" class="text-dark fw-bold">
+                {{ quotation.quotation_number }}
+            </a>
+        </td>
+        <td>{{ quotation.created_at|date:"M d, Y" }}</td>
+        <td>
+            {% if quotation.institution %}
+                {{ quotation.institution_name }}
+            {% else %}
+                <em class="text-muted">No Institution</em>
+            {% endif %}
+        </td>
+        <td>
+            {% if quotation.institution %}
+                <span class="badge bg-pill font-size-12 type-{{ quotation.institution_type|lower|cut:' ' }}">
+                    {{ quotation.institution_type }}
+                </span>
+            {% else %}
+                <span class="badge bg-pill font-size-12 type-no">
+                    Direct Customer
+                </span>
+            {% endif %}
+        </td>
+        <td>
+            <span class="badge bg-primary-subtle text-primary font-size-12">
+                {{ quotation.items.count }} item{{ quotation.items.count|pluralize }}
+            </span>
+        </td>
+        <td>
+            <span class="fw-semibold">${{ quotation.total|floatformat:2 }}</span>
+        </td>
+        <td>
+            {% if quotation.status == 'approved' %}
+            <span class="badge bg-pill bg-success-subtle text-success font-size-12">Approved</span>
+            {% elif quotation.status == 'pending' %}
+            <span class="badge bg-pill bg-warning-subtle text-warning font-size-12">Pending</span>
+            {% elif quotation.status == 'rejected' %}
+            <span class="badge bg-pill bg-danger-subtle text-danger font-size-12">Rejected</span>
+            {% elif quotation.status == 'draft' %}
+            <span class="badge bg-pill bg-info-subtle text-info font-size-12">Draft</span>
+            {% else %}
+            <span class="badge bg-pill bg-secondary font-size-12">{{ quotation.get_status_display }}</span>
+            {% endif %}
+        </td>
+        <td>
+            <a href="{% url 'quotations:quotation-detail' quotation.id %}" class="text-primary px-3" title="View Details">
+                <i class="uil uil-eye font-size-18"></i>
+            </a>
+
+            <!-- History Button - NEW -->
+            {% if quotation.version > 1 %}
+            <a href="javascript:void(0);"
+               onclick="loadQuotationHistory({{ quotation.id }})"
+               class="text-info px-3"
+               title="View History ({{ quotation.version|add:'-1' }} edits)">
+                <i class="uil uil-history font-size-18"></i>
+            </a>
+            {% endif %}
+
+            {% if quotation.status not in 'approved,confirmed' %}
+            <a href="{% url 'quotations:edit-quotation' quotation.id %}" class="text-warning px-3" title="Edit Quotation">
+                <i class="uil uil-pen font-size-18"></i>
+            </a>
+            {% endif %}
+            {% if quotation.status in 'approved,confirmed,rejected' %}
+            <a href="javascript:void(0);" onclick="downloadPDF('{{ quotation.id }}')" class="text-success px-3" title="Download PDF">
+                <i class="uil uil-download-alt font-size-18"></i>
+            </a>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>
+
+<!-- Add modals before {% endblock %} -->
+{% include 'quotations/components/edit_history_modals.html' %}
+
+
+<!-- ============================================= -->
+<!-- 3. QUOTATION DETAIL PAGE (quotation_detail.html) -->
+<!-- ============================================= -->
+
+<!--
+Add history button next to Edit button in action buttons section.
+Find the action buttons section and modify it:
+-->
+
+<div class="d-print-none mt-4">
+    <div class="float-end">
+        <!-- History Button - NEW -->
+        {% if quotation.version > 1 %}
+        <button type="button"
+                class="btn btn-info waves-effect waves-light me-1"
+                onclick="loadQuotationHistory({{ quotation.id }})"
+                title="View edit history">
+            <i class="uil uil-history"></i> History
+            <span class="badge bg-light text-dark ms-1">{{ quotation.version|add:"-1" }}</span>
+        </button>
+        {% endif %}
+
+        {% if quotation.status not in 'approved,confirmed' %}
+        <a href="{% url 'quotations:edit-quotation' quotation.id %}" class="btn btn-warning waves-effect waves-light me-1">
+            <i class="uil uil-pen"></i> Edit Quotation
+        </a>
+        {% endif %}
+        {% if quotation.status == 'pending' and quotation.created_by == user %}
+        <button type="button" class="btn btn-success waves-effect waves-light me-1" data-bs-toggle="modal" data-bs-target="#approveModal">
+            <i class="fa fa-check"></i> Approve Quotation
+        </button>
+        {% endif %}
+        <a href="javascript:window.print()" class="btn btn-success waves-effect waves-light me-1">
+            <i class="fa fa-print"></i>
+        </a>
+        <a href="javascript:window.print()" class="btn btn-primary w-md waves-effect waves-light">Download PDF</a>
+        <a href="{% url 'quotations:my-quotations' %}" class="btn btn-secondary waves-effect waves-light">
+            <i class="fa fa-arrow-left"></i> Back to Quotations
+        </a>
+    </div>
+</div>
+
+<!-- Add modals before {% endblock %} -->
+{% include 'quotations/components/edit_history_modals.html' %}
+
+
+<!-- ============================================= -->
+<!-- 4. BACKEND VIEW EXAMPLE (views.py) -->
+<!-- ============================================= -->
+
+"""
+Example backend view for the history endpoint:
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from .models import Quotation, QuotationHistory
+
+@require_http_methods(["GET"])
+def quotation_history(request, quotation_id):
+    try:
+        quotation = Quotation.objects.get(id=quotation_id)
+
+        # Check permissions
+        if not request.user.has_perm('quotations.view_quotation'):
+            return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+        # Get history records
+        history_records = QuotationHistory.objects.filter(
+            quotation=quotation
+        ).select_related('modified_by').order_by('-version')
+
+        history_data = []
+        for record in history_records:
+            history_data.append({
+                'version': record.version,
+                'date': record.modified_at.isoformat(),
+                'user': record.modified_by.get_full_name() or record.modified_by.username,
+                'note': record.change_note,
+                'changes': {
+                    'items_added': record.items_added or 0,
+                    'items_removed': record.items_removed or 0,
+                    'items_modified': record.items_modified or 0,
+                    'pricing_changed': record.pricing_changed or False,
+                    'old_total': str(record.old_total) if record.old_total else None,
+                    'new_total': str(record.new_total),
+                    'discount_changed': record.discount_changed or False,
+                }
+            })
+
+        return JsonResponse({
+            'success': True,
+            'history': history_data
+        })
+
+    except Quotation.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Quotation not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+"""
+
+
+<!-- ============================================= -->
+<!-- 5. URL CONFIGURATION EXAMPLE (urls.py) -->
+<!-- ============================================= -->
+
+"""
+Add this to your quotations/urls.py:
+
+urlpatterns = [
+    # ... existing patterns ...
+    path('<int:quotation_id>/history/', views.quotation_history, name='quotation-history'),
+]
+"""
+
+
+<!-- ============================================= -->
+<!-- 6. MODEL EXAMPLE (models.py) -->
+<!-- ============================================= -->
+
+"""
+Add this model to track quotation edit history:
+
+from django.db import models
+from django.conf import settings
+
+class QuotationHistory(models.Model):
+    quotation = models.ForeignKey('Quotation', on_delete=models.CASCADE, related_name='history')
+    version = models.PositiveIntegerField()
+    modified_at = models.DateTimeField(auto_now_add=True)
+    modified_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    change_note = models.TextField(help_text="Description of changes made")
+
+    # Change tracking
+    items_added = models.IntegerField(default=0)
+    items_removed = models.IntegerField(default=0)
+    items_modified = models.IntegerField(default=0)
+
+    pricing_changed = models.BooleanField(default=False)
+    old_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    new_total = models.DecimalField(max_digits=10, decimal_places=2)
+
+    discount_changed = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-version']
+        verbose_name_plural = 'Quotation histories'
+        unique_together = ['quotation', 'version']
+
+    def __str__(self):
+        return f"{self.quotation.quotation_number} - Version {self.version}"
+"""
+
+
+<!-- ============================================= -->
+<!-- 7. SAVE QUOTATION WITH HISTORY TRACKING -->
+<!-- ============================================= -->
+
+"""
+Modify your save quotation view to track changes:
+
+def save_quotation(request):
+    if request.method == 'POST':
+        try:
+            # Get existing quotation if editing
+            is_editing = 'quotation_id' in request.session
+
+            if is_editing:
+                quotation_id = request.session['quotation_id']
+                quotation = Quotation.objects.get(id=quotation_id)
+                old_total = quotation.total
+                old_items = set(quotation.items.values_list('id', flat=True))
+
+                # Get change note from request
+                change_note = request.POST.get('change_note', '')
+
+                # Update quotation
+                # ... your update logic ...
+
+                # Track changes
+                new_items = set(quotation.items.values_list('id', flat=True))
+                items_added = len(new_items - old_items)
+                items_removed = len(old_items - new_items)
+                items_modified = len(old_items & new_items)  # Items that existed before and still exist
+
+                # Create history record
+                QuotationHistory.objects.create(
+                    quotation=quotation,
+                    version=quotation.version,
+                    modified_by=request.user,
+                    change_note=change_note,
+                    items_added=items_added,
+                    items_removed=items_removed,
+                    items_modified=items_modified,
+                    pricing_changed=(old_total != quotation.total),
+                    old_total=old_total,
+                    new_total=quotation.total,
+                    discount_changed=(old_discount != quotation.discount_percentage)
+                )
+
+                # Increment version
+                quotation.version += 1
+                quotation.save()
+            else:
+                # Create new quotation
+                # ... your creation logic ...
+                quotation.version = 1
+                quotation.save()
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Quotation saved successfully',
+                'redirect_url': reverse('quotations:quotation-detail', args=[quotation.id])
+            })
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+"""
