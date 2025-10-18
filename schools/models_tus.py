@@ -185,25 +185,9 @@ class TUSSchool(models.Model):
         return f"{self.location.name} - {self.name}"
 
     @property
-    def total_products(self):
-        """Get total number of products across all categories for this school"""
-        # Use lazy import to avoid circular imports
-        from django.apps import apps
-        TUSProduct = apps.get_model('schools', 'TUSProduct')
-        return TUSProduct.objects.filter(
-            category_assignments__school_category__school=self,
-            stock_status__in=['instock', 'onbackorder']
-        ).distinct().count()
-
-    @property
     def active_categories_count(self):
         """Get count of categories with products"""
         return self.categories.filter(product_count__gt=0).count()
-
-    @property
-    def total_categories(self):
-        """Get total number of categories"""
-        return self.categories.count()
 
     @property
     def full_path(self):

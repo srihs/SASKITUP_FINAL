@@ -78,8 +78,8 @@ def get_tus_schools_in_location(location_slug: str, search_query: str = None,
         location=location,
         is_active=True
     ).select_related('location').annotate(
-        category_count=Count('categories'),
-        product_count_annotation=Count(
+        total_categories=Count('categories'),
+        total_products=Count(
             'categories__product_assignments__product',
             filter=Q(categories__product_assignments__product__stock_status__in=['instock', 'onbackorder']),
             distinct=True
@@ -113,8 +113,8 @@ def get_tus_school_with_categories(school_slug: str) -> Tuple[TUSSchool, QuerySe
     """
     school = get_object_or_404(
         TUSSchool.objects.select_related('location').annotate(
-            category_count=Count('categories'),
-            product_count_annotation=Count(
+            total_categories=Count('categories'),
+            total_products=Count(
                 'categories__product_assignments__product',
                 filter=Q(categories__product_assignments__product__stock_status__in=['instock', 'onbackorder']),
                 distinct=True
