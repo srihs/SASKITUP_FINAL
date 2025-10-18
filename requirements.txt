@@ -18,8 +18,9 @@ idna==3.10
 outcome==1.3.0.post0
 pillow==11.3.0
 platformdirs==4.4.0
-playwright==1.55.0
+# playwright==1.55.0  # Commented out - replaced with WeasyPrint for PDF generation
 psutil==7.0.0
+weasyprint==66.0
 pycparser==2.23
 pyee==13.0.0
 PyMySQL==1.1.2
