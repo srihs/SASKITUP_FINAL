@@ -6,6 +6,7 @@
 {% block content %}
 <div class="tus-retail-page">
 <!-- Sync Button Section -->
+{% if user.is_admin or user.is_superuser %}
 <div class="row mb-3">
     <div class="col-12">
         <div class="d-flex justify-content-end">
@@ -16,6 +17,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 <!-- Sync Status Alert -->
 <div id="syncAlert" class="alert alert-info alert-dismissible fade" role="alert" style="display: none;">
