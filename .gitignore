@@ -187,9 +187,18 @@ settings_local.py
 *.crt
 *.pem
 
-# Compiled assets
-*.min.css
-*.min.js
+# Compiled assets (exclude from build/dist but allow vendor libs)
+/build/**/*.min.css
+/build/**/*.min.js
+/dist/**/*.min.css
+/dist/**/*.min.js
+# Allow vendor library minified files in static
+!static/**/libs/**/*.min.css
+!static/**/libs/**/*.min.js
+!static/**/vendor/**/*.min.css
+!static/**/vendor/**/*.min.js
+!static/assets/css/*.min.css
+!static/assets/js/*.min.js
 
 # Coverage reports
 htmlcov/
