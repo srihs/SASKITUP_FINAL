@@ -299,7 +299,7 @@
                                 <ul class="sub-menu" aria-expanded="false">
                                     <li><a href="{% url 'clubs:lotto-clubs' %}">LOTTO Clubs</a></li>
                                     <li><a href="{% url 'clubs:sas-clubs' %}">SAS Clubs</a></li>
-                                    {% if user.is_authenticated and user.is_staff %}
+                                    {% if user.is_admin or user.is_superuser %}
                                     <li>
                                         <a href="javascript: void(0);" class="has-arrow">Data Sync</a>
                                         <ul class="sub-menu" aria-expanded="false">
@@ -403,7 +403,7 @@
                                     <span>Settings</span>
                                 </a>
                                 <ul class="sub-menu" aria-expanded="false">
-                                    {% if user.is_authenticated and user.is_admin %}
+                                    {% if user.is_admin or user.is_superuser %}
                                     <li><a href="{% url 'authentication:settings-dashboard' %}">Settings Dashboard</a></li>
                                     <li><a href="{% url 'quotations:site-settings' %}">Site Settings</a></li>
                                     <li><a href="{% url 'clubs:sync-management' %}">Sync Management</a></li>
