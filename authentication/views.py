@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import UserCreationForm, PasswordResetForm, SetPasswordForm
+from django.contrib.auth.tokens import default_token_generator
 from django.contrib import messages
 from django.views.generic import (
     ListView, DetailView, CreateView, UpdateView, DeleteView,
@@ -12,11 +13,18 @@ from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.template.loader import render_to_string
+from django.core.mail import EmailMultiAlternatives
 from .forms import (
     EmailAuthenticationForm, UserForm, UserSearchForm, UserProfileForm,
     PasswordChangeForm, BulkUserActionForm
 )
 from django.utils import timezone
+from django.conf import settings
+import os
+from email.mime.image import MIMEImage
 
 from .models import (
     User, UserSession, AuditLog, SalesRepSchoolAssignment, SalesRepClubAssignment
@@ -2025,32 +2033,32 @@ def change_password_view(request):
     """AJAX endpoint for users to change their own password"""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-    
+
     try:
         current_password = request.POST.get('current_password')
         new_password = request.POST.get('new_password')
         confirm_password = request.POST.get('confirm_password')
-        
+
         # Validation
         if not all([current_password, new_password, confirm_password]):
             return JsonResponse({'error': 'All fields are required'}, status=400)
-        
+
         # Check if current password is correct
         if not request.user.check_password(current_password):
             return JsonResponse({'error': 'Current password is incorrect'}, status=400)
-        
+
         # Check if new passwords match
         if new_password != confirm_password:
             return JsonResponse({'error': 'New passwords do not match'}, status=400)
-        
+
         # Check password length
         if len(new_password) < 8:
             return JsonResponse({'error': 'Password must be at least 8 characters long'}, status=400)
-        
+
         # Change password
         request.user.set_password(new_password)
         request.user.save()
-        
+
         # Log the action
         AuditLog.log_action(
             user=request.user,
@@ -2058,8 +2066,195 @@ def change_password_view(request):
             description=f'User {request.user.email} changed their password',
             ip_address=request.META.get('REMOTE_ADDR')
         )
-        
+
         return JsonResponse({'message': 'Password changed successfully'})
-        
+
     except Exception as e:
         return JsonResponse({'error': f'An error occurred: {str(e)}'}, status=500)
+
+
+# =====================================
+# PASSWORD RESET VIEWS
+# =====================================
+
+class ForgotPasswordView(FormView):
+    """Forgot password view - user enters email"""
+    template_name = 'authentication/forgot_password.html'
+    form_class = PasswordResetForm
+    success_url = reverse_lazy('authentication:forgot-password')
+
+    def dispatch(self, request, *args, **kwargs):
+        # If user is authenticated, redirect to dashboard
+        if request.user.is_authenticated:
+            return redirect('global-dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        email = form.cleaned_data['email']
+
+        # Find user by email
+        try:
+            user = User.objects.get(email=email, is_active=True)
+
+            # Generate password reset token
+            token = default_token_generator.make_token(user)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+
+            # Build reset URL
+            reset_url = self.request.build_absolute_uri(
+                reverse('authentication:password-reset-confirm', kwargs={'uidb64': uid, 'token': token})
+            )
+
+            # Send password reset email
+            self._send_password_reset_email(user, reset_url)
+
+            # Log password reset request
+            AuditLog.log_action(
+                user=user,
+                action_type='password_reset_requested',
+                description=f'Password reset requested for {user.email}',
+                request=self.request,
+                email=email
+            )
+
+            messages.success(
+                self.request,
+                'Password reset instructions have been sent to your email address.'
+            )
+
+        except User.DoesNotExist:
+            # Don't reveal that email doesn't exist (security best practice)
+            # Still show success message
+            messages.success(
+                self.request,
+                'If an account exists with this email, password reset instructions have been sent.'
+            )
+
+            # Log failed attempt
+            AuditLog.log_action(
+                user=None,
+                action_type='password_reset_requested',
+                description=f'Password reset requested for unknown email: {email}',
+                request=self.request,
+                email=email
+            )
+
+        return super().form_valid(form)
+
+    def _send_password_reset_email(self, user, reset_url):
+        """Send password reset email with branded template"""
+        subject = 'Password Reset Request - SASKITUP'
+
+        # Context for email templates
+        context = {
+            'user': user,
+            'reset_url': reset_url,
+            'site_name': 'SASKITUP',
+        }
+
+        # Render HTML email
+        html_content = render_to_string(
+            'authentication/emails/password_reset_email.html',
+            context
+        )
+
+        # Render plain text email
+        text_content = render_to_string(
+            'authentication/emails/password_reset_email.txt',
+            context
+        )
+
+        # Create email
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_content,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[user.email],
+        )
+
+        # Attach HTML version
+        email.attach_alternative(html_content, "text/html")
+
+        # Embed company logo
+        logo_path = os.path.join(settings.BASE_DIR, 'static', 'assets', 'images', 'sas-logo.png')
+        if os.path.exists(logo_path):
+            with open(logo_path, 'rb') as logo_file:
+                logo_image = MIMEImage(logo_file.read())
+                logo_image.add_header('Content-ID', '<company_logo>')
+                logo_image.add_header('Content-Disposition', 'inline', filename='sas-logo.png')
+                email.attach(logo_image)
+
+        # Send email
+        email.send(fail_silently=False)
+
+
+class PasswordResetConfirmView(FormView):
+    """Password reset confirm view - user sets new password"""
+    template_name = 'authentication/password_reset_confirm.html'
+    form_class = SetPasswordForm
+    success_url = reverse_lazy('authentication:password-reset-complete')
+
+    def dispatch(self, request, *args, **kwargs):
+        # Validate token
+        self.user = self._get_user_from_token()
+
+        if self.user is None:
+            messages.error(request, 'This password reset link is invalid or has expired.')
+            return redirect('login')
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.user
+        return kwargs
+
+    def form_valid(self, form):
+        # Save new password
+        form.save()
+
+        # Log password reset completion
+        AuditLog.log_action(
+            user=self.user,
+            action_type='password_reset_completed',
+            description=f'Password reset completed for {self.user.email}',
+            request=self.request,
+            email=self.user.email
+        )
+
+        messages.success(
+            self.request,
+            'Your password has been reset successfully. You can now log in with your new password.'
+        )
+
+        return super().form_valid(form)
+
+    def _get_user_from_token(self):
+        """Validate token and return user"""
+        try:
+            uidb64 = self.kwargs.get('uidb64')
+            token = self.kwargs.get('token')
+
+            # Decode user ID
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid, is_active=True)
+
+            # Check token validity
+            if default_token_generator.check_token(user, token):
+                return user
+            else:
+                return None
+
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return None
+
+
+class PasswordResetCompleteView(TemplateView):
+    """Password reset complete view - show success message"""
+    template_name = 'authentication/password_reset_complete.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        # If user is authenticated, redirect to dashboard
+        if request.user.is_authenticated:
+            return redirect('global-dashboard')
+        return super().dispatch(request, *args, **kwargs)

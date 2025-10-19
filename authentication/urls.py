@@ -8,6 +8,11 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('signup/', views.SignupView.as_view(), name='signup'),
 
+    # Password Reset URLs
+    path('forgot-password/', views.ForgotPasswordView.as_view(), name='forgot-password'),
+    path('reset-password/<uidb64>/<token>/', views.PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
+    path('password-reset-complete/', views.PasswordResetCompleteView.as_view(), name='password-reset-complete'),
+
     # Unified Profile URL (role-based routing)
     path('profile/', views.ProfileView.as_view(), name='profile'),
 

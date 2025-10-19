@@ -299,14 +299,6 @@
                                 <ul class="sub-menu" aria-expanded="false">
                                     <li><a href="{% url 'clubs:lotto-clubs' %}">LOTTO Clubs</a></li>
                                     <li><a href="{% url 'clubs:sas-clubs' %}">SAS Clubs</a></li>
-                                    {% if user.is_admin or user.is_superuser %}
-                                    <li>
-                                        <a href="javascript: void(0);" class="has-arrow">Data Sync</a>
-                                        <ul class="sub-menu" aria-expanded="false">
-                                            <li><a href="{% url 'clubs:sync-lotto-clubs-page' %}">LOTTO Sync</a></li>
-                                        </ul>
-                                    </li>
-                                    {% endif %}
                                 </ul>
                             </li>
 
@@ -360,9 +352,9 @@
                             {% endif %}
                             {% endif %}
 
+                            {% if user.is_admin or user.is_superuser %}
                             <li class="menu-title">SETTINGS</li>
 
-                            {% if user.is_authenticated and user.is_admin %}
                             <li>
                                 <a href="javascript: void(0);" class="has-arrow waves-effect">
                                     <i class="uil-users-alt"></i>
@@ -385,25 +377,13 @@
                                     <li><a href="{% url 'authentication:audit-log-list' %}?quotations_only=1">Quotation Audit Trail</a></li>
                                 </ul>
                             </li>
-                            {% endif %}
 
-                            {% if user.is_sales_rep or user.is_account_manager %}
-                            <!-- Sales Rep & Account Manager: Only My Profile -->
-                            <li>
-                                <a href="{% url 'authentication:user-detail' user.id %}">
-                                    <i class="uil-user"></i>
-                                    <span>My Profile</span>
-                                </a>
-                            </li>
-                            {% else %}
-                            <!-- Admin & Other Users: Full Settings Menu -->
                             <li>
                                 <a href="javascript: void(0);" class="has-arrow waves-effect">
                                     <i class="uil-setting"></i>
                                     <span>Settings</span>
                                 </a>
                                 <ul class="sub-menu" aria-expanded="false">
-                                    {% if user.is_admin or user.is_superuser %}
                                     <li><a href="{% url 'authentication:settings-dashboard' %}">Settings Dashboard</a></li>
                                     <li><a href="{% url 'quotations:site-settings' %}">Site Settings</a></li>
                                     <li><a href="{% url 'clubs:sync-management' %}">Sync Management</a></li>
@@ -411,10 +391,18 @@
                                     {# <li><a href="{% url 'schools:wholesale-price-update-settings' %}">Price Update</a></li> #}
                                     {# NEW Price Management Hub - Choose between Cin7 API or CSV upload #}
                                     <li><a href="{% url 'schools:price-management-hub' %}">Price Update</a></li>
-                                    {% elif user.is_authenticated and user.id %}
-                                    <li><a href="{% url 'authentication:user-detail' user.id %}">My Profile</a></li>
-                                    {% endif %}
                                 </ul>
+                            </li>
+                            {% endif %}
+
+                            {% if user.is_sales_rep or user.is_account_manager %}
+                            <!-- Sales Rep & Account Manager: Only My Profile -->
+                            <li class="menu-title">PROFILE</li>
+                            <li>
+                                <a href="{% url 'authentication:user-detail' user.id %}">
+                                    <i class="uil-user"></i>
+                                    <span>My Profile</span>
+                                </a>
                             </li>
                             {% endif %}
 

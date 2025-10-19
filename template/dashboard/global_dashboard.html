@@ -338,6 +338,7 @@
                         </a>
                     </div>
                     
+                    {% if user.is_admin or user.is_superuser %}
                     <div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 mb-3">
                         <div class="card bg-light border-0 h-100">
                             <div class="card-body text-center py-4">
@@ -352,7 +353,9 @@
                             </div>
                         </div>
                     </div>
-                    
+                    {% endif %}
+
+                    {% if not user.is_customer %}
                     <div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 mb-3">
                         <div class="card bg-light border-0 h-100">
                             <div class="card-body text-center py-4">
@@ -367,6 +370,7 @@
                             </div>
                         </div>
                     </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
