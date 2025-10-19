@@ -23,9 +23,9 @@ from .views import GlobalDashboardView, frontend_landing_view, products_view, pr
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    # Authentication URLs (both namespaced and non-namespaced for compatibility)
+    # Authentication URLs (custom authentication system)
     path('auth/', include('authentication.urls')),
-    path('accounts/', include('django.contrib.auth.urls')),  # Django built-in auth URLs
+    # path('accounts/', include('django.contrib.auth.urls')),  # Disabled - using custom password reset
 
     # Core app URLs
     path('clubs/', include('clubs.urls')),
