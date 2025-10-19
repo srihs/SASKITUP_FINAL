@@ -27,6 +27,7 @@ import logging
 from authentication.permissions import (
     SalesRepOrAccountManagerMixin,
     CustomerRequiredMixin,
+    SalesRepOrAccountManagerOrCustomerMixin,
 )
 from authentication.models import User, SalesRepSchoolAssignment, SalesRepClubAssignment, AuditLog
 from schools.models import School, WholesaleSchool, WholesaleProduct, WholesaleProductVariation
@@ -2143,7 +2144,7 @@ class QuotationPreviewView(LoginRequiredMixin, DetailView):
 # NEW QUOTATION PAGE - TAB-BASED PRODUCT SELECTION
 # =====================================
 
-class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, DetailView):
+class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMixin, DetailView):
     """
     Product detail page for quotation system.
     Shows product details, variations, and allows adding to quote.
@@ -2352,7 +2353,7 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
         return "Unknown Institution"
 
 
-class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
+class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMixin, View):
     """
     New quotation page with tab-based product selection.
     Shows Schools and Clubs tabs with products from assigned institutions.

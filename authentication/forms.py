@@ -561,3 +561,131 @@ class PasswordChangeForm(forms.Form):
         self.user.set_password(password)
         self.user.save()
         return self.user
+
+
+class CustomerRegistrationForm(forms.ModelForm):
+    """Form for customer self-registration"""
+
+    email = forms.EmailField(
+        required=True,
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your email address',
+            'autofocus': True
+        }),
+        help_text='This will be your username for logging in'
+    )
+
+    first_name = forms.CharField(
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your first name'
+        })
+    )
+
+    last_name = forms.CharField(
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your last name'
+        })
+    )
+
+    phone = forms.CharField(
+        max_length=20,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your phone number (optional)'
+        })
+    )
+
+    address = forms.CharField(
+        required=True,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your full address',
+            'rows': 3
+        })
+    )
+
+    password1 = forms.CharField(
+        label='Password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Create a password'
+        }),
+        help_text='Password must be at least 8 characters long'
+    )
+
+    password2 = forms.CharField(
+        label='Confirm Password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Confirm your password'
+        })
+    )
+
+    terms_accepted = forms.BooleanField(
+        required=True,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        label='I agree to the Terms and Conditions',
+        error_messages={'required': 'You must accept the terms and conditions to register'}
+    )
+
+    class Meta:
+        model = User
+        fields = ['email', 'first_name', 'last_name', 'phone', 'address']
+
+    def clean_email(self):
+        """Validate email is unique (case-insensitive)"""
+        email = self.cleaned_data.get('email')
+        if email:
+            email = email.lower()
+            if User.objects.filter(email__iexact=email).exists():
+                raise ValidationError('An account with this email address already exists.')
+        return email
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password1 = cleaned_data.get('password1')
+        password2 = cleaned_data.get('password2')
+
+        # Check if passwords match
+        if password1 and password2:
+            if password1 != password2:
+                raise ValidationError({
+                    'password2': "Passwords don't match. Please ensure both password fields are the same."
+                })
+
+            # Validate password strength
+            try:
+                validate_password(password1)
+            except ValidationError as e:
+                raise ValidationError({'password1': e.messages})
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+
+        # Set password
+        password = self.cleaned_data.get('password1')
+        user.set_password(password)
+
+        # Set user type to customer
+        user.user_type = 'customer'
+
+        # Set username to email
+        user.username = self.cleaned_data.get('email')
+
+        # Set user as active
+        user.is_active = True
+
+        if commit:
+            user.save()
+
+        return user

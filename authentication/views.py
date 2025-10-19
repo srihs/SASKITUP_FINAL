@@ -19,7 +19,7 @@ from django.template.loader import render_to_string
 from django.core.mail import EmailMultiAlternatives
 from .forms import (
     EmailAuthenticationForm, UserForm, UserSearchForm, UserProfileForm,
-    PasswordChangeForm, BulkUserActionForm
+    PasswordChangeForm, BulkUserActionForm, CustomerRegistrationForm
 )
 from django.utils import timezone
 from django.conf import settings
@@ -36,6 +36,9 @@ from .permissions import (
 # TODO: Update to use LottoClub and SASClub instead of unified Club model
 # from clubs.models import Club
 from schools.models import School, WholesaleSchool
+from schools.models_tus import TUSSchool
+from clubs.models_lotto import LottoClub, LottoClubCategory
+from clubs.models_sas import SASClub, SASSport
 
 
 class LoginView(FormView):
@@ -167,6 +170,140 @@ class SignupView(FormView):
             'Your account has been created successfully! You can now log in.'
         )
         return super().form_valid(form)
+
+
+class CustomerRegistrationView(FormView):
+    """
+    Customer self-registration view with auto-assignment to retail schools
+    and general LOTTO/SAS categories
+    """
+    template_name = 'authentication/customer_registration.html'
+    form_class = CustomerRegistrationForm
+    success_url = reverse_lazy('frontend-home')
+
+    def dispatch(self, request, *args, **kwargs):
+        # Redirect authenticated users to dashboard
+        if request.user.is_authenticated:
+            return redirect('global-dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        # Save the user
+        user = form.save()
+
+        # Auto-assign access to all retail (TUS) schools
+        self._assign_retail_schools(user)
+
+        # Auto-assign general LOTTO and SAS club categories
+        self._assign_general_categories(user)
+
+        # Log the registration
+        AuditLog.log_action(
+            user=user,
+            action_type='user_created',
+            description=f'New customer self-registration: {user.email}',
+            request=self.request,
+            created_user_id=user.id,
+            created_username=user.username,
+            metadata={
+                'registration_type': 'self_service',
+                'auto_assigned_retail_schools': True,
+                'auto_assigned_general_categories': True
+            }
+        )
+
+        messages.success(
+            self.request,
+            f'Welcome {user.first_name}! Your account has been created successfully. '
+            f'You now have access to all retail schools and general product categories. '
+            f'Please log in to continue.'
+        )
+
+        return super().form_valid(form)
+
+    def _assign_retail_schools(self, user):
+        """
+        Auto-assign customer access to all active retail (TUS) schools.
+        Note: Customers have implicit access - this method is for future extensibility.
+        Currently, the system allows customers to see all TUS schools by default.
+        """
+        # Get count of active retail schools for logging
+        retail_school_count = TUSSchool.objects.filter(is_active=True).count()
+
+        # Log the auto-assignment for audit purposes
+        AuditLog.log_action(
+            user=user,
+            action_type='customer_school_access_granted',
+            description=f'Customer {user.email} granted access to {retail_school_count} active retail schools',
+            request=self.request,
+            metadata={
+                'school_type': 'retail',
+                'school_count': retail_school_count,
+                'access_level': 'read_only'
+            }
+        )
+
+    def _assign_general_categories(self, user):
+        """
+        Auto-assign customer access to general LOTTO and SAS categories.
+        Note: Customers have implicit access to general categories.
+        This method logs the access grant for audit purposes.
+        """
+        # Count general LOTTO clubs and categories
+        lotto_club_count = LottoClub.objects.filter(is_active=True).count()
+        lotto_category_count = LottoClubCategory.objects.filter(club__is_active=True).count()
+
+        # Count general SAS clubs and sports
+        sas_club_count = SASClub.objects.filter(is_active=True).count()
+        sas_sport_count = SASSport.objects.filter(is_active=True).count()
+
+        # Log LOTTO access
+        if lotto_club_count > 0:
+            AuditLog.log_action(
+                user=user,
+                action_type='customer_club_access_granted',
+                description=f'Customer {user.email} granted access to {lotto_club_count} LOTTO clubs and {lotto_category_count} categories',
+                request=self.request,
+                metadata={
+                    'club_type': 'lotto',
+                    'club_count': lotto_club_count,
+                    'category_count': lotto_category_count,
+                    'access_level': 'read_only'
+                }
+            )
+
+        # Log SAS access
+        if sas_club_count > 0:
+            AuditLog.log_action(
+                user=user,
+                action_type='customer_club_access_granted',
+                description=f'Customer {user.email} granted access to {sas_club_count} SAS clubs across {sas_sport_count} sports',
+                request=self.request,
+                metadata={
+                    'club_type': 'sas',
+                    'club_count': sas_club_count,
+                    'sport_count': sas_sport_count,
+                    'access_level': 'read_only'
+                }
+            )
+
+    def form_invalid(self, form):
+        # Log failed registration attempt
+        email = form.data.get('email', 'Unknown')
+        AuditLog.log_action(
+            user=None,
+            action_type='user_created',
+            description=f'Failed customer registration attempt for email: {email}',
+            request=self.request,
+            email=email,
+            metadata={'errors': form.errors.as_json()}
+        )
+
+        messages.error(
+            self.request,
+            'There was an error with your registration. Please check the form and try again.'
+        )
+        return super().form_invalid(form)
 
 
 class AdminDashboardView(AdminRequiredMixin, TemplateView):

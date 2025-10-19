@@ -71,6 +71,11 @@ class CustomerRequiredMixin(RoleRequiredMixin):
     required_roles = ['admin', 'customer']
 
 
+class SalesRepOrAccountManagerOrCustomerMixin(RoleRequiredMixin):
+    """Mixin to require sales rep, account manager, or customer role (or admin)"""
+    required_roles = ['admin', 'sales_rep', 'account_manager', 'customer']
+
+
 class SchoolAccessMixin:
     """
     Mixin to check if user can access a specific school
