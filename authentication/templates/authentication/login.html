@@ -198,7 +198,7 @@
                         <div class="card-body p-4">
                             <div class="text-center mt-2">
                                 <h5 class="text-primary">Welcome Back!</h5>
-                                <p class="text-muted">Sign in to continue to SASKITUP</p>
+                                <p class="text-muted">Are you a retail customer? <a href="{% url 'authentication:customer-registration' %}" class="text-primary fw-medium">Sign up here</a></p>
                             </div>
 
                             {% if messages %}
@@ -335,7 +335,10 @@
 
                                     <div class="mt-4 text-center">
                                         <p class="mb-0">Don't have an account?
-                                            <a href="#" class="fw-medium text-primary">Contact Administrator</a>
+                                            <a href="{% url 'authentication:customer-registration' %}" class="fw-medium text-primary">Register as Customer</a>
+                                        </p>
+                                        <p class="mb-0 mt-2 text-muted small">
+                                            For admin access, <a href="#" class="text-muted">contact administrator</a>
                                         </p>
                                     </div>
                                 </form>

@@ -1,0 +1,527 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Customer Registration | SASKITUP</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta content="SASKITUP Customer Registration" name="description" />
+    <meta content="SASKITUP" name="author" />
+
+    <!-- App favicon -->
+    <link rel="shortcut icon" href="{% static 'assets/images/favicon.ico' %}">
+
+    <!-- Bootstrap Css -->
+    <link href="{% static 'assets/css/bootstrap.min.css' %}" rel="stylesheet" type="text/css" />
+    <!-- Icons Css -->
+    <link href="{% static 'assets/css/icons.min.css' %}" rel="stylesheet" type="text/css" />
+    <!-- App Css-->
+    <link href="{% static 'assets/css/app.min.css' %}" rel="stylesheet" type="text/css" />
+
+    <!-- Custom CSS for input groups -->
+    <style>
+        .input-group .form-control {
+            border-left: 0;
+        }
+        .input-group-text {
+            border-right: 0;
+        }
+        .input-group .form-control:focus {
+            border-color: #ced4da;
+            box-shadow: none;
+        }
+        .input-group:focus-within .input-group-text {
+            border-color: #556ee6;
+        }
+        .input-group:focus-within .form-control {
+            border-color: #556ee6;
+            box-shadow: 0 0 0 0.2rem rgba(85, 110, 230, 0.25);
+        }
+    </style>
+</head>
+
+<body style="background-color: #f5f6fa;">
+    <div class="account-pages my-5 pt-sm-5">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-md-10 col-lg-8 col-xl-7">
+                    <!-- Logo -->
+                    <div class="text-center mb-4">
+                        <a href="/">
+                            <img src="{% static 'assets/images/logo-dark.png' %}" alt="SASKITUP" height="45">
+                        </a>
+                    </div>
+
+                    <!-- Card -->
+                    <div class="card" style="border-radius: 8px; box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);">
+                        <div class="card-body p-4">
+                            <div class="text-center mt-2">
+                                <div class="avatar-md mx-auto mb-3">
+                                    <div class="avatar-title rounded-circle bg-soft-primary" style="background-color: rgba(85, 110, 230, 0.15);">
+                                        <i class="mdi mdi-account-plus-outline font-size-24" style="color: #556ee6;"></i>
+                                    </div>
+                                </div>
+                                <h4 class="mb-2" style="color: #495057;">Create Your Account</h4>
+                                <p class="text-muted mb-4" style="color: #74788d;">Register to access retail schools and product categories</p>
+                            </div>
+
+                            {% if messages %}
+                                {% for message in messages %}
+                                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+
+                            <div class="p-2 mt-3">
+                                <form method="post" id="registrationForm">
+                                    {% csrf_token %}
+
+                                    <!-- Email -->
+                                    <div class="mb-3">
+                                        <label class="form-label" for="id_email" style="color: #495057;">Email Address <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text" style="background-color: #f5f6fa; border-color: #ced4da;">
+                                                <i class="mdi mdi-email-outline"></i>
+                                            </span>
+                                            {{ form.email }}
+                                        </div>
+                                        {% if form.email.errors %}
+                                            <div class="text-danger small mt-1">
+                                                {% for error in form.email.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                        <small class="form-text text-muted">This will be your username for logging in</small>
+                                    </div>
+
+                                    <!-- Name Fields Row -->
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label" for="id_first_name" style="color: #495057;">First Name <span class="text-danger">*</span></label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text" style="background-color: #f5f6fa; border-color: #ced4da;">
+                                                        <i class="mdi mdi-account-outline"></i>
+                                                    </span>
+                                                    {{ form.first_name }}
+                                                </div>
+                                                {% if form.first_name.errors %}
+                                                    <div class="text-danger small mt-1">
+                                                        {% for error in form.first_name.errors %}{{ error }}{% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label" for="id_last_name" style="color: #495057;">Last Name <span class="text-danger">*</span></label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text" style="background-color: #f5f6fa; border-color: #ced4da;">
+                                                        <i class="mdi mdi-account-outline"></i>
+                                                    </span>
+                                                    {{ form.last_name }}
+                                                </div>
+                                                {% if form.last_name.errors %}
+                                                    <div class="text-danger small mt-1">
+                                                        {% for error in form.last_name.errors %}{{ error }}{% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Phone -->
+                                    <div class="mb-3">
+                                        <label class="form-label" for="id_phone" style="color: #495057;">Phone Number</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text" style="background-color: #f5f6fa; border-color: #ced4da;">
+                                                <i class="mdi mdi-phone-outline"></i>
+                                            </span>
+                                            {{ form.phone }}
+                                        </div>
+                                        {% if form.phone.errors %}
+                                            <div class="text-danger small mt-1">
+                                                {% for error in form.phone.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Address -->
+                                    <div class="mb-3">
+                                        <label class="form-label" for="id_address" style="color: #495057;">Address <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text" style="background-color: #f5f6fa; border-color: #ced4da; align-items: start; padding-top: 0.47rem;">
+                                                <i class="mdi mdi-map-marker-outline"></i>
+                                            </span>
+                                            {{ form.address }}
+                                        </div>
+                                        {% if form.address.errors %}
+                                            <div class="text-danger small mt-1">
+                                                {% for error in form.address.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Password Fields Row -->
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label" for="id_password1" style="color: #495057;">Password <span class="text-danger">*</span></label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text" style="background-color: #f5f6fa; border-color: #ced4da;">
+                                                        <i class="mdi mdi-lock-outline"></i>
+                                                    </span>
+                                                    {{ form.password1 }}
+                                                </div>
+                                                {% if form.password1.errors %}
+                                                    <div class="text-danger small mt-1">
+                                                        {% for error in form.password1.errors %}{{ error }}{% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                                <small class="form-text text-muted">Minimum 8 characters</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label" for="id_password2" style="color: #495057;">Confirm Password <span class="text-danger">*</span></label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text" style="background-color: #f5f6fa; border-color: #ced4da;">
+                                                        <i class="mdi mdi-lock-check-outline"></i>
+                                                    </span>
+                                                    {{ form.password2 }}
+                                                </div>
+                                                {% if form.password2.errors %}
+                                                    <div class="text-danger small mt-1">
+                                                        {% for error in form.password2.errors %}{{ error }}{% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Terms and Conditions -->
+                                    <div class="mb-3">
+                                        <div class="form-check">
+                                            {{ form.terms_accepted }}
+                                            <label class="form-check-label" for="id_terms_accepted" style="color: #495057;">
+                                                I agree to the <a href="#" data-bs-toggle="modal" data-bs-target="#termsModal" style="color: #556ee6; text-decoration: none;">Terms and Conditions</a> <span class="text-danger">*</span>
+                                            </label>
+                                        </div>
+                                        {% if form.terms_accepted.errors %}
+                                            <div class="text-danger small mt-1">
+                                                {% for error in form.terms_accepted.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Non-field errors -->
+                                    {% if form.non_field_errors %}
+                                        <div class="alert alert-danger" role="alert">
+                                            {% for error in form.non_field_errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+
+                                    <!-- Submit Button -->
+                                    <div class="mt-4">
+                                        <button class="btn btn-primary w-100" type="submit" style="background-color: #556ee6; border-color: #556ee6; border-radius: 0.25rem; padding: 0.47rem 0.75rem;">
+                                            <i class="mdi mdi-account-check-outline me-1"></i> Create Account
+                                        </button>
+                                    </div>
+
+                                    <!-- Login Link -->
+                                    <div class="mt-4 text-center">
+                                        <p class="mb-0" style="color: #74788d;">Already have an account?
+                                            <a href="{% url 'frontend-home' %}" class="fw-medium" style="color: #556ee6;">
+                                                Login here
+                                            </a>
+                                        </p>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="mt-5 text-center">
+                        <p style="color: #74788d;">© <script>document.write(new Date().getFullYear())</script> SASKITUP.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Terms and Conditions Modal -->
+    <div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header" style="background-color: #556ee6; color: white;">
+                    <h5 class="modal-title" id="termsModalLabel">
+                        <i class="mdi mdi-file-document-outline me-2"></i>Terms and Conditions
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" style="max-height: 70vh;">
+                    <div class="terms-content">
+                        <h5 class="mb-3">1. Welcome to our website</h5>
+                        <p>Thanks for visiting our website! When you use our site (which we'll just call "the website"), you're agreeing to these terms and conditions. If you don't agree with them, that's okay - but please don't use our website or services.</p>
+                        <p>This agreement is between you and SAS Sport LTD, a company registered in New Zealand.</p>
+
+                        <h5 class="mt-4 mb-3">2. Who can use our website</h5>
+                        <p>To use our website, you need to be:</p>
+                        <ul>
+                            <li>At least 16 years old, or</li>
+                            <li>If you're under 16, you'll need your parent or guardian's permission</li>
+                            <li>Legally able to enter into contracts under New Zealand law</li>
+                        </ul>
+
+                        <h5 class="mt-4 mb-3">3. Creating your account</h5>
+                        <h6>3.1 Your account information</h6>
+                        <p>When you sign up with us, we need you to:</p>
+                        <ul>
+                            <li>Give us accurate and up-to-date information</li>
+                            <li>Keep your details current (let us know if anything changes)</li>
+                            <li>Keep your password safe and secure</li>
+                            <li>Take responsibility for what happens under your account</li>
+                            <li>Tell us straight away if someone uses your account without permission</li>
+                        </ul>
+
+                        <h6 class="mt-3">3.2 What information we collect</h6>
+                        <p>When you sign up, we'll collect things like:</p>
+                        <ul>
+                            <li>Your basic details (name, email, phone number)</li>
+                            <li>Some demographic info (your age and where you're located)</li>
+                            <li>Your login details (username and password)</li>
+                            <li>How you'd like us to communicate with you</li>
+                            <li>Any other information you're happy to share with us</li>
+                        </ul>
+
+                        <h5 class="mt-4 mb-3">4. How we protect your privacy</h5>
+                        <h6>4.1 Following New Zealand privacy laws</h6>
+                        <p>We take your privacy seriously and follow the New Zealand Privacy Act 2020. How we handle your personal information is explained in detail in our Privacy Policy, which is part of these terms.</p>
+
+                        <h6 class="mt-3">4.2 Why we collect your information</h6>
+                        <p>We collect your information to:</p>
+                        <ul>
+                            <li>Provide our services and make them better</li>
+                            <li>Stay in touch about your account</li>
+                            <li>Send you important updates about our service</li>
+                            <li>Meet our legal requirements</li>
+                            <li>Keep things secure and prevent fraud</li>
+                            <li>Send you marketing messages (but only if you've said that's okay)</li>
+                        </ul>
+
+                        <h6 class="mt-3">4.3 Your privacy rights</h6>
+                        <p>Under New Zealand law, you can:</p>
+                        <ul>
+                            <li>Ask to see what information we have about you</li>
+                            <li>Fix any information that's wrong</li>
+                            <li>Ask us to delete your information (unless we legally need to keep it)</li>
+                            <li>Stop receiving marketing emails from us</li>
+                            <li>Make a complaint to the Privacy Commissioner if you're not happy</li>
+                        </ul>
+
+                        <h6 class="mt-3">4.4 Keeping your data safe</h6>
+                        <p>We work hard to keep your information secure. We use appropriate security measures to protect your data from unauthorized access or misuse. Your information is stored on secure servers.</p>
+
+                        <h5 class="mt-4 mb-3">5. Using our website properly</h5>
+                        <h6>5.1 What you can't do</h6>
+                        <p>Please don't:</p>
+                        <ul>
+                            <li>Use our website to break any New Zealand laws</li>
+                            <li>Send viruses or harmful code</li>
+                            <li>Try to hack into our systems</li>
+                            <li>Ruin the experience for other users</li>
+                            <li>Collect other people's information without permission</li>
+                            <li>Use bots or automated systems without our permission</li>
+                            <li>Pretend to be someone else</li>
+                            <li>Post content that's objectionable under New Zealand law</li>
+                        </ul>
+
+                        <h6 class="mt-3">5.2 Content standards</h6>
+                        <p>Everything you post needs to follow the Films, Videos, and Publications Classification Act 1993. Basically, keep it appropriate and legal.</p>
+
+                        <h5 class="mt-4 mb-3">6. Who owns what</h5>
+                        <h6>6.1 Our content</h6>
+                        <p>Everything on our website - the text, images, logos, and software - belongs to SAS Sport LTD or our partners and is protected by copyright laws.</p>
+
+                        <h6 class="mt-3">6.2 Your permission to use our site</h6>
+                        <p>We're giving you permission to use our website for personal, non-commercial use. You can't sell this permission or give it to someone else.</p>
+
+                        <h6 class="mt-3">6.3 Content you share with us</h6>
+                        <p>When you post or submit content to our website, you're giving us permission to use it to run and promote our services. We can use it worldwide, without paying royalties, and this permission doesn't expire.</p>
+
+                        <h5 class="mt-4 mb-3">7. Things we can't guarantee</h5>
+                        <h6>7.1 Service availability</h6>
+                        <p>We provide our website "as is" - we can't promise it will always work perfectly, be available 24/7, or be completely free from bugs or viruses.</p>
+
+                        <h6 class="mt-3">7.2 No warranties</h6>
+                        <p>To the extent New Zealand law allows, we can't make any guarantees about the website beyond what we've explicitly promised.</p>
+
+                        <h6 class="mt-3">7.3 Consumer rights</h6>
+                        <p>If the Consumer Guarantees Act 1993 applies to you, nothing in these terms takes away from your rights under that Act. If you're using our services for business purposes, you agree the Consumer Guarantees Act doesn't apply.</p>
+
+                        <h5 class="mt-4 mb-3">8. Limits on our liability</h5>
+                        <p>To the extent allowed by New Zealand law:</p>
+                        <ul>
+                            <li>We're not responsible for indirect or consequential losses</li>
+                            <li>Our maximum liability to you is limited to what you've paid us in the last 12 months</li>
+                            <li>These limits apply no matter what legal basis your claim has</li>
+                        </ul>
+
+                        <h5 class="mt-4 mb-3">9. If something goes wrong</h5>
+                        <p>You agree to protect SAS Sport LTD and our team from any legal claims or costs that arise because:</p>
+                        <ul>
+                            <li>You broke these terms</li>
+                            <li>You violated someone else's rights</li>
+                            <li>You misused our website</li>
+                            <li>Of content you posted</li>
+                        </ul>
+
+                        <h5 class="mt-4 mb-3">10. Sorting out disagreements</h5>
+                        <h6>10.1 New Zealand law applies</h6>
+                        <p>These terms are governed by New Zealand law, and any disputes will be handled by New Zealand courts.</p>
+
+                        <h6 class="mt-3">10.2 How we'll resolve disputes</h6>
+                        <p>If we have a disagreement, we'll try to sort it out by:</p>
+                        <ul>
+                            <li>First, talking it through directly (we'll try this for 30 days)</li>
+                            <li>If that doesn't work, using a mediator from the New Zealand Dispute Resolution Centre</li>
+                            <li>Only going to court if mediation doesn't work or isn't appropriate</li>
+                        </ul>
+
+                        <h6 class="mt-3">10.3 Small claims</h6>
+                        <p>For disputes under $30,000, either of us can use the Disputes Tribunal.</p>
+
+                        <h5 class="mt-4 mb-3">11. Communicating electronically</h5>
+                        <p>When you give us your email address, you're agreeing to receive emails from us. Under New Zealand law (Contract and Commercial Law Act 2017), these electronic communications count as written notices.</p>
+
+                        <h5 class="mt-4 mb-3">12. Fair trading</h5>
+                        <p>We follow the Fair Trading Act 1986. Everything we say about our services is accurate and not misleading.</p>
+
+                        <h5 class="mt-4 mb-3">13. Marketing emails</h5>
+                        <p>We follow the Unsolicited Electronic Messages Act 2007. We'll only send you marketing emails if you've agreed to receive them, and every marketing email will have an unsubscribe option.</p>
+
+                        <h5 class="mt-4 mb-3">14. Changes to these terms</h5>
+                        <p>We might update these terms from time to time. If we make important changes, we'll let you know by:</p>
+                        <ul>
+                            <li>Posting a notice on our website</li>
+                            <li>Sending you an email</li>
+                            <li>Asking you to agree to the new terms when you next log in</li>
+                        </ul>
+                        <p>If you keep using our website after we've made changes, that means you accept the new terms.</p>
+
+                        <h5 class="mt-4 mb-3">15. Closing your account</h5>
+                        <h6>15.1 If you want to leave</h6>
+                        <p>You can close your account anytime - just contact us at customerservices@sas.co.nz.</p>
+
+                        <h6 class="mt-3">15.2 If we need to close your account</h6>
+                        <p>We might suspend or close your account if:</p>
+                        <ul>
+                            <li>You break these terms</li>
+                            <li>The law requires us to</li>
+                            <li>We're shutting down the service</li>
+                        </ul>
+
+                        <h6 class="mt-3">15.3 What happens when an account closes</h6>
+                        <p>When your account closes:</p>
+                        <ul>
+                            <li>You can't use our website anymore</li>
+                            <li>We might delete your account and data (unless we legally need to keep it)</li>
+                            <li>Some parts of these terms will still apply even after your account closes</li>
+                        </ul>
+
+                        <h5 class="mt-4 mb-3">16. If part of these terms isn't valid</h5>
+                        <p>If a court decides part of these terms isn't valid under New Zealand law, the rest of the terms still apply.</p>
+
+                        <h5 class="mt-4 mb-3">17. The complete agreement</h5>
+                        <p>These terms and our Privacy Policy are the complete agreement between you and SAS Sport LTD about using our website.</p>
+
+                        <h5 class="mt-4 mb-3">18. How to reach us</h5>
+                        <p>If you have questions about these terms, get in touch:</p>
+                        <address>
+                            <strong>SAS Sport LTD</strong><br>
+                            521 Rosebank Road<br>
+                            Avondale<br>
+                            Auckland<br>
+                            New Zealand<br>
+                            Email: <a href="mailto:customerservices@sas.co.nz">customerservices@sas.co.nz</a>
+                        </address>
+
+                        <div class="alert alert-info mt-4">
+                            <h6><strong>Your agreement</strong></h6>
+                            <p class="mb-0">By clicking "I Accept" or creating an account, you're confirming that you've read and understood these terms and our Privacy Policy, and you agree to follow them.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="acceptTermsBtn" style="background-color: #556ee6; border-color: #556ee6;">
+                        <i class="mdi mdi-check-circle-outline me-1"></i>I Accept
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT -->
+    <script src="{% static 'assets/libs/jquery/jquery.min.js' %}"></script>
+    <script src="{% static 'assets/libs/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    <script src="{% static 'assets/libs/metismenu/metisMenu.min.js' %}"></script>
+    <script src="{% static 'assets/libs/simplebar/simplebar.min.js' %}"></script>
+    <script src="{% static 'assets/libs/node-waves/waves.min.js' %}"></script>
+
+    <script>
+        // Auto-dismiss alerts after 10 seconds
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.alert:not(.alert-info)');
+            alerts.forEach(alert => {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 10000);
+
+        // Handle "I Accept" button in Terms modal
+        document.getElementById('acceptTermsBtn').addEventListener('click', function() {
+            // Check the terms checkbox
+            document.getElementById('id_terms_accepted').checked = true;
+
+            // Close the modal
+            var termsModal = bootstrap.Modal.getInstance(document.getElementById('termsModal'));
+            if (termsModal) {
+                termsModal.hide();
+            }
+
+            // Show success message
+            const termsLabel = document.querySelector('label[for="id_terms_accepted"]');
+            termsLabel.style.color = '#28a745';
+            setTimeout(function() {
+                termsLabel.style.color = '#495057';
+            }, 2000);
+        });
+
+        // Form validation
+        document.getElementById('registrationForm').addEventListener('submit', function(e) {
+            const password1 = document.getElementById('id_password1').value;
+            const password2 = document.getElementById('id_password2').value;
+            const termsAccepted = document.getElementById('id_terms_accepted').checked;
+
+            if (password1 !== password2) {
+                e.preventDefault();
+                alert('Passwords do not match. Please ensure both password fields are the same.');
+                return false;
+            }
+
+            if (!termsAccepted) {
+                e.preventDefault();
+                alert('You must read and accept the Terms and Conditions to register. Please click the "Terms and Conditions" link to review them.');
+                return false;
+            }
+        });
+    </script>
+</body>
+
+</html>
