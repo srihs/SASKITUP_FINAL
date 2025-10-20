@@ -33,6 +33,8 @@ from .permissions import (
     AdminRequiredMixin, SalesRepRequiredMixin, CustomerRequiredMixin,
     can_user_create_users, can_customer_access_data
 )
+from django.contrib.contenttypes.models import ContentType
+from quotations.models import CustomerInstitutionAssignment
 # TODO: Update to use LottoClub and SASClub instead of unified Club model
 # from clubs.models import Club
 from schools.models import School, WholesaleSchool
@@ -191,10 +193,13 @@ class CustomerRegistrationView(FormView):
         # Save the user
         user = form.save()
 
-        # Auto-assign access to all retail (TUS) schools
+        # Auto-create institution assignments in database
+        self._create_customer_institution_assignments(user)
+
+        # Auto-assign access to all retail (TUS) schools (for audit logging)
         self._assign_retail_schools(user)
 
-        # Auto-assign general LOTTO and SAS club categories
+        # Auto-assign general LOTTO and SAS club categories (for audit logging)
         self._assign_general_categories(user)
 
         # Log the registration
@@ -285,6 +290,103 @@ class CustomerRegistrationView(FormView):
                     'sport_count': sas_sport_count,
                     'access_level': 'read_only'
                 }
+            )
+
+    def _create_customer_institution_assignments(self, user):
+        """
+        Create CustomerInstitutionAssignment records for new customer.
+        Assigns customer to:
+        1. All active TUS retail schools
+        2. All active LOTTO clubs (all are real clubs, no generic categories)
+        3. SAS generic product categories only (Bags, Balls, Clothing, etc.)
+
+        This creates explicit database records for customer-institution relationships.
+        """
+        assignment_count = 0
+
+        try:
+            # 1. Assign all active TUS retail schools
+            tus_content_type = ContentType.objects.get_for_model(TUSSchool)
+            active_tus_schools = TUSSchool.objects.filter(is_active=True)
+
+            for school in active_tus_schools:
+                assignment, created = CustomerInstitutionAssignment.objects.get_or_create(
+                    customer=user,
+                    institution_content_type=tus_content_type,
+                    institution_object_id=school.id,
+                    defaults={
+                        'is_active': True,
+                        'assigned_date': timezone.now(),
+                        'notes': 'Auto-assigned retail school during customer registration',
+                        'created_by': None  # System-generated assignment
+                    }
+                )
+                if created:
+                    assignment_count += 1
+
+            # 2. Assign LOTTO generic shop categories ONLY (Footwear, Teamwear, Accessories, etc.)
+            lotto_content_type = ContentType.objects.get_for_model(LottoClub)
+            active_lotto_clubs = LottoClub.objects.filter(is_active=True, is_generic_shop=True)
+
+            for club in active_lotto_clubs:
+                assignment, created = CustomerInstitutionAssignment.objects.get_or_create(
+                    customer=user,
+                    institution_content_type=lotto_content_type,
+                    institution_object_id=club.id,
+                    defaults={
+                        'is_active': True,
+                        'assigned_date': timezone.now(),
+                        'notes': 'Auto-assigned LOTTO generic shop category during customer registration',
+                        'created_by': None
+                    }
+                )
+                if created:
+                    assignment_count += 1
+
+            # 3. Assign SAS generic product categories ONLY (not actual sports clubs)
+            sas_content_type = ContentType.objects.get_for_model(SASClub)
+            sas_generic_categories = SASClub.objects.filter(
+                is_active=True,
+                is_generic_category=True  # Only generic product categories like Bags, Balls, etc.
+            )
+
+            for category in sas_generic_categories:
+                assignment, created = CustomerInstitutionAssignment.objects.get_or_create(
+                    customer=user,
+                    institution_content_type=sas_content_type,
+                    institution_object_id=category.id,
+                    defaults={
+                        'is_active': True,
+                        'assigned_date': timezone.now(),
+                        'notes': 'Auto-assigned SAS general product category during customer registration',
+                        'created_by': None
+                    }
+                )
+                if created:
+                    assignment_count += 1
+
+            # Log successful auto-assignment
+            AuditLog.log_action(
+                user=user,
+                action_type='customer_institution_auto_assignment',
+                description=f'Auto-assigned customer {user.email} to {assignment_count} institutions',
+                request=self.request,
+                metadata={
+                    'assignment_count': assignment_count,
+                    'tus_schools': active_tus_schools.count(),
+                    'lotto_clubs': active_lotto_clubs.count(),
+                    'sas_generic_categories': sas_generic_categories.count(),
+                }
+            )
+
+        except Exception as e:
+            # Log error but don't block registration
+            AuditLog.log_action(
+                user=user,
+                action_type='customer_institution_auto_assignment_error',
+                description=f'Error auto-assigning institutions for {user.email}: {str(e)}',
+                request=self.request,
+                metadata={'error': str(e)}
             )
 
     def form_invalid(self, form):

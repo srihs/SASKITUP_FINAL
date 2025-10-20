@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation
 from datetime import datetime, timezone as dt_timezone
 from dateutil import parser as date_parser
 from django.core.management.base import BaseCommand, CommandError
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.utils.text import slugify
 from django.utils import timezone
 from clubs.models_lotto import LottoClub, LottoClubCategory, LottoProduct, LottoProductVariation
@@ -30,6 +30,11 @@ class Command(BaseCommand):
             type=int,
             default=23,
             help='Parent category ID for Club Shops (default: 23)'
+        )
+        parser.add_argument(
+            '--include-generic-shop',
+            action='store_true',
+            help='Also sync generic shop categories (Footwear, Teamwear, etc.) from parent_id=15'
         )
         parser.add_argument(
             '--dry-run',
@@ -66,6 +71,7 @@ class Command(BaseCommand):
         """Main synchronization workflow with comprehensive error handling"""
         self.store_type = options['store_type']
         self.parent_category_id = options['parent_category_id']
+        self.include_generic_shop = options['include_generic_shop']
         self.dry_run = options['dry_run']
         self.force_update = options['force_update']
         self.check_only = options['check_only']
@@ -138,12 +144,35 @@ class Command(BaseCommand):
     def _phase_2_data_retrieval(self):
         """Phase 2: Retrieve categories with products from WooCommerce"""
         self.stdout.write('Phase 2: Fetching categories with products...')
-        
+
         try:
+            # Always fetch club categories (parent_id=23, default behavior)
             categories = self.woo_service.get_categories_with_products(parent_id=self.parent_category_id)
-            self.stdout.write(self.style.SUCCESS(f'✓ Retrieved {len(categories)} categories with products'))
+            self.stdout.write(self.style.SUCCESS(f'✓ Retrieved {len(categories)} club categories with products'))
+
+            # Optionally fetch generic shop categories (parent_id=15)
+            if self.include_generic_shop:
+                self.stdout.write('  Fetching generic shop categories (Footwear, Teamwear, etc.)...')
+                generic_categories = self.woo_service.get_categories_with_products(parent_id=15)
+
+                # Exclude "Clearance" category
+                excluded_names = ['clearance']
+                filtered_categories = []
+
+                for cat in generic_categories:
+                    cat_name = cat.get('name', '').lower()
+                    if cat_name not in excluded_names:
+                        cat['_is_generic_shop'] = True
+                        filtered_categories.append(cat)
+                    else:
+                        self.stdout.write(self.style.WARNING(f'  ⊘ Excluding category: {cat.get("name")}'))
+
+                categories.extend(filtered_categories)
+                self.stdout.write(self.style.SUCCESS(f'  ✓ Retrieved {len(filtered_categories)} generic shop categories (excluded {len(generic_categories) - len(filtered_categories)})'))
+
+            self.stdout.write(self.style.SUCCESS(f'✓ Total categories to process: {len(categories)}'))
             return categories
-            
+
         except Exception as e:
             logger.error(f"Phase 2 failed: {str(e)}")
             raise CommandError(f'Data retrieval failed: {str(e)}')
@@ -207,6 +236,7 @@ class Command(BaseCommand):
             'sport_tag': self._determine_sport_tag(club_name),
             'woo_category_id': woo_category_id,
             'is_active': True,
+            'is_generic_shop': category_data.get('_is_generic_shop', False),  # Mark generic categories
         }
         
         # Extract additional data if available
@@ -422,6 +452,13 @@ class Command(BaseCommand):
             self.stdout.write(f'        [DRY RUN] Would process product: {product_name}')
             return {'result': 'created', 'product': None}
         
+        # Check if product already exists in THIS category (to handle duplicates in WooCommerce)
+        existing_in_category = LottoProduct.objects.filter(category=category, name=product_name).first()
+        if existing_in_category:
+            if self.verbose:
+                self.stdout.write(self.style.WARNING(f'        ⊘ Skipped duplicate: {product_name} (already exists in this category)'))
+            return {'result': 'skipped_duplicate_in_category', 'product': existing_in_category}
+
         # Check if product already exists (by WooCommerce ID)
         existing_product = LottoProduct.objects.filter(woo_product_id=woo_product_id).first()
 
@@ -434,7 +471,7 @@ class Command(BaseCommand):
 
         if image_url:
             new_product_data['image'] = image_url
-        
+
         if existing_product:
             if not self.force_update:
                 # Comprehensive change detection for ALL fields
@@ -474,11 +511,25 @@ class Command(BaseCommand):
                 self.stdout.write(f'        [CHECK] Would create product: {product_name}')
                 return {'result': 'would_create', 'product': None}
 
-            # Create product with category
-            product = LottoProduct.objects.create(category=category, **new_product_data)
-            
-            self.stdout.write(f'        ✓ Created product: {product.name}')
-            return {'result': 'created', 'product': product}
+            # Create product with category using savepoint to handle duplicates gracefully
+            sid = transaction.savepoint()
+            try:
+                product = LottoProduct.objects.create(category=category, **new_product_data)
+                transaction.savepoint_commit(sid)
+                self.stdout.write(f'        ✓ Created product: {product.name}')
+                return {'result': 'created', 'product': product}
+            except IntegrityError as e:
+                transaction.savepoint_rollback(sid)
+                # Handle duplicate product in same category (e.g., product appears in multiple WooCommerce subcategories)
+                if 'category_id_name' in str(e) or 'Duplicate entry' in str(e):
+                    if self.verbose:
+                        self.stdout.write(self.style.WARNING(f'        ⊘ Skipped duplicate product: {product_name} (already exists in category {category.name})'))
+                    # Return the existing product if we can find it
+                    existing = LottoProduct.objects.filter(category=category, name=product_name).first()
+                    return {'result': 'skipped_duplicate', 'product': existing}
+                else:
+                    # Re-raise if it's a different integrity error
+                    raise
     
     def _parse_comprehensive_product_data(self, product_data):
         """Parse product data for regular Product model fields only (no category field)"""

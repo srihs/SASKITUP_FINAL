@@ -506,6 +506,7 @@ def run_sync_in_background(sync_job):
                 'sync_lotto_clubs',
                 store_type='LOTTO',
                 parent_category_id=23,
+                include_generic_shop=True,  # Include generic shop categories (Footwear, Teamwear, etc.)
                 force_update=True,
                 skip_images=True,  # Skip images due to bot detection
                 verbosity=2

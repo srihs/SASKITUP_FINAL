@@ -47,6 +47,7 @@ class LottoClub(models.Model):
     
     # Status
     is_active = models.BooleanField(default=True, help_text="Whether the club is active")
+    is_generic_shop = models.BooleanField(default=False, help_text="Whether this is a generic shop category (Footwear, Teamwear, etc.)")
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -59,6 +60,7 @@ class LottoClub(models.Model):
         verbose_name_plural = "LOTTO Clubs"
         indexes = [
             models.Index(fields=['is_active']),
+            models.Index(fields=['is_generic_shop', 'is_active']),
             models.Index(fields=['woo_category_id']),
             models.Index(fields=['sport_tag']),
             models.Index(fields=['created_at']),

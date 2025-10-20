@@ -1,6 +1,11 @@
 """
-Management command to assign all retail schools and general LOTTO/SAS clubs to customers.
-Usage: python manage.py assign_customer_institutions
+Management command to assign retail schools and general product categories to customers.
+Assigns:
+  - All active TUS retail schools
+  - LOTTO generic shop categories only (Footwear, Teamwear, Accessories, etc.)
+  - SAS generic product categories only (Bags, Balls, Clothing, etc.)
+
+Usage: python manage.py assign_customer_institutions [--customer-email=email] [--dry-run]
 """
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
@@ -14,7 +19,7 @@ User = get_user_model()
 
 
 class Command(BaseCommand):
-    help = 'Assign all retail schools and general LOTTO/SAS clubs to all customers'
+    help = 'Assign retail schools, LOTTO clubs, and SAS general product categories to customers'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -54,13 +59,13 @@ class Command(BaseCommand):
         tus_schools = TUSSchool.objects.filter(is_active=True)
         self.stdout.write(f'Found {tus_schools.count()} active TUS retail schools')
 
-        # Get all LOTTO clubs
-        lotto_clubs = LottoClub.objects.filter(is_active=True)
-        self.stdout.write(f'Found {lotto_clubs.count()} active LOTTO clubs')
+        # Get LOTTO generic shop categories only (Footwear, Teamwear, Accessories, etc.)
+        lotto_clubs = LottoClub.objects.filter(is_active=True, is_generic_shop=True)
+        self.stdout.write(f'Found {lotto_clubs.count()} active LOTTO generic shop categories')
 
-        # Get all SAS clubs
-        sas_clubs = SASClub.objects.filter(is_active=True)
-        self.stdout.write(f'Found {sas_clubs.count()} active SAS clubs')
+        # Get SAS generic product categories only (not actual sports clubs)
+        sas_generic_categories = SASClub.objects.filter(is_active=True, is_generic_category=True)
+        self.stdout.write(f'Found {sas_generic_categories.count()} active SAS generic product categories')
 
         total_assignments = 0
 
@@ -87,7 +92,7 @@ class Command(BaseCommand):
                     self.stdout.write(f'  [DRY RUN] Would assign TUS School: {school.name}')
                     customer_assignments += 1
 
-            # Assign all LOTTO clubs
+            # Assign LOTTO generic shop categories
             lotto_ct = ContentType.objects.get_for_model(LottoClub)
             for club in lotto_clubs:
                 if not dry_run:
@@ -99,30 +104,30 @@ class Command(BaseCommand):
                     )
                     if created:
                         customer_assignments += 1
-                        self.stdout.write(f'  ✓ Assigned LOTTO Club: {club.name}')
+                        self.stdout.write(f'  ✓ Assigned LOTTO Generic Category: {club.name}')
                     else:
                         self.stdout.write(f'  - Already assigned: {club.name}')
                 else:
-                    self.stdout.write(f'  [DRY RUN] Would assign LOTTO Club: {club.name}')
+                    self.stdout.write(f'  [DRY RUN] Would assign LOTTO Generic Category: {club.name}')
                     customer_assignments += 1
 
-            # Assign all SAS clubs
+            # Assign SAS generic product categories only
             sas_ct = ContentType.objects.get_for_model(SASClub)
-            for club in sas_clubs:
+            for category in sas_generic_categories:
                 if not dry_run:
                     assignment, created = CustomerInstitutionAssignment.objects.get_or_create(
                         customer=customer,
                         institution_content_type=sas_ct,
-                        institution_object_id=club.id,
+                        institution_object_id=category.id,
                         defaults={'is_active': True}
                     )
                     if created:
                         customer_assignments += 1
-                        self.stdout.write(f'  ✓ Assigned SAS Club: {club.name}')
+                        self.stdout.write(f'  ✓ Assigned SAS Category: {category.name}')
                     else:
-                        self.stdout.write(f'  - Already assigned: {club.name}')
+                        self.stdout.write(f'  - Already assigned: {category.name}')
                 else:
-                    self.stdout.write(f'  [DRY RUN] Would assign SAS Club: {club.name}')
+                    self.stdout.write(f'  [DRY RUN] Would assign SAS Category: {category.name}')
                     customer_assignments += 1
 
             total_assignments += customer_assignments
@@ -138,8 +143,8 @@ class Command(BaseCommand):
         self.stdout.write('SUMMARY:')
         self.stdout.write(f'Customers processed: {customers.count()}')
         self.stdout.write(f'TUS Schools: {tus_schools.count()}')
-        self.stdout.write(f'LOTTO Clubs: {lotto_clubs.count()}')
-        self.stdout.write(f'SAS Clubs: {sas_clubs.count()}')
+        self.stdout.write(f'LOTTO Generic Shop Categories: {lotto_clubs.count()}')
+        self.stdout.write(f'SAS Generic Categories: {sas_generic_categories.count()}')
         if not dry_run:
             self.stdout.write(self.style.SUCCESS(f'Total assignments created: {total_assignments}'))
         else:

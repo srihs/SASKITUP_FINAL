@@ -619,7 +619,7 @@
                                                     {% if product.image_url %}
                                                         <img src="{{ product.image_url }}" alt="{{ product.name }}">
                                                     {% else %}
-                                                        <img src="{% static 'assets/images/product-placeholder.png' %}" alt="{{ product.name }}">
+                                                        <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.name }}">
                                                     {% endif %}
                                                 </div>
 
@@ -687,7 +687,7 @@
                                                     {% if product.image_url %}
                                                         <img src="{{ product.image_url }}" alt="{{ product.name }}">
                                                     {% else %}
-                                                        <img src="{% static 'assets/images/product-placeholder.png' %}" alt="{{ product.name }}">
+                                                        <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.name }}">
                                                     {% endif %}
                                                 </div>
 
@@ -738,7 +738,7 @@
                                                     {% if product.image_url %}
                                                         <img src="{{ product.image_url }}" alt="{{ product.name }}">
                                                     {% else %}
-                                                        <img src="{% static 'assets/images/product-placeholder.png' %}" alt="{{ product.name }}">
+                                                        <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.name }}">
                                                     {% endif %}
                                                 </div>
 
@@ -799,10 +799,10 @@
                                         {% elif product.product_type == 'lottoproduct' %}
                                             <a href="{% url 'quotations:product-detail-for-quote' product_type='lottoproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
                                                 <div class="product-img">
-                                                    {% if product.image %}
-                                                        <img src="{{ product.image }}" alt="{{ product.name }}">
+                                                    {% if product.normalized_image_url %}
+                                                        <img src="{{ product.normalized_image_url }}" alt="{{ product.name }}">
                                                     {% else %}
-                                                        <img src="{% static 'assets/images/product-placeholder.png' %}" alt="{{ product.name }}">
+                                                        <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.name }}">
                                                     {% endif %}
                                                 </div>
 
