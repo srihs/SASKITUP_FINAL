@@ -11,6 +11,25 @@ from django.core.exceptions import ValidationError
 logger = logging.getLogger(__name__)
 
 
+class LottoClubQuerySet(models.QuerySet):
+    """Custom queryset for LOTTO clubs with filtering options"""
+
+    def clubs_only(self):
+        """Get only real clubs (exclude generic shops) that are active."""
+        return self.filter(is_active=True, is_generic_shop=False)
+
+
+class LottoClubManager(models.Manager):
+    """Custom manager for LOTTO clubs"""
+
+    def get_queryset(self):
+        return LottoClubQuerySet(self.model, using=self._db)
+
+    def clubs_only(self):
+        """Get only clubs (exclude generic shops) that are active."""
+        return self.get_queryset().clubs_only()
+
+
 class LottoClub(models.Model):
     """
     LOTTO-specific club model mapping to WooCommerce categories at club level
@@ -48,10 +67,13 @@ class LottoClub(models.Model):
     # Status
     is_active = models.BooleanField(default=True, help_text="Whether the club is active")
     is_generic_shop = models.BooleanField(default=False, help_text="Whether this is a generic shop category (Footwear, Teamwear, etc.)")
-    
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # Custom manager
+    objects = LottoClubManager()
     
     class Meta:
         db_table = 'lotto_clubs'

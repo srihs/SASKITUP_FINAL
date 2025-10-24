@@ -7,12 +7,16 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.core.management import call_command
 from django.utils import timezone
+from django.contrib.auth.mixins import LoginRequiredMixin
 from decimal import Decimal
 import logging
 import subprocess
 import threading
 from .models import School
 from .services import SchoolAPIService
+
+# Import permission mixins
+from authentication.permissions import SalesRepOrAccountManagerMixin
 
 # Import SyncJob from clubs app
 from clubs.models import SyncJob
@@ -476,8 +480,16 @@ class TUSRetailSchoolsView(TUSAuditMixin, SearchAuditMixin, ListView):
         return context
 
 
-class TUSLocationDetailView(TUSAuditMixin, DetailView):
-    """Location detail view - shows schools within a location"""
+class TUSLocationDetailView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, TUSAuditMixin, DetailView):
+    """
+    Location detail view - shows schools within a location
+
+    Access Control:
+    - Admin: Full access to all locations and schools
+    - Account Manager: Full access to all locations and schools
+    - Sales Rep: Access to assigned schools only within locations
+    - Customer: NO ACCESS (blocked by SalesRepOrAccountManagerMixin)
+    """
     model = TUSLocation
     template_name = 'schools/retail/location_detail.html'
     context_object_name = 'location'
@@ -507,8 +519,13 @@ class TUSLocationDetailView(TUSAuditMixin, DetailView):
             school_type=school_type
         )
 
+        # Permission-based filtering
+        # Priority: Check admin/account_manager BEFORE sales_rep
+        # Admin and Account Manager: See all schools (no filtering)
         # Sales Rep: Filter to only assigned schools
-        if user.is_sales_rep:
+        assigned_school_ids = None
+        if not user.is_admin and not user.is_account_manager and user.is_sales_rep:
+            # Only apply filtering if user is PURELY a sales rep (not admin/account manager)
             assigned_school_ids = SalesRepSchoolAssignment.objects.filter(
                 sales_rep=user,
                 is_active=True,
@@ -532,12 +549,26 @@ class TUSLocationDetailView(TUSAuditMixin, DetailView):
             stock_status__in=['instock', 'onbackorder']
         )
 
-        if user.is_sales_rep:
+        if assigned_school_ids is not None:
             recent_products_queryset = recent_products_queryset.filter(
                 category_assignments__school_category__school__id__in=assigned_school_ids
             )
 
         context['recent_products'] = recent_products_queryset.distinct().order_by('-created_at')[:6]
+
+        # Calculate total categories for this location
+        total_categories = TUSSchoolCategory.objects.filter(
+            school__location=location,
+            school__is_active=True
+        ).count()
+        context['total_categories'] = total_categories
+
+        # Calculate total products for this location
+        total_products = TUSProduct.objects.filter(
+            category_assignments__school_category__school__location=location,
+            stock_status__in=['instock', 'onbackorder']
+        ).distinct().count()
+        context['total_products'] = total_products
 
         return context
 

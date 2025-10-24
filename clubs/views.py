@@ -174,7 +174,8 @@ class LottoClubsView(ListView):
         from authentication.models import SalesRepClubAssignment
         from django.contrib.contenttypes.models import ContentType
 
-        queryset = LottoClub.objects.filter(is_active=True).prefetch_related('categories')
+        # Use clubs_only() to exclude generic shops
+        queryset = LottoClub.objects.clubs_only().prefetch_related('categories')
 
         user = self.request.user
 
@@ -227,10 +228,10 @@ class LottoClubsView(ListView):
 
         user = self.request.user
 
-        # Get filtered club queryset based on user role
-        clubs_queryset = LottoClub.objects.filter(is_active=True)
+        # Get filtered club queryset based on user role (exclude generic shops)
+        clubs_queryset = LottoClub.objects.clubs_only()
 
-        if user.is_sales_rep:
+        if not user.is_admin and not user.is_account_manager and user.is_sales_rep:
             # Filter to assigned clubs only
             lotto_content_type = ContentType.objects.get_for_model(LottoClub)
             assigned_ids = SalesRepClubAssignment.objects.filter(
