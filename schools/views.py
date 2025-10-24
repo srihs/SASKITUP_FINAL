@@ -256,10 +256,15 @@ class WholesaleSchoolsView(WholesaleAuditMixin, SearchAuditMixin, ListView):
 
             context['wholesale_available'] = True
 
-            # Get filtered schools queryset
+            # Get filtered schools queryset - match get_queryset() logic
             schools_queryset = WholesaleSchool.objects.filter(is_active=True)
 
-            if user.is_sales_rep:
+            # Admin and Account Manager: See ALL schools
+            if user.is_admin or user.is_account_manager:
+                pass  # No filtering needed, show all
+
+            # Sales Rep: See ONLY assigned schools
+            elif user.is_sales_rep:
                 # Filter to assigned wholesale schools only
                 assigned_school_ids = SalesRepSchoolAssignment.objects.filter(
                     sales_rep=user,
@@ -268,12 +273,16 @@ class WholesaleSchoolsView(WholesaleAuditMixin, SearchAuditMixin, ListView):
                 ).values_list('wholesale_school_id', flat=True)
                 schools_queryset = schools_queryset.filter(id__in=assigned_school_ids)
 
+            # Customer or other user types: No access
+            else:
+                schools_queryset = WholesaleSchool.objects.none()
+
             # Add wholesale statistics (filtered by user access)
             context['total_schools'] = schools_queryset.count()
             context['total_categories'] = WholesaleCategory.objects.filter(
                 is_active=True,
                 products__school__in=schools_queryset
-            ).distinct().count() if user.is_sales_rep else WholesaleCategory.objects.filter(is_active=True).count()
+            ).distinct().count()
             context['total_products'] = WholesaleProduct.objects.filter(
                 is_active=True,
                 school__in=schools_queryset

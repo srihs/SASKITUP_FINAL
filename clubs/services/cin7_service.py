@@ -142,14 +142,20 @@ class CIN7Service:
         params = {
             'page': page,
             'rows': rows_per_page,
-            'where': f'Category = "Wholesale Schools"'  # Filter by Wholesale Schools category
+            'where': "Category = 'Wholesale Schools'"  # Filter by Wholesale Schools category (single quotes required)
         }
 
         logger.info(f"Fetching wholesale products - page {page}, rows {rows_per_page}")
         response = self._make_request('Products', params)
 
         if response:
-            logger.info(f"Retrieved {len(response.get('Items', []))} wholesale products from page {page}")
+            # Handle both dict with 'Items' key and direct list response
+            if isinstance(response, list):
+                items = response
+                logger.info(f"Retrieved {len(items)} wholesale products from page {page} (direct list)")
+            else:
+                items = response.get('Items', [])
+                logger.info(f"Retrieved {len(items)} wholesale products from page {page} (dict response)")
 
         return response
 
@@ -169,11 +175,18 @@ class CIN7Service:
         while True:
             response = self.get_wholesale_products(page, rows_per_page)
 
-            if not response or 'Items' not in response:
+            if not response:
                 logger.error(f"No data received from CIN7 API on page {page}")
                 break
 
-            products = response['Items']
+            # Handle both dict with 'Items' key and direct list response
+            if isinstance(response, list):
+                products = response
+            else:
+                if 'Items' not in response:
+                    logger.error(f"Invalid response structure on page {page}")
+                    break
+                products = response['Items']
 
             if not products:
                 logger.info(f"No more products found on page {page}. Finished pagination.")
@@ -227,9 +240,59 @@ class CIN7Service:
 
         return None
 
+    def get_wholesale_school_categories(self) -> Optional[Dict[str, str]]:
+        """
+        Get wholesale school categories with their logo images from CIN7
+
+        Fetches categories where parentId = CIN7_WHOLE_SALE_ID (190)
+        Returns a mapping of school name -> logo URL
+
+        Returns:
+            Dictionary mapping school names to logo URLs, or None on failure
+        """
+        logger.info(f"Fetching wholesale school categories (parentId={self.wholesale_id})...")
+
+        params = {
+            'where': f"parentId={self.wholesale_id}"
+        }
+
+        response = self._make_request('ProductCategories', params)
+
+        if not response:
+            logger.error("Failed to fetch wholesale school categories")
+            return None
+
+        # Handle both list and dict responses
+        if isinstance(response, list):
+            categories = response
+        elif 'Items' in response:
+            categories = response['Items']
+        else:
+            logger.error("Invalid response structure for wholesale school categories")
+            return None
+
+        # Build school name -> logo URL mapping
+        school_logos = {}
+        for category in categories:
+            school_name = category.get('name', '')
+            image_data = category.get('image', {})
+            logo_url = image_data.get('link', '') if isinstance(image_data, dict) else ''
+
+            if school_name and logo_url:
+                school_logos[school_name] = logo_url
+                logger.debug(f"Found logo for '{school_name}': {logo_url}")
+
+        logger.info(f"Retrieved {len(school_logos)} school logos from CIN7")
+        return school_logos
+
     def extract_school_info_from_product(self, product: Dict) -> Dict:
         """
         Extract school information from a CIN7 product
+
+        According to Cin7 API structure:
+        - category: "Wholesale Schools" (main category)
+        - subCategory: Actual school name (e.g., "Wellington College", "Westlake Boys High School")
+        - name: Product name (e.g., "WBHS - Red Hoodie")
 
         Args:
             product: CIN7 product data
@@ -237,40 +300,71 @@ class CIN7Service:
         Returns:
             Extracted school information
         """
-        # The school name might be in different fields depending on CIN7 setup
-        # Common places: Product name, Brand, Category path, or custom fields
+        # Cin7 API returns lowercase field names: name, category, subCategory, brand, code
 
         school_name = ""
         school_code = ""
 
-        # Try to extract school name from product name or brand
-        product_name = product.get('ProductName', '')
-        brand = product.get('Brand', '')
-        category_path = product.get('CategoryPath', '')
+        # Use lowercase field names as returned by Cin7 API
+        product_name = product.get('name', product.get('ProductName', ''))
+        brand = product.get('brand', product.get('Brand', ''))
+        category = product.get('category', product.get('Category', ''))
+        sub_category = product.get('subCategory', product.get('SubCategory', ''))
+        category_path = product.get('categoryPath', product.get('CategoryPath', ''))
+        sku = product.get('code', product.get('SKU', ''))
 
-        # Look for school indicators in the category path
+        # PRIMARY: Extract school name from subCategory field (this is where Cin7 stores the school name)
+        if sub_category:
+            school_name = sub_category.strip()
+            logger.debug(f"Extracted school name from subCategory: {school_name}")
+
+        # FALLBACK 1: Look for school indicators in the category path
         # Expected format: "Wholesale Schools > School Name > Sub Category"
-        if 'Wholesale Schools' in category_path:
+        if not school_name and category_path and 'Wholesale Schools' in category_path:
             parts = [part.strip() for part in category_path.split('>')]
             if len(parts) >= 2:
                 school_name = parts[1]  # School name should be the second part
+                logger.debug(f"Extracted school name from categoryPath: {school_name}")
 
-        # If no school name found in category, try other fields
+        # FALLBACK 2: Extract from product name if subCategory and categoryPath are empty
+        # Format: "WBHS - Red Hoodie" -> extract "WBHS"
+        if not school_name and product_name:
+            if ' - ' in product_name:
+                school_code = product_name.split(' - ')[0].strip()
+                school_name = school_code  # Use school code as name for now
+                logger.debug(f"Extracted school name from product name: {school_name}")
+            else:
+                # Use category as fallback
+                school_name = category or "Wholesale Schools"
+                logger.debug(f"Using category as school name: {school_name}")
+
+        # FALLBACK 3: If still no school name, use category or default
         if not school_name:
-            school_name = brand or product_name
+            school_name = category or "Wholesale Schools"
+            logger.warning(f"Could not extract school name from product {product_name}, using default: {school_name}")
 
-        # Try to extract school code from SKU or other fields
-        sku = product.get('SKU', '')
-        if sku:
-            # Assuming school code might be a prefix in SKU
-            school_code = sku.split('-')[0] if '-' in sku else sku[:4]
+        # Extract school code from school name or SKU
+        if not school_code:
+            # If school name is all uppercase and short (likely an abbreviation like "WBHS"), use it as code
+            if school_name and school_name.isupper() and len(school_name) <= 10:
+                school_code = school_name
+            elif school_name and school_name != "Wholesale Schools":
+                # Generate code from school name (first letter of each word)
+                words = school_name.split()
+                if len(words) > 1:
+                    school_code = ''.join([w[0].upper() for w in words if w])
+                else:
+                    school_code = school_name[:10].upper()
+            elif sku:
+                # Extract from SKU as last resort
+                school_code = sku.split('-')[0] if '-' in sku else sku[:4]
 
         return {
             'name': school_name,
             'code': school_code,
-            'description': product.get('ProductDescription', ''),
+            'description': product.get('description', product.get('ProductDescription', '')),
             'brand': brand,
-            'category_path': category_path
+            'category_path': category_path or category
         }
 
     def parse_product_data(self, product: Dict) -> Dict:
@@ -334,15 +428,15 @@ class CIN7Service:
         }
 
         return {
-            'cin7_id': str(product.get('ProductId', '')),
-            'name': product.get('ProductName', ''),
-            'description': product.get('ProductDescription', ''),
-            'short_description': product.get('ShortDescription', ''),
-            'cin7_sku': product.get('SKU', ''),
-            'cin7_barcode': product.get('Barcode', ''),
-            'cin7_brand': product.get('Brand', ''),
-            'cin7_supplier': product.get('Supplier', ''),
-            'cin7_unit_of_measure': product.get('UnitOfMeasure', ''),
+            'cin7_id': str(product.get('id', product.get('ProductId', ''))),
+            'name': product.get('name', product.get('ProductName', '')),
+            'description': product.get('description', product.get('ProductDescription', '')),
+            'short_description': product.get('shortDescription', product.get('ShortDescription', '')),
+            'cin7_sku': product.get('code', product.get('SKU', '')),
+            'cin7_barcode': product.get('barcode', product.get('Barcode', '')),
+            'cin7_brand': product.get('brand', product.get('Brand', '')),
+            'cin7_supplier': product.get('supplier', product.get('Supplier', '')),
+            'cin7_unit_of_measure': product.get('unitOfMeasure', product.get('UnitOfMeasure', '')),
             'wholesale_price': wholesale_price,
             'retail_price': retail_price,
             'cost_price': cost_price,
@@ -350,11 +444,12 @@ class CIN7Service:
             'quantity_available': int(quantity_available),
             'quantity_on_hand': int(quantity_on_hand),
             'quantity_committed': int(quantity_committed),
-            'weight': product.get('Weight'),
+            'weight': product.get('weight', product.get('Weight')),
             'dimensions': dimensions,
             'attributes': attributes,
-            'image_url': product.get('ImageUrl', ''),
-            'category_path': product.get('CategoryPath', '')
+            'image_url': product.get('imageUrl', product.get('ImageUrl', '')),
+            'category_path': product.get('categoryPath', product.get('CategoryPath', product.get('category', ''))),
+            'productOptions': product.get('productOptions', [])  # Include product variations
         }
 
     def organize_products_by_school(self, products: List[Dict]) -> Dict[str, List[Dict]]:
@@ -419,7 +514,7 @@ class CIN7Service:
         params = {
             'page': page,
             'rows': rows_per_page,
-            'where': f'(ProductName like "%{search_term}%" or SKU like "%{search_term}%") and Category = "Wholesale Schools"'
+            'where': f"(ProductName like '%{search_term}%' or SKU like '%{search_term}%') and Category = 'Wholesale Schools'"
         }
 
         return self._make_request('Products', params)

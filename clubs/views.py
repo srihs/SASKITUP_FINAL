@@ -1095,37 +1095,45 @@ def sync_jobs_list(request):
 def clear_sync_locks(request):
     """
     Endpoint to clear stuck sync locks (admin only)
+    Handles both SyncJob and WholesaleSyncJob models
     """
     logger = logging.getLogger(__name__)
-    
+
     try:
         # Authentication check removed - sync management is now publicly accessible
-        
+
         # Get parameters from request
         data = json.loads(request.body.decode('utf-8')) if request.body else {}
         max_age_hours = data.get('max_age_hours', 2)
         force = data.get('force', False)
-        
-        # Find running sync jobs
+
+        # Find running sync jobs (LOTTO/SAS syncs)
         running_jobs = SyncJob.objects.filter(status='running')
-        
-        if not running_jobs.exists():
+
+        # Find running wholesale sync jobs
+        from schools.models import WholesaleSyncJob
+        running_wholesale_jobs = WholesaleSyncJob.objects.filter(status='running')
+
+        total_running = running_jobs.count() + running_wholesale_jobs.count()
+
+        if total_running == 0:
             return JsonResponse({
                 'success': True,
                 'message': 'No running sync jobs found',
                 'cleared_count': 0
             })
-        
+
         cutoff_time = timezone.now() - timedelta(hours=max_age_hours)
         cleared_count = 0
         cleared_jobs = []
-        
+
+        # Clear LOTTO/SAS sync jobs
         for job in running_jobs:
             age = timezone.now() - (job.started_at or job.created_at)
             age_hours = age.total_seconds() / 3600
-            
+
             should_clear = force or (job.started_at and job.started_at < cutoff_time) or (not job.started_at and job.created_at < cutoff_time)
-            
+
             if should_clear:
                 # Mark job as failed with appropriate message
                 username = request.user.username if request.user.is_authenticated else 'system'
@@ -1134,23 +1142,58 @@ def clear_sync_locks(request):
                     'USER_CLEARED'
                 )
                 job.add_log_message(f'Job manually cleared by user {username} due to being stuck in running state', 'warning')
-                
+
                 cleared_jobs.append({
                     'job_id': str(job.id),
                     'sync_type': job.sync_type,
+                    'job_model': 'SyncJob',
                     'age_hours': round(age_hours, 2)
                 })
                 cleared_count += 1
                 logger.info(f"User {username} cleared stuck sync job {job.id} (age: {age_hours:.2f}h)")
-        
+
+        # Clear wholesale sync jobs
+        for job in running_wholesale_jobs:
+            age = timezone.now() - (job.started_at or job.created_at)
+            age_hours = age.total_seconds() / 3600
+
+            should_clear = force or (job.started_at and job.started_at < cutoff_time) or (not job.started_at and job.created_at < cutoff_time)
+
+            if should_clear:
+                # Mark job as failed with appropriate message
+                username = request.user.username if request.user.is_authenticated else 'system'
+                job.status = 'failed'
+                job.completed_at = timezone.now()
+
+                # Add error message to track why it was cleared
+                if not job.error_messages:
+                    job.error_messages = []
+                job.error_messages.append({
+                    'timestamp': timezone.now().isoformat(),
+                    'message': f'Job cleared by user ({username}) - was stuck in running state for {age_hours:.2f} hours',
+                    'code': 'USER_CLEARED'
+                })
+
+                job.save()
+
+                cleared_jobs.append({
+                    'job_id': str(job.id),
+                    'sync_type': 'wholesale',
+                    'job_model': 'WholesaleSyncJob',
+                    'age_hours': round(age_hours, 2)
+                })
+                cleared_count += 1
+                logger.info(f"User {username} cleared stuck wholesale sync job {job.id} (age: {age_hours:.2f}h)")
+
         return JsonResponse({
             'success': True,
             'message': f'Cleared {cleared_count} stuck sync jobs',
             'cleared_count': cleared_count,
             'cleared_jobs': cleared_jobs,
-            'remaining_running_jobs': SyncJob.objects.filter(status='running').count()
+            'remaining_running_jobs': SyncJob.objects.filter(status='running').count(),
+            'remaining_wholesale_jobs': WholesaleSyncJob.objects.filter(status='running').count()
         })
-        
+
     except Exception as e:
         logger.error(f"Clear sync locks endpoint error: {str(e)}")
         return JsonResponse({
@@ -3540,7 +3583,7 @@ class WholesaleProductDetailView(DetailView):
 @require_http_methods(["POST"])
 def wholesale_sync_execute(request):
     """
-    Execute wholesale data sync from CIN7
+    Execute wholesale data sync from CIN7 using management command
     """
     try:
         # Check if there's already a sync running
@@ -3555,227 +3598,64 @@ def wholesale_sync_execute(request):
         # Create new sync job
         sync_job = WholesaleSyncJob.objects.create(
             status='pending',
-            current_step='Initializing sync...'
+            current_step='Initializing sync...',
+            progress_percentage=0
         )
 
-        # Start sync in background thread
+        logger.info(f"Starting wholesale sync job {sync_job.id}")
+
+        # Run sync command in background thread
         def run_sync():
             try:
-                from .services.cin7_service import CIN7Service
-                from django.db import transaction
-                from django.utils.text import slugify
+                from django.core.management import call_command
+                import io
+                import sys
 
-                sync_job.status = 'running'
-                sync_job.started_at = timezone.now()
-                sync_job.save()
+                # Capture command output
+                out = io.StringIO()
 
-                # Initialize CIN7 service
-                sync_job.current_step = 'Connecting to CIN7 API...'
-                sync_job.progress_percentage = 5
-                sync_job.save()
+                # Execute sync command with job ID
+                call_command(
+                    'sync_wholesale_schools',
+                    sync_job_id=str(sync_job.id),
+                    verbosity=1,
+                    stdout=out,
+                    stderr=out
+                )
 
-                cin7_service = CIN7Service()
-
-                # Test connection
-                if not cin7_service.test_connection():
-                    raise Exception("Failed to connect to CIN7 API")
-
-                sync_job.current_step = 'Fetching wholesale products from CIN7...'
-                sync_job.progress_percentage = 15
-                sync_job.save()
-
-                # Get all wholesale products
-                all_products = cin7_service.get_all_wholesale_products()
-                if not all_products:
-                    raise Exception("No wholesale products found in CIN7")
-
-                sync_job.current_step = f'Processing {len(all_products)} products...'
-                sync_job.progress_percentage = 30
-                sync_job.save()
-
-                # Organize products by school
-                schools_data = cin7_service.organize_products_by_school(all_products)
-
-                sync_job.current_step = f'Creating/updating {len(schools_data)} schools...'
-                sync_job.progress_percentage = 50
-                sync_job.save()
-
-                # Process each school and its products
-                schools_created = 0
-                schools_updated = 0
-                products_created = 0
-                products_updated = 0
-                categories_created = 0
-                categories_updated = 0
-
-                for school_name, school_data in schools_data.items():
-                    with transaction.atomic():
-                        # Create or update school
-                        school_info = school_data['info']
-                        school, created = WholesaleSchool.objects.get_or_create(
-                            name=school_name,
-                            defaults={
-                                'slug': slugify(school_name),
-                                'school_code': school_info.get('code', ''),
-                                'description': school_info.get('description', ''),
-                                'cin7_brand': school_info.get('brand', ''),
-                                'cin7_category_path': school_info.get('category_path', ''),
-                                'is_active': True,
-                                'last_synced_at': timezone.now()
-                            }
-                        )
-
-                        if created:
-                            schools_created += 1
-                        else:
-                            schools_updated += 1
-                            school.last_synced_at = timezone.now()
-                            school.save()
-
-                        # Process products for this school
-                        for product_data in school_data['products']:
-                            product, created = WholesaleProduct.objects.get_or_create(
-                                cin7_id=product_data['cin7_id'],
-                                defaults={
-                                    'school': school,
-                                    'name': product_data['name'],
-                                    'slug': slugify(f"{product_data['name']}-{product_data['cin7_sku']}"),
-                                    'description': product_data['description'],
-                                    'short_description': product_data['short_description'],
-                                    'cin7_sku': product_data['cin7_sku'],
-                                    'cin7_barcode': product_data['cin7_barcode'],
-                                    'cin7_brand': product_data['cin7_brand'],
-                                    'cin7_supplier': product_data['cin7_supplier'],
-                                    'cin7_unit_of_measure': product_data['cin7_unit_of_measure'],
-                                    'wholesale_price': product_data['wholesale_price'],
-                                    'retail_price': product_data['retail_price'],
-                                    'cost_price': product_data['cost_price'],
-                                    'stock_status': product_data['stock_status'],
-                                    'quantity_available': product_data['quantity_available'],
-                                    'quantity_on_hand': product_data['quantity_on_hand'],
-                                    'quantity_committed': product_data['quantity_committed'],
-                                    'weight': product_data['weight'],
-                                    'dimensions': product_data['dimensions'],
-                                    'attributes': product_data['attributes'],
-                                    'image_url': product_data['image_url'],
-                                    'is_active': True,
-                                    'last_synced_at': timezone.now()
-                                }
-                            )
-
-                            if created:
-                                products_created += 1
-                            else:
-                                products_updated += 1
-                                # Update existing product
-                                for field, value in {
-                                    'name': product_data['name'],
-                                    'description': product_data['description'],
-                                    'short_description': product_data['short_description'],
-                                    'cin7_sku': product_data['cin7_sku'],
-                                    'cin7_barcode': product_data['cin7_barcode'],
-                                    'cin7_brand': product_data['cin7_brand'],
-                                    'cin7_supplier': product_data['cin7_supplier'],
-                                    'cin7_unit_of_measure': product_data['cin7_unit_of_measure'],
-                                    'wholesale_price': product_data['wholesale_price'],
-                                    'retail_price': product_data['retail_price'],
-                                    'cost_price': product_data['cost_price'],
-                                    'stock_status': product_data['stock_status'],
-                                    'quantity_available': product_data['quantity_available'],
-                                    'quantity_on_hand': product_data['quantity_on_hand'],
-                                    'quantity_committed': product_data['quantity_committed'],
-                                    'weight': product_data['weight'],
-                                    'dimensions': product_data['dimensions'],
-                                    'attributes': product_data['attributes'],
-                                    'image_url': product_data['image_url'],
-                                    'last_synced_at': timezone.now()
-                                }.items():
-                                    setattr(product, field, value)
-                                product.save()
-
-                sync_job.current_step = 'Creating product categories...'
-                sync_job.progress_percentage = 80
-                sync_job.save()
-
-                # Get categories from CIN7
-                categories_data = cin7_service.get_product_categories()
-                if categories_data:
-                    for category_data in categories_data:
-                        # Only process wholesale school categories
-                        if 'Wholesale Schools' in category_data.get('CategoryPath', ''):
-                            category, created = WholesaleCategory.objects.get_or_create(
-                                cin7_id=str(category_data.get('CategoryId', '')),
-                                defaults={
-                                    'name': category_data.get('CategoryName', ''),
-                                    'slug': slugify(category_data.get('CategoryName', '')),
-                                    'description': category_data.get('CategoryDescription', ''),
-                                    'path': category_data.get('CategoryPath', ''),
-                                    'is_active': True,
-                                    'last_synced_at': timezone.now()
-                                }
-                            )
-
-                            if created:
-                                categories_created += 1
-                            else:
-                                categories_updated += 1
-
-                sync_job.current_step = 'Finalizing sync...'
-                sync_job.progress_percentage = 95
-                sync_job.save()
-
-                # Update school statistics
-                for school in WholesaleSchool.objects.filter(is_active=True):
-                    school.total_products = WholesaleProduct.objects.filter(
-                        school=school, is_active=True
-                    ).count()
-                    school.active_categories = WholesaleCategory.objects.filter(
-                        products__school=school, is_active=True
-                    ).distinct().count()
-                    school.save(update_fields=['total_products', 'active_categories'])
-
-                # Complete sync
-                sync_job.status = 'completed'
-                sync_job.progress_percentage = 100
-                sync_job.current_step = 'Sync completed successfully'
-                sync_job.completed_at = timezone.now()
-
-                # Update statistics with real numbers
-                sync_job.schools_created = schools_created
-                sync_job.schools_updated = schools_updated
-                sync_job.products_created = products_created
-                sync_job.products_updated = products_updated
-                sync_job.categories_created = categories_created
-                sync_job.categories_updated = categories_updated
-
-                sync_job.save()
+                logger.info(f"Wholesale sync job {sync_job.id} completed successfully")
 
             except Exception as e:
-                logger.error(f"Wholesale sync failed: {str(e)}")
-                sync_job.status = 'failed'
-                sync_job.current_step = f'Sync failed: {str(e)}'
-                sync_job.completed_at = timezone.now()
-                sync_job.errors_count = 1
-                sync_job.error_messages = [str(e)]
-                sync_job.save()
+                logger.error(f"Wholesale sync job {sync_job.id} failed: {e}", exc_info=True)
+                # Sync job status is updated by the management command
+                # But if command fails to run at all, update here
+                sync_job.refresh_from_db()
+                if sync_job.status != 'failed':
+                    sync_job.status = 'failed'
+                    sync_job.current_step = f'Sync failed: {str(e)}'
+                    sync_job.completed_at = timezone.now()
+                    sync_job.errors_count = 1
+                    if not hasattr(sync_job, 'error_messages') or not sync_job.error_messages:
+                        sync_job.error_messages = []
+                    sync_job.error_messages.append(str(e))
+                    sync_job.save()
 
-        # Start sync thread
-        sync_thread = threading.Thread(target=run_sync)
-        sync_thread.daemon = True
-        sync_thread.start()
+        # Start background thread
+        thread = threading.Thread(target=run_sync)
+        thread.daemon = True
+        thread.start()
 
         return JsonResponse({
             'success': True,
-            'message': 'Sync started successfully',
+            'message': 'Sync job started successfully',
             'job_id': str(sync_job.id)
         })
 
     except Exception as e:
-        logger.error(f"Error starting wholesale sync: {str(e)}")
+        logger.error(f"Failed to start wholesale sync: {e}", exc_info=True)
         return JsonResponse({
             'success': False,
-            'error': 'Failed to start sync',
-            'message': str(e)
+            'error': str(e)
         }, status=500)
 
 

@@ -13,7 +13,7 @@
             <div class="d-flex justify-content-end">
                 {% if wholesale_available %}
                 <div class="d-flex gap-2">
-                    <button type="button" id="syncButton" class="btn btn-primary" disabled>
+                    <button type="button" id="syncButton" class="btn btn-primary" onclick="startWholesaleSync()">
                         <i id="syncIcon" class="uil-sync me-2" aria-hidden="true"></i>
                         <span id="syncText">Sync Wholesale Data</span>
                     </button>
@@ -135,30 +135,6 @@
                 </div>
             </div>
 
-            <div class="col-xl-3 col-lg-6 col-md-6 col-12">
-                <div class="card wholesale-stat-tile">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center">
-                            <div class="avatar-md me-3 flex-shrink-0">
-                                <div class="avatar-title bg-primary-light text-primary rounded">
-                                    <i class="uil-map-marker font-size-24"></i>
-                                </div>
-                            </div>
-                            <div class="flex-grow-1">
-                                <p class="text-muted font-weight-medium mb-1">Regions</p>
-                                <h4 class="mb-0 text-primary">{{ schools_by_region|length|default:0 }}</h4>
-                                <small class="text-success">
-                                    <i class="uil-arrow-up font-size-12"></i>
-                                    Coverage
-                                </small>
-                            </div>
-                        </div>
-                        <div class="progress mt-3" style="height: 4px;">
-                            <div class="progress-bar bg-success" role="progressbar" style="width: {% widthratio schools_by_region|length 10 100 %}%"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <!-- Filters and Search -->
@@ -216,103 +192,47 @@
             <div class="col-xxl-3 col-xl-4 col-lg-6 col-md-6 col-sm-12 mb-4">
                 <div class="card wholesale-school-card h-100">
                     <div class="card-body">
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="avatar-md me-3">
-                                {% if school.logo %}
-                                <img src="{{ school.logo.url }}" alt="{{ school.name }}" class="avatar-md rounded">
-                                {% else %}
-                                <span class="avatar-title rounded bg-primary text-white font-size-18">
-                                    {{ school.name|first }}
-                                </span>
-                                {% endif %}
-                            </div>
-                            <div class="flex-grow-1">
-                                <h5 class="mb-1">
-                                    <a href="{% url 'schools:wholesale_school_detail' slug=school.slug %}" class="text-dark">{{ school.name }}</a>
-                                </h5>
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="badge badge-cin7 font-size-11">CIN7</span>
-                                    {% if school.city %}
-                                    <span class="badge bg-soft-primary text-primary font-size-11">
-                                        <i class="uil-map-marker me-1"></i>{{ school.city }}
-                                    </span>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Categories Display or Stats -->
-                        {% if school.categories.exists %}
-                        <!-- Show Categories with large product images -->
-                        <div class="categories-display mb-3">
-                            <div class="row g-3">
-                                {% for category in school.categories.all|slice:":4" %}
-                                <div class="col-6">
-                                    <div class="category-card text-center">
-                                        <div class="category-image-container mb-2">
-                                            {% if category.products.first.image_url %}
-                                            <img src="{{ category.products.first.image_url }}" alt="{{ category.name }}" class="category-image rounded">
-                                            {% else %}
-                                            <div class="category-placeholder rounded bg-soft-secondary d-flex align-items-center justify-content-center">
-                                                <i class="uil-tag font-size-24 text-secondary"></i>
-                                            </div>
-                                            {% endif %}
-                                        </div>
-                                        <h6 class="category-name mb-1 font-size-14">{{ category.name }}</h6>
-                                        <p class="category-count text-muted mb-2 font-size-12">
-                                            <i class="uil-box me-1"></i>{{ category|product_count_for_school:school }} products
-                                        </p>
-                                        <a href="{% url 'schools:wholesale_category_detail' category.slug %}" class="btn btn-soft-danger btn-sm category-btn">
-                                            <i class="uil-eye me-1"></i>View Products
-                                        </a>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                            {% if school.categories.count > 4 %}
-                            <div class="text-center mt-2">
-                                <small class="text-muted">+{{ school.categories.count|add:"-4" }} more categories</small>
-                            </div>
-                            {% endif %}
-                        </div>
-                        {% else %}
-                        <!-- Show Stats when no categories -->
-                        <div class="wholesale-stats mb-3">
-                            <div class="row g-0">
-                                <div class="col-4">
-                                    <div class="p-3 border-end border-primary bg-soft-primary text-center">
-                                        <h5 class="mb-1 text-primary">{{ school.total_categories|default:0 }}</h5>
-                                        <p class="text-primary font-size-13 mb-0">Categories</p>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="p-3 border-end border-primary bg-soft-primary text-center">
-                                        <h5 class="mb-1 text-primary">{{ school.total_products|default:0 }}</h5>
-                                        <p class="text-primary font-size-13 mb-0">Products</p>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="p-3 bg-soft-primary text-center">
-                                        <h5 class="mb-1 text-primary">
-                                            <i class="uil-check-circle font-size-14"></i>
-                                        </h5>
-                                        <p class="text-primary font-size-13 mb-0">Active</p>
-                                    </div>
-                                </div>
-                            </div>
+                        <!-- School Logo Section - Prominent Display -->
+                        {% if school.logo %}
+                        <div class="school-logo-container mb-3" id="logo-{{ school.id }}">
+                            <img src="{{ school.logo }}"
+                                 alt="{{ school.name }} Logo"
+                                 class="school-logo-img"
+                                 onerror="this.parentElement.style.display='none';">
                         </div>
                         {% endif %}
 
+                        <!-- School Name and Info -->
+                        <div class="school-header mb-3">
+                            <h5 class="school-name mb-2">
+                                <a href="{% url 'schools:wholesale_school_detail' slug=school.slug %}" class="text-dark">{{ school.name }}</a>
+                            </h5>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="badge badge-cin7 font-size-11">CIN7</span>
+                                {% if school.city %}
+                                <span class="badge bg-soft-primary text-primary font-size-11">
+                                    <i class="uil-map-marker me-1"></i>{{ school.city }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Product Count -->
+                        <div class="school-product-count mb-3">
+                            <div class="d-flex align-items-center justify-content-between p-3 bg-soft-primary rounded">
+                                <div class="d-flex align-items-center">
+                                    <i class="uil-package font-size-20 text-primary me-2"></i>
+                                    <span class="text-muted font-size-14">Available Products</span>
+                                </div>
+                                <h5 class="mb-0 text-primary">{{ school.total_products|default:0 }}</h5>
+                            </div>
+                        </div>
+
                     </div>
                     <div class="card-footer bg-transparent border-top">
-                        <div class="d-flex gap-2">
-                            <a href="{% url 'schools:wholesale_school_detail' slug=school.slug %}" class="btn btn-primary btn-sm flex-grow-1">
-                                <i class="uil-eye me-1"></i> Explore School
-                            </a>
-                            <button type="button" class="btn btn-soft-primary btn-sm" data-bs-toggle="tooltip" title="Add to Favorites">
-                                <i class="uil-heart"></i>
-                            </button>
-                        </div>
+                        <a href="{% url 'schools:wholesale_school_detail' slug=school.slug %}" class="btn btn-primary btn-sm w-100">
+                            <i class="uil-eye me-1"></i> View Details
+                        </a>
                     </div>
                 </div>
             </div>
@@ -443,37 +363,32 @@
     border-color: #6f42c1;
 }
 
-/* School Logo Styles */
-.school-logo {
-    width: 60px;
-    height: 60px;
-    flex-shrink: 0;
-}
-
-.school-logo-img {
+/* Prominent School Logo Styles */
+.school-logo-container {
     width: 100%;
-    height: 100%;
-    object-fit: contain;
-    border-radius: 8px;
-    border: 2px solid #e9ecef;
-}
-
-.school-logo-placeholder {
-    width: 60px;
-    height: 60px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 8px;
+    height: 150px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid #e9ecef;
+    background: transparent;
+    border-radius: 8px;
+    border: none;
+    padding: 1rem;
+    overflow: hidden;
 }
 
-.school-initial {
-    color: white;
-    font-size: 24px;
-    font-weight: 700;
-    text-transform: uppercase;
+.school-logo-img {
+    max-width: 100%;
+    max-height: 150px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+}
+
+/* School Header Section */
+.school-header {
+    min-height: 70px;
 }
 
 /* School Name */
@@ -482,6 +397,12 @@
     font-weight: 600;
     line-height: 1.3;
     margin-bottom: 0.5rem;
+}
+
+.school-name a {
+    color: #2c3e50;
+    text-decoration: none;
+    transition: color 0.2s ease;
 }
 
 .school-name a:hover {
@@ -673,18 +594,16 @@
         width: 100%;
     }
 
-    .school-logo {
-        width: 50px;
-        height: 50px;
+    .school-logo-container {
+        height: 120px;
     }
 
-    .school-logo-placeholder {
-        width: 50px;
-        height: 50px;
+    .school-logo-img {
+        max-height: 120px;
     }
 
-    .school-initial {
-        font-size: 20px;
+    .school-header {
+        min-height: auto;
     }
 
     .school-stats {
@@ -697,6 +616,14 @@
 }
 
 @media (max-width: 576px) {
+    .school-logo-container {
+        height: 100px;
+    }
+
+    .school-logo-img {
+        max-height: 100px;
+    }
+
     .school-tags {
         margin-top: 0.5rem;
     }
@@ -706,91 +633,13 @@
     }
 }
 
-/* Category Display Styles */
-.categories-display {
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 8px;
-    padding: 1rem;
+/* School Product Count Styles */
+.school-product-count .bg-soft-primary {
+    background-color: rgba(111, 66, 193, 0.1);
 }
 
-.category-card {
-    transition: all 0.3s ease;
-    padding: 0.75rem;
-    border-radius: 8px;
-    background: white;
-    border: 1px solid rgba(0,0,0,0.05);
-}
-
-.category-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-}
-
-.category-image-container {
-    position: relative;
-    width: 100%;
-    height: 120px;
-    overflow: hidden;
-    border-radius: 6px;
-    background: #f8f9fa;
-}
-
-.category-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 6px;
-}
-
-.category-placeholder {
-    width: 100%;
-    height: 120px;
-    border: 2px dashed #dee2e6;
-}
-
-.category-name {
+.school-product-count h5 {
     font-weight: 600;
-    color: #2c3e50;
-    line-height: 1.2;
-}
-
-.category-count {
-    font-size: 12px;
-    color: #6c757d;
-}
-
-.category-btn {
-    background-color: rgba(220, 53, 69, 0.1) !important;
-    border-color: rgba(220, 53, 69, 0.1) !important;
-    color: #dc3545 !important;
-    font-size: 12px;
-    padding: 0.25rem 0.75rem;
-    font-weight: 500;
-}
-
-.category-btn:hover {
-    background-color: #dc3545 !important;
-    border-color: #dc3545 !important;
-    color: white !important;
-}
-
-.category-btn i {
-    font-size: 11px;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .category-image-container {
-        height: 100px;
-    }
-
-    .category-card {
-        padding: 0.5rem;
-    }
-
-    .category-name {
-        font-size: 13px;
-    }
 }
 
 </style>
