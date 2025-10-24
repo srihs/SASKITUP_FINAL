@@ -571,7 +571,7 @@
                                         <input type="text"
                                                name="search"
                                                class="form-control bg-light border-light"
-                                               placeholder="Search products by name or SKU..."
+                                               placeholder="Search by product, school/club, location, SKU, or barcode (min 4 characters)..."
                                                value="{{ search_query }}"
                                                id="searchInput"
                                                autocomplete="off">
@@ -985,8 +985,9 @@ if (searchInput && searchButton) {
         clearTimeout(searchTimeout);
 
         // Set new timeout to submit form after 500ms of no typing
+        // Only trigger search if 4 or more characters entered
         searchTimeout = setTimeout(function() {
-            if (searchInput.value.trim().length > 0) {
+            if (searchInput.value.trim().length >= 4) {
                 searchForm.submit();
             }
         }, 500);
@@ -1006,12 +1007,12 @@ if (searchInput && searchButton) {
         }
     });
 
-    // Also submit on Enter key
+    // Also submit on Enter key (requires 4+ characters)
     searchInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             clearTimeout(searchTimeout);
-            if (searchInput.value.trim().length > 0) {
+            if (searchInput.value.trim().length >= 4) {
                 searchForm.submit();
             }
         }

@@ -2430,7 +2430,10 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                         Q(sku__icontains=search_query) |
                         Q(barcode__icontains=search_query) |
                         Q(description__icontains=search_query) |
-                        Q(variations__sku__icontains=search_query)  # Search in variation SKUs
+                        Q(variations__sku__icontains=search_query) |  # Search in variation SKUs
+                        Q(category_assignments__school_category__school__name__icontains=search_query) |  # School name
+                        Q(category_assignments__school_category__school__location__name__icontains=search_query) |  # Location name
+                        Q(category_assignments__school_category__school__address__icontains=search_query)  # Address
                     ).distinct()  # Use distinct() to avoid duplicates from variation joins
 
             # Get Wholesale School Products with variations
@@ -2484,7 +2487,11 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                         Q(name__icontains=search_query) |
                         Q(cin7_sku__icontains=search_query) |
                         Q(description__icontains=search_query) |
-                        Q(variations__cin7_sku__icontains=search_query)  # Search in variation SKUs
+                        Q(variations__cin7_sku__icontains=search_query) |  # Search in variation SKUs
+                        Q(school__name__icontains=search_query) |  # School name
+                        Q(school__city__icontains=search_query) |  # City
+                        Q(school__address_line1__icontains=search_query) |  # Address line 1
+                        Q(school__address_line2__icontains=search_query)  # Address line 2
                     ).distinct()  # Use distinct() to avoid duplicates from variation joins
 
             # PERFORMANCE OPTIMIZATION: Paginate BEFORE processing variations
@@ -2607,7 +2614,11 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                     Q(name__icontains=search_query) |
                     Q(sku__icontains=search_query) |
                     Q(description__icontains=search_query) |
-                    Q(variations__sku_suffix__icontains=search_query)  # Search in variation SKU suffix
+                    Q(variations__sku_suffix__icontains=search_query) |  # Search in variation SKU suffix
+                    Q(club__name__icontains=search_query) |  # Club name
+                    Q(club__city__icontains=search_query) |  # City
+                    Q(club__province__icontains=search_query) |  # Province
+                    Q(club__address__icontains=search_query)  # Address
                 ).distinct()
 
             # Stock filtering for LOTTO Products:
@@ -2643,7 +2654,9 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                     Q(name__icontains=search_query) |
                     Q(sku__icontains=search_query) |
                     Q(description__icontains=search_query) |
-                    Q(variations__sku_suffix__icontains=search_query)  # Search in variation SKU suffix
+                    Q(variations__sku_suffix__icontains=search_query) |  # Search in variation SKU suffix
+                    Q(category__club__name__icontains=search_query) |  # Club name
+                    Q(category__club__address__icontains=search_query)  # Address
                 ).distinct()
 
             # PERFORMANCE OPTIMIZATION: Paginate BEFORE processing variations
