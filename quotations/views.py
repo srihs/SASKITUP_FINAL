@@ -2755,6 +2755,7 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
             'active_tab': active_tab,
             'search_query': search_query,
             'category_type_filter': category_type_filter,
+            'category_type_display': category_type_filter.replace('_', ' ').title() if category_type_filter else '',
             'filtered_by_category_type': filtered_by_category_type,
 
             # Category grouping (when search is active)
