@@ -548,6 +548,171 @@
         width: 60px;
     }
 }
+
+/* Category Tile Styling - Clickable Tiles */
+.category-tiles-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.category-tile {
+    border: 2px solid #e9ecef;
+    border-radius: 0.75rem;
+    background: white;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    padding: 1.75rem 1.5rem;
+    position: relative;
+}
+
+.category-tile:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.75rem 1.5rem rgba(85, 110, 230, 0.15);
+    border-color: #556ee6;
+}
+
+.category-tile:hover .category-tile-icon {
+    background: linear-gradient(135deg, #556ee6 0%, #6c7bef 100%);
+    transform: scale(1.1);
+}
+
+.category-tile:hover .category-tile-name {
+    color: #556ee6;
+}
+
+.category-tile-icon {
+    width: 70px;
+    height: 70px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.25rem;
+    transition: all 0.3s ease;
+}
+
+.category-tile-icon i {
+    font-size: 2rem;
+    color: #556ee6;
+    transition: all 0.3s ease;
+}
+
+.category-tile:hover .category-tile-icon i {
+    color: white;
+}
+
+.category-tile-name {
+    font-size: 1.375rem;
+    font-weight: 700;
+    color: #212529;
+    margin-bottom: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.category-tile-count {
+    font-size: 0.9rem;
+    color: #6c757d;
+    font-weight: 500;
+    margin-bottom: 1rem;
+}
+
+.category-tile-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #556ee6;
+    font-weight: 600;
+    font-size: 0.875rem;
+    margin-top: auto;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.category-tile-action i {
+    transition: transform 0.3s ease;
+}
+
+.category-tile:hover .category-tile-action i {
+    transform: translateX(3px);
+}
+
+/* Filter breadcrumb */
+.filter-breadcrumb {
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.filter-breadcrumb-text {
+    font-size: 0.95rem;
+    color: #495057;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.filter-breadcrumb-text strong {
+    color: #212529;
+    font-weight: 600;
+}
+
+.btn-clear-filter {
+    padding: 0.375rem 0.875rem;
+    font-size: 0.875rem;
+    background: white;
+    border: 1px solid #dee2e6;
+    color: #495057;
+    border-radius: 0.375rem;
+    transition: all 0.3s ease;
+}
+
+.btn-clear-filter:hover {
+    background: #556ee6;
+    color: white;
+    border-color: #556ee6;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .category-tiles-container {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 1rem;
+    }
+
+    .category-tile {
+        padding: 1.5rem 1.25rem;
+    }
+
+    .category-tile-icon {
+        width: 60px;
+        height: 60px;
+    }
+
+    .category-tile-icon i {
+        font-size: 1.75rem;
+    }
+
+    .category-tile-name {
+        font-size: 1.25rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .category-tiles-container {
+        grid-template-columns: 1fr;
+    }
+}
 </style>
 {% endblock %}
 
@@ -571,7 +736,7 @@
                                         <input type="text"
                                                name="search"
                                                class="form-control bg-light border-light"
-                                               placeholder="Search by product, school/club, location, SKU, or barcode (min 4 characters)..."
+                                               placeholder="Search by product, category, school/club, location, SKU, or barcode (min 4 characters)..."
                                                value="{{ search_query }}"
                                                id="searchInput"
                                                autocomplete="off">
@@ -608,7 +773,39 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-body">
-                        {% if products %}
+                        {% if use_category_grouping and grouped_products and not category_type_filter %}
+                            <!-- CATEGORY TILES VIEW (when searching, not filtered) -->
+                            <div class="mb-4">
+                                <h5 class="mb-3">Browse by Category</h5>
+                                <div class="category-tiles-container">
+                                    {% for group_key, group_data in grouped_products.items %}
+                                        <a href="?tab={{ active_tab }}&search={{ search_query }}&category_type={{ group_key }}" class="category-tile">
+                                            <div class="category-tile-icon">
+                                                <i class="{{ group_data.icon }}"></i>
+                                            </div>
+                                            <div class="category-tile-name">{{ group_data.name }}</div>
+                                            <div class="category-tile-count">{{ group_data.count }} product{{ group_data.count|pluralize }}</div>
+                                            <div class="category-tile-action">
+                                                View All <i class="mdi mdi-arrow-right"></i>
+                                            </div>
+                                        </a>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                        {% elif filtered_by_category_type and category_type_filter %}
+                            <!-- FILTERED VIEW - Show breadcrumb and filtered products -->
+                            <div class="filter-breadcrumb">
+                                <div class="filter-breadcrumb-text">
+                                    <i class="mdi mdi-filter-variant"></i>
+                                    Showing <strong>{{ category_type_filter|title|replace:"_":" " }}</strong> products for "<strong>{{ search_query }}</strong>"
+                                </div>
+                                <a href="?tab={{ active_tab }}&search={{ search_query }}" class="btn-clear-filter">
+                                    <i class="mdi mdi-close-circle"></i> Clear Filter
+                                </a>
+                            </div>
+
+                            <!-- FLAT PRODUCT VIEW (when category type filter is active) -->
                             <div class="row">
                                 {% for product in products %}
                                 <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
@@ -868,6 +1065,130 @@
                                 {% endfor %}
                             </div>
 
+                        {% elif products %}
+                            <!-- FLAT VIEW (when not searching or no results) -->
+                            <div class="row">
+                                {% for product in products %}
+                                <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+                                    <div class="product-box">
+                                        {% if product.product_type == 'tusproduct' %}
+                                            <!-- TUS Product Card - keeping original structure -->
+                                            <a href="{% url 'quotations:product-detail-for-quote' product_type='tusproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
+                                                <div class="product-img">
+                                                    {% if product.image_url %}
+                                                        <img src="{{ product.image_url }}" alt="{{ product.name }}">
+                                                    {% else %}
+                                                        <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.name }}">
+                                                    {% endif %}
+                                                </div>
+                                                <div class="product-content">
+                                                    <h5 class="product-title">{{ product.name }}</h5>
+                                                    <p class="product-sku mb-0">SKU: {{ product.display_sku }}</p>
+                                                    <p class="product-institution mb-0">
+                                                        {% if product.primary_category_assignment.school_category.school %}
+                                                            {{ product.primary_category_assignment.school_category.school.name }}
+                                                        {% endif %}
+                                                    </p>
+                                                    {% if product.has_variations %}
+                                                        <p class="product-price variable-price">Variable pricing</p>
+                                                    {% else %}
+                                                        <p class="product-price">${{ product.price }}</p>
+                                                    {% endif %}
+                                                    <span class="product-stock {% if product.stock_status == 'instock' %}stock-in{% elif product.stock_status == 'outofstock' %}stock-out{% else %}stock-backorder{% endif %}">
+                                                        {{ product.get_stock_status_display }}
+                                                    </span>
+                                                    <a href="{% url 'quotations:product-detail-for-quote' product_type='tusproduct' product_slug=product.slug %}" class="btn btn-view-details mt-2">
+                                                        View Details
+                                                    </a>
+                                                </div>
+                                            </a>
+                                        {% elif product.product_type == 'wholesaleproduct' %}
+                                            <!-- Wholesale Product Card -->
+                                            <a href="{% url 'quotations:product-detail-for-quote' product_type='wholesaleproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
+                                                <div class="product-img">
+                                                    {% if product.image_url %}
+                                                        <img src="{{ product.image_url }}" alt="{{ product.name }}">
+                                                    {% else %}
+                                                        <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.name }}">
+                                                    {% endif %}
+                                                </div>
+                                                <div class="product-content">
+                                                    <h5 class="product-title">{{ product.name }}</h5>
+                                                    <p class="product-sku mb-0">SKU: {{ product.cin7_sku }}</p>
+                                                    <p class="product-institution mb-0">{{ product.school.name }}</p>
+                                                    <p class="product-price variable-price">Variable pricing</p>
+                                                    <span class="product-stock stock-in">In Stock</span>
+                                                    <a href="{% url 'quotations:product-detail-for-quote' product_type='wholesaleproduct' product_slug=product.slug %}" class="btn btn-view-details mt-2">
+                                                        View Details
+                                                    </a>
+                                                </div>
+                                            </a>
+                                        {% elif product.product_type == 'sasproduct' %}
+                                            <!-- SAS Product Card -->
+                                            <a href="{% url 'quotations:product-detail-for-quote' product_type='sasproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
+                                                <div class="product-img">
+                                                    {% if product.image_url %}
+                                                        <img src="{{ product.image_url }}" alt="{{ product.name }}">
+                                                    {% else %}
+                                                        <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.name }}">
+                                                    {% endif %}
+                                                </div>
+                                                <div class="product-content">
+                                                    <h5 class="product-title">{{ product.name }}</h5>
+                                                    <p class="product-sku mb-0">SKU: {{ product.sku }}</p>
+                                                    <p class="product-institution mb-0">SAS - {{ product.club.name }}</p>
+                                                    {% if product.has_variations %}
+                                                        <p class="product-price variable-price">Variable pricing</p>
+                                                    {% else %}
+                                                        <p class="product-price">${{ product.price }}</p>
+                                                    {% endif %}
+                                                    <span class="product-stock {% if product.stock_status == 'instock' %}stock-in{% elif product.stock_status == 'outofstock' %}stock-out{% else %}stock-backorder{% endif %}">
+                                                        {{ product.get_stock_status_display }}
+                                                    </span>
+                                                    <a href="{% url 'quotations:product-detail-for-quote' product_type='sasproduct' product_slug=product.slug %}" class="btn btn-view-details mt-2">
+                                                        View Details
+                                                    </a>
+                                                </div>
+                                            </a>
+                                        {% elif product.product_type == 'lottoproduct' %}
+                                            <!-- LOTTO Product Card -->
+                                            <a href="{% url 'quotations:product-detail-for-quote' product_type='lottoproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
+                                                <div class="product-img">
+                                                    {% if product.image_url %}
+                                                        <img src="{{ product.image_url }}" alt="{{ product.name }}">
+                                                    {% else %}
+                                                        <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.name }}">
+                                                    {% endif %}
+                                                </div>
+                                                <div class="product-content">
+                                                    <h5 class="product-title">{{ product.name }}</h5>
+                                                    <p class="product-sku mb-0">SKU: {{ product.sku }}</p>
+                                                    <p class="product-institution mb-0">LOTTO - {{ product.category.club.name }}</p>
+                                                    {% if product.type == 'variable' %}
+                                                        <p class="product-price variable-price">Variable pricing</p>
+                                                    {% else %}
+                                                        <p class="product-price">${{ product.price }}</p>
+                                                    {% endif %}
+                                                    <span class="product-stock {% if product.stock_status == 'instock' %}stock-in{% elif product.stock_status == 'outofstock' %}stock-out{% else %}stock-backorder{% endif %}">
+                                                        {{ product.get_stock_status_display }}
+                                                    </span>
+                                                    <a href="{% url 'quotations:product-detail-for-quote' product_type='lottoproduct' product_slug=product.slug %}" class="btn btn-view-details mt-2">
+                                                        View Details
+                                                    </a>
+                                                </div>
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="mdi mdi-information-outline me-2"></i>
+                                No products found{% if search_query %} matching "{{ search_query }}"{% endif %}.
+                            </div>
+                        {% endif %}
+
                             <!-- Pagination Controls -->
                             {% if is_paginated %}
                             <div class="row mt-4">
@@ -877,12 +1198,12 @@
                                             <ul class="pagination justify-content-center mb-0">
                                                 {% if page_obj.has_previous %}
                                                     <li class="page-item">
-                                                        <a class="page-link" href="?page=1&tab={{ active_tab }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                                        <a class="page-link" href="?page=1&tab={{ active_tab }}{% if search_query %}&search={{ search_query }}{% endif %}{% if category_type_filter %}&category_type={{ category_type_filter }}{% endif %}">
                                                             <i class="mdi mdi-chevron-double-left"></i>
                                                         </a>
                                                     </li>
                                                     <li class="page-item">
-                                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&tab={{ active_tab }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&tab={{ active_tab }}{% if search_query %}&search={{ search_query }}{% endif %}{% if category_type_filter %}&category_type={{ category_type_filter }}{% endif %}">
                                                             <i class="mdi mdi-chevron-left"></i>
                                                         </a>
                                                     </li>
@@ -895,19 +1216,19 @@
                                                         </li>
                                                     {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                                                         <li class="page-item">
-                                                            <a class="page-link" href="?page={{ num }}&tab={{ active_tab }}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+                                                            <a class="page-link" href="?page={{ num }}&tab={{ active_tab }}{% if search_query %}&search={{ search_query }}{% endif %}{% if category_type_filter %}&category_type={{ category_type_filter }}{% endif %}">{{ num }}</a>
                                                         </li>
                                                     {% endif %}
                                                 {% endfor %}
 
                                                 {% if page_obj.has_next %}
                                                     <li class="page-item">
-                                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}&tab={{ active_tab }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}&tab={{ active_tab }}{% if search_query %}&search={{ search_query }}{% endif %}{% if category_type_filter %}&category_type={{ category_type_filter }}{% endif %}">
                                                             <i class="mdi mdi-chevron-right"></i>
                                                         </a>
                                                     </li>
                                                     <li class="page-item">
-                                                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&tab={{ active_tab }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&tab={{ active_tab }}{% if search_query %}&search={{ search_query }}{% endif %}{% if category_type_filter %}&category_type={{ category_type_filter }}{% endif %}">
                                                             <i class="mdi mdi-chevron-double-right"></i>
                                                         </a>
                                                     </li>
@@ -924,13 +1245,6 @@
                                 </div>
                             </div>
                             {% endif %}
-                        {% else %}
-                            <div class="empty-state">
-                                <i class="mdi mdi-{% if active_tab == 'schools' %}package-variant{% else %}soccer{% endif %}"></i>
-                                <h4>No Products Found</h4>
-                                <p>{% if search_query %}No products match your search query.{% else %}No products available for your assigned {% if active_tab == 'schools' %}schools{% else %}clubs{% endif %}.{% endif %}</p>
-                            </div>
-                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -1021,5 +1335,7 @@ if (searchInput && searchButton) {
     // Initialize icon on page load
     updateSearchIcon();
 }
+
+// Category tiles use direct navigation - no JavaScript needed
 </script>
 {% endblock %}

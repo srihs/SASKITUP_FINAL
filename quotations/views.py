@@ -2372,6 +2372,9 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
         # Get current tab (default to 'schools')
         active_tab = request.GET.get('tab', 'schools')
 
+        # Get category type filter (for tile navigation)
+        category_type_filter = request.GET.get('category_type', '')
+
         # Get page number
         page = request.GET.get('page', 1)
 
@@ -2431,6 +2434,8 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                         Q(barcode__icontains=search_query) |
                         Q(description__icontains=search_query) |
                         Q(variations__sku__icontains=search_query) |  # Search in variation SKUs
+                        Q(category_assignments__school_category__name__icontains=search_query) |  # School category name
+                        Q(category_assignments__general_category__name__icontains=search_query) |  # General category name
                         Q(category_assignments__school_category__school__name__icontains=search_query) |  # School name
                         Q(category_assignments__school_category__school__location__name__icontains=search_query) |  # Location name
                         Q(category_assignments__school_category__school__address__icontains=search_query)  # Address
@@ -2488,6 +2493,7 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                         Q(cin7_sku__icontains=search_query) |
                         Q(description__icontains=search_query) |
                         Q(variations__cin7_sku__icontains=search_query) |  # Search in variation SKUs
+                        Q(category_assignments__category__name__icontains=search_query) |  # Category name
                         Q(school__name__icontains=search_query) |  # School name
                         Q(school__city__icontains=search_query) |  # City
                         Q(school__address_line1__icontains=search_query) |  # Address line 1
@@ -2615,7 +2621,8 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                     Q(sku__icontains=search_query) |
                     Q(description__icontains=search_query) |
                     Q(variations__sku_suffix__icontains=search_query) |  # Search in variation SKU suffix
-                    Q(club__name__icontains=search_query) |  # Club name
+                    Q(club__name__icontains=search_query) |  # Club name (acts as category)
+                    Q(club__sport__name__icontains=search_query) |  # Sport name (parent category)
                     Q(club__city__icontains=search_query) |  # City
                     Q(club__province__icontains=search_query) |  # Province
                     Q(club__address__icontains=search_query)  # Address
@@ -2655,6 +2662,7 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                     Q(sku__icontains=search_query) |
                     Q(description__icontains=search_query) |
                     Q(variations__sku_suffix__icontains=search_query) |  # Search in variation SKU suffix
+                    Q(category__name__icontains=search_query) |  # Category name
                     Q(category__club__name__icontains=search_query) |  # Club name
                     Q(category__club__address__icontains=search_query)  # Address
                 ).distinct()
@@ -2710,11 +2718,50 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
             search_query=search_query
         )
 
+        # Group products by category type when search is active
+        use_category_grouping = bool(search_query and page_obj)
+        grouped_products = None
+
+        if use_category_grouping:
+            # Use category TYPE grouping (Apparel, Accessories, etc.) instead of specific categories
+            grouped_products = self._group_products_by_category_type(page_obj.object_list)
+
+        # If category type filter is active, filter products by that type
+        filtered_by_category_type = False
+        if category_type_filter and page_obj:
+            # Filter products by category type
+            filtered_products = []
+            for product in page_obj.object_list:
+                category_info = self._get_category_info(product)
+                if category_info:
+                    cat_type, _ = self._get_category_type_mapping(category_info['name'])
+                    cat_type_key = cat_type.lower().replace(' ', '_')
+                    if cat_type_key == category_type_filter.lower():
+                        filtered_products.append(product)
+
+            # Replace page_obj with filtered results
+            if filtered_products:
+                paginator = Paginator(filtered_products, self.paginate_by)
+                try:
+                    page_obj = paginator.get_page(page)
+                except PageNotAnInteger:
+                    page_obj = paginator.get_page(1)
+                except EmptyPage:
+                    page_obj = paginator.get_page(paginator.num_pages)
+                is_paginated = paginator.num_pages > 1
+                filtered_by_category_type = True
+
         context = {
             'active_tab': active_tab,
             'search_query': search_query,
+            'category_type_filter': category_type_filter,
+            'filtered_by_category_type': filtered_by_category_type,
 
-            # Paginated products
+            # Category grouping (when search is active)
+            'use_category_grouping': use_category_grouping,
+            'grouped_products': grouped_products,
+
+            # Paginated products (flat list when not searching)
             'products': page_obj.object_list if page_obj else [],
             'page_obj': page_obj,
             'is_paginated': is_paginated,
@@ -2894,6 +2941,255 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
             'skus': skus,  # List of SKU information
             'has_skus': len(skus) > 0,  # Quick check for template
         }
+
+    def _get_category_info(self, product):
+        """
+        Extract category information from product based on type.
+
+        Returns dict with keys:
+        - key: unique identifier for grouping
+        - id: category object id
+        - name: category name
+        - category_type: type identifier
+        - display_name: name for display headers
+        - institution: school/club name
+        - institution_type: tus_school, sas_club, lotto_club, wholesale_school
+        - order: sort order
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        try:
+            if product.product_type == 'tusproduct':
+                # TUS Products: school_category -> school
+                if hasattr(product, 'primary_category_assignment') and product.primary_category_assignment:
+                    school_category = product.primary_category_assignment.school_category
+                    if school_category:
+                        school = school_category.school
+                        return {
+                            'key': f'tus_school_category_{school_category.id}',
+                            'id': school_category.id,
+                            'name': school_category.name,
+                            'category_type': 'tus_school_category',
+                            'display_name': school_category.name,
+                            'institution': school.name if school else 'Unknown School',
+                            'institution_type': 'tus_school',
+                            'order': school.id if school else 999
+                        }
+                return None
+
+            elif product.product_type == 'wholesaleproduct':
+                # Wholesale Products: school (acts as category)
+                if hasattr(product, 'school') and product.school:
+                    return {
+                        'key': f'wholesale_school_{product.school.id}',
+                        'id': product.school.id,
+                        'name': product.school.name,
+                        'category_type': 'wholesale_school',
+                        'display_name': product.school.name,
+                        'institution': product.school.name,
+                        'institution_type': 'wholesale_school',
+                        'order': product.school.id
+                    }
+                return None
+
+            elif product.product_type == 'sasproduct':
+                # SAS Products: club (acts as category)
+                if hasattr(product, 'club') and product.club:
+                    return {
+                        'key': f'sas_club_{product.club.id}',
+                        'id': product.club.id,
+                        'name': product.club.name,
+                        'category_type': 'sas_club',
+                        'display_name': product.club.name,
+                        'institution': f"SAS - {product.club.name}",
+                        'institution_type': 'sas_club',
+                        'order': product.club.id
+                    }
+                return None
+
+            elif product.product_type == 'lottoproduct':
+                # LOTTO Products: category -> club
+                if hasattr(product, 'category') and product.category:
+                    category = product.category
+                    club = category.club if hasattr(category, 'club') else None
+                    return {
+                        'key': f'lotto_category_{category.id}',
+                        'id': category.id,
+                        'name': category.name,
+                        'category_type': 'lotto_category',
+                        'display_name': category.name,
+                        'institution': f"LOTTO - {club.name}" if club else 'Unknown Club',
+                        'institution_type': 'lotto_club',
+                        'order': category.id
+                    }
+                return None
+
+        except Exception as e:
+            logger.error(f"Error extracting category info from product {product}: {e}")
+
+        return None
+
+    def _get_category_type_mapping(self, category_name):
+        """
+        Map specific category names to generic category types.
+        Returns tuple: (category_type, icon_class)
+        """
+        category_name_lower = category_name.lower()
+
+        # Apparel categories
+        if any(term in category_name_lower for term in [
+            'apparel', 'clothing', 'shirt', 'polo', 'jersey', 'hoodie',
+            'jacket', 'fleece', 'top', 'bottom', 'pant', 'short', 'tracksuit',
+            'uniform', 'kit', 'sweater', 'vest', 'tee'
+        ]):
+            return ('Apparel', 'mdi-tshirt-crew')
+
+        # Accessories categories
+        elif any(term in category_name_lower for term in [
+            'accessories', 'accessory', 'bag', 'backpack', 'hat', 'cap',
+            'sock', 'glove', 'scarf', 'beanie', 'headband', 'wristband'
+        ]):
+            return ('Accessories', 'mdi-shopping')
+
+        # Equipment categories
+        elif any(term in category_name_lower for term in [
+            'equipment', 'ball', 'goal', 'net', 'training', 'cone', 'marker',
+            'whistle', 'pump', 'kit bag', 'medical', 'first aid'
+        ]):
+            return ('Equipment', 'mdi-soccer')
+
+        # Footballs specific
+        elif 'football' in category_name_lower or 'soccer ball' in category_name_lower:
+            return ('Footballs', 'mdi-soccer')
+
+        # Footwear categories
+        elif any(term in category_name_lower for term in [
+            'footwear', 'boot', 'shoe', 'cleat', 'trainer', 'sneaker'
+        ]):
+            return ('Footwear', 'mdi-shoe-cleat')
+
+        # Protective gear
+        elif any(term in category_name_lower for term in [
+            'protective', 'guard', 'pad', 'helmet', 'shin', 'knee', 'elbow'
+        ]):
+            return ('Protective Gear', 'mdi-shield')
+
+        # Other/Uncategorized
+        else:
+            return ('Other', 'mdi-package-variant')
+
+    def _group_products_by_category_type(self, products):
+        """
+        Group products by generic category type (Apparel, Accessories, Equipment, etc.)
+        Returns OrderedDict of category type groups with product count and sample products.
+
+        Format:
+        {
+            'apparel': {
+                'name': 'Apparel',
+                'icon': 'mdi-tshirt-crew',
+                'count': 25,
+                'products': [...],
+                'order': 1
+            }
+        }
+        """
+        from collections import OrderedDict, defaultdict
+
+        grouped = defaultdict(lambda: {
+            'products': [],
+            'count': 0
+        })
+
+        # Map products to category types
+        for product in products:
+            category_info = self._get_category_info(product)
+
+            if category_info:
+                category_type, icon = self._get_category_type_mapping(category_info['name'])
+                key = category_type.lower().replace(' ', '_')
+
+                if not grouped[key].get('name'):
+                    grouped[key]['name'] = category_type
+                    grouped[key]['icon'] = icon
+
+                grouped[key]['products'].append(product)
+                grouped[key]['count'] = len(grouped[key]['products'])
+
+        # Define order for category types
+        category_order = {
+            'apparel': 1,
+            'footwear': 2,
+            'accessories': 3,
+            'equipment': 4,
+            'footballs': 5,
+            'protective_gear': 6,
+            'other': 99
+        }
+
+        # Add order to each group
+        for key in grouped:
+            grouped[key]['order'] = category_order.get(key, 50)
+
+        # Sort by order
+        return OrderedDict(
+            sorted(grouped.items(), key=lambda x: x[1]['order'])
+        )
+
+    def _group_products_by_category(self, products):
+        """
+        Group products by category when search is active.
+        Returns OrderedDict of category groups with products.
+
+        Format:
+        {
+            'group_key': {
+                'category': {...},
+                'products': [...]
+            }
+        }
+        """
+        from collections import OrderedDict
+
+        grouped = OrderedDict()
+
+        for product in products:
+            # Get category info based on product type
+            category_info = self._get_category_info(product)
+
+            if not category_info:
+                # Products without category go to 'Uncategorized'
+                key = 'uncategorized'
+                if key not in grouped:
+                    grouped[key] = {
+                        'category': {
+                            'id': None,
+                            'name': 'Uncategorized',
+                            'category_type': 'uncategorized',
+                            'display_name': 'Uncategorized',
+                            'institution': '',
+                            'order': 999
+                        },
+                        'products': []
+                    }
+                grouped[key]['products'].append(product)
+            else:
+                # Use category_info as key
+                key = category_info['key']
+                if key not in grouped:
+                    grouped[key] = {
+                        'category': category_info,
+                        'products': []
+                    }
+                grouped[key]['products'].append(product)
+
+        # Sort groups by order, then by name
+        return OrderedDict(
+            sorted(grouped.items(),
+                   key=lambda x: (x[1]['category']['order'],
+                                x[1]['category']['display_name']))
+        )
 
 
 # =====================================
