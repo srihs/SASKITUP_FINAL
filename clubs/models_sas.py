@@ -575,6 +575,14 @@ class SASProduct(models.Model):
         return self.stock_status in ['instock', 'onbackorder'] and self.is_active
 
     @property
+    def normalized_image_url(self):
+        """
+        Get product image URL (for template compatibility with LOTTO products).
+        SAS products don't need URL normalization like LOTTO products do.
+        """
+        return self.image_url
+
+    @property
     def is_in_stock(self):
         """Check if product is in stock"""
         if self.is_variable_product:

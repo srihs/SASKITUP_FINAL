@@ -2549,11 +2549,11 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
             from clubs.models_sas import SASProductVariation
             from clubs.models_lotto import LottoProductVariation
 
-            # Get assigned clubs
+            # Get assigned clubs (EXCLUDE generic categories/shops - they go to accessories tab)
             if request.user.is_admin or request.user.is_account_manager:
-                # Admin and account managers have access to all clubs
-                sas_clubs = SASClub.objects.filter(is_active=True)
-                lotto_clubs = LottoClub.objects.filter(is_active=True)
+                # Admin and account managers have access to all clubs (excluding generic)
+                sas_clubs = SASClub.objects.filter(is_active=True, is_generic_category=False)
+                lotto_clubs = LottoClub.objects.filter(is_active=True, is_generic_shop=False)
             elif request.user.is_sales_rep:
                 # Get club assignments (GenericForeignKey)
                 club_assignments = SalesRepClubAssignment.objects.filter(
@@ -2571,8 +2571,8 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                         elif isinstance(assignment.club, LottoClub):
                             lotto_club_ids.append(assignment.club.id)
 
-                sas_clubs = SASClub.objects.filter(id__in=sas_club_ids)
-                lotto_clubs = LottoClub.objects.filter(id__in=lotto_club_ids)
+                sas_clubs = SASClub.objects.filter(id__in=sas_club_ids, is_generic_category=False)
+                lotto_clubs = LottoClub.objects.filter(id__in=lotto_club_ids, is_generic_shop=False)
             else:
                 sas_clubs = SASClub.objects.none()
                 lotto_clubs = LottoClub.objects.none()
@@ -2704,6 +2704,146 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                     else:
                         product.variation_display = {}
 
+        # ========================================
+        # ACCESSORIES TAB - Generic Products Only (SAS Generic + LOTTO Generic Shop)
+        # ========================================
+        elif active_tab == 'accessories':
+            from django.db.models import Exists, OuterRef, Q as QOuter
+            from clubs.models_sas import SASProductVariation
+            from clubs.models_lotto import LottoProductVariation
+
+            # Get ONLY generic categories/shops - these are available to all users
+            # Generic products are not club-specific, so we don't filter by user assignments
+            sas_generic_clubs = SASClub.objects.filter(is_active=True, is_generic_category=True)
+            lotto_generic_clubs = LottoClub.objects.filter(is_active=True, is_generic_shop=True)
+
+            # Stock filtering for SAS Products:
+            # - If product has variations: At least ONE variation must have stock_quantity > 0
+            # - If product has no variations: Base product must have stock_status in ['instock', 'onbackorder']
+
+            # Subquery to check if product has at least one variation with stock
+            has_stock_variation_sas = Exists(
+                SASProductVariation.objects.filter(
+                    product=OuterRef('pk'),
+                    is_active=True,
+                    stock_quantity__gt=0
+                )
+            )
+
+            # Subquery to check if product has any variations at all
+            has_any_variation_sas = Exists(
+                SASProductVariation.objects.filter(
+                    product=OuterRef('pk'),
+                    is_active=True
+                )
+            )
+
+            # Get SAS Generic Products with stock filtering
+            sas_products_qs = SASProduct.objects.filter(
+                club__in=sas_generic_clubs,
+                is_active=True
+            ).annotate(
+                has_stock_variation=has_stock_variation_sas,
+                has_any_variation=has_any_variation_sas
+            ).filter(
+                # Filter: (has variations AND has stock in at least one variation) OR
+                #         (no variations AND product stock_status is instock/onbackorder)
+                QOuter(
+                    QOuter(has_any_variation=True, has_stock_variation=True) |
+                    QOuter(has_any_variation=False, stock_status__in=['instock', 'onbackorder'])
+                )
+            ).select_related('club').prefetch_related('variations')
+
+            # Apply search filter
+            if search_query:
+                sas_products_qs = sas_products_qs.filter(
+                    Q(name__icontains=search_query) |
+                    Q(sku__icontains=search_query) |
+                    Q(description__icontains=search_query) |
+                    Q(variations__sku_suffix__icontains=search_query) |  # Search in variation SKU suffix
+                    Q(club__name__icontains=search_query) |  # Club name (acts as category)
+                    Q(club__sport__name__icontains=search_query) |  # Sport name (parent category)
+                    Q(club__city__icontains=search_query) |  # City
+                    Q(club__province__icontains=search_query) |  # Province
+                    Q(club__address__icontains=search_query)  # Address
+                ).distinct()
+
+            # Stock filtering for LOTTO Products:
+            # - If product has variations: At least ONE variation must have stock_quantity > 0
+            # - If product has no variations: Base product must have stock_status in ['instock', 'onbackorder']
+
+            # Subquery to check if product has at least one variation with stock
+            has_stock_variation_lotto = Exists(
+                LottoProductVariation.objects.filter(
+                    product=OuterRef('pk'),
+                    is_active=True,
+                    stock_quantity__gt=0
+                )
+            )
+
+            # Get LOTTO Generic Products with stock filtering
+            lotto_products_qs = LottoProduct.objects.filter(
+                category__club__in=lotto_generic_clubs,
+            ).annotate(
+                has_stock_variation=has_stock_variation_lotto
+            ).filter(
+                # Filter: (has variations AND has stock in at least one variation) OR
+                #         (no variations AND product stock_status is instock/onbackorder)
+                QOuter(
+                    QOuter(type='variable', has_stock_variation=True) |
+                    QOuter(type='simple', stock_status__in=['instock', 'onbackorder'])
+                )
+            ).select_related('category__club').prefetch_related('variations')
+
+            # Apply search filter
+            if search_query:
+                lotto_products_qs = lotto_products_qs.filter(
+                    Q(name__icontains=search_query) |
+                    Q(sku__icontains=search_query) |
+                    Q(description__icontains=search_query) |
+                    Q(variations__sku_suffix__icontains=search_query) |  # Search in variation SKU suffix
+                    Q(category__name__icontains=search_query) |  # Category name
+                    Q(category__club__name__icontains=search_query) |  # Club name
+                    Q(category__club__address__icontains=search_query)  # Address
+                ).distinct()
+
+            # PERFORMANCE OPTIMIZATION: Paginate BEFORE processing variations
+            # Convert to lists and merge (since they're different models)
+            sas_products_list = list(sas_products_qs)
+            lotto_products_list = list(lotto_products_qs)
+
+            # Combine and paginate FIRST (before variation processing)
+            combined_products = sas_products_list + lotto_products_list
+            paginator = Paginator(combined_products, self.paginate_by)
+            try:
+                page_obj = paginator.get_page(page)
+            except PageNotAnInteger:
+                page_obj = paginator.get_page(1)
+            except EmptyPage:
+                page_obj = paginator.get_page(paginator.num_pages)
+
+            is_paginated = paginator.num_pages > 1
+
+            # ONLY process variations for products on CURRENT PAGE (24 products instead of ALL)
+            for product in page_obj.object_list:
+                # Determine product type by model class
+                if product.__class__.__name__ == 'SASProduct':
+                    product.product_type = 'sasproduct'
+                    # Fetch variations only for displayed products
+                    if product.has_variations:
+                        variations = list(product.variations.filter(is_active=True))
+                        product.variation_display = self._get_variation_display_data(variations, 'sas')
+                    else:
+                        product.variation_display = {}
+                elif product.__class__.__name__ == 'LottoProduct':
+                    product.product_type = 'lottoproduct'
+                    # Fetch variations only for displayed products
+                    if product.has_variations:
+                        variations = list(product.variations.filter(is_active=True))
+                        product.variation_display = self._get_variation_display_data(variations, 'lotto')
+                    else:
+                        product.variation_display = {}
+
         # Get current quotation count from session
         quotation_data = get_quotation_session(request)
         totals = calculate_quotation_totals(quotation_data)
@@ -2718,13 +2858,40 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
             search_query=search_query
         )
 
-        # Group products by category type when search is active
-        use_category_grouping = bool(search_query and page_obj)
+        # Category grouping disabled for all tabs - show flat product list instead
+        use_category_grouping = False
         grouped_products = None
+        grouped_products_page_obj = None
+        grouped_products_is_paginated = False
 
         if use_category_grouping:
             # Use category TYPE grouping (Apparel, Accessories, etc.) instead of specific categories
-            grouped_products = self._group_products_by_category_type(page_obj.object_list)
+            # Group ALL products (not just current page) to show all category tiles
+            all_grouped_products = self._group_products_by_category_type(combined_products)
+
+            # DEBUG: Log category type mapping
+            logger.info(f"DEBUG: Total products for category grouping: {len(combined_products)}")
+            logger.info(f"DEBUG: Category types found: {list(all_grouped_products.keys())}")
+            for cat_type, cat_data in all_grouped_products.items():
+                logger.info(f"DEBUG:   - {cat_type}: {cat_data['count']} products")
+
+            # Paginate the category tiles themselves (10 tiles per page)
+            tiles_per_page = 10
+            grouped_items_list = list(all_grouped_products.items())
+            grouped_paginator = Paginator(grouped_items_list, tiles_per_page)
+
+            try:
+                grouped_products_page_obj = grouped_paginator.get_page(page)
+            except PageNotAnInteger:
+                grouped_products_page_obj = grouped_paginator.get_page(1)
+            except EmptyPage:
+                grouped_products_page_obj = grouped_paginator.get_page(grouped_paginator.num_pages)
+
+            grouped_products_is_paginated = grouped_paginator.num_pages > 1
+
+            # Convert back to OrderedDict for template compatibility
+            from collections import OrderedDict
+            grouped_products = OrderedDict(grouped_products_page_obj.object_list)
 
         # If category type filter is active, filter products by that type
         filtered_by_category_type = False
@@ -2761,6 +2928,8 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
             # Category grouping (when search is active)
             'use_category_grouping': use_category_grouping,
             'grouped_products': grouped_products,
+            'grouped_products_page_obj': grouped_products_page_obj,
+            'grouped_products_is_paginated': grouped_products_is_paginated,
 
             # Paginated products (flat list when not searching)
             'products': page_obj.object_list if page_obj else [],
@@ -2961,7 +3130,10 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
         logger = logging.getLogger(__name__)
 
         try:
-            if product.product_type == 'tusproduct':
+            # Check product type using class name instead of product_type attribute
+            product_class_name = product.__class__.__name__.lower()
+
+            if product_class_name == 'tusproduct' or getattr(product, 'product_type', '') == 'tusproduct':
                 # TUS Products: school_category -> school
                 if hasattr(product, 'primary_category_assignment') and product.primary_category_assignment:
                     school_category = product.primary_category_assignment.school_category
@@ -2979,7 +3151,7 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                         }
                 return None
 
-            elif product.product_type == 'wholesaleproduct':
+            elif product_class_name == 'wholesaleproduct' or getattr(product, 'product_type', '') == 'wholesaleproduct':
                 # Wholesale Products: school (acts as category)
                 if hasattr(product, 'school') and product.school:
                     return {
@@ -2994,7 +3166,7 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                     }
                 return None
 
-            elif product.product_type == 'sasproduct':
+            elif product_class_name == 'sasproduct' or getattr(product, 'product_type', '') == 'sasproduct':
                 # SAS Products: club (acts as category)
                 if hasattr(product, 'club') and product.club:
                     return {
@@ -3009,7 +3181,7 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                     }
                 return None
 
-            elif product.product_type == 'lottoproduct':
+            elif product_class_name == 'lottoproduct' or getattr(product, 'product_type', '') == 'lottoproduct':
                 # LOTTO Products: category -> club
                 if hasattr(product, 'category') and product.category:
                     category = product.category
@@ -3031,54 +3203,80 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
 
         return None
 
-    def _get_category_type_mapping(self, category_name):
+    def _get_category_type_mapping(self, category_name, product_name=None):
         """
         Map specific category names to generic category types.
+        Falls back to product name analysis if category name doesn't match.
+
+        SPECIAL RULE: All club/federation categories (containing "club", "federation", "referee")
+        are automatically mapped to "Apparel" regardless of product name.
+
         Returns tuple: (category_type, icon_class)
         """
         category_name_lower = category_name.lower()
 
-        # Apparel categories
-        if any(term in category_name_lower for term in [
+        # Try product name if provided
+        product_name_lower = product_name.lower() if product_name else ''
+
+        # PRIORITY 1: Check if this is a club/federation/referee category
+        # These should ALL go to Apparel tile
+        club_indicators = ['club', 'federation', 'referee', 'school football', 'regional football']
+        if any(indicator in category_name_lower for indicator in club_indicators):
+            return ('Apparel', 'mdi-tshirt-crew')
+
+        # PRIORITY 2: Generic categories get their own tiles
+        # Apparel categories (only for generic "Apparel" category)
+        apparel_terms = [
             'apparel', 'clothing', 'shirt', 'polo', 'jersey', 'hoodie',
             'jacket', 'fleece', 'top', 'bottom', 'pant', 'short', 'tracksuit',
-            'uniform', 'kit', 'sweater', 'vest', 'tee'
-        ]):
+            'uniform', 'kit', 'sweater', 'vest', 'tee', 't-shirt'
+        ]
+        if (any(term in category_name_lower for term in apparel_terms) or
+            any(term in product_name_lower for term in apparel_terms)):
             return ('Apparel', 'mdi-tshirt-crew')
 
         # Accessories categories
-        elif any(term in category_name_lower for term in [
+        accessories_terms = [
             'accessories', 'accessory', 'bag', 'backpack', 'hat', 'cap',
-            'sock', 'glove', 'scarf', 'beanie', 'headband', 'wristband'
-        ]):
+            'sock', 'glove', 'scarf', 'beanie', 'headband', 'wristband', 'water bottle'
+        ]
+        if (any(term in category_name_lower for term in accessories_terms) or
+            any(term in product_name_lower for term in accessories_terms)):
             return ('Accessories', 'mdi-shopping')
 
-        # Equipment categories
-        elif any(term in category_name_lower for term in [
-            'equipment', 'ball', 'goal', 'net', 'training', 'cone', 'marker',
-            'whistle', 'pump', 'kit bag', 'medical', 'first aid'
-        ]):
-            return ('Equipment', 'mdi-soccer')
-
-        # Footballs specific
-        elif 'football' in category_name_lower or 'soccer ball' in category_name_lower:
+        # Footballs specific (check before Equipment since it's more specific)
+        football_terms = ['football', 'soccer ball']
+        if (any(term in category_name_lower for term in football_terms) or
+            any(term in product_name_lower for term in football_terms)):
             return ('Footballs', 'mdi-soccer')
 
+        # Equipment categories
+        equipment_terms = [
+            'equipment', 'ball', 'goal', 'net', 'training', 'cone', 'marker',
+            'whistle', 'pump', 'kit bag', 'medical', 'first aid'
+        ]
+        if (any(term in category_name_lower for term in equipment_terms) or
+            any(term in product_name_lower for term in equipment_terms)):
+            return ('Equipment', 'mdi-soccer')
+
         # Footwear categories
-        elif any(term in category_name_lower for term in [
+        footwear_terms = [
             'footwear', 'boot', 'shoe', 'cleat', 'trainer', 'sneaker'
-        ]):
+        ]
+        if (any(term in category_name_lower for term in footwear_terms) or
+            any(term in product_name_lower for term in footwear_terms)):
             return ('Footwear', 'mdi-shoe-cleat')
 
         # Protective gear
-        elif any(term in category_name_lower for term in [
+        protective_terms = [
             'protective', 'guard', 'pad', 'helmet', 'shin', 'knee', 'elbow'
-        ]):
+        ]
+        if (any(term in category_name_lower for term in protective_terms) or
+            any(term in product_name_lower for term in protective_terms)):
             return ('Protective Gear', 'mdi-shield')
 
         # Other/Uncategorized
-        else:
-            return ('Other', 'mdi-package-variant')
+        return ('Other', 'mdi-package-variant')
 
     def _group_products_by_category_type(self, products):
         """
@@ -3096,20 +3294,34 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
             }
         }
         """
+        import logging
         from collections import OrderedDict, defaultdict
 
+        logger = logging.getLogger(__name__)
         grouped = defaultdict(lambda: {
             'products': [],
             'count': 0
         })
+
+        # Track products without categories
+        products_without_category = 0
 
         # Map products to category types
         for product in products:
             category_info = self._get_category_info(product)
 
             if category_info:
-                category_type, icon = self._get_category_type_mapping(category_info['name'])
+                # Pass product name to help with category type mapping
+                product_name = getattr(product, 'name', '')
+                category_type, icon = self._get_category_type_mapping(
+                    category_info['name'],
+                    product_name=product_name
+                )
                 key = category_type.lower().replace(' ', '_')
+
+                # DEBUG: Log first few mappings
+                if len(grouped[key]['products']) < 3:
+                    logger.info(f"DEBUG: Product '{product.name[:50]}' -> category '{category_info['name']}' -> type '{category_type}'")
 
                 if not grouped[key].get('name'):
                     grouped[key]['name'] = category_type
@@ -3117,6 +3329,11 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
 
                 grouped[key]['products'].append(product)
                 grouped[key]['count'] = len(grouped[key]['products'])
+            else:
+                products_without_category += 1
+
+        if products_without_category > 0:
+            logger.info(f"DEBUG: {products_without_category} products have no category info")
 
         # Define order for category types
         category_order = {

@@ -762,6 +762,12 @@
                                     <i class="mdi mdi-soccer me-1"></i> Clubs
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if active_tab == 'accessories' %}active{% endif %}"
+                                   href="?tab=accessories{% if search_query %}&search={{ search_query }}{% endif %}">
+                                    <i class="mdi mdi-basketball me-1"></i> Accessories & Equipment
+                                </a>
+                            </li>
                         </ul>
                     </div>
                 </div>
@@ -1127,8 +1133,8 @@
                                             <!-- SAS Product Card -->
                                             <a href="{% url 'quotations:product-detail-for-quote' product_type='sasproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
                                                 <div class="product-img">
-                                                    {% if product.image_url %}
-                                                        <img src="{{ product.image_url }}" alt="{{ product.name }}">
+                                                    {% if product.normalized_image_url %}
+                                                        <img src="{{ product.normalized_image_url }}" alt="{{ product.name }}">
                                                     {% else %}
                                                         <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.name }}">
                                                     {% endif %}
@@ -1154,8 +1160,8 @@
                                             <!-- LOTTO Product Card -->
                                             <a href="{% url 'quotations:product-detail-for-quote' product_type='lottoproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
                                                 <div class="product-img">
-                                                    {% if product.image_url %}
-                                                        <img src="{{ product.image_url }}" alt="{{ product.name }}">
+                                                    {% if product.normalized_image_url %}
+                                                        <img src="{{ product.normalized_image_url }}" alt="{{ product.name }}">
                                                     {% else %}
                                                         <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.name }}">
                                                     {% endif %}
