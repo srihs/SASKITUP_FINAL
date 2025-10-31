@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     'clubs',
     'schools',
     'quotations',
+    'ballstore',
 ]
 
 MIDDLEWARE = [
@@ -278,6 +279,11 @@ LOTTO_WOO_SECRET = config('LOTTO_WOOCOMMERCE_API_SECRET')
 SAS_WOO_URL = config('SAS_WOOCOMMERCE_API_URL')
 SAS_WOO_KEY = config('SAS_WOOCOMMERCE_API_CONSUMER_KEY')
 SAS_WOO_SECRET = config('SAS_WOOCOMMERCE_API_SECRET')
+
+# WooCommerce API Configuration for BallStore
+BS_WOO_URL = config('BS_WOOCOMMERCE_API_URL')
+BS_WOO_KEY = config('BS_WOOCOMMERCE_API_CONSUMER_KEY')
+BS_WOO_SECRET = config('BS_WOOCOMMERCE_API_SECRET')
 
 # CIN7 API Configuration for Wholesale Schools
 CIN7_API_URL = config('CIN7_API_URL', default='https://api.cin7.com/api/v1/')

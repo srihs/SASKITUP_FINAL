@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body_class %}ballstore-categories{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Category Card Styling */
+.category-card {
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    transition: all 0.3s ease;
+    background: white;
+    overflow: hidden;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.category-card:hover {
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    transform: translateY(-5px);
+    border-color: #556ee6;
+}
+
+.category-icon {
+    height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+.category-icon i {
+    font-size: 5rem;
+    color: rgba(255, 255, 255, 0.9);
+    z-index: 1;
+}
+
+.category-icon::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+}
+
+.category-content {
+    padding: 1.5rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.category-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.category-count {
+    color: #74788d;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+}
+
+.category-description {
+    color: #74788d;
+    font-size: 0.875rem;
+    flex: 1;
+}
+
+.btn-view-category {
+    margin-top: auto;
+}
+
+/* Page Header */
+.page-title-box {
+    padding-bottom: 1.5rem;
+}
+
+.breadcrumb {
+    background: transparent;
+    padding: 0;
+    margin-bottom: 0;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    color: #ced4da;
+    margin-bottom: 1rem;
+}
+
+.empty-state h5 {
+    color: #74788d;
+    margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+    color: #adb5bd;
+}
+
+/* Sport-specific gradient colors */
+.category-card[data-sport="soccer"] .category-icon {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+}
+
+.category-card[data-sport="basketball"] .category-icon {
+    background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%);
+}
+
+.category-card[data-sport="rugby"] .category-icon {
+    background: linear-gradient(135deg, #134e5e 0%, #71b280 100%);
+}
+
+.category-card[data-sport="cricket"] .category-icon {
+    background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%);
+}
+
+.category-card[data-sport="volleyball"] .category-icon {
+    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+}
+
+.category-card[data-sport="netball"] .category-icon {
+    background: linear-gradient(135deg, #c94b4b 0%, #4b134f 100%);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Categories Grid -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                {% if categories %}
+                <div class="row g-4">
+                    {% for category in categories %}
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <div class="category-card" data-sport="{{ category.slug }}">
+                            <div class="category-icon">
+                                {% if 'soccer' in category.slug or 'football' in category.slug %}
+                                    <i class="uil-football"></i>
+                                {% elif 'basketball' in category.slug %}
+                                    <i class="uil-basketball"></i>
+                                {% elif 'rugby' in category.slug %}
+                                    <i class="uil-football-american"></i>
+                                {% elif 'cricket' in category.slug %}
+                                    <i class="uil-basketball-hoop"></i>
+                                {% elif 'volleyball' in category.slug %}
+                                    <i class="uil-volleyball"></i>
+                                {% elif 'netball' in category.slug %}
+                                    <i class="uil-circle"></i>
+                                {% else %}
+                                    <i class="uil-basketball"></i>
+                                {% endif %}
+                            </div>
+                            <div class="category-content">
+                                <h5 class="category-title">{{ category.name }}</h5>
+                                <div class="category-count">
+                                    <i class="uil-box font-size-16 align-middle me-1"></i>
+                                    <span class="align-middle">{{ category.total_products }} product{{ category.total_products|pluralize }}</span>
+                                </div>
+                                {% if category.description %}
+                                <p class="category-description">{{ category.description|truncatewords:20 }}</p>
+                                {% endif %}
+                                <a href="{% url 'ballstore:category-detail' category.slug %}" class="btn btn-primary btn-sm w-100 btn-view-category">
+                                    <i class="uil-eye me-1"></i> View Products
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="uil-box"></i>
+                    <h5>No Categories Available</h5>
+                    <p>Categories will appear here once they are synced from the BallStore.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Add hover effects
+$(document).ready(function() {
+    $('.category-card').hover(
+        function() {
+            $(this).find('.category-icon').addClass('shadow-lg');
+        },
+        function() {
+            $(this).find('.category-icon').removeClass('shadow-lg');
+        }
+    );
+});
+</script>
+{% endblock %}

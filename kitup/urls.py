@@ -31,6 +31,7 @@ urlpatterns = [
     path('clubs/', include('clubs.urls')),
     path('schools/', include('schools.urls')),
     path('quotations/', include('quotations.urls')),  # Quotation workflow
+    path('ballstore/', include('ballstore.urls')),  # BallStore integration
     path('dashboard/', GlobalDashboardView.as_view(), name='global-dashboard'),  # Global dashboard moved to /dashboard/
 
     # Frontend pages
