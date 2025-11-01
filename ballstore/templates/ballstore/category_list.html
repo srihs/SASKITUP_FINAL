@@ -144,6 +144,15 @@
     <div class="col-12">
         <div class="card">
             <div class="card-body">
+                <!-- Header with Sync Button -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h4 class="card-title mb-0">Browse Categories</h4>
+                    {% if user.is_staff %}
+                    <button type="button" class="btn btn-primary" id="syncButton" onclick="confirmSync()">
+                        <i class="uil-sync me-1"></i> Sync Products
+                    </button>
+                    {% endif %}
+                </div>
                 {% if categories %}
                 <div class="row g-4">
                     {% for category in categories %}
@@ -209,5 +218,46 @@ $(document).ready(function() {
         }
     );
 });
+
+// Sync confirmation and execution
+function confirmSync() {
+    Swal.fire({
+        title: 'Sync BallStore Products?',
+        text: 'This will sync all products from the BallStore WooCommerce API. The sync will run in the background and may take 5-10 minutes to complete.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#556ee6',
+        cancelButtonColor: '#74788d',
+        confirmButtonText: 'Yes, Start Sync',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Show loading state
+            const syncButton = document.getElementById('syncButton');
+            const originalHtml = syncButton.innerHTML;
+            syncButton.disabled = true;
+            syncButton.innerHTML = '<i class="uil-spinner-alt spinner-border spinner-border-sm me-1"></i> Starting Sync...';
+
+            // Redirect to sync URL (this will trigger the sync and redirect back)
+            window.location.href = "{% url 'ballstore:trigger-sync' %}";
+        }
+    });
+}
+
+// Show messages with SweetAlert if available
+{% if messages %}
+$(document).ready(function() {
+    {% for message in messages %}
+    Swal.fire({
+        title: '{% if message.tags == "success" %}Success{% elif message.tags == "warning" %}Warning{% elif message.tags == "error" %}Error{% else %}Info{% endif %}',
+        text: '{{ message|escapejs }}',
+        icon: '{% if message.tags == "success" %}success{% elif message.tags == "warning" %}warning{% elif message.tags == "error" %}error{% else %}info{% endif %}',
+        confirmButtonColor: '#556ee6',
+        timer: {% if message.tags == "success" %}5000{% else %}0{% endif %},
+        timerProgressBar: {% if message.tags == "success" %}true{% else %}false{% endif %}
+    });
+    {% endfor %}
+});
+{% endif %}
 </script>
 {% endblock %}
