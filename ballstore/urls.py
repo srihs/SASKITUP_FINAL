@@ -12,4 +12,7 @@ urlpatterns = [
 
     # Category detail - products in specific category
     path('<slug:category_slug>/', views.category_detail, name='category-detail'),
+
+    # Product detail - individual product with variations
+    path('<slug:category_slug>/<slug:product_slug>/', views.product_detail, name='product-detail'),
 ]

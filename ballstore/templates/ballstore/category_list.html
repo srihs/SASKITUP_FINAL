@@ -23,54 +23,69 @@
     border-color: #556ee6;
 }
 
-.category-icon {
+/* Category Image Container */
+.category-image-container {
     height: 180px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    position: relative;
-    overflow: hidden;
+    padding: 1.5rem;
+    background: #ffffff;
+    border-radius: 12px 12px 0 0;
 }
 
-.category-icon i {
+.category-product-image {
+    max-width: 100%;
+    max-height: 160px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    transition: transform 0.3s ease;
+}
+
+.category-card:hover .category-product-image {
+    transform: scale(1.05);
+}
+
+.category-icon-fallback {
     font-size: 5rem;
-    color: rgba(255, 255, 255, 0.9);
-    z-index: 1;
+    color: #667eea;
 }
 
-.category-icon::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
-}
-
+/* White background for card body */
 .category-content {
     padding: 1.5rem;
     flex: 1;
     display: flex;
     flex-direction: column;
+    background: white;
+    color: #495057;
+}
+
+.category-content .category-title {
+    color: #2c3e50;
+}
+
+.category-content .category-count {
+    color: #6c757d;
+}
+
+.category-content .category-description {
+    color: #6c757d;
 }
 
 .category-title {
     font-size: 1.25rem;
     font-weight: 600;
-    color: #495057;
     margin-bottom: 0.5rem;
 }
 
 .category-count {
-    color: #74788d;
     font-size: 0.875rem;
     margin-bottom: 1rem;
 }
 
 .category-description {
-    color: #74788d;
     font-size: 0.875rem;
     flex: 1;
 }
@@ -111,30 +126,7 @@
     color: #adb5bd;
 }
 
-/* Sport-specific gradient colors */
-.category-card[data-sport="soccer"] .category-icon {
-    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-}
-
-.category-card[data-sport="basketball"] .category-icon {
-    background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%);
-}
-
-.category-card[data-sport="rugby"] .category-icon {
-    background: linear-gradient(135deg, #134e5e 0%, #71b280 100%);
-}
-
-.category-card[data-sport="cricket"] .category-icon {
-    background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%);
-}
-
-.category-card[data-sport="volleyball"] .category-icon {
-    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-}
-
-.category-card[data-sport="netball"] .category-icon {
-    background: linear-gradient(135deg, #c94b4b 0%, #4b134f 100%);
-}
+/* All category tiles have white background - no sport-specific gradients */
 </style>
 {% endblock %}
 
@@ -158,21 +150,50 @@
                     {% for category in categories %}
                     <div class="col-xl-3 col-lg-4 col-md-6">
                         <div class="category-card" data-sport="{{ category.slug }}">
-                            <div class="category-icon">
-                                {% if 'soccer' in category.slug or 'football' in category.slug %}
-                                    <i class="uil-football"></i>
-                                {% elif 'basketball' in category.slug %}
-                                    <i class="uil-basketball"></i>
-                                {% elif 'rugby' in category.slug %}
-                                    <i class="uil-football-american"></i>
-                                {% elif 'cricket' in category.slug %}
-                                    <i class="uil-basketball-hoop"></i>
-                                {% elif 'volleyball' in category.slug %}
-                                    <i class="uil-volleyball"></i>
-                                {% elif 'netball' in category.slug %}
-                                    <i class="uil-circle"></i>
+                            <!-- Category Image/Icon -->
+                            <div class="category-image-container">
+                                {% if category.products.all %}
+                                    {% with first_product=category.products.all.0 %}
+                                        {% if first_product.featured_image_url %}
+                                            <img src="{{ first_product.featured_image_url }}" alt="{{ category.name }}" class="category-product-image">
+                                        {% elif first_product.images.all %}
+                                            <img src="{{ first_product.images.all.0.src }}" alt="{{ category.name }}" class="category-product-image">
+                                        {% else %}
+                                            <!-- Fallback to icon if no image -->
+                                            {% if 'soccer' in category.slug or 'football' in category.slug %}
+                                                <i class="category-icon-fallback uil-football"></i>
+                                            {% elif 'basketball' in category.slug %}
+                                                <i class="category-icon-fallback uil-basketball"></i>
+                                            {% elif 'rugby' in category.slug %}
+                                                <i class="category-icon-fallback uil-football-american"></i>
+                                            {% elif 'cricket' in category.slug %}
+                                                <i class="category-icon-fallback uil-basketball-hoop"></i>
+                                            {% elif 'volleyball' in category.slug %}
+                                                <i class="category-icon-fallback uil-volleyball"></i>
+                                            {% elif 'netball' in category.slug %}
+                                                <i class="category-icon-fallback uil-circle"></i>
+                                            {% else %}
+                                                <i class="category-icon-fallback uil-basketball"></i>
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endwith %}
                                 {% else %}
-                                    <i class="uil-basketball"></i>
+                                    <!-- Fallback to icon if no products -->
+                                    {% if 'soccer' in category.slug or 'football' in category.slug %}
+                                        <i class="category-icon-fallback uil-football"></i>
+                                    {% elif 'basketball' in category.slug %}
+                                        <i class="category-icon-fallback uil-basketball"></i>
+                                    {% elif 'rugby' in category.slug %}
+                                        <i class="category-icon-fallback uil-football-american"></i>
+                                    {% elif 'cricket' in category.slug %}
+                                        <i class="category-icon-fallback uil-basketball-hoop"></i>
+                                    {% elif 'volleyball' in category.slug %}
+                                        <i class="category-icon-fallback uil-volleyball"></i>
+                                    {% elif 'netball' in category.slug %}
+                                        <i class="category-icon-fallback uil-circle"></i>
+                                    {% else %}
+                                        <i class="category-icon-fallback uil-basketball"></i>
+                                    {% endif %}
                                 {% endif %}
                             </div>
                             <div class="category-content">
@@ -211,10 +232,10 @@
 $(document).ready(function() {
     $('.category-card').hover(
         function() {
-            $(this).find('.category-icon').addClass('shadow-lg');
+            $(this).find('.category-image-container').addClass('shadow-lg');
         },
         function() {
-            $(this).find('.category-icon').removeClass('shadow-lg');
+            $(this).find('.category-image-container').removeClass('shadow-lg');
         }
     );
 });

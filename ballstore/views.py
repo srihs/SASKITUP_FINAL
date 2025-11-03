@@ -6,6 +6,7 @@ from django.core.management import call_command
 from django.utils import timezone
 import threading
 import logging
+import json
 from .models import BallStoreCategory, BallStoreProduct, BallStoreProductVariation, BallStoreSyncLog
 
 logger = logging.getLogger(__name__)
@@ -13,15 +14,21 @@ logger = logging.getLogger(__name__)
 
 def category_list(request):
     """
-    Display all top-level categories with product counts
+    Display all top-level categories with product counts and sample product images
     """
+    # Prefetch products with their images (without slice - will limit in template)
+    products_prefetch = Prefetch(
+        'products',
+        queryset=BallStoreProduct.objects.filter(is_active=True).prefetch_related('images')
+    )
+
     # Get only parent categories (no parent = top-level) that are active
     categories = BallStoreCategory.objects.filter(
         parent__isnull=True,
         is_active=True
     ).annotate(
         total_products=Count('products', filter=Q(products__is_active=True))
-    ).order_by('name')
+    ).prefetch_related(products_prefetch).order_by('name')
 
     context = {
         'categories': categories,
@@ -189,3 +196,94 @@ def trigger_sync(request):
         )
 
     return redirect('ballstore:category-list')
+
+
+def product_detail(request, category_slug, product_slug):
+    """
+    Display detailed product information with variations and pricing
+    """
+    # Get the category
+    category = get_object_or_404(
+        BallStoreCategory.objects.select_related('parent'),
+        slug=category_slug,
+        is_active=True
+    )
+
+    # Get the product
+    product = get_object_or_404(
+        BallStoreProduct.objects.prefetch_related(
+            'images',
+            Prefetch(
+                'variations',
+                queryset=BallStoreProductVariation.objects.filter(is_active=True).order_by('wc_id')
+            ),
+            'categories'
+        ),
+        slug=product_slug,
+        categories=category,
+        is_active=True
+    )
+
+    # Get all product images
+    product_images = product.images.all().order_by('position')
+
+    # Prepare variation data for JavaScript
+    variations_data = []
+    if product.product_type == 'variable':
+        for variation in product.variations.all():
+            # Build variation attributes string (e.g., "Large - Red")
+            attr_parts = [attr['option'] for attr in variation.attributes]
+            variation_name = " - ".join(attr_parts) if attr_parts else str(variation.wc_id)
+
+            # Determine stock status class
+            if variation.stock_status == 'instock':
+                if variation.stock_quantity and variation.stock_quantity > 10:
+                    stock_class = 'in-stock'
+                elif variation.stock_quantity and variation.stock_quantity > 0:
+                    stock_class = 'low-stock'
+                else:
+                    stock_class = 'in-stock'  # Default for instock without quantity
+            elif variation.stock_status == 'onbackorder':
+                stock_class = 'on-backorder'
+            else:
+                stock_class = 'out-of-stock'
+
+            variations_data.append({
+                'id': variation.wc_id,
+                'name': variation_name,
+                'sku': variation.sku,
+                'display_price': str(variation.display_price) if variation.display_price else None,
+                'price': float(variation.display_price) if variation.display_price else None,
+                'regular_price': float(variation.regular_price) if variation.regular_price else None,
+                'sale_price': float(variation.sale_price) if variation.sale_price else None,
+                'on_sale': variation.on_sale,
+                'stock_status': variation.stock_status,
+                'stock_quantity': variation.stock_quantity,
+                'manage_stock': variation.manage_stock,
+                'stock_class': stock_class,
+                'image_url': variation.image_url,
+                'attributes': variation.attributes,
+            })
+
+    # Convert variations_data to JSON for safe JavaScript consumption
+    variations_data_json = json.dumps(variations_data)
+
+    # Get related products from same category (exclude current product)
+    related_products = BallStoreProduct.objects.filter(
+        categories=category,
+        is_active=True
+    ).exclude(
+        id=product.id
+    ).prefetch_related('images')[:4]
+
+    context = {
+        'category': category,
+        'product': product,
+        'product_images': product_images,
+        'variations_data': variations_data,
+        'variations_data_json': variations_data_json,
+        'related_products': related_products,
+        'page_title': f'{product.name} - BallStore',
+    }
+
+    return render(request, 'ballstore/product_detail.html', context)

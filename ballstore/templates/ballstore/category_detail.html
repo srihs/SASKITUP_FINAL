@@ -23,6 +23,19 @@
     border-color: #dee2e6;
 }
 
+.product-link {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.product-link:hover {
+    text-decoration: none;
+    color: inherit;
+}
+
 .product-img {
     position: relative;
     height: 220px;
@@ -259,61 +272,63 @@
                     {% for product in products %}
                     <div class="col-xl-3 col-lg-4 col-md-6">
                         <div class="product-box">
-                            <div class="product-img">
-                                {% if product.on_sale %}
-                                <span class="product-badge badge bg-danger">SALE</span>
-                                {% endif %}
-                                {% if product.product_type == 'variable' %}
-                                <span class="product-badge badge-variable" style="{% if product.on_sale %}top: 3rem;{% endif %}">
-                                    {{ product.variations.count }} Options
-                                </span>
-                                {% endif %}
-                                {% if product.featured_image_url %}
-                                <img src="{{ product.featured_image_url }}" alt="{{ product.name }}" class="img-fluid">
-                                {% else %}
-                                <i class="uil-box font-size-24 text-muted"></i>
-                                {% endif %}
-                            </div>
-                            <div class="product-content">
-                                <h5 class="product-title">{{ product.name }}</h5>
-
-                                <div class="product-price">
-                                    {% if product.display_price %}
-                                        ${{ product.display_price }}
-                                        {% if product.on_sale and product.regular_price %}
-                                        <span class="product-price-original">${{ product.regular_price }}</span>
-                                        {% endif %}
+                            <a href="{% url 'ballstore:product-detail' category.slug product.slug %}" class="product-link">
+                                <div class="product-img">
+                                    {% if product.on_sale %}
+                                    <span class="product-badge badge bg-danger">SALE</span>
+                                    {% endif %}
+                                    {% if product.product_type == 'variable' %}
+                                    <span class="product-badge badge-variable" style="{% if product.on_sale %}top: 3rem;{% endif %}">
+                                        {{ product.variations.count }} Options
+                                    </span>
+                                    {% endif %}
+                                    {% if product.featured_image_url %}
+                                    <img src="{{ product.featured_image_url }}" alt="{{ product.name }}" class="img-fluid">
                                     {% else %}
-                                        <span class="text-muted">Price on request</span>
+                                    <i class="uil-box font-size-24 text-muted"></i>
                                     {% endif %}
                                 </div>
+                                <div class="product-content">
+                                    <h5 class="product-title">{{ product.name }}</h5>
 
-                                <div class="mb-3">
-                                    {% if product.stock_status == 'instock' %}
-                                    <span class="product-stock stock-in">
-                                        <i class="uil-check-circle me-1"></i>In Stock
-                                    </span>
-                                    {% elif product.stock_status == 'outofstock' %}
-                                    <span class="product-stock stock-out">
-                                        <i class="uil-times-circle me-1"></i>Out of Stock
-                                    </span>
-                                    {% elif product.stock_status == 'onbackorder' %}
-                                    <span class="product-stock stock-backorder">
-                                        <i class="uil-clock me-1"></i>Backorder
-                                    </span>
+                                    <div class="product-price">
+                                        {% if product.display_price %}
+                                            ${{ product.display_price }}
+                                            {% if product.on_sale and product.regular_price %}
+                                            <span class="product-price-original">${{ product.regular_price }}</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">Price on request</span>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="mb-3">
+                                        {% if product.stock_status == 'instock' %}
+                                        <span class="product-stock stock-in">
+                                            <i class="uil-check-circle me-1"></i>In Stock
+                                        </span>
+                                        {% elif product.stock_status == 'outofstock' %}
+                                        <span class="product-stock stock-out">
+                                            <i class="uil-times-circle me-1"></i>Out of Stock
+                                        </span>
+                                        {% elif product.stock_status == 'onbackorder' %}
+                                        <span class="product-stock stock-backorder">
+                                            <i class="uil-clock me-1"></i>Backorder
+                                        </span>
+                                        {% endif %}
+                                    </div>
+
+                                    {% if product.sku %}
+                                    <div class="text-muted small mb-2">
+                                        <i class="uil-tag-alt me-1"></i>SKU: {{ product.sku }}
+                                    </div>
                                     {% endif %}
-                                </div>
 
-                                {% if product.sku %}
-                                <div class="text-muted small mb-2">
-                                    <i class="uil-tag-alt me-1"></i>SKU: {{ product.sku }}
+                                    <span class="btn btn-primary btn-sm w-100 mt-auto">
+                                        <i class="uil-eye me-1"></i>View Details
+                                    </span>
                                 </div>
-                                {% endif %}
-
-                                <a href="{{ product.permalink }}" target="_blank" class="btn btn-primary btn-sm w-100 mt-auto">
-                                    <i class="uil-external-link-alt me-1"></i>View on Store
-                                </a>
-                            </div>
+                            </a>
                         </div>
                     </div>
                     {% endfor %}

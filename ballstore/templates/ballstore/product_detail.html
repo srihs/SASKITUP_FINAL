@@ -1,0 +1,744 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body_class %}ballstore-product-detail{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Product Detail Page Styling */
+.product-detail-container {
+    padding: 2rem 0;
+    background: #fafbfc;
+    min-height: calc(100vh - 200px);
+}
+
+/* Breadcrumb */
+.breadcrumb-custom {
+    background: white;
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.breadcrumb-custom .breadcrumb {
+    margin-bottom: 0;
+}
+
+/* Image Gallery */
+.product-gallery {
+    position: sticky;
+    top: 2rem;
+}
+
+.main-image-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 1rem;
+    min-height: 500px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.main-image-container:hover {
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.main-image-container img {
+    max-width: 100%;
+    max-height: 500px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    transition: transform 0.4s ease;
+}
+
+.main-image-container img:hover {
+    transform: scale(1.08);
+    cursor: zoom-in;
+}
+
+.thumbnail-gallery {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.thumbnail-item {
+    width: 80px;
+    height: 80px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+}
+
+.thumbnail-item:hover {
+    border-color: #387ADF;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(56, 122, 223, 0.2);
+}
+
+.thumbnail-item.active {
+    border-color: #387ADF;
+    background: rgba(56, 122, 223, 0.05);
+}
+
+.thumbnail-item img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+/* Stock Grid Container */
+.stock-grid-container {
+    background: white;
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-top: 1rem;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+/* Product Info */
+.product-info {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.product-name {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #495057;
+    margin-bottom: 1rem;
+    line-height: 1.3;
+}
+
+.product-sku {
+    color: #74788d;
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+}
+
+.product-price-section {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.product-price-main {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #387ADF;
+    margin-bottom: 0;
+}
+
+.product-price-regular {
+    font-size: 1.25rem;
+    text-decoration: line-through;
+    color: #74788d;
+}
+
+.product-price-sale-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #f46a6a 0%, #e74a3b 100%);
+    color: white;
+    padding: 0.35rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(244, 106, 106, 0.3);
+}
+
+/* Stock Status */
+.stock-status-section {
+    margin-bottom: 1.5rem;
+}
+
+.stock-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.65rem 1.25rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.stock-badge i {
+    margin-right: 0.5rem;
+    font-size: 1.15rem;
+}
+
+.stock-badge.in-stock {
+    background-color: #d1f2eb;
+    color: #0f5132;
+    border: 2px solid #34c38f;
+}
+
+.stock-badge.low-stock {
+    background-color: #fff3cd;
+    color: #664d03;
+    border: 2px solid #ffc107;
+}
+
+.stock-badge.out-of-stock {
+    background-color: #f8d7da;
+    color: #842029;
+    border: 2px solid #f46a6a;
+}
+
+.stock-badge.backorder {
+    background-color: #cff4fc;
+    color: #055160;
+    border: 2px solid #0dcaf0;
+}
+
+/* Product Description */
+.product-description {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.product-description h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #495057;
+}
+
+.product-description-content {
+    color: #6c757d;
+    line-height: 1.7;
+}
+
+.product-description-content p:last-child {
+    margin-bottom: 0;
+}
+
+/* Variation Selector */
+.variation-selector {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.variation-attribute {
+    margin-bottom: 1.5rem;
+}
+
+.variation-attribute:last-child {
+    margin-bottom: 0;
+}
+
+.variation-label {
+    font-weight: 600;
+    color: #387ADF;
+    margin-bottom: 1rem;
+    display: block;
+    font-size: 1.05rem;
+}
+
+.variation-options {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.variation-option {
+    padding: 0.65rem 1.25rem;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    font-weight: 500;
+    color: #495057;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.variation-option:hover:not(.disabled) {
+    border-color: #387ADF;
+    background: rgba(56, 122, 223, 0.05);
+    color: #387ADF;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(56, 122, 223, 0.15);
+}
+
+.variation-option.active {
+    border-color: #387ADF;
+    background: #387ADF;
+    color: white;
+    box-shadow: 0 4px 8px rgba(56, 122, 223, 0.3);
+}
+
+.variation-option.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #f8f9fa;
+}
+
+/* Current Variation Info */
+.current-variation-info {
+    background: rgba(56, 122, 223, 0.05);
+    padding: 1.25rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+    border-left: 4px solid #387ADF;
+}
+
+.current-variation-info .variation-name {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.current-variation-info .variation-details {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+/* Related Products */
+.related-products-section {
+    margin-top: 3rem;
+    padding-top: 2rem;
+}
+
+.section-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: #495057;
+}
+
+.related-product-card {
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    overflow: hidden;
+    background: white;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.related-product-card:hover {
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+    transform: translateY(-5px);
+    border-color: #387ADF;
+}
+
+.related-product-image {
+    height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8f9fa;
+    padding: 1rem;
+}
+
+.related-product-image img {
+    max-height: 160px;
+    max-width: 100%;
+    object-fit: contain;
+}
+
+.related-product-body {
+    padding: 1rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.related-product-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 2.8rem;
+}
+
+.related-product-price {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #387ADF;
+    margin-top: auto;
+}
+
+/* Responsive */
+@media (max-width: 991px) {
+    .product-gallery {
+        position: static;
+        margin-bottom: 2rem;
+    }
+
+    .main-image-container {
+        min-height: 400px;
+    }
+
+    .product-name {
+        font-size: 1.5rem;
+    }
+
+    .product-price-main {
+        font-size: 2rem;
+    }
+}
+
+@media (max-width: 575px) {
+    .product-info {
+        padding: 1.5rem;
+    }
+
+    .variation-options {
+        gap: 0.5rem;
+    }
+
+    .variation-option {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+    }
+
+    .product-price-main {
+        font-size: 1.75rem;
+    }
+}
+
+/* Loading State */
+.variation-loading {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.variation-loading.active {
+    display: block;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="product-detail-container">
+    <!-- Product Detail -->
+    <div class="row">
+        <!-- Left Column: Image Gallery -->
+        <div class="col-lg-6">
+            <div class="product-gallery">
+                <div class="main-image-container">
+                    {% if product.featured_image_url %}
+                    <img id="mainImage" src="{{ product.featured_image_url }}" alt="{{ product.name }}" class="img-fluid">
+                    {% else %}
+                    <div class="text-center">
+                        <i class="uil-box" style="font-size: 5rem; color: #ced4da;"></i>
+                        <p class="text-muted mt-3">No image available</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if product_images %}
+                <div class="thumbnail-gallery">
+                    <!-- Featured image as first thumbnail -->
+                    {% if product.featured_image_url %}
+                    <div class="thumbnail-item active" data-image="{{ product.featured_image_url }}">
+                        <img src="{{ product.featured_image_url }}" alt="{{ product.name }}">
+                    </div>
+                    {% endif %}
+
+                    <!-- Additional images -->
+                    {% for image in product_images %}
+                    {% if image.src != product.featured_image_url %}
+                    <div class="thumbnail-item" data-image="{{ image.src }}">
+                        <img src="{{ image.src }}" alt="{{ image.alt|default:product.name }}">
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Right Column: Product Information -->
+        <div class="col-lg-6">
+            <div class="product-info">
+                <!-- Product Name -->
+                <h1 class="product-name">{{ product.name }}</h1>
+
+                <!-- SKU -->
+                {% if product.sku %}
+                <div class="product-sku">
+                    <i class="uil-tag-alt me-1"></i>SKU: <strong>{{ product.sku }}</strong>
+                </div>
+                {% endif %}
+
+                <!-- Price Section -->
+                <div class="product-price-section">
+                    <div class="product-price-main" id="productPrice">
+                        {% if product.display_price %}
+                            ${{ product.display_price }}
+                            {% if product.on_sale and product.regular_price %}
+                            <span class="product-price-regular">${{ product.regular_price }}</span>
+                            <span class="product-price-sale-badge">SALE</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">Price varies by selection</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Product Description -->
+                {% if product.description %}
+                <div class="product-description">
+                    <h4>Description</h4>
+                    <div class="product-description-content">
+                        {{ product.description|safe }}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Variation Selector -->
+                {% if product.product_type == 'variable' and variations_data|length > 0 %}
+                <div class="variation-selector">
+                    <h4>Options</h4>
+                    <div id="variationSelectors"></div>
+                    <div id="currentVariationInfo" class="current-variation-info" style="display: none;"></div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Image Gallery Functionality
+    $('.thumbnail-item').on('click', function() {
+        const imageUrl = $(this).data('image');
+        $('#mainImage').attr('src', imageUrl);
+        $('.thumbnail-item').removeClass('active');
+        $(this).addClass('active');
+    });
+
+    {% if product.product_type == 'variable' and variations_data %}
+    // Variation Selection Functionality
+    const variationsData = {{ variations_data_json|safe }};
+    const productType = '{{ product.product_type }}';
+
+    // Parse attributes from variations
+    function getAvailableAttributes() {
+        const attributes = {};
+
+        variationsData.forEach(variation => {
+            variation.attributes.forEach(attr => {
+                if (!attributes[attr.name]) {
+                    attributes[attr.name] = new Set();
+                }
+                attributes[attr.name].add(attr.option);
+            });
+        });
+
+        // Convert Sets to sorted Arrays
+        Object.keys(attributes).forEach(key => {
+            attributes[key] = Array.from(attributes[key]).sort();
+        });
+
+        return attributes;
+    }
+
+    // Build variation selectors
+    function buildVariationSelectors() {
+        const attributes = getAvailableAttributes();
+        const container = $('#variationSelectors');
+        container.empty();
+
+        Object.keys(attributes).forEach(attrName => {
+            const options = attributes[attrName];
+
+            const html = `
+                <div class="variation-attribute" data-attribute="${attrName}">
+                    <label class="variation-label">${attrName}:</label>
+                    <div class="variation-options">
+                        ${options.map(option => `
+                            <button type="button" class="variation-option" data-attribute="${attrName}" data-value="${option}">
+                                ${option}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            container.append(html);
+        });
+    }
+
+    // Find matching variation
+    function findMatchingVariation(selectedAttributes) {
+        return variationsData.find(variation => {
+            return variation.attributes.every(attr => {
+                return selectedAttributes[attr.name] === attr.option;
+            });
+        });
+    }
+
+    // Get currently selected attributes
+    function getSelectedAttributes() {
+        const selected = {};
+        $('.variation-option.active').each(function() {
+            const attrName = $(this).data('attribute');
+            const value = $(this).data('value');
+            selected[attrName] = value;
+        });
+        return selected;
+    }
+
+    // Update available options based on current selection
+    function updateAvailableOptions() {
+        const selected = getSelectedAttributes();
+        const attributeNames = Object.keys(getAvailableAttributes());
+
+        // Reset all options
+        $('.variation-option').removeClass('disabled');
+
+        // For each attribute
+        attributeNames.forEach(attrName => {
+            const options = $(`.variation-option[data-attribute="${attrName}"]`);
+
+            options.each(function() {
+                const optionValue = $(this).data('value');
+
+                // Skip if this option is already selected
+                if ($(this).hasClass('active')) {
+                    return;
+                }
+
+                // Build hypothetical selection
+                const testSelection = {...selected};
+                testSelection[attrName] = optionValue;
+
+                // Check if any variation matches this combination
+                const hasMatch = variationsData.some(variation => {
+                    return Object.keys(testSelection).every(key => {
+                        const attr = variation.attributes.find(a => a.name === key);
+                        return attr && attr.option === testSelection[key];
+                    });
+                });
+
+                // Disable if no match
+                if (!hasMatch) {
+                    $(this).addClass('disabled');
+                }
+            });
+        });
+    }
+
+    // Update price and stock based on variation
+    function updateVariationInfo() {
+        const selected = getSelectedAttributes();
+        const attributeNames = Object.keys(getAvailableAttributes());
+
+        // Check if all attributes are selected
+        const allSelected = attributeNames.every(name => selected[name]);
+
+        if (allSelected) {
+            const variation = findMatchingVariation(selected);
+
+            if (variation) {
+                // Update price
+                let priceHtml = `$${variation.display_price}`;
+                if (variation.on_sale && variation.regular_price) {
+                    priceHtml += ` <span class="product-price-regular">$${variation.regular_price}</span>`;
+                    priceHtml += ` <span class="product-price-sale-badge">SALE</span>`;
+                }
+                $('#productPrice').html(priceHtml);
+
+                // Update stock status (both locations)
+                let stockHtml = '';
+                if (variation.stock_status === 'instock') {
+                    stockHtml = `
+                        <span class="stock-badge in-stock">
+                            <i class="uil-check-circle"></i>In Stock
+                            ${variation.stock_quantity && variation.manage_stock ? `(${variation.stock_quantity} available)` : ''}
+                        </span>
+                    `;
+                } else if (variation.stock_status === 'outofstock') {
+                    stockHtml = `
+                        <span class="stock-badge out-of-stock">
+                            <i class="uil-times-circle"></i>Out of Stock
+                        </span>
+                    `;
+                } else if (variation.stock_status === 'onbackorder') {
+                    stockHtml = `
+                        <span class="stock-badge backorder">
+                            <i class="uil-clock"></i>Available on Backorder
+                        </span>
+                    `;
+                }
+                $('#stockStatus').html(stockHtml);
+                $('#stockStatusLeft').html(stockHtml);
+
+                // Update variation info
+                const selectedText = variation.attributes.map(a => `${a.name}: ${a.option}`).join(', ');
+                $('#currentVariationInfo').html(`
+                    <div class="variation-name">Selected: ${variation.name || selectedText}</div>
+                    ${variation.sku ? `<div class="variation-details">SKU: ${variation.sku}</div>` : ''}
+                `).show();
+
+                // Update image if variation has one
+                if (variation.image_url) {
+                    $('#mainImage').attr('src', variation.image_url);
+                }
+            }
+        } else {
+            // Reset to product defaults if not all selected
+            $('#currentVariationInfo').hide();
+        }
+    }
+
+    // Handle variation option click
+    $(document).on('click', '.variation-option:not(.disabled)', function() {
+        const attrName = $(this).data('attribute');
+
+        // Deselect other options in same attribute
+        $(`.variation-option[data-attribute="${attrName}"]`).removeClass('active');
+
+        // Select this option
+        $(this).addClass('active');
+
+        // Update available options and variation info
+        updateAvailableOptions();
+        updateVariationInfo();
+    });
+
+    // Initialize variation selectors
+    if (productType === 'variable' && variationsData.length > 0) {
+        buildVariationSelectors();
+    }
+    {% endif %}
+});
+</script>
+{% endblock %}
