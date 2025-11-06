@@ -357,12 +357,14 @@ def get_product_by_type_and_id(product_type, product_id):
 def get_product_by_type_and_slug(product_type, product_slug):
     """Get product object by type and slug"""
     from schools.models_tus import TUSProduct
+    from ballstore.models import BallStoreProduct
 
     product_models = {
         'tusproduct': TUSProduct,
         'wholesaleproduct': WholesaleProduct,
         'lottoproduct': LottoProduct,
         'sasproduct': SASProduct,
+        'ballstoreproduct': BallStoreProduct,
     }
 
     model_class = product_models.get(product_type.lower())
@@ -2347,6 +2349,10 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
                     return f"LOTTO - {product.category.club.name}"
                 return "LOTTO Club"
 
+            elif product_type.lower() == 'ballstoreproduct':
+                # BallStore products are generic products
+                return "BallStore"
+
         except Exception as e:
             logger.error(f"Error getting institution name: {e}")
 
@@ -2705,12 +2711,13 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                         product.variation_display = {}
 
         # ========================================
-        # ACCESSORIES TAB - Generic Products Only (SAS Generic + LOTTO Generic Shop)
+        # ACCESSORIES TAB - Generic Products Only (SAS Generic + LOTTO Generic Shop + BallStore)
         # ========================================
         elif active_tab == 'accessories':
             from django.db.models import Exists, OuterRef, Q as QOuter
             from clubs.models_sas import SASProductVariation
             from clubs.models_lotto import LottoProductVariation
+            from ballstore.models import BallStoreProduct, BallStoreProductVariation
 
             # Get ONLY generic categories/shops - these are available to all users
             # Generic products are not club-specific, so we don't filter by user assignments
@@ -2807,13 +2814,52 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                     Q(category__club__address__icontains=search_query)  # Address
                 ).distinct()
 
+            # Stock filtering for BallStore Products:
+            # - If product is variable type: At least ONE variation must have stock_quantity > 0
+            # - If product is simple type: Base product must have stock_status in ['instock', 'onbackorder']
+
+            # Subquery to check if product has at least one variation with stock
+            has_stock_variation_ballstore = Exists(
+                BallStoreProductVariation.objects.filter(
+                    parent_product=OuterRef('pk'),
+                    is_active=True,
+                    stock_quantity__gt=0
+                )
+            )
+
+            # Get BallStore Products with stock filtering
+            ballstore_products_qs = BallStoreProduct.objects.filter(
+                is_active=True
+            ).annotate(
+                has_stock_variation=has_stock_variation_ballstore
+            ).filter(
+                # Filter: (variable type AND has stock in at least one variation) OR
+                #         (simple type AND product stock_status is instock/onbackorder)
+                QOuter(
+                    QOuter(product_type='variable', has_stock_variation=True) |
+                    QOuter(product_type='simple', stock_status__in=['instock', 'onbackorder'])
+                )
+            ).prefetch_related('variations', 'categories')
+
+            # Apply search filter
+            if search_query:
+                ballstore_products_qs = ballstore_products_qs.filter(
+                    Q(name__icontains=search_query) |
+                    Q(sku__icontains=search_query) |
+                    Q(description__icontains=search_query) |
+                    Q(short_description__icontains=search_query) |
+                    Q(variations__sku__icontains=search_query) |  # Search in variation SKU
+                    Q(categories__name__icontains=search_query)  # Category name
+                ).distinct()
+
             # PERFORMANCE OPTIMIZATION: Paginate BEFORE processing variations
             # Convert to lists and merge (since they're different models)
             sas_products_list = list(sas_products_qs)
             lotto_products_list = list(lotto_products_qs)
+            ballstore_products_list = list(ballstore_products_qs)
 
             # Combine and paginate FIRST (before variation processing)
-            combined_products = sas_products_list + lotto_products_list
+            combined_products = sas_products_list + lotto_products_list + ballstore_products_list
             paginator = Paginator(combined_products, self.paginate_by)
             try:
                 page_obj = paginator.get_page(page)
@@ -2841,6 +2887,14 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                     if product.has_variations:
                         variations = list(product.variations.filter(is_active=True))
                         product.variation_display = self._get_variation_display_data(variations, 'lotto')
+                    else:
+                        product.variation_display = {}
+                elif product.__class__.__name__ == 'BallStoreProduct':
+                    product.product_type = 'ballstoreproduct'
+                    # Fetch variations only for displayed products
+                    if product.product_type == 'variable':
+                        variations = list(product.variations.filter(is_active=True))
+                        product.variation_display = self._get_variation_display_data(variations, 'ballstore')
                     else:
                         product.variation_display = {}
 
@@ -3059,24 +3113,38 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
             var_type = getattr(variation, 'variation_type', '').lower()
             var_value = getattr(variation, 'variation_value', '')
 
-            # Parse composite values like "XL - Black" or "Large - Red"
-            if ' - ' in var_value:
-                parts = [p.strip() for p in var_value.split(' - ')]
-                # First part usually size, second usually color
-                if len(parts) >= 2:
-                    sizes.add(parts[0])
-                    colors.add(parts[1])
-                else:
-                    if var_type in ['size', 'pa_size']:
-                        sizes.add(parts[0])
-                    elif var_type in ['color', 'colour', 'pa_color', 'pa_colour']:
-                        colors.add(parts[0])
+            # Handle BallStore variations (which use attributes JSON field)
+            if product_type.lower() == 'ballstore':
+                attributes = getattr(variation, 'attributes', [])
+                if isinstance(attributes, list):
+                    for attr in attributes:
+                        if isinstance(attr, dict):
+                            attr_name = attr.get('name', '').lower()
+                            attr_option = attr.get('option', '')
+
+                            if attr_name in ['size', 'pa_size']:
+                                sizes.add(attr_option)
+                            elif attr_name in ['color', 'colour', 'pa_color', 'pa_colour']:
+                                colors.add(attr_option)
             else:
-                # Single attribute value
-                if var_type in ['size', 'pa_size']:
-                    sizes.add(var_value)
-                elif var_type in ['color', 'colour', 'pa_color', 'pa_colour']:
-                    colors.add(var_value)
+                # Parse composite values like "XL - Black" or "Large - Red"
+                if ' - ' in var_value:
+                    parts = [p.strip() for p in var_value.split(' - ')]
+                    # First part usually size, second usually color
+                    if len(parts) >= 2:
+                        sizes.add(parts[0])
+                        colors.add(parts[1])
+                    else:
+                        if var_type in ['size', 'pa_size']:
+                            sizes.add(parts[0])
+                        elif var_type in ['color', 'colour', 'pa_color', 'pa_colour']:
+                            colors.add(parts[0])
+                else:
+                    # Single attribute value
+                    if var_type in ['size', 'pa_size']:
+                        sizes.add(var_value)
+                    elif var_type in ['color', 'colour', 'pa_color', 'pa_colour']:
+                        colors.add(var_value)
 
             # Add stock
             stock_qty = getattr(variation, 'stock_quantity', 0)
@@ -3094,12 +3162,27 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
             elif product_type in ['SAS', 'LOTTO']:
                 # SASProductVariation and LottoProductVariation have 'sku_suffix' field
                 sku = getattr(variation, 'sku_suffix', None)
+            elif product_type.lower() == 'ballstore':
+                # BallStoreProductVariation has 'sku' field
+                sku = getattr(variation, 'sku', None)
 
             # Add SKU to list if it exists
             if sku:
+                # For BallStore, create variation label from attributes
+                if product_type.lower() == 'ballstore':
+                    attributes = getattr(variation, 'attributes', [])
+                    attr_values = []
+                    if isinstance(attributes, list):
+                        for attr in attributes:
+                            if isinstance(attr, dict):
+                                attr_values.append(attr.get('option', ''))
+                    variation_label = ' - '.join(attr_values) if attr_values else var_value
+                else:
+                    variation_label = var_value
+
                 skus.append({
                     'sku': sku,
-                    'variation': var_value,
+                    'variation': variation_label,
                     'stock': stock_qty
                 })
 

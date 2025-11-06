@@ -1065,6 +1065,74 @@
                                                     </a>
                                                 </div>
                                             </a>
+                                        {% elif product.product_type == 'ballstoreproduct' %}
+                                            <a href="{% url 'quotations:product-detail-for-quote' product_type='ballstoreproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
+                                                <div class="product-img">
+                                                    {% if product.featured_image_url %}
+                                                        <img src="{{ product.featured_image_url }}" alt="{{ product.name }}">
+                                                    {% else %}
+                                                        <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.name }}">
+                                                    {% endif %}
+                                                </div>
+
+                                                <div class="product-content">
+                                                    <h5 class="product-title">{{ product.name }}</h5>
+
+                                                    <p class="product-sku mb-0">
+                                                        SKU: {% if product.sku %}{{ product.sku }}{% else %}N/A{% endif %}
+                                                    </p>
+
+                                                    <p class="product-institution mb-0">
+                                                        BallStore
+                                                    </p>
+
+                                                    {% if product.product_type == 'variable' %}
+                                                        <p class="product-price variable-price">Variable pricing</p>
+                                                    {% elif product.display_price %}
+                                                        <p class="product-price">${{ product.display_price }}</p>
+                                                    {% else %}
+                                                        <p class="product-price">Price on request</p>
+                                                    {% endif %}
+
+                                                    <span class="product-stock {% if product.stock_status == 'instock' %}stock-in{% elif product.stock_status == 'outofstock' %}stock-out{% else %}stock-backorder{% endif %}">
+                                                        {{ product.get_stock_status_display }}
+                                                    </span>
+
+                                                    {% if product.product_type == 'variable' and product.variation_display %}
+                                                    <div class="variation-info">
+                                                        {% if product.variation_display.sizes %}
+                                                        <div class="variation-label">Sizes:</div>
+                                                        <div class="variation-pills">
+                                                            {% for size in product.variation_display.sizes %}
+                                                                <span class="variation-pill">{{ size }}</span>
+                                                            {% endfor %}
+                                                        </div>
+                                                        {% endif %}
+
+                                                        {% if product.variation_display.has_skus %}
+                                                        <div class="variation-label mt-2">SKUs:</div>
+                                                        <div class="variation-pills">
+                                                            {% for sku_info in product.variation_display.skus|slice:":5" %}
+                                                                <span class="variation-pill" title="{{ sku_info.variation }} (Stock: {{ sku_info.stock }})">{{ sku_info.sku }}</span>
+                                                            {% endfor %}
+                                                            {% if product.variation_display.skus|length > 5 %}
+                                                                <span class="variation-pill">+{{ product.variation_display.skus|length|add:"-5" }} more</span>
+                                                            {% endif %}
+                                                        </div>
+                                                        {% endif %}
+
+                                                        <div class="variation-summary">
+                                                            <strong>{{ product.variation_display.variation_count }}</strong> variation{{ product.variation_display.variation_count|pluralize }}
+                                                            ({{ product.variation_display.total_stock }} total in stock)
+                                                        </div>
+                                                    </div>
+                                                    {% endif %}
+
+                                                    <a href="{% url 'quotations:product-detail-for-quote' product_type='ballstoreproduct' product_slug=product.slug %}" class="btn btn-view-details mt-2">
+                                                        View Details
+                                                    </a>
+                                                </div>
+                                            </a>
                                         {% endif %}
                                     </div>
                                 </div>
@@ -1179,6 +1247,35 @@
                                                         {{ product.get_stock_status_display }}
                                                     </span>
                                                     <a href="{% url 'quotations:product-detail-for-quote' product_type='lottoproduct' product_slug=product.slug %}" class="btn btn-view-details mt-2">
+                                                        View Details
+                                                    </a>
+                                                </div>
+                                            </a>
+                                        {% elif product.product_type == 'ballstoreproduct' %}
+                                            <!-- BallStore Product Card -->
+                                            <a href="{% url 'quotations:product-detail-for-quote' product_type='ballstoreproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
+                                                <div class="product-img">
+                                                    {% if product.featured_image_url %}
+                                                        <img src="{{ product.featured_image_url }}" alt="{{ product.name }}">
+                                                    {% else %}
+                                                        <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.name }}">
+                                                    {% endif %}
+                                                </div>
+                                                <div class="product-content">
+                                                    <h5 class="product-title">{{ product.name }}</h5>
+                                                    <p class="product-sku mb-0">SKU: {% if product.sku %}{{ product.sku }}{% else %}N/A{% endif %}</p>
+                                                    <p class="product-institution mb-0">BallStore</p>
+                                                    {% if product.product_type == 'variable' %}
+                                                        <p class="product-price variable-price">Variable pricing</p>
+                                                    {% elif product.display_price %}
+                                                        <p class="product-price">${{ product.display_price }}</p>
+                                                    {% else %}
+                                                        <p class="product-price">Price on request</p>
+                                                    {% endif %}
+                                                    <span class="product-stock {% if product.stock_status == 'instock' %}stock-in{% elif product.stock_status == 'outofstock' %}stock-out{% else %}stock-backorder{% endif %}">
+                                                        {{ product.get_stock_status_display }}
+                                                    </span>
+                                                    <a href="{% url 'quotations:product-detail-for-quote' product_type='ballstoreproduct' product_slug=product.slug %}" class="btn btn-view-details mt-2">
                                                         View Details
                                                     </a>
                                                 </div>
