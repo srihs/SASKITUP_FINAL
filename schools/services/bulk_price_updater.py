@@ -113,6 +113,8 @@ class BulkPriceUpdater:
             return 'price'  # TUSProductVariation uses price
         elif category in ['sas-clubs', 'lotto-clubs']:
             return 'price'  # SAS/Lotto variations use price
+        elif category == 'ballstore':
+            return 'price'  # BallStoreProductVariation uses price
         else:
             return 'price'  # Default fallback
 
@@ -197,6 +199,10 @@ class BulkPriceUpdater:
             logger.info(f"[PRELOAD-7] Loading wholesale variations...")
             self._preload_wholesale_variations()
             logger.info(f"[PRELOAD-8] Wholesale variations loaded: {len(self.variations_by_id)} variations")
+        elif self.category == 'ballstore':
+            logger.info(f"[PRELOAD-7] Loading BallStore variations...")
+            self._preload_ballstore_variations()
+            logger.info(f"[PRELOAD-8] BallStore variations loaded: {len(self.variations_by_id)} variations")
         variation_elapsed = (timezone.now() - variation_start).total_seconds()
         logger.info(f"[PRELOAD-9] Variation loading completed in {variation_elapsed:.2f}s")
 
@@ -276,6 +282,31 @@ class BulkPriceUpdater:
 
         logger.info(f"[WHOLESALE-VAR-4] Completed loading {variation_count} variations")
 
+    def _preload_ballstore_variations(self):
+        """Pre-load BallStore product variations with optimized queries."""
+        from ballstore.models import BallStoreProductVariation
+
+        logger.info(f"[BALLSTORE-VAR-1] Starting BallStoreProductVariation query...")
+        variations = BallStoreProductVariation.objects.select_related('parent_product').all()
+        logger.info(f"[BALLSTORE-VAR-2] Query object created, starting evaluation...")
+
+        variation_count = 0
+        for variation in variations:
+            variation_count += 1
+            if variation_count == 1:
+                logger.info(f"[BALLSTORE-VAR-3] Processing first variation...")
+            if variation_count % 1000 == 0:
+                logger.info(f"[BALLSTORE-VAR-PROGRESS] Processed {variation_count} variations...")
+
+            self.variations_by_id[variation.id] = variation
+            if variation.sku:
+                exact_key = str(variation.sku).strip().upper()
+                self.variations_by_key[exact_key] = variation
+                normalized_key = variation.sku.replace(' ', '').upper()
+                self.variations_by_normalized[normalized_key] = variation
+
+        logger.info(f"[BALLSTORE-VAR-4] Completed loading {variation_count} variations")
+
     def find_target_fast(self, product_code: str, barcode: str) -> Tuple[Any, Any, str]:
         """
         Fast O(1) product/variation lookup using pre-loaded hash maps.
@@ -298,14 +329,16 @@ class BulkPriceUpdater:
             # Exact match
             if lookup_key in self.variations_by_key:
                 variation = self.variations_by_key[lookup_key]
-                product = variation.product
+                # BallStore uses parent_product, others use product
+                product = getattr(variation, 'parent_product', None) or getattr(variation, 'product', None)
                 match_method = 'sku_suffix_exact_cached'
             else:
                 # Normalized match (no spaces)
                 normalized_key = product_code.replace(' ', '').upper()
                 if normalized_key in self.variations_by_normalized:
                     variation = self.variations_by_normalized[normalized_key]
-                    product = variation.product
+                    # BallStore uses parent_product, others use product
+                    product = getattr(variation, 'parent_product', None) or getattr(variation, 'product', None)
                     match_method = 'sku_suffix_normalized_cached'
 
         # Try product-level match if no variation found
@@ -978,6 +1011,9 @@ class BulkPriceUpdater:
         elif self.category == 'wholesale-schools':
             from schools.models import WholesaleProductVariation
             variation_model = WholesaleProductVariation
+        elif self.category == 'ballstore':
+            from ballstore.models import BallStoreProductVariation
+            variation_model = BallStoreProductVariation
         else:
             logger.error(f"No variation model for category: {self.category}")
             return 0, len(variations_to_update), []

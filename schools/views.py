@@ -3514,7 +3514,7 @@ def cin7_price_update_settings(request):
 
     context = {
         'page_title': 'Cin7 Price Update Settings',
-        'price_types': ['TUS', 'LOTTO', 'SAS', 'Wholesale'],
+        'price_types': ['TUS', 'LOTTO', 'SAS', 'Wholesale', 'BallStore'],
     }
     return render(request, 'schools/wholesale/cin7_price_update_settings.html', context)
 
@@ -3774,7 +3774,8 @@ def cin7_match_products(request):
             'TUS': 'retail-schools',
             'LOTTO': 'lotto-clubs',
             'SAS': 'sas-clubs',
-            'Wholesale': 'wholesale-schools'
+            'Wholesale': 'wholesale-schools',
+            'BallStore': 'ballstore'
         }
         category = category_map.get(price_type, 'wholesale-schools')
 
@@ -3885,6 +3886,31 @@ def cin7_match_products(request):
                     variation_sku_iexact_map[variation.sku_suffix.upper()] = (variation, variation.product)
 
             logger.info(f"Loaded {len(all_variations)} LOTTO variations into memory")
+
+        elif category == 'ballstore':
+            from ballstore.models import BallStoreProduct, BallStoreProductVariation
+
+            # Load all BallStore products
+            all_products = BallStoreProduct.objects.all()
+            for product in all_products:
+                # SKU mappings (BallStore uses 'sku')
+                if product.sku:
+                    product_sku_map[product.sku] = product
+                    product_sku_iexact_map[product.sku.upper()] = product
+
+                # BallStore doesn't have barcode field, skip barcode mappings
+
+            logger.info(f"Loaded {len(all_products)} BallStore products into memory")
+
+            # Load all BallStore variations
+            all_variations = BallStoreProductVariation.objects.all().select_related('parent_product')
+            for variation in all_variations:
+                # SKU mappings (BallStore uses 'sku')
+                if variation.sku:
+                    variation_sku_map[variation.sku] = (variation, variation.parent_product)
+                    variation_sku_iexact_map[variation.sku.upper()] = (variation, variation.parent_product)
+
+            logger.info(f"Loaded {len(all_variations)} BallStore variations into memory")
 
         else:  # wholesale-schools
             from schools.models import WholesaleProduct, WholesaleProductVariation
@@ -4257,7 +4283,8 @@ def cin7_price_apply(request):
             'TUS': 'retail-schools',
             'LOTTO': 'lotto-clubs',
             'SAS': 'sas-clubs',
-            'Wholesale': 'wholesale-schools'
+            'Wholesale': 'wholesale-schools',
+            'BallStore': 'ballstore'
         }
         category = category_map.get(price_type, 'wholesale-schools')
 

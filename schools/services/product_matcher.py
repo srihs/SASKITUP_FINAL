@@ -22,6 +22,7 @@ class ProductMatcherService:
     - retail-schools → TUSProduct (sku, barcode)
     - sas-clubs → SASProduct (sku, barcode)
     - lotto-clubs → LottoProduct (sku, barcode)
+    - ballstore → BallStoreProduct (sku, no barcode)
     """
 
     # Category to model mapping
@@ -30,6 +31,7 @@ class ProductMatcherService:
         'retail-schools': 'schools.TUSProduct',
         'sas-clubs': 'clubs.SASProduct',
         'lotto-clubs': 'clubs.LottoProduct',
+        'ballstore': 'ballstore.BallStoreProduct',
     }
 
     # SKU field mapping
@@ -38,6 +40,7 @@ class ProductMatcherService:
         'retail-schools': 'sku',
         'sas-clubs': 'sku',
         'lotto-clubs': 'sku',
+        'ballstore': 'sku',
     }
 
     # Barcode field mapping
@@ -46,6 +49,7 @@ class ProductMatcherService:
         'retail-schools': 'barcode',
         'sas-clubs': 'barcode',
         'lotto-clubs': 'barcode',
+        'ballstore': None,  # BallStore doesn't have barcode field
     }
 
     # Price field mapping (for updating retail price)
@@ -54,6 +58,7 @@ class ProductMatcherService:
         'retail-schools': 'price',
         'sas-clubs': 'price',
         'lotto-clubs': 'price',
+        'ballstore': 'price',
     }
 
     def __init__(self):
@@ -186,7 +191,7 @@ class ProductMatcherService:
         Generic variation field matching for any variation model.
 
         Args:
-            variation_model: TUSProductVariation, SASProductVariation, or LottoProductVariation
+            variation_model: TUSProductVariation, SASProductVariation, LottoProductVariation, or BallStoreProductVariation
             product_code: Code to match against variation field
             field_name: Field name to match against (default: 'sku_suffix')
 
@@ -194,31 +199,39 @@ class ProductMatcherService:
             Tuple of (product instance or None, match method or None)
         """
         try:
+            # Determine parent field name (BallStore uses 'parent_product', others use 'product')
+            parent_field = 'parent_product' if 'BallStore' in variation_model.__name__ else 'product'
+
             # Exact match
             filter_kwargs = {field_name: product_code}
             variation = variation_model.objects.filter(**filter_kwargs).first()
-            if variation and variation.product:
+            parent_product = getattr(variation, parent_field, None) if variation else None
+            if variation and parent_product:
                 logger.debug(f"Found product by exact variation {field_name}: {product_code}")
-                return variation.product, f'{field_name}_exact'
+                return parent_product, f'{field_name}_exact'
 
             # Case-insensitive match
             filter_kwargs = {f'{field_name}__iexact': product_code}
             variation = variation_model.objects.filter(**filter_kwargs).first()
-            if variation and variation.product:
+            parent_product = getattr(variation, parent_field, None) if variation else None
+            if variation and parent_product:
                 logger.debug(f"Found product by case-insensitive variation {field_name}: {product_code}")
-                return variation.product, f'{field_name}_iexact'
+                return parent_product, f'{field_name}_iexact'
 
             # Space-normalized match (e.g., "R9039 -4--7" matches "R9039-4--7" or vice versa)
             # Try this for all SKUs since database might have spaces but CSV might not
             normalized_code = product_code.replace(' ', '').upper()
             # Use select_related to optimize database queries
-            for variation in variation_model.objects.select_related('product').all():
+            select_related_field = parent_field
+            for variation in variation_model.objects.select_related(select_related_field).all():
                 field_value = getattr(variation, field_name, None)
                 if field_value:
                     normalized_db = field_value.replace(' ', '').upper()
                     if normalized_db == normalized_code:
-                        logger.debug(f"Found product by space-normalized variation {field_name}: {product_code} -> {field_value}")
-                        return variation.product, f'{field_name}_normalized'
+                        parent_product = getattr(variation, parent_field, None)
+                        if parent_product:
+                            logger.debug(f"Found product by space-normalized variation {field_name}: {product_code} -> {field_value}")
+                            return parent_product, f'{field_name}_normalized'
 
         except Exception as e:
             logger.error(f"Error matching variation {field_name}: {str(e)}")
@@ -235,7 +248,7 @@ class ProductMatcherService:
         Generic variation field matching that returns both product and variation instance.
 
         Args:
-            variation_model: TUSProductVariation, SASProductVariation, or LottoProductVariation
+            variation_model: TUSProductVariation, SASProductVariation, LottoProductVariation, or BallStoreProductVariation
             product_code: Code to match against variation field
             field_name: Field name to match against (default: 'sku_suffix')
 
@@ -243,31 +256,39 @@ class ProductMatcherService:
             Tuple of (product instance or None, match method or None, variation instance or None)
         """
         try:
+            # Determine parent field name (BallStore uses 'parent_product', others use 'product')
+            parent_field = 'parent_product' if 'BallStore' in variation_model.__name__ else 'product'
+
             # Exact match
             filter_kwargs = {field_name: product_code}
             variation = variation_model.objects.filter(**filter_kwargs).first()
-            if variation and variation.product:
+            parent_product = getattr(variation, parent_field, None) if variation else None
+            if variation and parent_product:
                 logger.debug(f"Found product by exact variation {field_name}: {product_code}")
-                return variation.product, f'{field_name}_exact', variation
+                return parent_product, f'{field_name}_exact', variation
 
             # Case-insensitive match
             filter_kwargs = {f'{field_name}__iexact': product_code}
             variation = variation_model.objects.filter(**filter_kwargs).first()
-            if variation and variation.product:
+            parent_product = getattr(variation, parent_field, None) if variation else None
+            if variation and parent_product:
                 logger.debug(f"Found product by case-insensitive variation {field_name}: {product_code}")
-                return variation.product, f'{field_name}_iexact', variation
+                return parent_product, f'{field_name}_iexact', variation
 
             # Space-normalized match (e.g., "R9039 -4--7" matches "R9039-4--7" or vice versa)
             # Try this for all SKUs since database might have spaces but CSV might not
             normalized_code = product_code.replace(' ', '').upper()
             # Use select_related to optimize database queries
-            for variation in variation_model.objects.select_related('product').all():
+            select_related_field = parent_field
+            for variation in variation_model.objects.select_related(select_related_field).all():
                 field_value = getattr(variation, field_name, None)
                 if field_value:
                     normalized_db = field_value.replace(' ', '').upper()
                     if normalized_db == normalized_code:
-                        logger.debug(f"Found product by space-normalized variation {field_name}: {product_code} -> {field_value}")
-                        return variation.product, f'{field_name}_normalized', variation
+                        parent_product = getattr(variation, parent_field, None)
+                        if parent_product:
+                            logger.debug(f"Found product by space-normalized variation {field_name}: {product_code} -> {field_value}")
+                            return parent_product, f'{field_name}_normalized', variation
 
         except Exception as e:
             logger.error(f"Error matching variation {field_name}: {str(e)}")
@@ -592,6 +613,28 @@ class ProductMatcherService:
                 if product:
                     return product, match_method
 
+        # BallStore: Variation SKU first, then Product SKU
+        elif category == 'ballstore':
+            # Priority 1-2: Try variation SKU first
+            if product_code:
+                try:
+                    from ballstore.models import BallStoreProductVariation
+                    product, match_method = self._match_by_variation_suffix(
+                        BallStoreProductVariation, product_code, field_name='sku'
+                    )
+                    if product:
+                        return product, match_method
+                except Exception as e:
+                    logger.error(f"Error importing BallStoreProductVariation: {str(e)}")
+
+            # Priority 3-4: Then try product SKU
+            if product_code and sku_field:
+                product, match_method = self._match_by_sku(model_class, sku_field, product_code)
+                if product:
+                    return product, match_method
+
+            # Note: BallStore doesn't have barcode field, no barcode matching
+
         else:
             logger.warning(f"Unknown category matching strategy: {category}")
             return None, None
@@ -727,6 +770,26 @@ class ProductMatcherService:
                         return product, match_method, variation
                 except Exception as e:
                     logger.error(f"Error matching Wholesale variation: {str(e)}")
+
+            # Fallback to product-level matching (no variation)
+            if product_code and sku_field:
+                product, match_method = self._match_by_sku(model_class, sku_field, product_code)
+                if product:
+                    return product, match_method, None
+
+        # BallStore: Return variation instance when matched
+        elif category == 'ballstore':
+            # Priority 1-2: Try variation SKU
+            if product_code:
+                try:
+                    from ballstore.models import BallStoreProductVariation
+                    product, match_method, variation = self._match_variation_with_instance(
+                        BallStoreProductVariation, product_code, field_name='sku'
+                    )
+                    if product and variation:
+                        return product, match_method, variation
+                except Exception as e:
+                    logger.error(f"Error matching BallStore variation: {str(e)}")
 
             # Fallback to product-level matching (no variation)
             if product_code and sku_field:
