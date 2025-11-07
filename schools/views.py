@@ -3890,27 +3890,38 @@ def cin7_match_products(request):
         elif category == 'ballstore':
             from ballstore.models import BallStoreProduct, BallStoreProductVariation
 
-            # Load all BallStore products
-            all_products = BallStoreProduct.objects.all()
-            for product in all_products:
-                # SKU mappings (BallStore uses 'sku')
-                if product.sku:
-                    product_sku_map[product.sku] = product
-                    product_sku_iexact_map[product.sku.upper()] = product
+            # Load all BallStore variations with parent_product in one query
+            all_variations = BallStoreProductVariation.objects.select_related('parent_product').only(
+                'id', 'sku', 'parent_product__id', 'parent_product__sku'
+            ).iterator(chunk_size=1000)
 
-                # BallStore doesn't have barcode field, skip barcode mappings
-
-            logger.info(f"Loaded {len(all_products)} BallStore products into memory")
-
-            # Load all BallStore variations
-            all_variations = BallStoreProductVariation.objects.all().select_related('parent_product')
+            variation_count = 0
             for variation in all_variations:
+                variation_count += 1
                 # SKU mappings (BallStore uses 'sku')
                 if variation.sku:
                     variation_sku_map[variation.sku] = (variation, variation.parent_product)
                     variation_sku_iexact_map[variation.sku.upper()] = (variation, variation.parent_product)
 
-            logger.info(f"Loaded {len(all_variations)} BallStore variations into memory")
+                # Also map parent product by SKU if not already mapped
+                if variation.parent_product and variation.parent_product.sku:
+                    parent_sku = variation.parent_product.sku
+                    if parent_sku not in product_sku_map:
+                        product_sku_map[parent_sku] = variation.parent_product
+                        product_sku_iexact_map[parent_sku.upper()] = variation.parent_product
+
+            logger.info(f"Loaded {variation_count} BallStore variations into memory")
+
+            # Load standalone products (products without variations)
+            standalone_products = BallStoreProduct.objects.filter(product_type='simple').only('id', 'sku').iterator(chunk_size=1000)
+            product_count = 0
+            for product in standalone_products:
+                product_count += 1
+                if product.sku and product.sku not in product_sku_map:
+                    product_sku_map[product.sku] = product
+                    product_sku_iexact_map[product.sku.upper()] = product
+
+            logger.info(f"Loaded {product_count} standalone BallStore products into memory")
 
         else:  # wholesale-schools
             from schools.models import WholesaleProduct, WholesaleProductVariation
