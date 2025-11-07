@@ -544,8 +544,8 @@
 
 /* Size Buttons - LOTTO Gradient Style */
 .size-buttons {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: 12px;
     padding: 0;
 }
@@ -1112,27 +1112,54 @@ function initializeProductVariations() {
         const variationMap = {};
 
         variationsData.forEach(variation => {
-            const value = variation.variation_value || '';
-            const parts = value.split(' - ').map(p => p.trim());
+            // Handle BallStore format with attributes array
+            if (variation.attributes && Array.isArray(variation.attributes)) {
+                let color = null;
+                let size = null;
 
-            if (parts.length === 2) {
-                // Format: "Size - Color"
-                const size = parts[0];
-                const color = parts[1];
-                colors.add(color);
-                sizes.add(size);
+                variation.attributes.forEach(attr => {
+                    if (attr.name && attr.name.toLowerCase().includes('color')) {
+                        color = attr.option;
+                        colors.add(color);
+                    } else if (attr.name && attr.name.toLowerCase().includes('size')) {
+                        size = attr.option;
+                        sizes.add(size);
+                    }
+                });
 
-                if (!variationMap[color]) variationMap[color] = {};
-                variationMap[color][size] = variation;
-            } else if (parts.length === 1) {
-                // Single attribute (size only or color only)
-                const type = variation.variation_type || '';
-                if (type.toLowerCase().includes('size')) {
-                    sizes.add(value);
-                    variationMap[value] = variation;
-                } else {
-                    colors.add(value);
-                    variationMap[value] = variation;
+                // Map variation by color and size
+                if (color && size) {
+                    if (!variationMap[color]) variationMap[color] = {};
+                    variationMap[color][size] = variation;
+                } else if (color) {
+                    variationMap[color] = variation;
+                } else if (size) {
+                    variationMap[size] = variation;
+                }
+            } else {
+                // Handle legacy format with variation_value (TUS, SAS, LOTTO, Wholesale)
+                const value = variation.variation_value || '';
+                const parts = value.split(' - ').map(p => p.trim());
+
+                if (parts.length === 2) {
+                    // Format: "Size - Color"
+                    const size = parts[0];
+                    const color = parts[1];
+                    colors.add(color);
+                    sizes.add(size);
+
+                    if (!variationMap[color]) variationMap[color] = {};
+                    variationMap[color][size] = variation;
+                } else if (parts.length === 1) {
+                    // Single attribute (size only or color only)
+                    const type = variation.variation_type || '';
+                    if (type.toLowerCase().includes('size')) {
+                        sizes.add(value);
+                        variationMap[value] = variation;
+                    } else {
+                        colors.add(value);
+                        variationMap[value] = variation;
+                    }
                 }
             }
         });

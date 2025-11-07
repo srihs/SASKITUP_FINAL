@@ -2226,6 +2226,7 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
                 elif product_type.lower() == 'ballstoreproduct':
                     var_data['sku'] = getattr(variation, 'sku', '')
                     var_data['description'] = getattr(variation, 'description', '')
+                    var_data['attributes'] = getattr(variation, 'attributes', [])
 
                 # Add image URL if available
                 image_url = None
@@ -2235,6 +2236,9 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
                 elif hasattr(variation, 'main_image') and variation.main_image:
                     # Handle both ImageField (has .url) and string URLs
                     image_url = variation.main_image.url if hasattr(variation.main_image, 'url') else variation.main_image
+                elif hasattr(variation, 'image_url') and variation.image_url:
+                    # BallStore uses image_url field
+                    image_url = variation.image_url
 
                 var_data['image_url'] = image_url
 
@@ -2842,10 +2846,17 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
             ).annotate(
                 has_stock_variation=has_stock_variation_ballstore
             ).filter(
-                # Filter: (variable type AND has stock in at least one variation) OR
-                #         (simple type AND product stock_status is instock/onbackorder)
+                # Filter: (variable type AND (has stock in variations OR stock_status is instock)) OR
+                #         (simple type AND stock_status is instock/onbackorder)
                 QOuter(
-                    QOuter(product_type='variable', has_stock_variation=True) |
+                    QOuter(
+                        product_type='variable',
+                        has_stock_variation=True
+                    ) |
+                    QOuter(
+                        product_type='variable',
+                        stock_status__in=['instock', 'onbackorder']
+                    ) |
                     QOuter(product_type='simple', stock_status__in=['instock', 'onbackorder'])
                 )
             ).prefetch_related('variations', 'categories')
