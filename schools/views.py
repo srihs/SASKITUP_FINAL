@@ -4118,12 +4118,21 @@ def cin7_match_products(request):
         # Prepare preview data for matched products
         # For standalone matching (session_id starts with 'match-'), get all matched products
         # For session-based matching, get only products from this session
+        # Use only() to fetch minimal fields and avoid sort memory errors
         if session_id.startswith('match-'):
-            matched_products = Cin7Product.objects.filter(matched=True)[:1000]
+            matched_products = Cin7Product.objects.filter(matched=True).only(
+                'cin7_id', 'code', 'barcode', 'style_code', 'name',
+                'retail_price', 'cost_nzd', 'match_method',
+                'matched_product_id', 'matched_variation_id'
+            )[:1000]
         else:
             matched_products = Cin7Product.objects.filter(
                 fetch_session_id=session_id,
                 matched=True
+            ).only(
+                'cin7_id', 'code', 'barcode', 'style_code', 'name',
+                'retail_price', 'cost_nzd', 'match_method',
+                'matched_product_id', 'matched_variation_id'
             )[:1000]  # Limit to first 1000 for preview
 
         # Build ID-based lookup maps for preview (from already-loaded dictionaries)
