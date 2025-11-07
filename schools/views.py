@@ -4277,17 +4277,24 @@ def cin7_price_apply(request):
         # Load matched Cin7Product records
         # For standalone matching (session_id starts with 'match-'), get all matched unprocessed products
         # For session-based matching, get only products from this session
+        # Use only() to fetch minimal fields and avoid sort memory errors
         if session_id.startswith('match-'):
             matched_products = Cin7Product.objects.filter(
                 matched=True,
                 processed=False
-            ).select_related()
+            ).only(
+                'cin7_id', 'code', 'barcode', 'name', 'cost_nzd', 'retail_price',
+                'matched_product_id', 'matched_variation_id', 'match_method'
+            )
         else:
             matched_products = Cin7Product.objects.filter(
                 fetch_session_id=session_id,
                 matched=True,
                 processed=False
-            ).select_related()
+            ).only(
+                'cin7_id', 'code', 'barcode', 'name', 'cost_nzd', 'retail_price',
+                'matched_product_id', 'matched_variation_id', 'match_method'
+            )
 
         total_products = matched_products.count()
         logger.info(f"Total matched products to apply: {total_products}")
@@ -4300,8 +4307,9 @@ def cin7_price_apply(request):
 
         # Convert Cin7Product records to price update format
         # IMPORTANT: Field names must match what BulkPriceUpdater expects
+        # Use iterator() to process in chunks and avoid loading all into memory
         valid_items = []
-        for cp in matched_products:
+        for cp in matched_products.iterator(chunk_size=1000):
             # Calculate margin_75_price dynamically from cost_nzd (margin_75_price was removed from Cin7Product)
             cost_nzd = float(cp.cost_nzd) if cp.cost_nzd else 0
             margin_75_price = (cost_nzd / 0.25) if cost_nzd > 0 else 0
