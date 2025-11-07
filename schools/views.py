@@ -4089,6 +4089,24 @@ def cin7_match_products(request):
 
             # Update Cin7Product record
             if matched_product:
+                # Validate SKU match to prevent data corruption
+                product_sku = getattr(matched_product, 'sku', None) or getattr(matched_product, 'cin7_sku', None)
+                if matched_variation:
+                    variation_sku = getattr(matched_variation, 'sku', None) or getattr(matched_variation, 'sku_suffix', None) or getattr(matched_variation, 'cin7_sku', None)
+                else:
+                    variation_sku = None
+
+                # Verify the match is valid
+                cin7_code = cin7_product.code or ''
+                is_valid_match = (
+                    (product_sku and cin7_code.upper() == product_sku.upper()) or
+                    (variation_sku and cin7_code.upper() == variation_sku.upper())
+                )
+
+                if not is_valid_match:
+                    # Log SKU mismatch warning
+                    logger.warning(f"[SKU-MISMATCH] CIN7 code={cin7_code} matched to product_id={matched_product.id} (sku={product_sku}), variation_id={matched_variation.id if matched_variation else None} (sku={variation_sku}) via {match_method}")
+
                 cin7_product.matched = True
                 cin7_product.match_method = match_method
                 cin7_product.matched_product_id = matched_product.id
