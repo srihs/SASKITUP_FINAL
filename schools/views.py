@@ -3923,6 +3923,15 @@ def cin7_match_products(request):
 
             logger.info(f"Loaded {product_count} standalone BallStore products into memory")
 
+            # DEBUG: Log sample SKUs for troubleshooting
+            if product_sku_map:
+                sample_skus = list(product_sku_map.keys())[:10]
+                logger.info(f"[BALLSTORE-DEBUG] Sample product SKUs in database: {sample_skus}")
+            if variation_sku_map:
+                sample_var_skus = list(variation_sku_map.keys())[:10]
+                logger.info(f"[BALLSTORE-DEBUG] Sample variation SKUs in database: {sample_var_skus}")
+            logger.info(f"[BALLSTORE-DEBUG] Total SKUs - Products: {len(product_sku_map)}, Variations: {len(variation_sku_map)}")
+
         else:  # wholesale-schools
             from schools.models import WholesaleProduct, WholesaleProductVariation
 
@@ -4055,6 +4064,11 @@ def cin7_match_products(request):
 
         products_to_update = []
 
+        # DEBUG: Log first 10 CIN7 products for BallStore to see what we're trying to match
+        if category == 'ballstore':
+            sample_cin7 = list(cin7_products[:10].values('code', 'barcode', 'style_code', 'name'))
+            logger.info(f"[BALLSTORE-DEBUG] Sample CIN7 products to match: {sample_cin7}")
+
         for i, cin7_product in enumerate(cin7_products.iterator(chunk_size=chunk_size)):
             # Update progress more frequently (every 10 products for better visibility)
             if i % 10 == 0:
@@ -4082,6 +4096,9 @@ def cin7_match_products(request):
                 matched_count += 1
             else:
                 not_found_count += 1
+                # DEBUG: Log first 10 unmatched products for BallStore
+                if category == 'ballstore' and not_found_count <= 10:
+                    logger.info(f"[BALLSTORE-DEBUG] Unmatched #{not_found_count}: code={cin7_product.code}, barcode={cin7_product.barcode}, style_code={cin7_product.style_code}, name={cin7_product.name}")
 
             products_to_update.append(cin7_product)
 
