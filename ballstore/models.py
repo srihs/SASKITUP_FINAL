@@ -86,6 +86,10 @@ class BallStoreProduct(models.Model):
     sale_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     on_sale = models.BooleanField(default=False)
 
+    # CIN7 price fields
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Cost price from CIN7 API")
+    margin_75_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Calculated 75% margin price (cost ÷ 0.25)")
+
     # Stock management
     stock_status = models.CharField(max_length=20, choices=STOCK_STATUS_CHOICES, default='instock')
     stock_quantity = models.IntegerField(null=True, blank=True)
@@ -172,6 +176,10 @@ class BallStoreProductVariation(models.Model):
     regular_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     sale_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     on_sale = models.BooleanField(default=False)
+
+    # CIN7 price fields
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Cost price from CIN7 API")
+    margin_75_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Calculated 75% margin price (cost ÷ 0.25)")
 
     # Stock management
     stock_status = models.CharField(max_length=20, choices=STOCK_STATUS_CHOICES, default='instock')
