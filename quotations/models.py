@@ -691,12 +691,12 @@ class QuotationItem(models.Model):
     )
 
     # Product reference using GenericForeignKey
-    # Supports: WholesaleProduct, LottoProduct, SASProduct, TUSProduct
+    # Supports: WholesaleProduct, LottoProduct, SASProduct, TUSProduct, BallStoreProduct
     product_content_type = models.ForeignKey(
         ContentType,
         on_delete=models.PROTECT,
         limit_choices_to={
-            'model__in': ['wholesaleproduct', 'lottoproduct', 'sasproduct', 'tusproduct']
+            'model__in': ['wholesaleproduct', 'lottoproduct', 'sasproduct', 'tusproduct', 'ballstoreproduct']
         },
         help_text="Type of product"
     )

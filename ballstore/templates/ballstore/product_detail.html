@@ -233,6 +233,80 @@
     margin-bottom: 0;
 }
 
+/* Handle tables and other block elements in product descriptions */
+.product-description-content table {
+    width: 100%;
+    max-width: 100%;
+    border-collapse: collapse;
+    display: block;
+    overflow-x: auto;
+    margin-bottom: 1rem;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+}
+
+.product-description-content table thead {
+    background-color: rgba(0, 101, 248, 0.08);
+}
+
+.product-description-content table td,
+.product-description-content table th {
+    padding: 10px;
+    border: 1px solid #dee2e6;
+    font-size: 0.9rem;
+    word-break: break-word;
+    background-color: white;
+}
+
+.product-description-content table tbody tr:nth-child(odd) {
+    background-color: #f8f9fa;
+}
+
+.product-description-content table tbody tr:hover {
+    background-color: rgba(0, 101, 248, 0.05);
+}
+
+/* Responsive table handling */
+@media (max-width: 768px) {
+    .product-description-content table {
+        font-size: 0.75rem;
+        white-space: nowrap;
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .product-description-content table td,
+    .product-description-content table th {
+        padding: 10px 8px;
+        min-width: 60px;
+        text-align: center;
+    }
+
+    /* First column wider and left-aligned */
+    .product-description-content table td:first-child,
+    .product-description-content table th:first-child {
+        min-width: 100px;
+        text-align: left;
+        font-weight: 600;
+        background-color: rgba(0, 101, 248, 0.05);
+        position: sticky;
+        left: 0;
+        z-index: 1;
+    }
+
+    /* Add horizontal scroll indicator */
+    .product-description::after {
+        content: "← Scroll table horizontally →";
+        display: block;
+        text-align: center;
+        font-size: 0.7rem;
+        color: #6c757d;
+        margin-top: 0.5rem;
+        font-style: italic;
+    }
+}
+
 /* Variation Selector */
 .variation-selector {
     margin-bottom: 1.5rem;
@@ -510,11 +584,15 @@
                 </div>
 
                 <!-- Product Description -->
-                {% if product.description %}
+                {% if product.description or product.short_description %}
                 <div class="product-description">
                     <h4>Description</h4>
                     <div class="product-description-content">
-                        {{ product.description|safe }}
+                        {% if product.description %}
+                            {{ product.description|safe }}
+                        {% elif product.short_description %}
+                            {{ product.short_description|safe }}
+                        {% endif %}
                     </div>
                 </div>
                 {% endif %}

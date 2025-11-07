@@ -336,12 +336,14 @@ def get_assigned_staff_from_products(quotation_items):
 def get_product_by_type_and_id(product_type, product_id):
     """Get product object by type and ID"""
     from schools.models_tus import TUSProduct
+    from ballstore.models import BallStoreProduct
 
     product_models = {
         'tusproduct': TUSProduct,
         'wholesaleproduct': WholesaleProduct,
         'lottoproduct': LottoProduct,
         'sasproduct': SASProduct,
+        'ballstoreproduct': BallStoreProduct,
     }
 
     model_class = product_models.get(product_type.lower())
@@ -2182,6 +2184,10 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
         # Add institution name
         context['institution_name'] = self._get_institution_name(product, product_type)
 
+        # Add product descriptions if available (BallStore products)
+        context['description'] = getattr(product, 'description', '')
+        context['short_description'] = getattr(product, 'short_description', '')
+
         # Determine active tab based on product type
         if product_type.lower() in ['tusproduct', 'wholesaleproduct']:
             context['active_tab'] = 'schools'
@@ -2217,6 +2223,9 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
                     var_data['sku'] = getattr(variation, 'cin7_sku', '')
                 elif product_type.lower() in ['sasproduct', 'lottoproduct']:
                     var_data['sku'] = getattr(variation, 'sku_suffix', '')
+                elif product_type.lower() == 'ballstoreproduct':
+                    var_data['sku'] = getattr(variation, 'sku', '')
+                    var_data['description'] = getattr(variation, 'description', '')
 
                 # Add image URL if available
                 image_url = None

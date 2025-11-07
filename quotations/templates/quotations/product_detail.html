@@ -142,6 +142,36 @@
     font-size: 1.1rem;
 }
 
+/* Product Description */
+.product-description {
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-left: 3px solid #0065F8;
+    border-radius: 4px;
+}
+
+.product-description .short-description {
+    color: #495057;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.product-description .full-description {
+    color: #6c757d;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    padding-top: 0.5rem;
+    border-top: 1px solid #dee2e6;
+}
+
+.product-description p {
+    margin-bottom: 0.5rem;
+}
+
+.product-description p:last-child {
+    margin-bottom: 0;
+}
+
 /* Pricing */
 .product-pricing {
     margin-bottom: 2rem;
@@ -914,6 +944,22 @@
                             </span>
                         </small>
                     </div>
+
+                    <!-- Product Description (BallStore products) -->
+                    {% if short_description or description %}
+                    <div class="product-description mb-3">
+                        {% if short_description %}
+                        <div class="short-description">
+                            {{ short_description|safe }}
+                        </div>
+                        {% endif %}
+                        {% if description and description != short_description %}
+                        <div class="full-description mt-2">
+                            {{ description|safe }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
 
                     <!-- Product Pricing -->
                     <div class="product-pricing">
