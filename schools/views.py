@@ -4126,9 +4126,26 @@ def cin7_match_products(request):
                 matched=True
             )[:1000]  # Limit to first 1000 for preview
 
-        # Build ID-based lookup maps for preview (reuse existing dictionaries)
-        product_id_map = {p.id: p for p in all_products}
-        variation_id_map = {v.id: v for v in all_variations}
+        # Build ID-based lookup maps for preview (from already-loaded dictionaries)
+        # For BallStore, we used iterator() so we need to build from our existing maps
+        if category == 'ballstore':
+            # Build from already-populated dictionaries
+            product_id_map = {}
+            variation_id_map = {}
+
+            # Extract products from product_sku_map
+            for product in product_sku_map.values():
+                if product.id not in product_id_map:
+                    product_id_map[product.id] = product
+
+            # Extract variations from variation_sku_map
+            for variation, product in variation_sku_map.values():
+                if variation.id not in variation_id_map:
+                    variation_id_map[variation.id] = variation
+        else:
+            # For other categories, we still have all_products and all_variations
+            product_id_map = {p.id: p for p in all_products}
+            variation_id_map = {v.id: v for v in all_variations}
 
         preview_data = []
         for cp in matched_products:
