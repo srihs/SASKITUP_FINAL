@@ -337,6 +337,7 @@ def get_product_by_type_and_id(product_type, product_id):
     """Get product object by type and ID"""
     from schools.models_tus import TUSProduct
     from ballstore.models import BallStoreProduct
+    from bespoke.models import BespokeProduct
 
     product_models = {
         'tusproduct': TUSProduct,
@@ -344,6 +345,7 @@ def get_product_by_type_and_id(product_type, product_id):
         'lottoproduct': LottoProduct,
         'sasproduct': SASProduct,
         'ballstoreproduct': BallStoreProduct,
+        'bespokeproduct': BespokeProduct,
     }
 
     model_class = product_models.get(product_type.lower())
