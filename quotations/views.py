@@ -360,6 +360,7 @@ def get_product_by_type_and_slug(product_type, product_slug):
     """Get product object by type and slug"""
     from schools.models_tus import TUSProduct
     from ballstore.models import BallStoreProduct
+    from bespoke.models import BespokeProduct
 
     product_models = {
         'tusproduct': TUSProduct,
@@ -367,6 +368,7 @@ def get_product_by_type_and_slug(product_type, product_slug):
         'lottoproduct': LottoProduct,
         'sasproduct': SASProduct,
         'ballstoreproduct': BallStoreProduct,
+        'bespokeproduct': BespokeProduct,
     }
 
     model_class = product_models.get(product_type.lower())
@@ -374,8 +376,9 @@ def get_product_by_type_and_slug(product_type, product_slug):
         return None
 
     try:
-        return model_class.objects.get(slug=product_slug)
-    except model_class.DoesNotExist:
+        # Use filter().first() to handle duplicate slugs gracefully
+        return model_class.objects.filter(slug=product_slug, is_active=True).first()
+    except Exception:
         return None
 
 
@@ -2191,6 +2194,8 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
         # Determine active tab based on product type
         if product_type.lower() in ['tusproduct', 'wholesaleproduct']:
             context['active_tab'] = 'schools'
+        elif product_type.lower() == 'bespokeproduct':
+            context['active_tab'] = 'custom_garments'
         else:
             context['active_tab'] = 'clubs'
 
@@ -2227,6 +2232,27 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
                     var_data['sku'] = getattr(variation, 'sku', '')
                     var_data['description'] = getattr(variation, 'description', '')
                     var_data['attributes'] = getattr(variation, 'attributes', [])
+                elif product_type.lower() == 'bespokeproduct':
+                    var_data['sku'] = getattr(variation, 'sku', '')
+                    var_data['description'] = getattr(variation, 'description', '')
+                    # Construct attributes array from option1_value, option2_value, option3_value
+                    attributes = []
+                    if hasattr(variation, 'option1_value') and variation.option1_value:
+                        attributes.append({
+                            'name': 'Size',  # Typically option1 is size for bespoke products
+                            'option': variation.option1_value
+                        })
+                    if hasattr(variation, 'option2_value') and variation.option2_value:
+                        attributes.append({
+                            'name': 'Color',  # Typically option2 is color for bespoke products
+                            'option': variation.option2_value
+                        })
+                    if hasattr(variation, 'option3_value') and variation.option3_value:
+                        attributes.append({
+                            'name': 'Option3',
+                            'option': variation.option3_value
+                        })
+                    var_data['attributes'] = attributes
 
                 # Add image URL if available
                 image_url = None
@@ -2366,6 +2392,10 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
                 # BallStore products are generic products
                 return "BallStore"
 
+            elif product_type.lower() == 'bespokeproduct':
+                # Bespoke products are custom garments
+                return "Bespoke - Custom Garment"
+
         except Exception as e:
             logger.error(f"Error getting institution name: {e}")
 
@@ -2390,6 +2420,7 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
 
         # Get current tab (default to 'schools')
         active_tab = request.GET.get('tab', 'schools')
+        print(f"DEBUG: NewQuotationView - active_tab={active_tab}")
 
         # Get category type filter (for tile navigation)
         category_type_filter = request.GET.get('category_type', '')
@@ -2918,6 +2949,139 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                     else:
                         product.variation_display = {}
 
+        # ========================================
+        # CUSTOM GARMENTS TAB - Bespoke Base Garment Products
+        # ========================================
+        elif active_tab == 'custom_garments':
+            print(f"DEBUG: Entering custom_garments tab handler, active_tab={active_tab}")
+            from django.db.models import Exists, OuterRef, Q as QOuter
+            from bespoke.models import BespokeProduct, BespokeProductVariation, BespokeCategory
+
+            # Get Base Garment category (NOT Addon)
+            try:
+                base_garment_category = BespokeCategory.objects.get(name='Base Garment', is_active=True)
+                print(f"DEBUG: Found Base Garment category ID={base_garment_category.id}")
+            except BespokeCategory.DoesNotExist:
+                base_garment_category = None
+                print("DEBUG: Base Garment category NOT FOUND")
+
+            if base_garment_category:
+                # Bespoke products are made-to-order custom garments
+                # No stock filtering needed - they should always be available regardless of stock status
+                # since they are manufactured on demand
+
+                # Get Bespoke Base Garment Products (no stock filtering)
+                bespoke_products_qs = BespokeProduct.objects.filter(
+                    category_assignments__category=base_garment_category,
+                    is_active=True
+                ).prefetch_related('variations', 'category_assignments__category')
+
+                # Apply search filter
+                if search_query:
+                    bespoke_products_qs = bespoke_products_qs.filter(
+                        Q(name__icontains=search_query) |
+                        Q(sku__icontains=search_query) |
+                        Q(barcode__icontains=search_query) |
+                        Q(description__icontains=search_query) |
+                        Q(short_description__icontains=search_query) |
+                        Q(variations__sku__icontains=search_query) |  # Search in variation SKU
+                        Q(category_assignments__category__name__icontains=search_query)  # Category name
+                    ).distinct()
+
+                # Get all bespoke products for grouping
+                bespoke_products_list = list(bespoke_products_qs)
+
+                # Group products by base name (for garments with sizes)
+                # This consolidates all size variations under one product card
+                grouped_products_dict = {}
+
+                for product in bespoke_products_list:
+                    if product.product_type == 'variable' and product.variations.all():
+                        # For variable products, show as a single card with all size variations
+                        grouped_products_dict[product.id] = {
+                            'parent': product,
+                            'sizes': [],
+                            'is_grouped': False
+                        }
+                    else:
+                        # For simple products, check if they should be grouped by base name
+                        base_name = product.base_garment_name
+
+                        # Find existing group with same base name
+                        group_key = None
+                        for key, group in grouped_products_dict.items():
+                            if group['parent'].base_garment_name == base_name:
+                                group_key = key
+                                break
+
+                        if group_key:
+                            # Add to existing group
+                            grouped_products_dict[group_key]['sizes'].append(product)
+                            grouped_products_dict[group_key]['is_grouped'] = True
+                        else:
+                            # Create new group with this product as parent
+                            grouped_products_dict[product.id] = {
+                                'parent': product,
+                                'sizes': [product],
+                                'is_grouped': False
+                            }
+
+                # Convert to list and sort sizes within each group
+                # Create a simple class to make groups accessible via dot notation in templates
+                class ProductGroup:
+                    def __init__(self, parent, sizes, is_grouped):
+                        self.parent = parent
+                        self.sizes = sizes
+                        self.is_grouped = is_grouped
+
+                products_grouped = []
+                for group in grouped_products_dict.values():
+                    if group['is_grouped']:
+                        # Sort sizes: XS, S, M, L, XL, XXL, 2XL, 3XL, etc.
+                        size_order = {'XS': 0, 'S': 1, 'M': 2, 'L': 3, 'XL': 4, 'XXL': 5, '2XL': 5, '3XL': 6, '4XL': 7}
+                        group['sizes'].sort(key=lambda p: size_order.get(p.size_suffix or '', 99))
+                    # Convert dict to object with dot notation
+                    products_grouped.append(ProductGroup(
+                        parent=group['parent'],
+                        sizes=group['sizes'],
+                        is_grouped=group['is_grouped']
+                    ))
+
+                # DEBUG: Log grouping results
+                print(f"DEBUG: Grouped {len(products_grouped)} bespoke products from {len(bespoke_products_list)} total")
+                if products_grouped:
+                    sample = products_grouped[0]
+                    print(f"DEBUG: Sample group - has parent: {hasattr(sample, 'parent')}, parent: {sample.parent.name if sample.parent else 'None'}")
+                    print(f"DEBUG: Sample - parent SKU: {sample.parent.sku}, base_garment_name: {sample.parent.base_garment_name}, is_grouped: {sample.is_grouped}, sizes count: {len(sample.sizes)}")
+
+                # Paginate the grouped products
+                combined_products = products_grouped
+                paginator = Paginator(combined_products, self.paginate_by)
+                try:
+                    page_obj = paginator.get_page(page)
+                except PageNotAnInteger:
+                    page_obj = paginator.get_page(1)
+                except EmptyPage:
+                    page_obj = paginator.get_page(paginator.num_pages)
+
+                is_paginated = paginator.num_pages > 1
+
+                # ONLY process variations for products on CURRENT PAGE (24 groups instead of ALL)
+                for group in page_obj.object_list:
+                    product = group.parent
+                    product.product_type = 'bespokeproduct'
+                    # Fetch variations only for displayed products
+                    if product.product_type == 'variable':
+                        variations = list(product.variations.filter(is_active=True))
+                        product.variation_display = self._get_variation_display_data(variations, 'bespoke')
+                    else:
+                        product.variation_display = {}
+            else:
+                # No Base Garment category found
+                combined_products = []
+                page_obj = None
+                is_paginated = False
+
         # Get current quotation count from session
         quotation_data = get_quotation_session(request)
         totals = calculate_quotation_totals(quotation_data)
@@ -3146,6 +3310,27 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                                 sizes.add(attr_option)
                             elif attr_name in ['color', 'colour', 'pa_color', 'pa_colour']:
                                 colors.add(attr_option)
+            # Handle Bespoke variations (which use option1_value, option2_value, option3_value)
+            elif product_type.lower() == 'bespoke':
+                option1 = getattr(variation, 'option1_value', '')
+                option2 = getattr(variation, 'option2_value', '')
+                option3 = getattr(variation, 'option3_value', '')
+
+                # Typically option1 is size, but we'll add all non-empty options
+                if option1:
+                    # Check if it looks like a size
+                    if any(size_keyword in option1.lower() for size_keyword in ['xs', 's', 'm', 'l', 'xl', 'small', 'medium', 'large']):
+                        sizes.add(option1)
+                    else:
+                        colors.add(option1)
+                if option2:
+                    # Check if it looks like a size
+                    if any(size_keyword in option2.lower() for size_keyword in ['xs', 's', 'm', 'l', 'xl', 'small', 'medium', 'large']):
+                        sizes.add(option2)
+                    else:
+                        colors.add(option2)
+                if option3:
+                    colors.add(option3)
             else:
                 # Parse composite values like "XL - Black" or "Large - Red"
                 if ' - ' in var_value:
@@ -3185,6 +3370,9 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
             elif product_type.lower() == 'ballstore':
                 # BallStoreProductVariation has 'sku' field
                 sku = getattr(variation, 'sku', None)
+            elif product_type.lower() == 'bespoke':
+                # BespokeProductVariation has 'sku' field
+                sku = getattr(variation, 'sku', None)
 
             # Add SKU to list if it exists
             if sku:
@@ -3197,6 +3385,13 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                             if isinstance(attr, dict):
                                 attr_values.append(attr.get('option', ''))
                     variation_label = ' - '.join(attr_values) if attr_values else var_value
+                # For Bespoke, create variation label from option values
+                elif product_type.lower() == 'bespoke':
+                    option1 = getattr(variation, 'option1_value', '')
+                    option2 = getattr(variation, 'option2_value', '')
+                    option3 = getattr(variation, 'option3_value', '')
+                    option_values = [opt for opt in [option1, option2, option3] if opt]
+                    variation_label = ' - '.join(option_values) if option_values else var_value
                 else:
                     variation_label = var_value
 

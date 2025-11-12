@@ -147,12 +147,13 @@ class Cin7ApiService:
 
         return None
 
-    def fetch_all_products(self, price_type: str = None, progress_callback=None) -> Tuple[List[Dict], int, int]:
+    def fetch_all_products(self, price_type: str = None, where_clause: str = None, progress_callback=None) -> Tuple[List[Dict], int, int]:
         """
         Fetch all products from Cin7 with pagination
 
         Args:
             price_type: One of 'TUS', 'LOTTO', 'SAS', 'Wholesale' (optional filtering)
+            where_clause: Optional CIN7 API where clause for filtering (e.g., 'category = "Quotation Base Library"')
             progress_callback: Optional function(current, total, message) for progress updates
 
         Returns:
@@ -163,7 +164,7 @@ class Cin7ApiService:
         rows_per_page = 100  # Cin7 max is 250, but 100 is safer for rate limiting
         total_available = None
 
-        logger.info(f"Fetching all products from Cin7 (price_type: {price_type})...")
+        logger.info(f"Fetching all products from Cin7 (price_type: {price_type}, where: {where_clause})...")
         start_time = timezone.now()
 
         while True:
@@ -172,10 +173,9 @@ class Cin7ApiService:
                 'rows': rows_per_page,
             }
 
-            # Add price_type specific filtering if needed
-            # Note: Adjust 'where' clause based on actual Cin7 category structure
-            # if price_type:
-            #     params['where'] = f'CategoryName = "{price_type}"'
+            # Add where clause filtering if provided
+            if where_clause:
+                params['where'] = where_clause
 
             response = self._make_request('Products', params)
 

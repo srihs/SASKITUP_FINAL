@@ -768,6 +768,12 @@
                                     <i class="mdi mdi-basketball me-1"></i> Accessories & Equipment
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if active_tab == 'custom_garments' %}active{% endif %}"
+                                   href="?tab=custom_garments{% if search_query %}&search={{ search_query }}{% endif %}">
+                                    <i class="mdi mdi-tshirt-crew me-1"></i> Custom Garments
+                                </a>
+                            </li>
                         </ul>
                     </div>
                 </div>
@@ -816,7 +822,61 @@
                                 {% for product in products %}
                                 <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
                                     <div class="product-box">
-                                        {% if product.product_type == 'tusproduct' %}
+                                        {% if product.parent %}
+                                            {% comment %}Grouped bespoke product - product is a group dict with 'parent', 'sizes', 'is_grouped'{% endcomment %}
+                                            <a href="{% url 'quotations:product-detail-for-quote' product_type='bespokeproduct' product_slug=product.parent.slug %}" class="text-decoration-none" style="display: contents;">
+                                                <div class="product-img">
+                                                    {% if product.parent.featured_image_url %}
+                                                        <img src="{{ product.parent.featured_image_url }}" alt="{{ product.parent.base_garment_name }}">
+                                                    {% else %}
+                                                        <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.parent.base_garment_name }}">
+                                                    {% endif %}
+                                                </div>
+
+                                                <div class="product-content">
+                                                    <h5 class="product-title">{{ product.parent.base_garment_name }}</h5>
+
+                                                    <p class="product-sku mb-0">
+                                                        SKU: {% if product.parent.sku %}{{ product.parent.sku }}{% else %}N/A{% endif %}
+                                                    </p>
+
+                                                    <p class="product-institution mb-0">
+                                                        Bespoke - Custom Garment
+                                                    </p>
+
+                                                    {% if product.parent.product_type == 'variable' %}
+                                                        <p class="product-price variable-price">Variable pricing</p>
+                                                    {% elif product.parent.display_price %}
+                                                        <p class="product-price">${{ product.parent.display_price }}</p>
+                                                    {% elif product.parent.price %}
+                                                        <p class="product-price">${{ product.parent.price }}</p>
+                                                    {% else %}
+                                                        <p class="product-price">Price on request</p>
+                                                    {% endif %}
+
+                                                    {% comment %}Stock badge removed for bespoke products - they are made-to-order{% endcomment %}
+
+                                                    {% comment %}Show size count for grouped products{% endcomment %}
+                                                    {% if product.parent.product_type == 'variable' %}
+                                                        <div class="variation-info">
+                                                            <div class="variation-summary">
+                                                                <strong>{{ product.parent.variation_count }}</strong> Size{{ product.parent.variation_count|pluralize }}
+                                                            </div>
+                                                        </div>
+                                                    {% elif product.is_grouped %}
+                                                        <div class="variation-info">
+                                                            <div class="variation-summary">
+                                                                <strong>{{ product.sizes|length }}</strong> Size{{ product.sizes|length|pluralize }}
+                                                            </div>
+                                                        </div>
+                                                    {% endif %}
+
+                                                    <a href="{% url 'quotations:product-detail-for-quote' product_type='bespokeproduct' product_slug=product.parent.slug %}" class="btn btn-view-details mt-2">
+                                                        View Details
+                                                    </a>
+                                                </div>
+                                            </a>
+                                        {% elif product.product_type == 'tusproduct' %}
                                             <a href="{% url 'quotations:product-detail-for-quote' product_type='tusproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
                                                 <div class="product-img">
                                                     {% if product.image_url %}
@@ -1133,6 +1193,99 @@
                                                     </a>
                                                 </div>
                                             </a>
+                                        {% elif product.product_type == 'bespokeproduct' %}
+                                            {% if product.parent %}
+                                                {% comment %}Grouped bespoke product - product is a group dict with 'parent', 'sizes', 'is_grouped'{% endcomment %}
+                                                <a href="{% url 'quotations:product-detail-for-quote' product_type='bespokeproduct' product_slug=product.parent.slug %}" class="text-decoration-none" style="display: contents;">
+                                                    <div class="product-img">
+                                                        {% if product.parent.featured_image_url %}
+                                                            <img src="{{ product.parent.featured_image_url }}" alt="{{ product.parent.base_garment_name }}">
+                                                        {% else %}
+                                                            <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.parent.base_garment_name }}">
+                                                        {% endif %}
+                                                    </div>
+
+                                                    <div class="product-content">
+                                                        <h5 class="product-title">{{ product.parent.base_garment_name }}</h5>
+
+                                                        <p class="product-sku mb-0">
+                                                            SKU: {% if product.parent.sku %}{{ product.parent.sku }}{% else %}N/A{% endif %}
+                                                        </p>
+
+                                                        <p class="product-institution mb-0">
+                                                            Bespoke - Custom Garment
+                                                        </p>
+
+                                                        {% if product.parent.product_type == 'variable' %}
+                                                            <p class="product-price variable-price">Variable pricing</p>
+                                                        {% elif product.parent.display_price %}
+                                                            <p class="product-price">${{ product.parent.display_price }}</p>
+                                                        {% elif product.parent.price %}
+                                                            <p class="product-price">${{ product.parent.price }}</p>
+                                                        {% else %}
+                                                            <p class="product-price">Price on request</p>
+                                                        {% endif %}
+
+                                                        {% comment %}Stock badge removed for bespoke products - they are made-to-order{% endcomment %}
+
+                                                        {% comment %}Show size count for grouped products{% endcomment %}
+                                                        {% if product.parent.product_type == 'variable' %}
+                                                            <div class="variation-info">
+                                                                <div class="variation-summary">
+                                                                    <strong>{{ product.parent.variation_count }}</strong> Size{{ product.parent.variation_count|pluralize }}
+                                                                </div>
+                                                            </div>
+                                                        {% elif product.is_grouped %}
+                                                            <div class="variation-info">
+                                                                <div class="variation-summary">
+                                                                    <strong>{{ product.sizes|length }}</strong> Size{{ product.sizes|length|pluralize }}
+                                                                </div>
+                                                            </div>
+                                                        {% endif %}
+
+                                                        <a href="{% url 'quotations:product-detail-for-quote' product_type='bespokeproduct' product_slug=product.parent.slug %}" class="btn btn-view-details mt-2">
+                                                            View Details
+                                                        </a>
+                                                    </div>
+                                                </a>
+                                            {% else %}
+                                                {% comment %}Legacy support - individual product (if any old code still uses this){% endcomment %}
+                                                <a href="{% url 'quotations:product-detail-for-quote' product_type='bespokeproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
+                                                    <div class="product-img">
+                                                        {% if product.featured_image_url %}
+                                                            <img src="{{ product.featured_image_url }}" alt="{{ product.name }}">
+                                                        {% else %}
+                                                            <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.name }}">
+                                                        {% endif %}
+                                                    </div>
+
+                                                    <div class="product-content">
+                                                        <h5 class="product-title">{{ product.name }}</h5>
+
+                                                        <p class="product-sku mb-0">
+                                                            SKU: {% if product.sku %}{{ product.sku }}{% else %}N/A{% endif %}
+                                                        </p>
+
+                                                        <p class="product-institution mb-0">
+                                                            Bespoke - Custom Garment
+                                                        </p>
+
+                                                        {% if product.product_type == 'variable' %}
+                                                            <p class="product-price variable-price">Variable pricing</p>
+                                                        {% elif product.display_price %}
+                                                            <p class="product-price">${{ product.display_price }}</p>
+                                                        {% elif product.price %}
+                                                            <p class="product-price">${{ product.price }}</p>
+                                                        {% else %}
+                                                            <p class="product-price">Price on request</p>
+                                                        {% endif %}
+
+                                                        <a href="{% url 'quotations:product-detail-for-quote' product_type='bespokeproduct' product_slug=product.slug %}" class="btn btn-view-details mt-2">
+                                                            View Details
+                                                        </a>
+                                                    </div>
+                                                </a>
+                                            {% endif %}
                                         {% endif %}
                                     </div>
                                 </div>
@@ -1145,7 +1298,61 @@
                                 {% for product in products %}
                                 <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
                                     <div class="product-box">
-                                        {% if product.product_type == 'tusproduct' %}
+                                        {% if product.parent %}
+                                            {% comment %}Grouped bespoke product - product is a group dict with 'parent', 'sizes', 'is_grouped'{% endcomment %}
+                                            <a href="{% url 'quotations:product-detail-for-quote' product_type='bespokeproduct' product_slug=product.parent.slug %}" class="text-decoration-none" style="display: contents;">
+                                                <div class="product-img">
+                                                    {% if product.parent.featured_image_url %}
+                                                        <img src="{{ product.parent.featured_image_url }}" alt="{{ product.parent.base_garment_name }}">
+                                                    {% else %}
+                                                        <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.parent.base_garment_name }}">
+                                                    {% endif %}
+                                                </div>
+
+                                                <div class="product-content">
+                                                    <h5 class="product-title">{{ product.parent.base_garment_name }}</h5>
+
+                                                    <p class="product-sku mb-0">
+                                                        SKU: {% if product.parent.sku %}{{ product.parent.sku }}{% else %}N/A{% endif %}
+                                                    </p>
+
+                                                    <p class="product-institution mb-0">
+                                                        Bespoke - Custom Garment
+                                                    </p>
+
+                                                    {% if product.parent.product_type == 'variable' %}
+                                                        <p class="product-price variable-price">Variable pricing</p>
+                                                    {% elif product.parent.display_price %}
+                                                        <p class="product-price">${{ product.parent.display_price }}</p>
+                                                    {% elif product.parent.price %}
+                                                        <p class="product-price">${{ product.parent.price }}</p>
+                                                    {% else %}
+                                                        <p class="product-price">Price on request</p>
+                                                    {% endif %}
+
+                                                    {% comment %}Stock badge removed for bespoke products - they are made-to-order{% endcomment %}
+
+                                                    {% comment %}Show size count for grouped products{% endcomment %}
+                                                    {% if product.parent.product_type == 'variable' %}
+                                                        <div class="variation-info">
+                                                            <div class="variation-summary">
+                                                                <strong>{{ product.parent.variation_count }}</strong> Size{{ product.parent.variation_count|pluralize }}
+                                                            </div>
+                                                        </div>
+                                                    {% elif product.is_grouped %}
+                                                        <div class="variation-info">
+                                                            <div class="variation-summary">
+                                                                <strong>{{ product.sizes|length }}</strong> Size{{ product.sizes|length|pluralize }}
+                                                            </div>
+                                                        </div>
+                                                    {% endif %}
+
+                                                    <a href="{% url 'quotations:product-detail-for-quote' product_type='bespokeproduct' product_slug=product.parent.slug %}" class="btn btn-view-details mt-2">
+                                                        View Details
+                                                    </a>
+                                                </div>
+                                            </a>
+                                        {% elif product.product_type == 'tusproduct' %}
                                             <!-- TUS Product Card - keeping original structure -->
                                             <a href="{% url 'quotations:product-detail-for-quote' product_type='tusproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
                                                 <div class="product-img">
@@ -1280,6 +1487,100 @@
                                                     </a>
                                                 </div>
                                             </a>
+                                        {% elif product.product_type == 'bespokeproduct' %}
+                                            <!-- Bespoke Product Card -->
+                                            {% if product.parent %}
+                                                {% comment %}Grouped bespoke product - product is a group dict with 'parent', 'sizes', 'is_grouped'{% endcomment %}
+                                                <a href="{% url 'quotations:product-detail-for-quote' product_type='bespokeproduct' product_slug=product.parent.slug %}" class="text-decoration-none" style="display: contents;">
+                                                    <div class="product-img">
+                                                        {% if product.parent.featured_image_url %}
+                                                            <img src="{{ product.parent.featured_image_url }}" alt="{{ product.parent.base_garment_name }}">
+                                                        {% else %}
+                                                            <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.parent.base_garment_name }}">
+                                                        {% endif %}
+                                                    </div>
+
+                                                    <div class="product-content">
+                                                        <h5 class="product-title">{{ product.parent.base_garment_name }}</h5>
+
+                                                        <p class="product-sku mb-0">
+                                                            SKU: {% if product.parent.sku %}{{ product.parent.sku }}{% else %}N/A{% endif %}
+                                                        </p>
+
+                                                        <p class="product-institution mb-0">
+                                                            Bespoke - Custom Garment
+                                                        </p>
+
+                                                        {% if product.parent.product_type == 'variable' %}
+                                                            <p class="product-price variable-price">Variable pricing</p>
+                                                        {% elif product.parent.display_price %}
+                                                            <p class="product-price">${{ product.parent.display_price }}</p>
+                                                        {% elif product.parent.price %}
+                                                            <p class="product-price">${{ product.parent.price }}</p>
+                                                        {% else %}
+                                                            <p class="product-price">Price on request</p>
+                                                        {% endif %}
+
+                                                        {% comment %}Stock badge removed for bespoke products - they are made-to-order{% endcomment %}
+
+                                                        {% comment %}Show size count for grouped products{% endcomment %}
+                                                        {% if product.parent.product_type == 'variable' %}
+                                                            <div class="variation-info">
+                                                                <div class="variation-summary">
+                                                                    <strong>{{ product.parent.variation_count }}</strong> Size{{ product.parent.variation_count|pluralize }}
+                                                                </div>
+                                                            </div>
+                                                        {% elif product.is_grouped %}
+                                                            <div class="variation-info">
+                                                                <div class="variation-summary">
+                                                                    <strong>{{ product.sizes|length }}</strong> Size{{ product.sizes|length|pluralize }}
+                                                                </div>
+                                                            </div>
+                                                        {% endif %}
+
+                                                        <a href="{% url 'quotations:product-detail-for-quote' product_type='bespokeproduct' product_slug=product.parent.slug %}" class="btn btn-view-details mt-2">
+                                                            View Details
+                                                        </a>
+                                                    </div>
+                                                </a>
+                                            {% else %}
+                                                {% comment %}Legacy support - individual product (if any old code still uses this){% endcomment %}
+                                                <a href="{% url 'quotations:product-detail-for-quote' product_type='bespokeproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
+                                                    <div class="product-img">
+                                                        {% if product.featured_image_url %}
+                                                            <img src="{{ product.featured_image_url }}" alt="{{ product.name }}">
+                                                        {% else %}
+                                                            <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.name }}">
+                                                        {% endif %}
+                                                    </div>
+
+                                                    <div class="product-content">
+                                                        <h5 class="product-title">{{ product.name }}</h5>
+
+                                                        <p class="product-sku mb-0">
+                                                            SKU: {% if product.sku %}{{ product.sku }}{% else %}N/A{% endif %}
+                                                        </p>
+
+                                                        <p class="product-institution mb-0">
+                                                            Bespoke - Custom Garment
+                                                        </p>
+
+                                                        {% if product.product_type == 'variable' %}
+                                                            <p class="product-price variable-price">Variable pricing</p>
+                                                        {% elif product.display_price %}
+                                                            <p class="product-price">${{ product.display_price }}</p>
+                                                        {% elif product.price %}
+                                                            <p class="product-price">${{ product.price }}</p>
+                                                        {% else %}
+                                                            <p class="product-price">Price on request</p>
+                                                        {% endif %}
+
+                                                        <a href="{% url 'quotations:product-detail-for-quote' product_type='bespokeproduct' product_slug=product.slug %}" class="btn btn-view-details mt-2">
+                                                            View Details
+                                                        </a>
+                                                    </div>
+                                                </a>
+                                            {% endif %}
                                         {% endif %}
                                     </div>
                                 </div>

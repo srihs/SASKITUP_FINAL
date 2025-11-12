@@ -32,6 +32,7 @@ urlpatterns = [
     path('schools/', include('schools.urls')),
     path('quotations/', include('quotations.urls')),  # Quotation workflow
     path('ballstore/', include('ballstore.urls')),  # BallStore integration
+    path('bespoke/', include('bespoke.urls')),  # Bespoke products from CIN7
     path('dashboard/', GlobalDashboardView.as_view(), name='global-dashboard'),  # Global dashboard moved to /dashboard/
 
     # Frontend pages

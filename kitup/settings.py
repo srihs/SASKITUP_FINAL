@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'schools',
     'quotations',
     'ballstore',
+    'bespoke',
 ]
 
 MIDDLEWARE = [

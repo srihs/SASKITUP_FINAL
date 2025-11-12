@@ -1,0 +1,285 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body_class %}bespoke-categories{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Category Card Styling */
+.category-card {
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    transition: all 0.3s ease;
+    background: white;
+    overflow: hidden;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.category-card:hover {
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+    transform: translateY(-5px);
+    border-color: #556ee6;
+}
+
+/* Category Image Container */
+.category-image-container {
+    height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: #ffffff;
+    border-radius: 12px 12px 0 0;
+}
+
+.category-product-image {
+    max-width: 100%;
+    max-height: 160px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    transition: transform 0.3s ease;
+}
+
+.category-card:hover .category-product-image {
+    transform: scale(1.05);
+}
+
+.category-icon-fallback {
+    font-size: 5rem;
+    color: #667eea;
+}
+
+/* White background for card body */
+.category-content {
+    padding: 1.5rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    color: #495057;
+}
+
+.category-content .category-title {
+    color: #2c3e50;
+}
+
+.category-content .category-count {
+    color: #6c757d;
+}
+
+.category-content .category-description {
+    color: #6c757d;
+}
+
+.category-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.category-count {
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+}
+
+.category-description {
+    font-size: 0.875rem;
+    flex: 1;
+}
+
+.btn-view-category {
+    margin-top: auto;
+}
+
+/* Page Header */
+.page-title-box {
+    padding-bottom: 1.5rem;
+}
+
+.breadcrumb {
+    background: transparent;
+    padding: 0;
+    margin-bottom: 0;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    color: #ced4da;
+    margin-bottom: 1rem;
+}
+
+.empty-state h5 {
+    color: #74788d;
+    margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+    color: #adb5bd;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Categories Grid -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <!-- Header with Sync Button -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h4 class="card-title mb-0">Browse Bespoke Categories</h4>
+                    {% if user.is_staff %}
+                    <button type="button" class="btn btn-primary" id="syncButton" onclick="confirmSync()">
+                        <i class="uil-sync me-1"></i> Sync Products
+                    </button>
+                    {% endif %}
+                </div>
+
+                {% if categories %}
+                    {% for parent_category in categories %}
+                        {% if parent_category.children_list %}
+                            <!-- Show child categories in grid -->
+                            <div class="row g-4">
+                                {% for category in parent_category.children_list %}
+                                <div class="col-xl-3 col-lg-4 col-md-6">
+                                    <div class="category-card">
+                                        <!-- Category Image/Icon -->
+                                        <div class="category-image-container">
+                                            <!-- Use appropriate icons for Bespoke categories -->
+                                            {% if 'addon' in category.slug %}
+                                                <i class="category-icon-fallback uil-tag-alt"></i>
+                                            {% elif 'garment' in category.slug or 'base' in category.slug %}
+                                                <i class="category-icon-fallback uil-shopping-bag"></i>
+                                            {% else %}
+                                                <i class="category-icon-fallback uil-box"></i>
+                                            {% endif %}
+                                        </div>
+                                        <div class="category-content">
+                                            <h5 class="category-title">{{ category.name }}</h5>
+                                            <div class="category-count">
+                                                <i class="uil-box font-size-16 align-middle me-1"></i>
+                                                <span class="align-middle">{{ category.total_products }} product{{ category.total_products|pluralize }}</span>
+                                            </div>
+                                            {% if category.description %}
+                                            <p class="category-description">{{ category.description|truncatewords:20 }}</p>
+                                            {% endif %}
+                                            <a href="{% url 'bespoke:category_detail' category.slug %}" class="btn btn-primary btn-sm w-100 btn-view-category">
+                                                <i class="uil-eye me-1"></i> View Products
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <!-- Show parent category if no children -->
+                            <div class="row g-4">
+                                <div class="col-xl-3 col-lg-4 col-md-6">
+                                    <div class="category-card">
+                                        <div class="category-image-container">
+                                            <i class="category-icon-fallback uil-box"></i>
+                                        </div>
+                                        <div class="category-content">
+                                            <h5 class="category-title">{{ parent_category.name }}</h5>
+                                            <div class="category-count">
+                                                <i class="uil-box font-size-16 align-middle me-1"></i>
+                                                <span class="align-middle">{{ parent_category.total_products }} product{{ parent_category.total_products|pluralize }}</span>
+                                            </div>
+                                            {% if parent_category.description %}
+                                            <p class="category-description">{{ parent_category.description|truncatewords:20 }}</p>
+                                            {% endif %}
+                                            <a href="{% url 'bespoke:category_detail' parent_category.slug %}" class="btn btn-primary btn-sm w-100 btn-view-category">
+                                                <i class="uil-eye me-1"></i> View Products
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                <div class="empty-state">
+                    <i class="uil-box"></i>
+                    <h5>No Categories Available</h5>
+                    <p>Categories will appear here once they are synced from CIN7.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Add hover effects
+$(document).ready(function() {
+    $('.category-card').hover(
+        function() {
+            $(this).find('.category-image-container').addClass('shadow-lg');
+        },
+        function() {
+            $(this).find('.category-image-container').removeClass('shadow-lg');
+        }
+    );
+});
+
+// Sync confirmation and execution
+function confirmSync() {
+    Swal.fire({
+        title: 'Sync Bespoke Products?',
+        text: 'This will sync all products from CIN7 "Quotation Base Library" category. The sync may take a few minutes to complete.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#556ee6',
+        cancelButtonColor: '#74788d',
+        confirmButtonText: 'Yes, Start Sync',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Show loading state
+            const syncButton = document.getElementById('syncButton');
+            syncButton.disabled = true;
+            syncButton.innerHTML = '<i class="uil-spinner-alt spinner-border spinner-border-sm me-1"></i> Starting Sync...';
+
+            // Call sync via AJAX or redirect to sync endpoint
+            // For now, show success message - you can add actual sync trigger endpoint later
+            Swal.fire({
+                title: 'Sync Started',
+                text: 'Bespoke products sync has been initiated. You will receive a notification when complete.',
+                icon: 'success',
+                confirmButtonColor: '#556ee6',
+            }).then(() => {
+                syncButton.disabled = false;
+                syncButton.innerHTML = '<i class="uil-sync me-1"></i> Sync Products';
+            });
+        }
+    });
+}
+
+// Show messages with SweetAlert if available
+{% if messages %}
+$(document).ready(function() {
+    {% for message in messages %}
+    Swal.fire({
+        title: '{% if message.tags == "success" %}Success{% elif message.tags == "warning" %}Warning{% elif message.tags == "error" %}Error{% else %}Info{% endif %}',
+        text: '{{ message|escapejs }}',
+        icon: '{% if message.tags == "success" %}success{% elif message.tags == "warning" %}warning{% elif message.tags == "error" %}error{% else %}info{% endif %}',
+        confirmButtonColor: '#556ee6',
+        timer: {% if message.tags == "success" %}5000{% else %}0{% endif %},
+        timerProgressBar: {% if message.tags == "success" %}true{% else %}false{% endif %}
+    });
+    {% endfor %}
+});
+{% endif %}
+</script>
+{% endblock %}

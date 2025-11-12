@@ -1,0 +1,327 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="bespoke-page">
+<!-- Category Header -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-md me-4">
+                        <span class="avatar-title rounded bg-soft-bespoke text-bespoke font-size-20">
+                            {% if 'addon' in category.slug %}
+                                <i class="uil-tag-alt"></i>
+                            {% elif 'garment' in category.slug or 'base' in category.slug %}
+                                <i class="uil-shopping-bag"></i>
+                            {% else %}
+                                <i class="uil-folder-open"></i>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h4 class="mb-1">{{ category.name }}</h4>
+                        <p class="text-muted mb-2">
+                            <span class="badge badge-bespoke font-size-11">BESPOKE</span>
+                            <span class="badge bg-soft-info text-info font-size-11 ms-2">CIN7</span>
+                        </p>
+                        {% if category.description %}
+                        <p class="text-muted mb-0">{{ category.description }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'bespoke:category_list' %}" class="btn btn-soft-bespoke">
+                                <i class="uil-arrow-left me-1"></i> Back to Categories
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Category Stats -->
+<div class="row">
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-bespoke text-bespoke rounded-3">
+                            <i class="uil-shopping-bag font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Total Products</p>
+                        <h4 class="mb-0">{{ products|length }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-info text-info rounded-3">
+                            <i class="uil-box font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Type</p>
+                        <h6 class="mb-0">{{ category.get_category_type_display|default:"General" }}</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0 me-3">
+                        <span class="avatar-title bg-soft-warning text-warning rounded-3">
+                            <i class="uil-server font-size-18"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="text-muted mb-1">Source</p>
+                        <h6 class="mb-0">CIN7 API</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Products Grid -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">Products in {{ category.name }}</h4>
+                <div class="flex-shrink-0">
+                    {% if search_query %}
+                    <a href="{% url 'bespoke:category_detail' category.slug %}" class="btn btn-sm btn-soft-secondary me-2">
+                        <i class="uil-times me-1"></i> Clear Search
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                {% if products %}
+                <div class="row g-3">
+                    {% for group in products %}
+                    <div class="col-xl-3 col-lg-4 col-md-6">
+                        <div class="card product-card h-100">
+                            <div class="position-relative">
+                                <div class="card-img-top bg-light d-flex align-items-center justify-content-center product-image">
+                                    {% if group.parent.product_type == 'variable' or group.is_grouped %}
+                                        <i class="uil-layer-group font-size-48 text-muted"></i>
+                                    {% else %}
+                                        <i class="uil-shopping-bag font-size-48 text-muted"></i>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Size Count Badge -->
+                                {% if group.parent.product_type == 'variable' %}
+                                <span class="badge bg-info position-absolute top-0 start-0 m-2">
+                                    {{ group.parent.variation_count }} Sizes
+                                </span>
+                                {% elif group.is_grouped %}
+                                <span class="badge bg-info position-absolute top-0 start-0 m-2">
+                                    {{ group.sizes|length }} Sizes
+                                </span>
+                                {% endif %}
+                            </div>
+
+                            <div class="card-body">
+                                <h5 class="card-title font-size-15 mb-1">
+                                    <a href="{% url 'bespoke:product_detail' group.parent.slug %}" class="text-dark">{{ group.parent.base_garment_name|truncatechars:50 }}</a>
+                                </h5>
+
+                                {% if group.parent.sku %}
+                                <p class="text-muted font-size-13 mb-2">
+                                    <i class="uil-tag-alt me-1"></i>{{ group.parent.sku }}
+                                </p>
+                                {% endif %}
+
+                                <!-- Show size variations if grouped -->
+                                {% if group.is_grouped %}
+                                <div class="mb-2">
+                                    <small class="text-muted">Sizes available:</small>
+                                    <div class="d-flex flex-wrap gap-1 mt-1">
+                                        {% for size_product in group.sizes %}
+                                        {% if size_product.size_suffix %}
+                                        <span class="badge bg-soft-info text-info">{{ size_product.size_suffix }}</span>
+                                        {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        {% if group.parent.margin_75_price %}
+                                        <h5 class="mb-0 text-dark">${{ group.parent.margin_75_price }}</h5>
+                                        {% if group.parent.cost_price %}
+                                        <small class="text-muted">Cost: ${{ group.parent.cost_price }}</small>
+                                        {% endif %}
+                                        {% elif group.parent.retail_price %}
+                                        <h5 class="mb-0 text-dark">${{ group.parent.retail_price }}</h5>
+                                        {% else %}
+                                        <h5 class="mb-0 text-muted">Price varies</h5>
+                                        {% endif %}
+                                    </div>
+
+                                    {% if group.parent.product_type == 'variable' or group.is_grouped %}
+                                    <span class="badge bg-soft-info text-info">
+                                        <i class="uil-layer-group me-1"></i>Variable
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="card-footer bg-transparent border-top">
+                                <div class="d-flex gap-2">
+                                    <a href="{% url 'bespoke:product_detail' group.parent.slug %}" class="btn btn-soft-bespoke btn-sm flex-grow-1">
+                                        <i class="uil-eye me-1"></i> View Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <div class="avatar-xl mx-auto mb-4">
+                        <div class="avatar-title bg-soft-secondary text-secondary rounded-circle font-size-48">
+                            <i class="uil-shopping-bag"></i>
+                        </div>
+                    </div>
+                    <h5>No Products Found</h5>
+                    <p class="text-muted">This category doesn't have any products yet.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Bespoke Brand Colors */
+.bespoke-page {
+    /* Page wrapper for Bespoke-specific styling */
+}
+
+.badge-bespoke {
+    background-color: #667eea !important;
+    color: white !important;
+}
+
+.bg-soft-bespoke {
+    background-color: rgba(102, 126, 234, 0.1);
+}
+
+.text-bespoke {
+    color: #667eea !important;
+}
+
+.btn-soft-bespoke {
+    color: #667eea;
+    background-color: rgba(102, 126, 234, 0.1);
+    border-color: transparent;
+}
+
+.btn-soft-bespoke:hover {
+    color: #fff;
+    background-color: #667eea;
+    border-color: #667eea;
+}
+
+.btn-bespoke {
+    background-color: #667eea;
+    border-color: #667eea;
+    color: white;
+}
+
+.btn-bespoke:hover {
+    background-color: #556ee6;
+    border-color: #556ee6;
+    color: white;
+}
+
+/* Avatar Styles */
+.avatar-md {
+    width: 64px;
+    height: 64px;
+}
+
+.avatar-md img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-sm {
+    width: 40px;
+    height: 40px;
+}
+
+.avatar-sm img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-xl {
+    width: 96px;
+    height: 96px;
+}
+
+/* Product Card */
+.product-card {
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(102, 126, 234, 0.15);
+    border-color: #667eea;
+}
+
+.product-image {
+    height: 250px;
+    object-fit: cover;
+}
+
+.product-card .card-title a {
+    transition: color 0.3s ease;
+}
+
+.product-card:hover .card-title a {
+    color: #667eea !important;
+}
+
+/* Badge styles */
+.badge-soft-success { background-color: rgba(52, 195, 143, 0.1); color: #34c38f; }
+.badge-soft-warning { background-color: rgba(247, 184, 75, 0.1); color: #f7b84b; }
+.badge-soft-danger { background-color: rgba(243, 76, 124, 0.1); color: #f34c7c; }
+.badge-soft-info { background-color: rgba(58, 186, 244, 0.1); color: #3abaf4; }
+.badge-soft-primary { background-color: rgba(85, 110, 230, 0.1); color: #556ee6; }
+.badge-soft-secondary { background-color: rgba(116, 120, 141, 0.1); color: #74788d; }
+
+.bg-soft-primary { background-color: rgba(85, 110, 230, 0.1); }
+.bg-soft-success { background-color: rgba(52, 195, 143, 0.1); }
+.bg-soft-info { background-color: rgba(58, 186, 244, 0.1); }
+.bg-soft-warning { background-color: rgba(247, 184, 75, 0.1); }
+.bg-soft-secondary { background-color: rgba(116, 120, 141, 0.1); }
+</style>
+</div> <!-- End bespoke-page wrapper -->
+{% endblock %}

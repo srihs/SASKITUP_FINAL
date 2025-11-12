@@ -1,0 +1,382 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body_class %}bespoke-product-detail{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Product Detail Page Styling */
+.product-detail-container {
+    padding: 2rem 0;
+    background: #fafbfc;
+    min-height: calc(100vh - 200px);
+}
+
+/* Image Gallery */
+.product-gallery {
+    position: sticky;
+    top: 2rem;
+}
+
+.main-image-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 1rem;
+    min-height: 500px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.main-image-container:hover {
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.main-image-container i {
+    font-size: 8rem;
+    color: #667eea;
+    opacity: 0.3;
+}
+
+/* Product Info */
+.product-info {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.product-name {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #495057;
+    margin-bottom: 1rem;
+    line-height: 1.3;
+}
+
+.product-sku {
+    color: #74788d;
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+}
+
+.product-price-section {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.product-price-main {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #667eea;
+    margin-bottom: 0;
+}
+
+.product-price-cost {
+    font-size: 1.25rem;
+    color: #74788d;
+}
+
+.product-price-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #667eea 0%, #556ee6 100%);
+    color: white;
+    padding: 0.35rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+/* Product Description */
+.product-description {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.product-description h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #495057;
+}
+
+.product-description-content {
+    color: #6c757d;
+    line-height: 1.7;
+}
+
+.product-description-content p:last-child {
+    margin-bottom: 0;
+}
+
+/* Size Variations Grid */
+.size-variations-section {
+    margin-top: 1.5rem;
+}
+
+.size-variations-section h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #495057;
+}
+
+.size-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.75rem;
+}
+
+.size-tile {
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    transition: all 0.25s ease;
+    cursor: pointer;
+}
+
+.size-tile:hover {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.15);
+}
+
+.size-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #495057;
+    margin-bottom: 0.25rem;
+}
+
+.size-price {
+    font-size: 0.85rem;
+    color: #667eea;
+    font-weight: 600;
+}
+
+/* Responsive */
+@media (max-width: 991px) {
+    .product-gallery {
+        position: static;
+        margin-bottom: 2rem;
+    }
+
+    .main-image-container {
+        min-height: 400px;
+    }
+
+    .product-name {
+        font-size: 1.5rem;
+    }
+
+    .product-price-main {
+        font-size: 2rem;
+    }
+}
+
+@media (max-width: 575px) {
+    .product-info {
+        padding: 1.5rem;
+    }
+
+    .size-grid {
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        gap: 0.5rem;
+    }
+
+    .product-price-main {
+        font-size: 1.75rem;
+    }
+}
+
+/* Bespoke Brand Colors */
+.text-bespoke {
+    color: #667eea !important;
+}
+
+.bg-soft-bespoke {
+    background-color: rgba(102, 126, 234, 0.1);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="product-detail-container">
+    <!-- Product Detail -->
+    <div class="row">
+        <!-- Left Column: Image Gallery -->
+        <div class="col-lg-6">
+            <div class="product-gallery">
+                <div class="main-image-container">
+                    {% if product.product_type == 'variable' %}
+                        <i class="uil-layer-group"></i>
+                    {% else %}
+                        <i class="uil-shopping-bag"></i>
+                    {% endif %}
+                    <div class="text-center">
+                        <p class="text-muted mt-3">No image available</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Product Information -->
+        <div class="col-lg-6">
+            <div class="product-info">
+                <!-- Product Name -->
+                <h1 class="product-name">{{ product.name }}</h1>
+
+                <!-- SKU & Product Type -->
+                {% if product.sku %}
+                <div class="product-sku">
+                    <i class="uil-tag-alt me-1"></i>SKU: <strong>{{ product.sku }}</strong>
+                    <span class="badge bg-soft-bespoke text-bespoke ms-2">{{ product.get_product_type_display }}</span>
+                </div>
+                {% endif %}
+
+                <!-- Price Section -->
+                <div class="product-price-section">
+                    <div class="product-price-main" id="productPrice">
+                        {% if product.margin_75_price %}
+                            ${{ product.margin_75_price }}
+                            {% if product.cost_price %}
+                            <span class="product-price-cost">Cost: ${{ product.cost_price }}</span>
+                            <span class="product-price-badge">75% Margin</span>
+                            {% endif %}
+                        {% elif product.retail_price %}
+                            ${{ product.retail_price }}
+                        {% elif product.cost_price %}
+                            ${{ product.cost_price }}
+                        {% else %}
+                            <span class="text-muted">Price varies by selection</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Product Description -->
+                {% if product.description %}
+                <div class="product-description">
+                    <h4>Description</h4>
+                    <div class="product-description-content">
+                        {{ product.description|safe }}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Size Variations (if variable product or grouped simple products) -->
+                {% if product.product_type == 'variable' and product.variations.all %}
+                <div class="size-variations-section">
+                    <h4>Available Sizes ({{ product.variations.count }} variations)</h4>
+                    <div class="size-grid">
+                        {% for variation in product.variations.all %}
+                        <div class="size-tile">
+                            <div class="size-name">
+                                {% if variation.option1_value %}{{ variation.option1_value }}{% endif %}
+                                {% if variation.option2_value %}<br>{{ variation.option2_value }}{% endif %}
+                            </div>
+                            {% if variation.margin_75_price %}
+                            <div class="size-price">${{ variation.margin_75_price }}</div>
+                            {% elif variation.cost_price %}
+                            <div class="size-price">${{ variation.cost_price }}</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% elif size_variations %}
+                <div class="size-variations-section">
+                    {% if product.product_type == 'variable' %}
+                        <!-- Variable product - show variations -->
+                        <h4>Available Sizes ({{ size_variations|length }} size{{ size_variations|length|pluralize }})</h4>
+                        <div class="size-grid">
+                            {% for variation in size_variations %}
+                            <div class="size-tile">
+                                <div class="size-name">{{ variation.option1_value }}</div>
+                                {% if variation.margin_75_price %}
+                                <div class="size-price">${{ variation.margin_75_price }}</div>
+                                {% elif variation.price %}
+                                <div class="size-price">${{ variation.price }}</div>
+                                {% elif variation.cost_price %}
+                                <div class="size-price">${{ variation.cost_price }}</div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <!-- Simple product - show related products by base name -->
+                        <h4>Available Sizes ({{ size_variations|length|add:1 }} sizes)</h4>
+                        <div class="size-grid">
+                            <!-- Current size -->
+                            <div class="size-tile" style="border-color: #667eea; background: rgba(102, 126, 234, 0.1);">
+                                <div class="size-name">{{ product.size_suffix }} <small>(current)</small></div>
+                                {% if product.margin_75_price %}
+                                <div class="size-price">${{ product.margin_75_price }}</div>
+                                {% elif product.cost_price %}
+                                <div class="size-price">${{ product.cost_price }}</div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Other sizes -->
+                            {% for size_product in size_variations %}
+                            <div class="size-tile"
+                                 onclick="window.location.href='{% url 'bespoke:product_detail' size_product.slug %}'">
+                                <div class="size-name">{{ size_product.size_suffix }}</div>
+                                {% if size_product.margin_75_price %}
+                                <div class="size-price">${{ size_product.margin_75_price }}</div>
+                                {% elif size_product.cost_price %}
+                                <div class="size-price">${{ size_product.cost_price }}</div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Product Details Table -->
+                <div class="mt-4">
+                    <h4>Product Details</h4>
+                    <table class="table table-sm">
+                        {% if product.cost_price %}
+                        <tr>
+                            <th width="40%">Cost Price:</th>
+                            <td>${{ product.cost_price }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if product.retail_price %}
+                        <tr>
+                            <th>Retail Price:</th>
+                            <td>${{ product.retail_price }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if product.margin_75_price %}
+                        <tr>
+                            <th>75% Margin Price:</th>
+                            <td><strong class="text-bespoke">${{ product.margin_75_price }}</strong></td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <th>Source:</th>
+                            <td><span class="badge bg-soft-info text-info">CIN7 API</span></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
