@@ -3610,10 +3610,11 @@ def cin7_price_fetch(request):
                     skipped_no_id += 1
                     continue
 
-                # Skip products where code or style_code starts with 'BS'
+                # Skip products where code or style_code starts with 'BS' (BallStore)
+                # EXCEPT when price_type is "Bespoke" (which also uses BS prefix)
                 sku = option_data.get('sku') or ''
                 style_code = option_data.get('style_code') or ''
-                if sku.upper().startswith('BS') or style_code.upper().startswith('BS'):
+                if price_type != 'Bespoke' and (sku.upper().startswith('BS') or style_code.upper().startswith('BS')):
                     skipped_bs_products += 1
                     continue
 

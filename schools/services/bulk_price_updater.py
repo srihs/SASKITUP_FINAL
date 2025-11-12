@@ -115,6 +115,8 @@ class BulkPriceUpdater:
             return 'price'  # SAS/Lotto variations use price
         elif category == 'ballstore':
             return 'price'  # BallStoreProductVariation uses price
+        elif category == 'bespoke':
+            return 'price'  # BespokeProductVariation uses price
         else:
             return 'price'  # Default fallback
 
@@ -203,6 +205,10 @@ class BulkPriceUpdater:
             logger.info(f"[PRELOAD-7] Loading BallStore variations...")
             self._preload_ballstore_variations()
             logger.info(f"[PRELOAD-8] BallStore variations loaded: {len(self.variations_by_id)} variations")
+        elif self.category == 'bespoke':
+            logger.info(f"[PRELOAD-7] Loading Bespoke variations...")
+            self._preload_bespoke_variations()
+            logger.info(f"[PRELOAD-8] Bespoke variations loaded: {len(self.variations_by_id)} variations")
         variation_elapsed = (timezone.now() - variation_start).total_seconds()
         logger.info(f"[PRELOAD-9] Variation loading completed in {variation_elapsed:.2f}s")
 
@@ -306,6 +312,31 @@ class BulkPriceUpdater:
                 self.variations_by_normalized[normalized_key] = variation
 
         logger.info(f"[BALLSTORE-VAR-4] Completed loading {variation_count} variations")
+
+    def _preload_bespoke_variations(self):
+        """Pre-load Bespoke product variations with optimized queries."""
+        from bespoke.models import BespokeProductVariation
+
+        logger.info(f"[BESPOKE-VAR-1] Starting BespokeProductVariation query...")
+        variations = BespokeProductVariation.objects.select_related('parent_product').all()
+        logger.info(f"[BESPOKE-VAR-2] Query object created, starting evaluation...")
+
+        variation_count = 0
+        for variation in variations:
+            variation_count += 1
+            if variation_count == 1:
+                logger.info(f"[BESPOKE-VAR-3] Processing first variation...")
+            if variation_count % 1000 == 0:
+                logger.info(f"[BESPOKE-VAR-PROGRESS] Processed {variation_count} variations...")
+
+            self.variations_by_id[variation.id] = variation
+            if variation.sku:
+                exact_key = str(variation.sku).strip().upper()
+                self.variations_by_key[exact_key] = variation
+                normalized_key = variation.sku.replace(' ', '').upper()
+                self.variations_by_normalized[normalized_key] = variation
+
+        logger.info(f"[BESPOKE-VAR-4] Completed loading {variation_count} variations")
 
     def find_target_fast(self, product_code: str, barcode: str) -> Tuple[Any, Any, str]:
         """
@@ -775,6 +806,14 @@ class BulkPriceUpdater:
             if hasattr(target, 'margin_75_price'):
                 updates['margin_75_price'] = updates['cost_price'] / Decimal('0.25')
 
+        # BESPOKE SPECIAL LOGIC: Set price = margin_75_price
+        # Bespoke products use 75% margin pricing as the selling price
+        if self.category == 'bespoke' and updates.get('margin_75_price'):
+            if variation:
+                updates[self.variation_price_field] = updates['margin_75_price']
+            elif self.price_field:
+                updates[self.price_field] = updates['margin_75_price']
+
         # Calculate discount_percentage if we have both margin and retail price
         if hasattr(target, 'discount_percentage'):
             margin = updates.get('margin_75_price')
@@ -1014,6 +1053,9 @@ class BulkPriceUpdater:
         elif self.category == 'ballstore':
             from ballstore.models import BallStoreProductVariation
             variation_model = BallStoreProductVariation
+        elif self.category == 'bespoke':
+            from bespoke.models import BespokeProductVariation
+            variation_model = BespokeProductVariation
         else:
             logger.error(f"No variation model for category: {self.category}")
             return 0, len(variations_to_update), []

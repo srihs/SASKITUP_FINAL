@@ -32,6 +32,7 @@ class ProductMatcherService:
         'sas-clubs': 'clubs.SASProduct',
         'lotto-clubs': 'clubs.LottoProduct',
         'ballstore': 'ballstore.BallStoreProduct',
+        'bespoke': 'bespoke.BespokeProduct',
     }
 
     # SKU field mapping
@@ -41,6 +42,7 @@ class ProductMatcherService:
         'sas-clubs': 'sku',
         'lotto-clubs': 'sku',
         'ballstore': 'sku',
+        'bespoke': 'sku',
     }
 
     # Barcode field mapping
@@ -50,6 +52,7 @@ class ProductMatcherService:
         'sas-clubs': 'barcode',
         'lotto-clubs': 'barcode',
         'ballstore': None,  # BallStore doesn't have barcode field
+        'bespoke': 'barcode',
     }
 
     # Price field mapping (for updating retail price)
@@ -59,6 +62,7 @@ class ProductMatcherService:
         'sas-clubs': 'price',
         'lotto-clubs': 'price',
         'ballstore': 'price',
+        'bespoke': 'price',
     }
 
     def __init__(self):
@@ -635,6 +639,32 @@ class ProductMatcherService:
 
             # Note: BallStore doesn't have barcode field, no barcode matching
 
+        # Bespoke: Variation SKU first, then Product SKU, then barcode
+        elif category == 'bespoke':
+            # Priority 1-2: Try variation SKU first
+            if product_code:
+                try:
+                    from bespoke.models import BespokeProductVariation
+                    product, match_method = self._match_by_variation_suffix(
+                        BespokeProductVariation, product_code, field_name='sku'
+                    )
+                    if product:
+                        return product, match_method
+                except Exception as e:
+                    logger.error(f"Error importing BespokeProductVariation: {str(e)}")
+
+            # Priority 3-4: Then try product SKU
+            if product_code and sku_field:
+                product, match_method = self._match_by_sku(model_class, sku_field, product_code)
+                if product:
+                    return product, match_method
+
+            # Priority 5-6: Finally try barcode
+            if barcode and barcode_field:
+                product, match_method = self._match_by_barcode(model_class, barcode_field, barcode)
+                if product:
+                    return product, match_method
+
         else:
             logger.warning(f"Unknown category matching strategy: {category}")
             return None, None
@@ -790,6 +820,26 @@ class ProductMatcherService:
                         return product, match_method, variation
                 except Exception as e:
                     logger.error(f"Error matching BallStore variation: {str(e)}")
+
+            # Fallback to product-level matching (no variation)
+            if product_code and sku_field:
+                product, match_method = self._match_by_sku(model_class, sku_field, product_code)
+                if product:
+                    return product, match_method, None
+
+        # Bespoke: Return variation instance when matched
+        elif category == 'bespoke':
+            # Priority 1-2: Try variation SKU
+            if product_code:
+                try:
+                    from bespoke.models import BespokeProductVariation
+                    product, match_method, variation = self._match_variation_with_instance(
+                        BespokeProductVariation, product_code, field_name='sku'
+                    )
+                    if product and variation:
+                        return product, match_method, variation
+                except Exception as e:
+                    logger.error(f"Error matching Bespoke variation: {str(e)}")
 
             # Fallback to product-level matching (no variation)
             if product_code and sku_field:
