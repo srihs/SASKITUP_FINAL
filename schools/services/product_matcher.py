@@ -203,8 +203,8 @@ class ProductMatcherService:
             Tuple of (product instance or None, match method or None)
         """
         try:
-            # Determine parent field name (BallStore uses 'parent_product', others use 'product')
-            parent_field = 'parent_product' if 'BallStore' in variation_model.__name__ else 'product'
+            # Determine parent field name (BallStore and Bespoke use 'parent_product', others use 'product')
+            parent_field = 'parent_product' if 'BallStore' in variation_model.__name__ or 'Bespoke' in variation_model.__name__ else 'product'
 
             # Exact match
             filter_kwargs = {field_name: product_code}
@@ -260,8 +260,8 @@ class ProductMatcherService:
             Tuple of (product instance or None, match method or None, variation instance or None)
         """
         try:
-            # Determine parent field name (BallStore uses 'parent_product', others use 'product')
-            parent_field = 'parent_product' if 'BallStore' in variation_model.__name__ else 'product'
+            # Determine parent field name (BallStore and Bespoke use 'parent_product', others use 'product')
+            parent_field = 'parent_product' if 'BallStore' in variation_model.__name__ or 'Bespoke' in variation_model.__name__ else 'product'
 
             # Exact match
             filter_kwargs = {field_name: product_code}
