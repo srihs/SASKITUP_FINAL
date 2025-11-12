@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load humanize %}
+{% load image_proxy %}
 
 {% block body_class %}quotation-cart{% endblock %}
 
@@ -713,11 +714,11 @@
                         <div class="d-flex align-items-center">
                             <div class="flex-shrink-0 me-3">
                                 {% if group.list.0.product.images.first %}
-                                <img src="{{ group.list.0.product.images.first.image.url }}"
+                                <img src="{{ group.list.0.product.images.first.image.url|proxy_image_url }}"
                                      alt="{{ group.grouper }}"
                                      class="avatar-lg">
                                 {% elif group.list.0.product.image_url %}
-                                <img src="{{ group.list.0.product.image_url }}"
+                                <img src="{{ group.list.0.product.image_url|proxy_image_url }}"
                                      alt="{{ group.grouper }}"
                                      class="avatar-lg">
                                 {% else %}

@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load humanize %}
+{% load image_proxy %}
 
 {% block body_class %}quotation-product-detail{% endblock %}
 
@@ -866,12 +867,12 @@
                 <div class="product-gallery">
                     <div class="main-product-image" id="mainImageContainer">
                         {% if product.image_url %}
-                            <img src="{{ product.image_url }}"
+                            <img src="{{ product.image_url|proxy_image_url }}"
                                  alt="{{ product.name }}"
                                  id="mainProductImage"
                                  class="img-fluid">
                         {% elif product.image %}
-                            <img src="{{ product.image }}"
+                            <img src="{{ product.image|proxy_image_url }}"
                                  alt="{{ product.name }}"
                                  id="mainProductImage"
                                  class="img-fluid">

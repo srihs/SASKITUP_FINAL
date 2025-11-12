@@ -79,4 +79,7 @@ urlpatterns = [
 
     # API - Version History
     path('<uuid:quotation_id>/versions/', views.QuotationVersionsAPIView.as_view(), name='quotation-versions-api'),
+
+    # Image Proxy - for password-protected WordPress images
+    path('proxy-image/', views.proxy_image, name='proxy-image'),
 ]

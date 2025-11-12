@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load image_proxy %}
 
 {% block body_class %}quotation-list{% endblock %}
 
@@ -1063,7 +1064,7 @@
                                             <a href="{% url 'quotations:product-detail-for-quote' product_type='lottoproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
                                                 <div class="product-img">
                                                     {% if product.normalized_image_url %}
-                                                        <img src="{{ product.normalized_image_url }}" alt="{{ product.name }}">
+                                                        <img src="{{ product.normalized_image_url|proxy_image_url }}" alt="{{ product.name }}">
                                                     {% else %}
                                                         <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.name }}">
                                                     {% endif %}
@@ -1129,7 +1130,7 @@
                                             <a href="{% url 'quotations:product-detail-for-quote' product_type='ballstoreproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
                                                 <div class="product-img">
                                                     {% if product.featured_image_url %}
-                                                        <img src="{{ product.featured_image_url }}" alt="{{ product.name }}">
+                                                        <img src="{{ product.featured_image_url|proxy_image_url }}" alt="{{ product.name }}">
                                                     {% else %}
                                                         <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.name }}">
                                                     {% endif %}
@@ -1436,7 +1437,7 @@
                                             <a href="{% url 'quotations:product-detail-for-quote' product_type='lottoproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
                                                 <div class="product-img">
                                                     {% if product.normalized_image_url %}
-                                                        <img src="{{ product.normalized_image_url }}" alt="{{ product.name }}">
+                                                        <img src="{{ product.normalized_image_url|proxy_image_url }}" alt="{{ product.name }}">
                                                     {% else %}
                                                         <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.name }}">
                                                     {% endif %}
@@ -1463,7 +1464,7 @@
                                             <a href="{% url 'quotations:product-detail-for-quote' product_type='ballstoreproduct' product_slug=product.slug %}" class="text-decoration-none" style="display: contents;">
                                                 <div class="product-img">
                                                     {% if product.featured_image_url %}
-                                                        <img src="{{ product.featured_image_url }}" alt="{{ product.name }}">
+                                                        <img src="{{ product.featured_image_url|proxy_image_url }}" alt="{{ product.name }}">
                                                     {% else %}
                                                         <img src="{% static 'assets/images/product-placeholder.jpg' %}" alt="{{ product.name }}">
                                                     {% endif %}

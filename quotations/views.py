@@ -15,7 +15,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.validators import validate_email
 from django.db.models import Q, Prefetch
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.views import View
@@ -23,6 +23,8 @@ from django.views.generic import ListView, DetailView, FormView
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.contrib import messages
 import logging
+import requests
+import os
 
 from authentication.permissions import (
     SalesRepOrAccountManagerMixin,
@@ -378,8 +380,15 @@ def get_product_by_type_and_slug(product_type, product_slug):
         return None
 
     try:
-        # Use filter().first() to handle duplicate slugs gracefully
-        return model_class.objects.filter(slug=product_slug, is_active=True).first()
+        # Check if model has is_active field
+        # TUSProduct and LottoProduct don't have is_active
+        model_instance = model_class()
+        if hasattr(model_instance, 'is_active'):
+            # Filter by is_active for models that have this field
+            return model_class.objects.filter(slug=product_slug, is_active=True).first()
+        else:
+            # For models without is_active, just filter by slug
+            return model_class.objects.filter(slug=product_slug).first()
     except Exception:
         return None
 
@@ -2198,6 +2207,8 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
             context['active_tab'] = 'schools'
         elif product_type.lower() == 'bespokeproduct':
             context['active_tab'] = 'custom_garments'
+        elif product_type.lower() == 'ballstoreproduct':
+            context['active_tab'] = 'accessories'
         else:
             context['active_tab'] = 'clubs'
 
@@ -2920,7 +2931,8 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
             ballstore_products_list = list(ballstore_products_qs)
 
             # Combine and paginate FIRST (before variation processing)
-            combined_products = sas_products_list + lotto_products_list + ballstore_products_list
+            # BallStore products first (working images), then SAS, then Lotto (CORS blocked images)
+            combined_products = ballstore_products_list + sas_products_list + lotto_products_list
             paginator = Paginator(combined_products, self.paginate_by)
             try:
                 page_obj = paginator.get_page(page)
@@ -4734,3 +4746,76 @@ class QuotationVersionsAPIView(LoginRequiredMixin, View):
                 'success': False,
                 'error': 'An error occurred while fetching version history.'
             }, status=500)
+
+
+# =====================================
+# IMAGE PROXY VIEW
+# =====================================
+
+def proxy_image(request):
+    """
+    Proxy images from password-protected WordPress sites.
+
+    This view fetches images from password-protected sites (Lotto and BallStore)
+    using HTTP Basic Auth credentials and returns them to the browser.
+
+    Args:
+        request: HTTP request with 'url' query parameter
+
+    Returns:
+        HttpResponse with image data or error status
+    """
+    image_url = request.GET.get('url')
+
+    if not image_url:
+        logger.warning("Image proxy called without URL parameter")
+        return HttpResponse(status=404)
+
+    # Only proxy images from allowed domains for security
+    allowed_domains = ['dev-lottosports.it.sas.co.nz', 'theballstore.co.nz']
+    if not any(domain in image_url for domain in allowed_domains):
+        logger.warning(f"Image proxy rejected unauthorized domain: {image_url}")
+        return HttpResponse(status=403)
+
+    try:
+        # Determine credentials based on domain
+        # Lotto site uses different credentials than SAS/BallStore
+        if 'dev-lottosports.it.sas.co.nz' in image_url:
+            # Lotto credentials
+            username = os.getenv('LOTTO_USERNAME', 'sas-admin')
+            password = os.getenv('LOTTO_PASSWORD', 'mR7HtzMEUpAO64l4r3pd')
+        else:
+            # SAS/BallStore credentials
+            username = os.getenv('USERNAME', 'sas-admin')
+            password = os.getenv('PASSWORD', 'gXbPuQUDOUMAymdN0nIe')
+
+        # Fetch the image with authentication
+        response = requests.get(
+            image_url,
+            auth=(username, password),
+            timeout=10,
+            stream=True  # Stream to handle large images efficiently
+        )
+
+        if response.status_code == 200:
+            # Return the image with proper content type
+            content_type = response.headers.get('Content-Type', 'image/jpeg')
+            return HttpResponse(
+                response.content,
+                content_type=content_type
+            )
+        else:
+            logger.warning(f"Image proxy failed to fetch image: {image_url} (status: {response.status_code})")
+            return HttpResponse(status=404)
+
+    except requests.exceptions.Timeout:
+        logger.error(f"Image proxy timeout for URL: {image_url}")
+        return HttpResponse(status=504)  # Gateway Timeout
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Image proxy request failed for URL: {image_url} - {e}")
+        return HttpResponse(status=500)
+
+    except Exception as e:
+        logger.error(f"Image proxy unexpected error for URL: {image_url} - {e}", exc_info=True)
+        return HttpResponse(status=500)
