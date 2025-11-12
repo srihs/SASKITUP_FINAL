@@ -964,23 +964,35 @@
                     <!-- Product Pricing -->
                     <div class="product-pricing">
                         <div class="price-container" id="priceContainer">
-                            {% if product.margin_75_price and product.price and product.margin_75_price > product.price %}
-                                <!-- Show 75% margin price as PRIMARY, current price as DISCOUNTED -->
-                                <span class="badge bg-danger discount-badge" id="discountBadge" style="font-size: 0.9rem; padding: 0.4rem 0.8rem; margin-right: 1rem;">
-                                    {% if product.discount_percentage %}
-                                        -{{ product.discount_percentage|floatformat:0 }}%
-                                    {% else %}
-                                        SALE
-                                    {% endif %}
-                                </span>
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="current-price" id="productPrice">${{ product.margin_75_price|floatformat:2|intcomma }}</div>
-                                    <span class="original-price" id="marginPrice">${{ product.price|floatformat:2|intcomma }}</span>
-                                </div>
-                            {% else %}
-                                <!-- No discount, show regular price -->
+                            {% if product.margin_75_price %}
+                                {% if product.price and product.price > 0 and product.margin_75_price > product.price %}
+                                    <!-- Show 75% margin price as PRIMARY, current price as DISCOUNTED -->
+                                    <span class="badge bg-danger discount-badge" id="discountBadge" style="font-size: 0.9rem; padding: 0.4rem 0.8rem; margin-right: 1rem;">
+                                        {% if product.discount_percentage %}
+                                            -{{ product.discount_percentage|floatformat:0 }}%
+                                        {% else %}
+                                            SALE
+                                        {% endif %}
+                                    </span>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="current-price" id="productPrice">${{ product.margin_75_price|floatformat:2|intcomma }}</div>
+                                        <span class="original-price" id="marginPrice">${{ product.price|floatformat:2|intcomma }}</span>
+                                    </div>
+                                {% else %}
+                                    <!-- Show margin price only (price is 0 or not set) -->
+                                    <div class="current-price" id="productPrice">
+                                        ${{ product.margin_75_price|floatformat:2|intcomma }}
+                                    </div>
+                                {% endif %}
+                            {% elif product.price and product.price > 0 %}
+                                <!-- Show regular price only -->
                                 <div class="current-price" id="productPrice">
                                     ${{ product.price|floatformat:2|intcomma }}
+                                </div>
+                            {% else %}
+                                <!-- No price available -->
+                                <div class="current-price" id="productPrice">
+                                    Price not available
                                 </div>
                             {% endif %}
                         </div>

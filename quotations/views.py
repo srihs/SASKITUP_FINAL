@@ -2341,10 +2341,18 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
         context['variations_json'] = json.dumps(variations)
 
         # Check if product is missing cost price
-        # Logic: If variations exist, check if ALL variations are missing cost price
+        # Logic: For BespokeProduct, check main product's cost price (variations inherit pricing)
+        #        For other products with variations, check if ALL variations are missing cost price
         #        If no variations, check main product's cost price
-        if variations:
-            # Check if ALL variations are missing cost price
+        if product_type.lower() == 'bespokeproduct':
+            # Bespoke products: Check main product's cost price (variations inherit pricing)
+            context['product_missing_cost_price'] = (
+                not hasattr(product, 'cost_price') or
+                product.cost_price is None or
+                product.cost_price <= 0
+            )
+        elif variations:
+            # Other products with variations: Check if ALL variations are missing cost price
             context['product_missing_cost_price'] = all(
                 var_data.get('missing_cost_price', True)
                 for var_data in variations
