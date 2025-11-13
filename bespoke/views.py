@@ -1,6 +1,13 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Q, Count, Prefetch
-from .models import BespokeCategory, BespokeProduct, BespokeProductVariation
+from django.contrib import messages
+from django.contrib.auth.decorators import user_passes_test
+from django.core.management import call_command
+import threading
+import logging
+from .models import BespokeCategory, BespokeProduct, BespokeProductVariation, BespokeSyncLog
+
+logger = logging.getLogger(__name__)
 
 
 def category_list(request):
@@ -194,3 +201,99 @@ def product_detail(request, product_slug):
     }
 
     return render(request, 'bespoke/product_detail.html', context)
+
+
+def is_staff_user(user):
+    """Check if user is staff/admin"""
+    return user.is_authenticated and user.is_staff
+
+
+def run_sync_in_background(sync_log):
+    """
+    Run the Bespoke sync operation in a background thread
+    """
+    try:
+        # Mark sync as running
+        sync_log.status = 'running'
+        sync_log.save()
+
+        logger.info(f"Starting Bespoke sync job {sync_log.id}")
+        print(f"[BESPOKE SYNC] Starting sync job {sync_log.id}")
+
+        # Execute sync command
+        call_command(
+            'sync_bespoke_products',
+            verbosity=1
+        )
+
+        logger.info(f"Bespoke sync job {sync_log.id} completed successfully")
+        print(f"[BESPOKE SYNC] Sync job {sync_log.id} completed successfully")
+
+    except Exception as e:
+        logger.error(f"Bespoke sync job {sync_log.id} failed: {e}", exc_info=True)
+        print(f"[BESPOKE SYNC] Sync job {sync_log.id} failed: {e}")
+
+        # Mark sync as failed
+        sync_log.refresh_from_db()
+        if sync_log.status != 'failed':
+            sync_log.mark_failed(str(e))
+
+
+@user_passes_test(is_staff_user, login_url='/auth/login/')
+def trigger_sync(request):
+    """
+    Trigger Bespoke product sync from CIN7 API
+    Runs in background thread and redirects back to category list
+    """
+    try:
+        logger.info(f"Sync trigger requested by user {request.user.username}")
+        print(f"[BESPOKE SYNC] Sync trigger requested by user {request.user.username}")
+
+        # Check if there's already a running sync
+        existing_sync = BespokeSyncLog.objects.filter(status='running').first()
+
+        if existing_sync:
+            logger.warning("Sync already running, rejecting new sync request")
+            print("[BESPOKE SYNC] Sync already running, rejecting new sync request")
+            messages.warning(
+                request,
+                'A sync is already running. Please wait for it to complete before starting another one.'
+            )
+            return redirect('bespoke:category_list')
+
+        # Create new sync log entry
+        sync_log = BespokeSyncLog.objects.create(
+            sync_type='full',
+            status='pending'
+        )
+        logger.info(f"Created sync log entry {sync_log.id}")
+        print(f"[BESPOKE SYNC] Created sync log entry {sync_log.id}")
+
+        # Start sync in background thread
+        sync_thread = threading.Thread(
+            target=run_sync_in_background,
+            args=(sync_log,)
+        )
+        sync_thread.daemon = True
+        sync_thread.start()
+
+        logger.info(f"Background sync thread started for sync log {sync_log.id}")
+        print(f"[BESPOKE SYNC] Background sync thread started for sync log {sync_log.id}")
+
+        messages.success(
+            request,
+            'Product sync started successfully! This may take 5-10 minutes. You can continue browsing while the sync runs in the background.'
+        )
+
+        logger.info(f"Bespoke sync triggered by user {request.user.username}")
+        print(f"[BESPOKE SYNC] Sync successfully triggered by user {request.user.username}")
+
+    except Exception as e:
+        logger.error(f"Failed to trigger Bespoke sync: {e}", exc_info=True)
+        print(f"[BESPOKE SYNC] Failed to trigger sync: {e}")
+        messages.error(
+            request,
+            f'Failed to start sync: {str(e)}'
+        )
+
+    return redirect('bespoke:category_list')

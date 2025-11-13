@@ -235,6 +235,8 @@ $(document).ready(function() {
 
 // Sync confirmation and execution
 function confirmSync() {
+    console.log('[BESPOKE SYNC] Sync confirmation dialog opened');
+
     Swal.fire({
         title: 'Sync Bespoke Products?',
         text: 'This will sync all products from CIN7 "Quotation Base Library" category. The sync may take a few minutes to complete.',
@@ -246,22 +248,19 @@ function confirmSync() {
         cancelButtonText: 'Cancel'
     }).then((result) => {
         if (result.isConfirmed) {
+            console.log('[BESPOKE SYNC] User confirmed sync, updating button state');
+
             // Show loading state
             const syncButton = document.getElementById('syncButton');
             syncButton.disabled = true;
             syncButton.innerHTML = '<i class="uil-spinner-alt spinner-border spinner-border-sm me-1"></i> Starting Sync...';
 
-            // Call sync via AJAX or redirect to sync endpoint
-            // For now, show success message - you can add actual sync trigger endpoint later
-            Swal.fire({
-                title: 'Sync Started',
-                text: 'Bespoke products sync has been initiated. You will receive a notification when complete.',
-                icon: 'success',
-                confirmButtonColor: '#556ee6',
-            }).then(() => {
-                syncButton.disabled = false;
-                syncButton.innerHTML = '<i class="uil-sync me-1"></i> Sync Products';
-            });
+            console.log('[BESPOKE SYNC] Redirecting to sync endpoint: {% url "bespoke:trigger-sync" %}');
+
+            // Redirect to sync endpoint
+            window.location.href = '{% url "bespoke:trigger-sync" %}';
+        } else {
+            console.log('[BESPOKE SYNC] User cancelled sync');
         }
     });
 }
