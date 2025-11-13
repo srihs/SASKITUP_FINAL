@@ -7,17 +7,35 @@ Usage:
 
 from django.core.management.base import BaseCommand
 from bespoke.services.cin7_sync_service import BespokeCin7SyncService
+from clubs.models import SyncJob
 
 
 class Command(BaseCommand):
     help = 'Sync Bespoke products from CIN7 "Quotation Base Library" category'
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--job-id',
+            type=str,
+            help='SyncJob ID for progress tracking',
+        )
+
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS('Starting Bespoke product sync from CIN7...'))
 
+        # Get SyncJob if job_id provided
+        sync_job = None
+        job_id = options.get('job_id')
+        if job_id:
+            try:
+                sync_job = SyncJob.objects.get(id=job_id)
+                self.stdout.write(f'Using SyncJob: {job_id}')
+            except SyncJob.DoesNotExist:
+                self.stdout.write(self.style.WARNING(f'SyncJob {job_id} not found, continuing without progress tracking'))
+
         try:
-            # Initialize and run sync
-            sync_service = BespokeCin7SyncService()
+            # Initialize and run sync with SyncJob
+            sync_service = BespokeCin7SyncService(sync_job=sync_job)
             sync_log = sync_service.sync_all()
 
             # Report results

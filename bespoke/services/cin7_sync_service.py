@@ -36,10 +36,11 @@ class BespokeCin7SyncService:
     TARGET_CATEGORY = "Quotation Base Library"
     DISPLAY_NAME = "Bespoke"
 
-    def __init__(self):
-        """Initialize sync service with CIN7 API"""
+    def __init__(self, sync_job=None):
+        """Initialize sync service with CIN7 API and optional SyncJob for progress tracking"""
         self.cin7_api = Cin7ApiService()
         self.sync_log = None
+        self.sync_job = sync_job  # SyncJob for real-time progress tracking
         self.stats = {
             'categories_synced': 0,
             'products_synced': 0,
@@ -58,6 +59,11 @@ class BespokeCin7SyncService:
         logger.info("BESPOKE SYNC STARTED")
         logger.info("=" * 80)
 
+        # Update SyncJob progress if provided
+        if self.sync_job:
+            self.sync_job.update_progress(0, 'Initializing Bespoke sync...')
+            self.sync_job.add_log_message('Bespoke product sync started', 'info')
+
         # Create sync log
         self.sync_log = BespokeSyncLog.objects.create(
             sync_type='full',
@@ -68,21 +74,49 @@ class BespokeCin7SyncService:
         try:
             # Step 1: Fetch products from CIN7 with category filter
             logger.info(f"Step 1: Fetching products from CIN7 (category: '{self.TARGET_CATEGORY}')...")
+            if self.sync_job:
+                self.sync_job.update_progress(10, f'Fetching products from CIN7 category: {self.TARGET_CATEGORY}')
+
             where_clause = f"category = '{self.TARGET_CATEGORY}'"
             bespoke_products, total_fetched, total_available = self.cin7_api.fetch_all_products(where_clause=where_clause)
             logger.info(f"Fetched {total_fetched} products from '{self.TARGET_CATEGORY}' category")
 
+            if self.sync_job:
+                self.sync_job.add_log_message(f'Fetched {total_fetched} products from CIN7', 'info')
+
             # Step 2: Extract and sync categories
             logger.info("Step 2: Syncing categories...")
+            if self.sync_job:
+                self.sync_job.update_progress(30, 'Syncing categories...')
+
             category_map = self._sync_categories(bespoke_products)
             logger.info(f"Synced {self.stats['categories_synced']} categories")
 
+            if self.sync_job:
+                self.sync_job.categories_created = self.stats['categories_synced']
+                self.sync_job.save(update_fields=['categories_created'])
+                self.sync_job.add_log_message(f'Synced {self.stats["categories_synced"]} categories', 'info')
+
             # Step 3: Sync products
             logger.info("Step 3: Syncing products...")
+            if self.sync_job:
+                self.sync_job.update_progress(50, 'Syncing products and variations...')
+
             self._sync_products(bespoke_products, category_map)
             logger.info(f"Synced {self.stats['products_synced']} products, {self.stats['variations_synced']} variations")
 
+            if self.sync_job:
+                self.sync_job.products_created = self.stats['products_synced']
+                self.sync_job.save(update_fields=['products_created'])
+                self.sync_job.add_log_message(
+                    f'Synced {self.stats["products_synced"]} products and {self.stats["variations_synced"]} variations',
+                    'info'
+                )
+
             # Mark as completed
+            if self.sync_job:
+                self.sync_job.update_progress(95, 'Finalizing sync...')
+
             self.sync_log.categories_synced = self.stats['categories_synced']
             self.sync_log.products_synced = self.stats['products_synced']
             self.sync_log.variations_synced = self.stats['variations_synced']
@@ -102,10 +136,21 @@ class BespokeCin7SyncService:
             logger.info(f"Errors: {len(self.stats['errors'])}")
             logger.info("=" * 80)
 
+            # Mark SyncJob as completed
+            if self.sync_job:
+                self.sync_job.complete()
+                self.sync_job.add_log_message('Bespoke sync completed successfully', 'success')
+
         except Exception as e:
             error_msg = f"Sync failed: {str(e)}"
             logger.error(error_msg, exc_info=True)
             self.sync_log.mark_failed(error_msg)
+
+            # Mark SyncJob as failed
+            if self.sync_job:
+                self.sync_job.fail(error_msg, 'BESPOKE_SYNC_FAILED')
+                self.sync_job.add_log_message(f'Bespoke sync failed: {error_msg}', 'error')
+
             raise
 
         return self.sync_log
@@ -189,18 +234,45 @@ class BespokeCin7SyncService:
             category_map: Mapping of category names to BespokeCategory instances
         """
         # Group products by base SKU (styleCode)
+        if self.sync_job:
+            self.sync_job.update_progress(60, 'Grouping products by style code...')
+
         grouped_products = self._group_products_by_style_code(products)
 
         logger.info(f"Grouped {len(products)} CIN7 products into {len(grouped_products)} parent products")
+
+        if self.sync_job:
+            self.sync_job.add_log_message(
+                f'Grouped {len(products)} CIN7 products into {len(grouped_products)} parent products',
+                'info'
+            )
+            self.sync_job.update_progress(70, f'Syncing {len(grouped_products)} product groups...')
+
+        # Track progress through products
+        total_groups = len(grouped_products)
+        processed_groups = 0
 
         for style_code, product_group in grouped_products.items():
             try:
                 with transaction.atomic():
                     self._sync_grouped_product(style_code, product_group, category_map)
+
+                # Update progress periodically
+                processed_groups += 1
+                if self.sync_job and processed_groups % 10 == 0:
+                    # Progress from 70% to 90% during product sync
+                    progress = 70 + int((processed_groups / total_groups) * 20)
+                    self.sync_job.update_progress(
+                        progress,
+                        f'Syncing products... ({processed_groups}/{total_groups})'
+                    )
+
             except Exception as e:
                 error_msg = f"Error syncing product group {style_code}: {str(e)}"
                 logger.error(error_msg)
                 self.stats['errors'].append(error_msg)
+                if self.sync_job:
+                    self.sync_job.add_log_message(error_msg, 'error')
 
     def _group_products_by_style_code(self, products: List[Dict]) -> Dict[str, List[Dict]]:
         """
