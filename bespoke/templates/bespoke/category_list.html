@@ -4,6 +4,7 @@
 {% block body_class %}bespoke-categories{% endblock %}
 
 {% block extra_css %}
+<link href="{% static 'assets/libs/sweetalert2/sweetalert2.min.css' %}" rel="stylesheet" type="text/css" />
 <style>
 /* Category Card Styling */
 .category-card {
@@ -220,6 +221,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'assets/libs/sweetalert2/sweetalert2.min.js' %}"></script>
 <script>
 // Add hover effects
 $(document).ready(function() {
