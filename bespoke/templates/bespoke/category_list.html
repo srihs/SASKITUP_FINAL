@@ -145,6 +145,23 @@
                     {% endif %}
                 </div>
 
+                <!-- Sync Status Alert -->
+                <div id="syncAlert" class="alert alert-info alert-dismissible fade" role="alert" style="display: none;">
+                    <div class="d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm text-primary me-3" id="syncSpinner" role="status" style="display: none;">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="alert-heading mb-1" id="syncAlertTitle">Sync Status</h6>
+                            <div id="syncAlertMessage">Starting sync process...</div>
+                            <div id="syncProgress" class="progress mt-2" style="height: 4px; display: none;">
+                                <div class="progress-bar bg-primary" role="progressbar" style="width: 0%" id="syncProgressBar"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+
                 {% if categories %}
                     {% for parent_category in categories %}
                         {% if parent_category.children_list %}
@@ -250,21 +267,166 @@ function confirmSync() {
         cancelButtonText: 'Cancel'
     }).then((result) => {
         if (result.isConfirmed) {
-            console.log('[BESPOKE SYNC] User confirmed sync, updating button state');
-
-            // Show loading state
-            const syncButton = document.getElementById('syncButton');
-            syncButton.disabled = true;
-            syncButton.innerHTML = '<i class="uil-spinner-alt spinner-border spinner-border-sm me-1"></i> Starting Sync...';
-
-            console.log('[BESPOKE SYNC] Redirecting to sync endpoint: {% url "bespoke:trigger-sync" %}');
-
-            // Redirect to sync endpoint
-            window.location.href = '{% url "bespoke:trigger-sync" %}';
+            console.log('[BESPOKE SYNC] User confirmed sync, starting sync process');
+            startBespokeSync();
         } else {
             console.log('[BESPOKE SYNC] User cancelled sync');
         }
     });
+}
+
+// Start Bespoke sync and monitor progress
+function startBespokeSync() {
+    const syncButton = document.getElementById('syncButton');
+    const syncAlert = document.getElementById('syncAlert');
+    const syncSpinner = document.getElementById('syncSpinner');
+    const syncAlertTitle = document.getElementById('syncAlertTitle');
+    const syncAlertMessage = document.getElementById('syncAlertMessage');
+    const syncProgress = document.getElementById('syncProgress');
+    const syncProgressBar = document.getElementById('syncProgressBar');
+
+    // Disable button and show loading state
+    syncButton.disabled = true;
+    syncButton.innerHTML = '<i class="uil-refresh-spin me-1"></i> Syncing...';
+
+    // Show sync alert with loading state
+    syncAlert.style.display = 'block';
+    syncAlert.className = 'alert alert-info alert-dismissible fade show';
+    syncSpinner.style.display = 'block';
+    syncAlertTitle.textContent = 'Sync in Progress';
+    syncAlertMessage.textContent = 'Synchronizing Bespoke products from CIN7...';
+    syncProgress.style.display = 'block';
+    syncProgressBar.style.width = '25%';
+
+    // Make AJAX request to sync endpoint
+    fetch('{% url "bespoke:trigger-sync" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            syncProgressBar.style.width = '50%';
+            syncAlertMessage.textContent = 'Bespoke sync started successfully! Job ID: ' + data.job_id;
+
+            // Monitor sync progress
+            monitorBespokeSync(data.job_id);
+        } else {
+            syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+            syncAlertTitle.textContent = 'Sync Failed';
+            syncAlertMessage.textContent = 'Error: ' + (data.error || 'Unknown error occurred');
+            syncSpinner.style.display = 'none';
+            resetSyncButton();
+        }
+    })
+    .catch(error => {
+        console.error('[BESPOKE SYNC] Sync request failed:', error);
+        syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+        syncAlertTitle.textContent = 'Sync Failed';
+        syncAlertMessage.textContent = 'Network error: ' + error.message;
+        syncSpinner.style.display = 'none';
+        resetSyncButton();
+    });
+}
+
+// Monitor Bespoke sync progress
+function monitorBespokeSync(jobId) {
+    const syncAlert = document.getElementById('syncAlert');
+    const syncAlertTitle = document.getElementById('syncAlertTitle');
+    const syncAlertMessage = document.getElementById('syncAlertMessage');
+    const syncProgressBar = document.getElementById('syncProgressBar');
+    const syncSpinner = document.getElementById('syncSpinner');
+
+    const checkStatus = () => {
+        fetch(`/bespoke/sync/status/${jobId}/`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                syncProgressBar.style.width = data.progress_percentage + '%';
+                syncAlertMessage.textContent = data.current_step || 'Syncing in progress...';
+
+                if (data.is_finished) {
+                    syncSpinner.style.display = 'none';
+                    if (data.status === 'completed') {
+                        syncAlert.className = 'alert alert-success alert-dismissible fade show';
+                        syncAlertTitle.textContent = 'Sync Completed';
+                        syncAlertMessage.textContent = 'Bespoke sync completed successfully!';
+                        syncProgressBar.style.width = '100%';
+
+                        // Show stats if available
+                        if (data.stats) {
+                            syncAlertMessage.innerHTML = `
+                                Bespoke sync completed successfully!<br>
+                                <small>
+                                    Categories: ${data.stats.categories_created + data.stats.categories_updated} processed,
+                                    Products: ${data.stats.products_created + data.stats.products_updated} processed
+                                </small>
+                            `;
+                        }
+
+                        // Reload page after 3 seconds to show updated data
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 3000);
+                    } else {
+                        syncAlert.className = 'alert alert-danger alert-dismissible fade show';
+                        syncAlertTitle.textContent = 'Sync Failed';
+                        syncAlertMessage.textContent = data.error_message || 'Sync failed';
+                    }
+                    resetSyncButton();
+                } else {
+                    // Continue monitoring
+                    setTimeout(checkStatus, 2000);
+                }
+            } else {
+                console.error('[BESPOKE SYNC] Status check failed:', data.error);
+                resetSyncButton();
+            }
+        })
+        .catch(error => {
+            console.error('[BESPOKE SYNC] Status check error:', error);
+            resetSyncButton();
+        });
+    };
+
+    // Start monitoring after 2 seconds
+    setTimeout(checkStatus, 2000);
+}
+
+// Reset sync button to normal state
+function resetSyncButton() {
+    const syncButton = document.getElementById('syncButton');
+    const syncProgress = document.getElementById('syncProgress');
+
+    syncButton.disabled = false;
+    syncButton.innerHTML = '<i class="uil-sync me-1"></i> Sync Products';
+    syncProgress.style.display = 'none';
+}
+
+// Get CSRF token from cookie
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
 }
 
 // Show messages with SweetAlert if available

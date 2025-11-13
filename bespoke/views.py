@@ -3,9 +3,12 @@ from django.db.models import Q, Count, Prefetch
 from django.contrib import messages
 from django.contrib.auth.decorators import user_passes_test
 from django.core.management import call_command
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 import threading
 import logging
 from .models import BespokeCategory, BespokeProduct, BespokeProductVariation, BespokeSyncLog
+from clubs.models import SyncJob
 
 logger = logging.getLogger(__name__)
 
@@ -208,92 +211,180 @@ def is_staff_user(user):
     return user.is_authenticated and user.is_staff
 
 
-def run_sync_in_background(sync_log):
+def run_sync_in_background(sync_job):
     """
     Run the Bespoke sync operation in a background thread
     """
     try:
-        # Mark sync as running
-        sync_log.status = 'running'
-        sync_log.save()
+        # Mark sync as started
+        sync_job.start()
+        sync_job.add_log_message('Bespoke sync process started', 'info')
 
-        logger.info(f"Starting Bespoke sync job {sync_log.id}")
-        print(f"[BESPOKE SYNC] Starting sync job {sync_log.id}")
+        logger.info(f"Starting Bespoke sync job {sync_job.id}")
+        print(f"[BESPOKE SYNC] Starting sync job {sync_job.id}")
 
-        # Execute sync command
+        # Update progress - Initializing
+        sync_job.update_progress(10, 'Fetching categories from CIN7...')
+
+        # Execute sync command with job_id parameter
         call_command(
             'sync_bespoke_products',
+            job_id=str(sync_job.id),
             verbosity=1
         )
 
-        logger.info(f"Bespoke sync job {sync_log.id} completed successfully")
-        print(f"[BESPOKE SYNC] Sync job {sync_log.id} completed successfully")
+        # Mark as completed
+        sync_job.complete()
+        sync_job.add_log_message('Bespoke sync completed successfully', 'success')
+
+        logger.info(f"Bespoke sync job {sync_job.id} completed successfully")
+        print(f"[BESPOKE SYNC] Sync job {sync_job.id} completed successfully")
 
     except Exception as e:
-        logger.error(f"Bespoke sync job {sync_log.id} failed: {e}", exc_info=True)
-        print(f"[BESPOKE SYNC] Sync job {sync_log.id} failed: {e}")
+        error_message = f"Bespoke sync failed: {str(e)}"
+        logger.error(f"Bespoke sync job {sync_job.id} failed: {e}", exc_info=True)
+        print(f"[BESPOKE SYNC] Sync job {sync_job.id} failed: {e}")
 
         # Mark sync as failed
-        sync_log.refresh_from_db()
-        if sync_log.status != 'failed':
-            sync_log.mark_failed(str(e))
+        sync_job.fail(error_message, 'SYNC_COMMAND_FAILED')
+        sync_job.add_log_message(error_message, 'error')
 
 
+@csrf_exempt
 @user_passes_test(is_staff_user, login_url='/auth/login/')
 def trigger_sync(request):
     """
     Trigger Bespoke product sync from CIN7 API
-    Runs in background thread and redirects back to category list
+    Returns JSON response with job_id for progress monitoring
     """
+    if request.method != 'POST':
+        return JsonResponse({
+            'success': False,
+            'error': 'Only POST method is allowed',
+            'error_code': 'METHOD_NOT_ALLOWED'
+        }, status=405)
+
     try:
-        logger.info(f"Sync trigger requested by user {request.user.username}")
+        logger.info(f"Bespoke sync trigger requested by user {request.user.username}")
         print(f"[BESPOKE SYNC] Sync trigger requested by user {request.user.username}")
 
-        # Check if there's already a running sync
-        existing_sync = BespokeSyncLog.objects.filter(status='running').first()
+        # Auto-cleanup stale jobs before checking for running jobs
+        cleaned_count = SyncJob.cleanup_stale_jobs(max_age_hours=2)
+        if cleaned_count > 0:
+            logger.info(f"Auto-cleaned {cleaned_count} stale sync jobs before starting new sync")
 
-        if existing_sync:
-            logger.warning("Sync already running, rejecting new sync request")
-            print("[BESPOKE SYNC] Sync already running, rejecting new sync request")
-            messages.warning(
-                request,
-                'A sync is already running. Please wait for it to complete before starting another one.'
-            )
-            return redirect('bespoke:category_list')
+        # Check if there's already a running sync job (after cleanup)
+        existing_job = SyncJob.objects.filter(
+            sync_type='bespoke',
+            status='running'
+        ).first()
 
-        # Create new sync log entry
-        sync_log = BespokeSyncLog.objects.create(
-            sync_type='full',
-            status='pending'
+        if existing_job:
+            # Double-check if the existing job is actually stale
+            if existing_job.is_stale(max_age_hours=2):
+                logger.warning(f"Found stale job {existing_job.id}, cleaning it up")
+                existing_job.fail(
+                    'Job was stale and cleaned up to allow new sync',
+                    'AUTO_CLEANUP_ON_NEW_SYNC'
+                )
+                existing_job.add_log_message('Job was automatically cleaned up due to being stale when new sync was requested', 'warning')
+            else:
+                logger.info(f"Bespoke sync already in progress (job {existing_job.id})")
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Sync already in progress',
+                    'job_id': str(existing_job.id),
+                    'status': existing_job.status,
+                    'progress_percentage': existing_job.progress_percentage,
+                    'current_step': existing_job.current_step,
+                    'already_running': True
+                })
+
+        # Create a new sync job
+        sync_job = SyncJob.objects.create(
+            sync_type='bespoke',
+            status='pending',
+            current_step='Initializing Bespoke sync...',
+            progress_percentage=0
         )
-        logger.info(f"Created sync log entry {sync_log.id}")
-        print(f"[BESPOKE SYNC] Created sync log entry {sync_log.id}")
+
+        logger.info(f"Created sync job {sync_job.id}")
+        print(f"[BESPOKE SYNC] Created sync job {sync_job.id}")
 
         # Start sync in background thread
         sync_thread = threading.Thread(
             target=run_sync_in_background,
-            args=(sync_log,)
+            args=(sync_job,)
         )
         sync_thread.daemon = True
         sync_thread.start()
 
-        logger.info(f"Background sync thread started for sync log {sync_log.id}")
-        print(f"[BESPOKE SYNC] Background sync thread started for sync log {sync_log.id}")
+        logger.info(f"Bespoke sync job {sync_job.id} started successfully")
+        print(f"[BESPOKE SYNC] Background sync thread started for job {sync_job.id}")
 
-        messages.success(
-            request,
-            'Product sync started successfully! This may take 5-10 minutes. You can continue browsing while the sync runs in the background.'
-        )
-
-        logger.info(f"Bespoke sync triggered by user {request.user.username}")
-        print(f"[BESPOKE SYNC] Sync successfully triggered by user {request.user.username}")
+        return JsonResponse({
+            'success': True,
+            'message': 'Bespoke sync started successfully',
+            'job_id': str(sync_job.id),
+            'status': sync_job.status,
+            'progress_percentage': sync_job.progress_percentage,
+            'current_step': sync_job.current_step,
+            'sync_type': sync_job.sync_type,
+        })
 
     except Exception as e:
-        logger.error(f"Failed to trigger Bespoke sync: {e}", exc_info=True)
+        logger.error(f"Failed to start Bespoke sync: {str(e)}", exc_info=True)
         print(f"[BESPOKE SYNC] Failed to trigger sync: {e}")
-        messages.error(
-            request,
-            f'Failed to start sync: {str(e)}'
-        )
+        return JsonResponse({
+            'success': False,
+            'error': f'Failed to start Bespoke sync: {str(e)}',
+            'error_code': 'SYNC_START_FAILED'
+        }, status=500)
 
-    return redirect('bespoke:category_list')
+
+def bespoke_sync_status(request, job_id):
+    """
+    Endpoint to check the status of a bespoke sync job
+    """
+    try:
+        sync_job = get_object_or_404(SyncJob, id=job_id)
+
+        return JsonResponse({
+            'success': True,
+            'job_id': str(sync_job.id),
+            'sync_type': sync_job.sync_type,
+            'status': sync_job.status,
+            'progress_percentage': sync_job.progress_percentage,
+            'current_step': sync_job.current_step,
+            'stats': {
+                'clubs_created': sync_job.clubs_created,
+                'clubs_updated': sync_job.clubs_updated,
+                'categories_created': sync_job.categories_created,
+                'categories_updated': sync_job.categories_updated,
+                'products_created': sync_job.products_created,
+                'products_updated': sync_job.products_updated,
+                'total_created': sync_job.total_items_created,
+                'total_updated': sync_job.total_items_updated,
+            },
+            'log_messages': sync_job.log_messages[-20:],  # Last 20 messages
+            'error_message': sync_job.error_message,
+            'error_code': sync_job.error_code,
+            'started_at': sync_job.started_at.isoformat() if sync_job.started_at else None,
+            'completed_at': sync_job.completed_at.isoformat() if sync_job.completed_at else None,
+            'duration': str(sync_job.duration) if sync_job.duration else None,
+            'is_finished': sync_job.is_finished,
+        })
+
+    except SyncJob.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Sync job not found',
+            'error_code': 'JOB_NOT_FOUND'
+        }, status=404)
+    except Exception as e:
+        logger.error(f"Bespoke sync status endpoint error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'Failed to get sync status: {str(e)}',
+            'error_code': 'STATUS_CHECK_FAILED'
+        }, status=500)

@@ -36,6 +36,7 @@ class SyncJob(models.Model):
         ('tus', 'TUS Schools'),
         ('wholesale', 'Wholesale Schools'),
         ('nz', 'NZ Government Schools'),
+        ('bespoke', 'Bespoke Products'),
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
