@@ -806,13 +806,35 @@ class BulkPriceUpdater:
             if hasattr(target, 'margin_75_price'):
                 updates['margin_75_price'] = updates['cost_price'] / Decimal('0.25')
 
-        # BESPOKE SPECIAL LOGIC: Set price = margin_75_price
-        # Bespoke products use 75% margin pricing as the selling price
-        if self.category == 'bespoke' and updates.get('margin_75_price'):
-            if variation:
-                updates[self.variation_price_field] = updates['margin_75_price']
-            elif self.price_field:
-                updates[self.price_field] = updates['margin_75_price']
+        # BESPOKE SPECIAL LOGIC: Set price based on category (Base Garment vs Addon)
+        # Base Garments: price = margin_75_price (75% margin pricing)
+        # Addons: price = cost_price (pass-through pricing)
+        if self.category == 'bespoke':
+            # Determine if this is an addon product
+            is_addon = False
+
+            if variation and hasattr(variation, 'parent_product'):
+                # For variations, check parent product's categories
+                parent = variation.parent_product
+                if hasattr(parent, 'category_assignments'):
+                    is_addon = parent.category_assignments.filter(category__slug='addon').exists()
+            elif hasattr(target, 'category_assignments'):
+                # For products, check directly
+                is_addon = target.category_assignments.filter(category__slug='addon').exists()
+
+            # Apply pricing based on category
+            if is_addon and updates.get('cost_price'):
+                # Addons: price = cost_price
+                if variation:
+                    updates[self.variation_price_field] = updates['cost_price']
+                elif self.price_field:
+                    updates[self.price_field] = updates['cost_price']
+            elif updates.get('margin_75_price'):
+                # Base Garments: price = margin_75_price
+                if variation:
+                    updates[self.variation_price_field] = updates['margin_75_price']
+                elif self.price_field:
+                    updates[self.price_field] = updates['margin_75_price']
 
         # Calculate discount_percentage if we have both margin and retail price
         if hasattr(target, 'discount_percentage'):
