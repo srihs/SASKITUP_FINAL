@@ -2376,6 +2376,58 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
                 product.cost_price <= 0
             )
 
+        # Add addon products for BespokeProduct (same logic as bespoke app)
+        if product_type.lower() == 'bespokeproduct':
+            # Only add addons if this is a base garment product (not an addon product itself)
+            from bespoke.models import BespokeCategory
+
+            is_base_garment = False
+            try:
+                # Get product categories
+                categories = []
+                if hasattr(product, 'category_assignments'):
+                    categories = [assignment.category for assignment in product.category_assignments.all()]
+
+                # Check if product is in base-garment category (not in addon category)
+                for category in categories:
+                    if 'base' in category.slug.lower() or 'garment' in category.slug.lower():
+                        is_base_garment = True
+                        break
+                    if 'addon' in category.slug.lower():
+                        is_base_garment = False
+                        break
+            except Exception as e:
+                logger.error(f"Error checking if product is base garment: {e}")
+
+            if is_base_garment:
+                # Fetch addon products
+                try:
+                    addon_category = BespokeCategory.objects.filter(
+                        slug__icontains='addon',
+                        is_active=True
+                    ).first()
+
+                    if addon_category:
+                        from bespoke.models import BespokeProduct as BespokeProductModel
+                        addon_products = BespokeProductModel.objects.filter(
+                            category_assignments__category=addon_category,
+                            is_active=True
+                        ).prefetch_related('variations').distinct().order_by('name')
+
+                        # Group by type based on SKU patterns
+                        screen_prints = [p for p in addon_products if p.sku and 'SCREEN PRINT' in p.sku.upper()]
+                        heat_transfers = [p for p in addon_products if p.sku and 'HEAT TRANSFER' in p.sku.upper()]
+                        embroidery = [p for p in addon_products if p.sku and 'EMB' in p.sku.upper()]
+
+                        context['bespoke_addons'] = {
+                            'screen_prints': screen_prints,
+                            'heat_transfers': heat_transfers,
+                            'embroidery': embroidery,
+                        }
+                except Exception as e:
+                    logger.error(f"Error fetching bespoke addons: {e}")
+                    # Continue without addons if there's an error
+
         return context
 
     def _get_institution_name(self, product, product_type):
@@ -3178,6 +3230,40 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                 is_paginated = paginator.num_pages > 1
                 filtered_by_category_type = True
 
+        # Add addon products for custom_garments tab
+        bespoke_addons = {}
+        if active_tab == 'custom_garments':
+            from bespoke.models import BespokeProduct, BespokeCategory
+
+            try:
+                addon_category = BespokeCategory.objects.get(name='Addon', is_active=True)
+                addon_products = BespokeProduct.objects.filter(
+                    category_assignments__category=addon_category,
+                    is_active=True
+                ).prefetch_related('variations').distinct().order_by('name')
+
+                # Group addons by type based on SKU
+                screen_prints = []
+                heat_transfers = []
+                embroidery = []
+
+                for product in addon_products:
+                    sku_upper = (product.sku or '').upper()
+                    if 'SCREEN PRINT' in sku_upper or 'SP' in sku_upper:
+                        screen_prints.append(product)
+                    elif 'HEAT TRANSFER' in sku_upper or 'HT' in sku_upper:
+                        heat_transfers.append(product)
+                    elif 'EMB' in sku_upper or 'EMBROIDERY' in sku_upper:
+                        embroidery.append(product)
+
+                bespoke_addons = {
+                    'screen_prints': screen_prints,
+                    'heat_transfers': heat_transfers,
+                    'embroidery': embroidery,
+                }
+            except BespokeCategory.DoesNotExist:
+                pass
+
         context = {
             'active_tab': active_tab,
             'search_query': search_query,
@@ -3202,6 +3288,9 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
 
             # Total product counts (for display)
             'total_product_count': len(combined_products),
+
+            # Bespoke addons (for custom_garments tab only)
+            'bespoke_addons': bespoke_addons,
         }
 
         return render(request, self.template_name, context)

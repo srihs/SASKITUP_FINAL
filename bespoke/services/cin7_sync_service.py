@@ -332,8 +332,15 @@ class BespokeCin7SyncService:
         # Use first product as template for parent product
         template_product = product_group[0]
 
-        # Determine if this is a variable product (multiple sizes)
+        # Determine if this is a variable product
+        # Check both: multiple CIN7 products in group OR multiple productOptions in single product
         is_variable = len(product_group) > 1
+
+        if not is_variable and len(product_group) == 1:
+            # Single CIN7 product - check if it has multiple productOptions
+            product_options = product_group[0].get('productOptions', [])
+            active_options = [opt for opt in product_options if opt.get('status', '').lower() in ['active', 'primary']]
+            is_variable = len(active_options) > 1
 
         logger.info(f"Syncing {'variable' if is_variable else 'simple'} product: {style_code} ({len(product_group)} size(s))")
 
@@ -397,7 +404,15 @@ class BespokeCin7SyncService:
 
         # Create variations for variable products
         if is_variable:
-            self._sync_variations_from_group(product, product_group)
+            if len(product_group) > 1:
+                # Multiple CIN7 products grouped (base garments) - use existing logic
+                self._sync_variations_from_group(product, product_group)
+            else:
+                # Single CIN7 product with multiple options (addons) - sync from productOptions
+                product_options = product_group[0].get('productOptions', [])
+                active_options = [opt for opt in product_options if opt.get('status', '').lower() in ['active', 'primary']]
+                if len(active_options) > 1:
+                    self._sync_product_variations(product, active_options)
 
     def _sync_variations_from_group(self, parent_product: BespokeProduct, product_group: List[Dict]):
         """

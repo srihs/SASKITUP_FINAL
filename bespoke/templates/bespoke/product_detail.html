@@ -211,6 +211,44 @@
 .bg-soft-bespoke {
     background-color: rgba(102, 126, 234, 0.1);
 }
+
+/* Addon Selection Styling */
+.addon-section {
+    margin-top: 3rem;
+}
+
+.addon-card {
+    transition: all 0.3s ease;
+}
+
+.addon-card:hover {
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+    border-color: #667eea !important;
+}
+
+.addon-card .form-check-input:checked ~ .form-check-label {
+    color: #667eea;
+}
+
+.addon-details {
+    padding-left: 1.5rem;
+    margin-top: 0.5rem;
+}
+
+.addon-card.selected {
+    border-color: #667eea !important;
+    background-color: rgba(102, 126, 234, 0.05);
+}
+
+.addon-group {
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.addon-group:last-child {
+    border-bottom: none;
+}
 </style>
 {% endblock %}
 
@@ -251,7 +289,13 @@
                 <!-- Price Section -->
                 <div class="product-price-section">
                     <div class="product-price-main" id="productPrice">
-                        {% if product.margin_75_price %}
+                        {% if product.price %}
+                            ${{ product.price }}
+                            {% if product.cost_price and product.margin_75_price and product.price == product.margin_75_price %}
+                            <span class="product-price-cost">Cost: ${{ product.cost_price }}</span>
+                            <span class="product-price-badge">75% Margin</span>
+                            {% endif %}
+                        {% elif product.margin_75_price %}
                             ${{ product.margin_75_price }}
                             {% if product.cost_price %}
                             <span class="product-price-cost">Cost: ${{ product.cost_price }}</span>
@@ -288,7 +332,9 @@
                                 {% if variation.option1_value %}{{ variation.option1_value }}{% endif %}
                                 {% if variation.option2_value %}<br>{{ variation.option2_value }}{% endif %}
                             </div>
-                            {% if variation.margin_75_price %}
+                            {% if variation.price %}
+                            <div class="size-price">${{ variation.price }}</div>
+                            {% elif variation.margin_75_price %}
                             <div class="size-price">${{ variation.margin_75_price }}</div>
                             {% elif variation.cost_price %}
                             <div class="size-price">${{ variation.cost_price }}</div>
@@ -306,10 +352,10 @@
                             {% for variation in size_variations %}
                             <div class="size-tile">
                                 <div class="size-name">{{ variation.option1_value }}</div>
-                                {% if variation.margin_75_price %}
-                                <div class="size-price">${{ variation.margin_75_price }}</div>
-                                {% elif variation.price %}
+                                {% if variation.price %}
                                 <div class="size-price">${{ variation.price }}</div>
+                                {% elif variation.margin_75_price %}
+                                <div class="size-price">${{ variation.margin_75_price }}</div>
                                 {% elif variation.cost_price %}
                                 <div class="size-price">${{ variation.cost_price }}</div>
                                 {% endif %}
@@ -323,7 +369,9 @@
                             <!-- Current size -->
                             <div class="size-tile" style="border-color: #667eea; background: rgba(102, 126, 234, 0.1);">
                                 <div class="size-name">{{ product.size_suffix }} <small>(current)</small></div>
-                                {% if product.margin_75_price %}
+                                {% if product.price %}
+                                <div class="size-price">${{ product.price }}</div>
+                                {% elif product.margin_75_price %}
                                 <div class="size-price">${{ product.margin_75_price }}</div>
                                 {% elif product.cost_price %}
                                 <div class="size-price">${{ product.cost_price }}</div>
@@ -335,7 +383,9 @@
                             <div class="size-tile"
                                  onclick="window.location.href='{% url 'bespoke:product_detail' size_product.slug %}'">
                                 <div class="size-name">{{ size_product.size_suffix }}</div>
-                                {% if size_product.margin_75_price %}
+                                {% if size_product.price %}
+                                <div class="size-price">${{ size_product.price }}</div>
+                                {% elif size_product.margin_75_price %}
                                 <div class="size-price">${{ size_product.margin_75_price }}</div>
                                 {% elif size_product.cost_price %}
                                 <div class="size-price">${{ size_product.cost_price }}</div>
@@ -378,5 +428,350 @@
             </div>
         </div>
     </div>
+
+    <!-- ADDON SELECTION SECTION (Base Garments Only) -->
+    {% if bespoke_addons %}
+    <div class="addon-section">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">
+                            <i class="mdi mdi-plus-box me-2"></i>Add Customizations
+                        </h5>
+                        <p class="text-muted mb-0 mt-2">
+                            Select additional customizations for your garment
+                        </p>
+                    </div>
+                    <div class="card-body">
+
+                        <!-- Screen Print Section -->
+                        {% if bespoke_addons.screen_prints %}
+                        <div class="addon-group">
+                            <h6 class="fw-bold text-bespoke mb-3">
+                                <i class="mdi mdi-palette me-2"></i>Screen Print
+                            </h6>
+                            <div class="row">
+                                {% for addon in bespoke_addons.screen_prints %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="card border addon-card">
+                                        <div class="card-body">
+                                            <div class="form-check mb-3">
+                                                <input class="form-check-input addon-checkbox"
+                                                       type="checkbox"
+                                                       id="addon_{{ addon.id }}"
+                                                       data-addon-id="{{ addon.id }}"
+                                                       data-addon-type="screen_print">
+                                                <label class="form-check-label fw-bold" for="addon_{{ addon.id }}">
+                                                    {{ addon.name }}
+                                                </label>
+                                            </div>
+
+                                            <div class="addon-details" id="addon_details_{{ addon.id }}" style="display: none;">
+                                                <p class="text-muted small mb-2">SKU: {{ addon.sku }}</p>
+
+                                                {% if addon.product_type == 'variable' and addon.variations.all %}
+                                                <div class="mb-2">
+                                                    <label class="form-label small">Select Option:</label>
+                                                    <select class="form-select form-select-sm addon-variation-select"
+                                                            id="variation_{{ addon.id }}"
+                                                            data-addon-id="{{ addon.id }}" disabled>
+                                                        <option value="">Choose...</option>
+                                                        {% for variation in addon.variations.all %}
+                                                        <option value="{{ variation.id }}"
+                                                                data-price="{{ variation.price|default:'0' }}">
+                                                            {{ variation.option1_value }}{% if variation.option2_value %} - {{ variation.option2_value }}{% endif %} - ${{ variation.price|default:'0' }}
+                                                        </option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                                {% else %}
+                                                <p class="small mb-2">Price: ${{ addon.price|default:'0' }}</p>
+                                                {% endif %}
+
+                                                <div class="mb-2">
+                                                    <label class="form-label small">Quantity:</label>
+                                                    <input type="number"
+                                                           class="form-control form-control-sm addon-quantity"
+                                                           id="quantity_{{ addon.id }}"
+                                                           data-addon-id="{{ addon.id }}"
+                                                           min="1"
+                                                           value="1"
+                                                           disabled>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Heat Transfer Section -->
+                        {% if bespoke_addons.heat_transfers %}
+                        <div class="addon-group">
+                            <h6 class="fw-bold text-bespoke mb-3">
+                                <i class="mdi mdi-fire me-2"></i>Heat Transfer
+                            </h6>
+                            <div class="row">
+                                {% for addon in bespoke_addons.heat_transfers %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="card border addon-card">
+                                        <div class="card-body">
+                                            <div class="form-check mb-3">
+                                                <input class="form-check-input addon-checkbox"
+                                                       type="checkbox"
+                                                       id="addon_{{ addon.id }}"
+                                                       data-addon-id="{{ addon.id }}"
+                                                       data-addon-type="heat_transfer">
+                                                <label class="form-check-label fw-bold" for="addon_{{ addon.id }}">
+                                                    {{ addon.name }}
+                                                </label>
+                                            </div>
+
+                                            <div class="addon-details" id="addon_details_{{ addon.id }}" style="display: none;">
+                                                <p class="text-muted small mb-2">SKU: {{ addon.sku }}</p>
+
+                                                {% if addon.product_type == 'variable' and addon.variations.all %}
+                                                <div class="mb-2">
+                                                    <label class="form-label small">Select Option:</label>
+                                                    <select class="form-select form-select-sm addon-variation-select"
+                                                            id="variation_{{ addon.id }}"
+                                                            data-addon-id="{{ addon.id }}" disabled>
+                                                        <option value="">Choose...</option>
+                                                        {% for variation in addon.variations.all %}
+                                                        <option value="{{ variation.id }}"
+                                                                data-price="{{ variation.price|default:'0' }}">
+                                                            {{ variation.option1_value }}{% if variation.option2_value %} - {{ variation.option2_value }}{% endif %} - ${{ variation.price|default:'0' }}
+                                                        </option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                                {% else %}
+                                                <p class="small mb-2">Price: ${{ addon.price|default:'0' }}</p>
+                                                {% endif %}
+
+                                                <div class="mb-2">
+                                                    <label class="form-label small">Quantity:</label>
+                                                    <input type="number"
+                                                           class="form-control form-control-sm addon-quantity"
+                                                           id="quantity_{{ addon.id }}"
+                                                           data-addon-id="{{ addon.id }}"
+                                                           min="1"
+                                                           value="1"
+                                                           disabled>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Embroidery Section -->
+                        {% if bespoke_addons.embroidery %}
+                        <div class="addon-group">
+                            <h6 class="fw-bold text-bespoke mb-3">
+                                <i class="mdi mdi-needle me-2"></i>Embroidery
+                            </h6>
+                            <div class="row">
+                                {% for addon in bespoke_addons.embroidery %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="card border addon-card">
+                                        <div class="card-body">
+                                            <div class="form-check mb-3">
+                                                <input class="form-check-input addon-checkbox"
+                                                       type="checkbox"
+                                                       id="addon_{{ addon.id }}"
+                                                       data-addon-id="{{ addon.id }}"
+                                                       data-addon-type="embroidery">
+                                                <label class="form-check-label fw-bold" for="addon_{{ addon.id }}">
+                                                    {{ addon.name }}
+                                                </label>
+                                            </div>
+
+                                            <div class="addon-details" id="addon_details_{{ addon.id }}" style="display: none;">
+                                                <p class="text-muted small mb-2">SKU: {{ addon.sku }}</p>
+
+                                                {% if addon.product_type == 'variable' and addon.variations.all %}
+                                                <div class="mb-2">
+                                                    <label class="form-label small">Select Option:</label>
+                                                    <select class="form-select form-select-sm addon-variation-select"
+                                                            id="variation_{{ addon.id }}"
+                                                            data-addon-id="{{ addon.id }}" disabled>
+                                                        <option value="">Choose...</option>
+                                                        {% for variation in addon.variations.all %}
+                                                        <option value="{{ variation.id }}"
+                                                                data-price="{{ variation.price|default:'0' }}">
+                                                            {{ variation.option1_value }}{% if variation.option2_value %} - {{ variation.option2_value }}{% endif %} - ${{ variation.price|default:'0' }}
+                                                        </option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                                {% else %}
+                                                <p class="small mb-2">Price: ${{ addon.price|default:'0' }}</p>
+                                                {% endif %}
+
+                                                <div class="mb-2">
+                                                    <label class="form-label small">Quantity:</label>
+                                                    <input type="number"
+                                                           class="form-control form-control-sm addon-quantity"
+                                                           id="quantity_{{ addon.id }}"
+                                                           data-addon-id="{{ addon.id }}"
+                                                           min="1"
+                                                           value="1"
+                                                           disabled>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="text-end mt-4">
+                            <button type="button" class="btn btn-secondary me-2" id="cancelAddonsBtn">
+                                <i class="mdi mdi-close me-1"></i>Cancel
+                            </button>
+                            <button type="button" class="btn btn-primary" id="confirmAddonsBtn" style="background: linear-gradient(135deg, #667eea 0%, #556ee6 100%); border: none;">
+                                <i class="mdi mdi-check me-1"></i>Add Selected Addons
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ========================================
+// ADDON SELECTION FUNCTIONALITY
+// ========================================
+{% if bespoke_addons %}
+(function() {
+    // Handle checkbox changes
+    const addonCheckboxes = document.querySelectorAll('.addon-checkbox');
+    addonCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const addonId = this.dataset.addonId;
+            const detailsDiv = document.getElementById(`addon_details_${addonId}`);
+            const variationSelect = document.getElementById(`variation_${addonId}`);
+            const quantityInput = document.getElementById(`quantity_${addonId}`);
+            const card = this.closest('.addon-card');
+
+            if (this.checked) {
+                // Show details and enable controls
+                if (detailsDiv) detailsDiv.style.display = 'block';
+                if (variationSelect) variationSelect.disabled = false;
+                if (quantityInput) quantityInput.disabled = false;
+                if (card) card.classList.add('selected');
+            } else {
+                // Hide details and disable controls
+                if (detailsDiv) detailsDiv.style.display = 'none';
+                if (variationSelect) {
+                    variationSelect.disabled = true;
+                    variationSelect.value = '';
+                }
+                if (quantityInput) {
+                    quantityInput.disabled = true;
+                    quantityInput.value = 1;
+                }
+                if (card) card.classList.remove('selected');
+            }
+        });
+    });
+
+    // Handle cancel button
+    const cancelBtn = document.getElementById('cancelAddonsBtn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+            // Uncheck all checkboxes and reset form
+            addonCheckboxes.forEach(checkbox => {
+                if (checkbox.checked) {
+                    checkbox.checked = false;
+                    checkbox.dispatchEvent(new Event('change'));
+                }
+            });
+        });
+    }
+
+    // Handle confirm button
+    const confirmBtn = document.getElementById('confirmAddonsBtn');
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', function() {
+            const selectedAddons = [];
+
+            // Collect all selected addons
+            addonCheckboxes.forEach(checkbox => {
+                if (checkbox.checked) {
+                    const addonId = checkbox.dataset.addonId;
+                    const variationSelect = document.getElementById(`variation_${addonId}`);
+                    const quantityInput = document.getElementById(`quantity_${addonId}`);
+                    const addonType = checkbox.dataset.addonType;
+                    const addonName = checkbox.nextElementSibling.textContent.trim();
+
+                    const addonData = {
+                        id: addonId,
+                        type: addonType,
+                        name: addonName,
+                        quantity: quantityInput ? parseInt(quantityInput.value) : 1
+                    };
+
+                    // Add variation if selected
+                    if (variationSelect && variationSelect.value) {
+                        addonData.variation_id = variationSelect.value;
+                        addonData.variation_name = variationSelect.options[variationSelect.selectedIndex].text;
+                    }
+
+                    selectedAddons.push(addonData);
+                }
+            });
+
+            if (selectedAddons.length === 0) {
+                alert('Please select at least one addon to add.');
+                return;
+            }
+
+            // Display selected addons info
+            console.log('Selected addons:', selectedAddons);
+
+            // TODO: Implement actual add to quotation functionality
+            // This would typically involve AJAX calls to add each addon to the quotation
+            // For now, show a confirmation message
+
+            let message = 'Selected Addons:\n\n';
+            selectedAddons.forEach(addon => {
+                message += `- ${addon.name}`;
+                if (addon.variation_name) {
+                    message += ` (${addon.variation_name})`;
+                }
+                message += ` x ${addon.quantity}\n`;
+            });
+            message += '\n\nNote: Addon functionality needs to be integrated with quotation cart.';
+
+            alert(message);
+
+            // Reset form after confirmation
+            addonCheckboxes.forEach(checkbox => {
+                if (checkbox.checked) {
+                    checkbox.checked = false;
+                    checkbox.dispatchEvent(new Event('change'));
+                }
+            });
+        });
+    }
+})();
+{% endif %}
+</script>
 {% endblock %}

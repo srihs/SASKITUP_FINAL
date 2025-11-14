@@ -203,6 +203,44 @@ def product_detail(request, product_slug):
         'page_title': product.base_garment_name,
     }
 
+    # Only add addons if this is a base garment product (not an addon product itself)
+    is_base_garment = False
+    for category in categories:
+        # Check if product is in base-garment category (not in addon category)
+        if 'base' in category.slug.lower() or 'garment' in category.slug.lower():
+            is_base_garment = True
+            break
+        if 'addon' in category.slug.lower():
+            is_base_garment = False
+            break
+
+    if is_base_garment:
+        # Fetch addon products
+        try:
+            addon_category = BespokeCategory.objects.filter(
+                slug__icontains='addon',
+                is_active=True
+            ).first()
+
+            if addon_category:
+                addon_products = BespokeProduct.objects.filter(
+                    category_assignments__category=addon_category,
+                    is_active=True
+                ).prefetch_related('variations').distinct().order_by('name')
+
+                # Group by type based on SKU patterns
+                screen_prints = [p for p in addon_products if p.sku and 'SCREEN PRINT' in p.sku.upper()]
+                heat_transfers = [p for p in addon_products if p.sku and 'HEAT TRANSFER' in p.sku.upper()]
+                embroidery = [p for p in addon_products if p.sku and 'EMB' in p.sku.upper()]
+
+                context['bespoke_addons'] = {
+                    'screen_prints': screen_prints,
+                    'heat_transfers': heat_transfers,
+                    'embroidery': embroidery,
+                }
+        except BespokeCategory.DoesNotExist:
+            pass  # No addon category found
+
     return render(request, 'bespoke/product_detail.html', context)
 
 
