@@ -84,6 +84,45 @@ class BespokeCin7SyncService:
             if self.sync_job:
                 self.sync_job.add_log_message(f'Fetched {total_fetched} products from CIN7', 'info')
 
+            # FILTER OUT ADDON PRODUCTS (managed via custom pricing UI)
+            filtered_products = []
+            excluded_count = 0
+
+            for product in bespoke_products:
+                category_path = product.get('category', '').upper()
+                product_name = product.get('name', '').upper()
+                sku = product.get('code', '').upper()
+
+                # Exclude if product is an addon
+                is_addon = any([
+                    'ADDON' in category_path,
+                    'SCREEN PRINT' in product_name or 'SCREEN PRINT' in sku,
+                    'HEAT TRANSFER' in product_name or 'HEAT TRANSFER' in sku,
+                    ('EMB' in sku or 'EMBROIDERY' in product_name or 'APPLIQUE' in product_name),
+                ])
+
+                if is_addon:
+                    excluded_count += 1
+                    logger.debug(f"Excluding addon product from sync: {product.get('name')} (SKU: {sku})")
+                else:
+                    filtered_products.append(product)
+
+            logger.info(f"Filtered out {excluded_count} addon products from sync")
+            logger.info(f"Processing {len(filtered_products)} base garment products")
+
+            if self.sync_job:
+                self.sync_job.add_log_message(
+                    f"Excluded {excluded_count} addon products (managed via custom pricing UI at /bespoke/category/addon/)",
+                    'info'
+                )
+                self.sync_job.add_log_message(
+                    f"Processing {len(filtered_products)} base garment products",
+                    'info'
+                )
+
+            # Update bespoke_products to use filtered list
+            bespoke_products = filtered_products
+
             # Step 2: Extract and sync categories
             logger.info("Step 2: Syncing categories...")
             if self.sync_job:

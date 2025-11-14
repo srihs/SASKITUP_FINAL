@@ -3618,6 +3618,22 @@ def cin7_price_fetch(request):
                     skipped_bs_products += 1
                     continue
 
+                # Skip BESPOKE ADDON products (managed via custom pricing UI)
+                category_path = option_data.get('category', '').upper()
+                product_name = option_data.get('product_name', '').upper()
+                sku_upper = sku.upper()
+
+                is_bespoke_addon = 'QUOTATION BASE LIBRARY' in category_path and any([
+                    'SCREEN PRINT' in product_name or 'SCREEN PRINT' in sku_upper,
+                    'HEAT TRANSFER' in product_name or 'HEAT TRANSFER' in sku_upper,
+                    ('EMB' in sku_upper and ('EMBROIDERY' in product_name or 'APPLIQUE' in product_name)),
+                ])
+
+                if is_bespoke_addon:
+                    skipped_bs_products += 1  # Use same counter for simplicity
+                    logger.debug(f"Skipping bespoke addon product: {product_name} (SKU: {sku})")
+                    continue
+
                 # Get pricing data from Cin7
                 cost = option_data.get('cost')
                 rrp = option_data.get('current_retail_nzd_incl')
