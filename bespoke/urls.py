@@ -16,4 +16,5 @@ urlpatterns = [
     path('api/pricing/price/<int:price_id>/delete/', views.delete_addon_price, name='delete-addon-price'),
     path('api/pricing/bulk-edit/', views.bulk_edit_addon_prices, name='bulk-edit-addon-prices'),
     path('api/pricing/export/<str:addon_type>/', views.export_addon_pricing, name='export-addon-pricing'),
+    path('api/pricing/calculate/', views.calculate_addon_price, name='calculate-addon-price'),
 ]
