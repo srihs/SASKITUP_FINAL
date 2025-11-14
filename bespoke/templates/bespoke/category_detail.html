@@ -1,5 +1,12 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load bespoke_filters %}
+
+{% block extra_css %}
+{% if is_addon_category %}
+<link href="{% static 'assets/libs/sweetalert2/sweetalert2.min.css' %}" rel="stylesheet" type="text/css" />
+{% endif %}
+{% endblock %}
 
 {% block content %}
 <div class="bespoke-page">
@@ -43,7 +50,8 @@
     </div>
 </div>
 
-<!-- Category Stats -->
+{% if not is_addon_category %}
+<!-- Category Stats (only for non-addon categories) -->
 <div class="row">
     <div class="col-xl-3 col-md-6">
         <div class="card">
@@ -98,7 +106,7 @@
     </div>
 </div>
 
-<!-- Products Grid -->
+<!-- Products Grid (only for non-addon categories) -->
 <div class="row">
     <div class="col-12">
         <div class="card">
@@ -212,6 +220,150 @@
         </div>
     </div>
 </div>
+{% endif %}
+
+{% if is_addon_category %}
+<!-- ADDON PRICING TABLES -->
+<div class="row">
+    <div class="col-12">
+        <div class="pricing-tables-section">
+            {% for addon_type, data in pricing_data.items %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light border-bottom py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="avatar-sm me-3">
+                            <span class="avatar-title rounded bg-soft-bespoke text-bespoke">
+                                <i class="uil-tag-alt font-size-18"></i>
+                            </span>
+                        </div>
+                        <div>
+                            <h5 class="mb-0">{{ data.display_name|upper }}</h5>
+                            <small class="text-muted">Click on any price to edit</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered pricing-table mb-0">
+                            <thead>
+                                <!-- First header row: Qty + Tier columns -->
+                                <tr>
+                                    <th class="text-center align-middle header-cell" rowspan="2">Qty</th>
+                                    {% for tier in data.tiers %}
+                                    {% if addon_type == 'emb_applique' %}
+                                    <th class="text-center align-middle header-cell" colspan="2">{{ tier.display_label }}<br><small>Price per Size</small></th>
+                                    {% else %}
+                                    <th class="text-center align-middle header-cell" colspan="3">{{ tier.display_label }}<br><small>Price per Size/Colour</small></th>
+                                    {% endif %}
+                                    {% endfor %}
+                                </tr>
+                                <!-- Second header row: Color/Type sub-headers -->
+                                <tr>
+                                    {% for tier in data.tiers %}
+                                        {% if addon_type == 'emb_applique' %}
+                                        <th class="text-center align-middle sub-header-cell">EMB</th>
+                                        <th class="text-center align-middle sub-header-cell">APPLIQUE</th>
+                                        {% elif addon_type == 'screen_print' %}
+                                        <th class="text-center align-middle sub-header-cell">1-2</th>
+                                        <th class="text-center align-middle sub-header-cell">3-4</th>
+                                        <th class="text-center align-middle sub-header-cell">5-7</th>
+                                        {% else %}
+                                        <th class="text-center align-middle sub-header-cell">1-2</th>
+                                        <th class="text-center align-middle sub-header-cell">3-4</th>
+                                        <th class="text-center align-middle sub-header-cell">5-6</th>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if addon_type == 'emb_applique' %}
+                                <!-- EMB/APPLIQUE rows -->
+                                {% for size_code in 'small,medium,large'|split:"," %}
+                                <tr>
+                                    <td class="text-center align-middle row-header-cell">
+                                        {% if size_code == 'small' %}Low Stitch (1-12,000)
+                                        {% elif size_code == 'medium' %}Avg Stitch (13-26,000)
+                                        {% elif size_code == 'large' %}Lrg Stitch (26-50,000)
+                                        {% endif %}
+                                    </td>
+                                    {% for tier in data.tiers %}
+                                        {# EMB column #}
+                                        {% price_lookup_with_color data.prices tier.id size_code 'emb' as price_emb %}
+                                        <td class="text-center align-middle price-cell" data-tier-id="{{ tier.id }}" data-size-code="{{ size_code }}" data-type="emb">
+                                            {% if price_emb %}
+                                            <span class="price-value editable" data-price-id="{{ price_emb.id }}">
+                                                ${{ price_emb.price_per_unit }}
+                                            </span>
+                                            {% else %}
+                                            <span class="price-na">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        {# APPLIQUE column #}
+                                        {% price_lookup_with_color data.prices tier.id size_code 'applique' as price_applique %}
+                                        <td class="text-center align-middle price-cell" data-tier-id="{{ tier.id }}" data-size-code="{{ size_code }}" data-type="applique">
+                                            {% if price_applique %}
+                                            <span class="price-value editable" data-price-id="{{ price_applique.id }}">
+                                                ${{ price_applique.price_per_unit }}
+                                            </span>
+                                            {% else %}
+                                            <span class="price-na">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                                {% else %}
+                                <!-- Heat Transfer / Screen Print rows -->
+                                {% for size_code in 'small,medium,large'|split:"," %}
+                                <tr>
+                                    <td class="text-center align-middle row-header-cell">
+                                        {% if size_code == 'small' %}Small (8x8 cm)
+                                        {% elif size_code == 'medium' %}Medium (16x16 cm)
+                                        {% elif size_code == 'large' %}Large (25x25 cm)
+                                        {% endif %}
+                                    </td>
+                                    {% for tier in data.tiers %}
+                                        {% if addon_type == 'screen_print' %}
+                                            {% for color_range in '1-2,3-4,5-7'|split:"," %}
+                                            {% price_lookup_with_color data.prices tier.id size_code color_range as price %}
+                                            <td class="text-center align-middle price-cell" data-tier-id="{{ tier.id }}" data-size-code="{{ size_code }}" data-color-range="{{ color_range }}">
+                                                {% if price %}
+                                                <span class="price-value editable" data-price-id="{{ price.id }}">
+                                                    ${{ price.price_per_unit }}
+                                                </span>
+                                                {% else %}
+                                                <span class="price-na">N/A</span>
+                                                {% endif %}
+                                            </td>
+                                            {% endfor %}
+                                        {% else %}
+                                            {% for color_range in '1-2,3-4,5-6'|split:"," %}
+                                            {% price_lookup_with_color data.prices tier.id size_code color_range as price %}
+                                            <td class="text-center align-middle price-cell" data-tier-id="{{ tier.id }}" data-size-code="{{ size_code }}" data-color-range="{{ color_range }}">
+                                                {% if price %}
+                                                <span class="price-value editable" data-price-id="{{ price.id }}">
+                                                    ${{ price.price_per_unit }}
+                                                </span>
+                                                {% else %}
+                                                <span class="price-na">N/A</span>
+                                                {% endif %}
+                                            </td>
+                                            {% endfor %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <style>
 /* Bespoke Brand Colors */
@@ -322,6 +474,176 @@
 .bg-soft-info { background-color: rgba(58, 186, 244, 0.1); }
 .bg-soft-warning { background-color: rgba(247, 184, 75, 0.1); }
 .bg-soft-secondary { background-color: rgba(116, 120, 141, 0.1); }
+
+/* Addon Pricing Tables Styles */
+.pricing-tables-section {
+    margin-top: 0;
+}
+
+.pricing-table {
+    font-size: 0.9rem;
+    border-collapse: collapse;
+}
+
+.pricing-table th,
+.pricing-table td {
+    border: 1px solid #dee2e6;
+    padding: 0.75rem;
+}
+
+/* Header styles */
+.header-cell {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #495057;
+}
+
+.sub-header-cell {
+    background-color: #f8f9fa;
+    font-weight: 500;
+    font-size: 0.85rem;
+    color: #6c757d;
+    padding: 0.5rem;
+}
+
+.row-header-cell {
+    background-color: #f8f9fa;
+    font-weight: 500;
+    color: #495057;
+    min-width: 120px;
+}
+
+/* Price cell styles */
+.price-cell {
+    min-width: 80px;
+    padding: 0.75rem 0.5rem;
+    vertical-align: middle;
+    position: relative;
+}
+
+.price-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #28a745;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    transition: all 0.2s ease;
+    display: inline-block;
+}
+
+.price-value.editable:hover {
+    background-color: #e7f3ff;
+    color: #0066cc;
+}
+
+.price-value.editing {
+    display: none;
+}
+
+.price-na {
+    color: #adb5bd;
+    font-style: italic;
+    font-size: 0.9rem;
+}
+
+/* Inline edit input */
+.price-edit-input {
+    width: 80px;
+    padding: 0.25rem 0.5rem;
+    border: 2px solid #0066cc;
+    border-radius: 0.25rem;
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.price-edit-input:focus {
+    outline: none;
+    border-color: #004499;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+.table-sm td, .table-sm th {
+    padding: 0.75rem;
+}
+
+.avatar-xs {
+    width: 32px;
+    height: 32px;
+}
+
+.avatar-lg {
+    width: 72px;
+    height: 72px;
+}
+
+.alert-soft-info {
+    background-color: rgba(58, 186, 244, 0.1);
+    color: #3abaf4;
+}
+
+/* Enhanced button styles */
+.btn-soft-primary {
+    background-color: rgba(85, 110, 230, 0.1);
+    color: #556ee6;
+    border: 1px solid transparent;
+}
+
+.btn-soft-primary:hover {
+    background-color: #556ee6;
+    color: #fff;
+}
+
+.btn-soft-danger {
+    background-color: rgba(243, 76, 124, 0.1);
+    color: #f34c7c;
+    border: 1px solid transparent;
+}
+
+.btn-soft-danger:hover {
+    background-color: #f34c7c;
+    color: #fff;
+}
+
+.btn-soft-success {
+    background-color: rgba(52, 195, 143, 0.1);
+    color: #34c38f;
+    border: 1px solid transparent;
+}
+
+.btn-soft-success:hover {
+    background-color: #34c38f;
+    color: #fff;
+}
+
+/* Smooth transitions */
+.card {
+    transition: all 0.3s ease;
+}
+
+.btn {
+    transition: all 0.2s ease;
+}
+
+/* Shadow utilities */
+.shadow-sm {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+}
+
+/* Badge spacing */
+.badge {
+    padding: 0.35em 0.65em;
+    font-weight: 500;
+}
 </style>
 </div> <!-- End bespoke-page wrapper -->
+{% endblock %}
+
+{% block extra_js %}
+{% if is_addon_category %}
+<script src="{% static 'assets/libs/sweetalert2/sweetalert2.min.js' %}"></script>
+<script src="{% static 'assets/js/addon-pricing-manager.js' %}"></script>
+{% endif %}
 {% endblock %}

@@ -1,10 +1,11 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Q, Count, Prefetch
 from django.contrib import messages
-from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth.decorators import user_passes_test, login_required
 from django.core.management import call_command
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 import threading
 import logging
 from .models import BespokeCategory, BespokeProduct, BespokeProductVariation, BespokeSyncLog
@@ -143,6 +144,9 @@ def category_detail(request, category_slug):
             total_products=Count('product_assignments', filter=Q(product_assignments__product__is_active=True))
         ).order_by('name')
 
+    # Check if this is addon category and add pricing data
+    is_addon_category = 'addon' in category.slug.lower()
+
     context = {
         'category': category,
         'products': products,
@@ -151,7 +155,45 @@ def category_detail(request, category_slug):
         'stock_filter': stock_filter,
         'product_type_filter': product_type_filter,
         'page_title': f'{category.name} - Bespoke Products',
+        'is_addon_category': is_addon_category,
     }
+
+    if is_addon_category:
+        # Add pricing management data for addon category
+        from .models import AddonPricingTier, AddonSizeDefinition, AddonPrice
+
+        pricing_data = {}
+        for addon_type in ['heat_transfer', 'screen_print', 'emb_applique']:
+            tiers = AddonPricingTier.objects.filter(
+                addon_type=addon_type,
+                is_active=True
+            ).order_by('sort_order')
+
+            sizes = AddonSizeDefinition.objects.filter(
+                addon_type=addon_type,
+                is_active=True
+            ).order_by('sort_order')
+
+            prices = AddonPrice.objects.filter(
+                tier__addon_type=addon_type,
+                is_active=True
+            ).select_related('tier', 'size_definition').order_by(
+                'tier__sort_order',
+                'size_definition__sort_order'
+            )
+
+            pricing_data[addon_type] = {
+                'tiers': tiers,
+                'sizes': sizes,
+                'prices': prices,
+                'display_name': {
+                    'heat_transfer': 'Heat Transfer',
+                    'screen_print': 'Screen Print',
+                    'emb_applique': 'EMB/Applique'
+                }[addon_type]
+            }
+
+        context['pricing_data'] = pricing_data
 
     return render(request, 'bespoke/category_detail.html', context)
 
@@ -426,3 +468,240 @@ def bespoke_sync_status(request, job_id):
             'error': f'Failed to get sync status: {str(e)}',
             'error_code': 'STATUS_CHECK_FAILED'
         }, status=500)
+
+
+# ============================================================================
+# ADDON PRICING MANAGEMENT API ENDPOINTS
+# ============================================================================
+
+@require_http_methods(["POST"])
+@login_required
+def add_addon_price(request):
+    """Add new price for tier/size combination"""
+    import json
+    from decimal import Decimal
+    from .models import AddonPrice, AddonPricingTier, AddonSizeDefinition, AddonPriceHistory
+
+    try:
+        data = json.loads(request.body)
+        tier_id = data.get('tier_id')
+        size_id = data.get('size_id')
+        price = Decimal(str(data.get('price')))
+
+        # Validate
+        tier = AddonPricingTier.objects.get(id=tier_id)
+        size = AddonSizeDefinition.objects.get(id=size_id)
+
+        if tier.addon_type != size.addon_type:
+            return JsonResponse({
+                'success': False,
+                'error': 'Tier and size addon types must match'
+            }, status=400)
+
+        # Check if price already exists
+        existing_price = AddonPrice.objects.filter(
+            tier=tier,
+            size_definition=size,
+            is_active=True
+        ).first()
+
+        if existing_price:
+            return JsonResponse({
+                'success': False,
+                'error': 'Price already exists for this tier and size combination'
+            }, status=400)
+
+        # Create price
+        addon_price = AddonPrice.objects.create(
+            tier=tier,
+            size_definition=size,
+            price_per_unit=price,
+            created_by=request.user
+        )
+
+        return JsonResponse({
+            'success': True,
+            'price_id': addon_price.id,
+            'price': str(addon_price.price_per_unit),
+            'message': 'Price added successfully'
+        })
+
+    except AddonPricingTier.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Tier not found'}, status=404)
+    except AddonSizeDefinition.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Size definition not found'}, status=404)
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': f'Invalid price value: {str(e)}'}, status=400)
+    except Exception as e:
+        logger.error(f"Error adding addon price: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@require_http_methods(["POST"])
+@login_required
+def edit_addon_price(request, price_id):
+    """Edit existing price"""
+    import json
+    from decimal import Decimal
+    from .models import AddonPrice, AddonPriceHistory
+
+    try:
+        data = json.loads(request.body)
+        new_price = Decimal(str(data.get('price')))
+
+        addon_price = AddonPrice.objects.get(id=price_id)
+        old_price = addon_price.price_per_unit
+
+        # Only record history if price actually changed
+        if old_price != new_price:
+            # Record history
+            AddonPriceHistory.objects.create(
+                addon_price=addon_price,
+                old_price=old_price,
+                new_price=new_price,
+                change_reason=data.get('reason', 'Manual update via UI'),
+                changed_by=request.user
+            )
+
+            addon_price.price_per_unit = new_price
+            addon_price.save()
+
+            return JsonResponse({
+                'success': True,
+                'price': str(new_price),
+                'message': 'Price updated successfully'
+            })
+        else:
+            return JsonResponse({
+                'success': True,
+                'price': str(new_price),
+                'message': 'No change in price'
+            })
+
+    except AddonPrice.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Price not found'}, status=404)
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': f'Invalid price value: {str(e)}'}, status=400)
+    except Exception as e:
+        logger.error(f"Error editing addon price: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@require_http_methods(["POST"])
+@login_required
+def delete_addon_price(request, price_id):
+    """Delete (soft delete) existing price"""
+    from .models import AddonPrice
+
+    try:
+        addon_price = AddonPrice.objects.get(id=price_id)
+        addon_price.is_active = False
+        addon_price.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Price deleted successfully'
+        })
+
+    except AddonPrice.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Price not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error deleting addon price: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@require_http_methods(["POST"])
+@login_required
+def bulk_edit_addon_prices(request):
+    """Bulk edit multiple prices at once"""
+    import json
+    from decimal import Decimal
+    from .models import AddonPrice, AddonPriceHistory
+
+    try:
+        data = json.loads(request.body)
+        price_updates = data.get('prices', [])  # [{price_id, new_price}, ...]
+
+        updated_count = 0
+        for update in price_updates:
+            price_id = update.get('price_id')
+            new_price = Decimal(str(update.get('price')))
+
+            try:
+                addon_price = AddonPrice.objects.get(id=price_id)
+                old_price = addon_price.price_per_unit
+
+                if old_price != new_price:
+                    # Record history
+                    AddonPriceHistory.objects.create(
+                        addon_price=addon_price,
+                        old_price=old_price,
+                        new_price=new_price,
+                        change_reason='Bulk update via UI',
+                        changed_by=request.user
+                    )
+
+                    addon_price.price_per_unit = new_price
+                    addon_price.save()
+                    updated_count += 1
+            except AddonPrice.DoesNotExist:
+                logger.warning(f"Price {price_id} not found during bulk update")
+                continue
+
+        return JsonResponse({
+            'success': True,
+            'updated_count': updated_count,
+            'message': f'{updated_count} prices updated successfully'
+        })
+
+    except Exception as e:
+        logger.error(f"Error bulk editing addon prices: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+@login_required
+def export_addon_pricing(request, addon_type):
+    """Export pricing matrix to CSV"""
+    import csv
+    from django.http import HttpResponse
+    from .models import AddonPricingTier, AddonSizeDefinition, AddonPrice
+
+    try:
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="{addon_type}_pricing.csv"'
+
+        writer = csv.writer(response)
+
+        # Get data
+        tiers = AddonPricingTier.objects.filter(
+            addon_type=addon_type,
+            is_active=True
+        ).order_by('sort_order')
+
+        sizes = AddonSizeDefinition.objects.filter(
+            addon_type=addon_type,
+            is_active=True
+        ).order_by('sort_order')
+
+        # Header row
+        header = ['Quantity Tier'] + [size.display_label for size in sizes]
+        writer.writerow(header)
+
+        # Data rows
+        for tier in tiers:
+            row = [tier.display_label]
+            for size in sizes:
+                price = AddonPrice.objects.filter(
+                    tier=tier,
+                    size_definition=size,
+                    is_active=True
+                ).first()
+                row.append(str(price.price_per_unit) if price else '')
+            writer.writerow(row)
+
+        return response
+
+    except Exception as e:
+        logger.error(f"Error exporting addon pricing: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
