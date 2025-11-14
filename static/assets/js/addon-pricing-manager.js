@@ -59,6 +59,9 @@ function startEditingPrice(priceElement) {
     input.value = currentPrice;
     input.className = 'price-edit-input';
 
+    // Store original value for comparison
+    input.dataset.originalValue = currentPrice;
+
     // Mark price element as editing
     priceElement.classList.add('editing');
 
@@ -71,14 +74,14 @@ function startEditingPrice(priceElement) {
 
     // Handle save on blur
     input.addEventListener('blur', function() {
-        savePrice(priceId, this.value, priceElement, input);
+        savePrice(priceId, this.value, priceElement, input, currentPrice);
     });
 
     // Handle save on Enter key
     input.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
-            savePrice(priceId, this.value, priceElement, input);
+            savePrice(priceId, this.value, priceElement, input, currentPrice);
         } else if (e.key === 'Escape') {
             e.preventDefault();
             cancelEdit(priceElement, input);
@@ -86,7 +89,7 @@ function startEditingPrice(priceElement) {
     });
 }
 
-function savePrice(priceId, newValue, priceElement, input) {
+function savePrice(priceId, newValue, priceElement, input, originalValue) {
     // Validate input
     const price = parseFloat(newValue);
     if (isNaN(price) || price < 0) {
@@ -102,6 +105,14 @@ function savePrice(priceId, newValue, priceElement, input) {
 
     // Format price
     const formattedPrice = price.toFixed(2);
+    const originalFormatted = parseFloat(originalValue).toFixed(2);
+
+    // Check if price actually changed
+    if (formattedPrice === originalFormatted) {
+        // No change, just cancel edit without showing message
+        cancelEdit(priceElement, input);
+        return;
+    }
 
     // Send AJAX request to update price
     fetch(`/bespoke/api/pricing/price/${priceId}/edit/`, {
@@ -129,7 +140,7 @@ function savePrice(priceId, newValue, priceElement, input) {
 
             currentlyEditing = null;
 
-            // Show success message
+            // Show success message only when price actually changed
             showSuccessToast('Price updated successfully');
         } else {
             Swal.fire({
