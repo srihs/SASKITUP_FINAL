@@ -708,6 +708,7 @@ def export_addon_pricing(request, addon_type):
 
 
 @require_http_methods(["POST"])
+@csrf_exempt
 def calculate_addon_price(request):
     """
     Calculate addon price based on user selections.
@@ -759,7 +760,7 @@ def calculate_addon_price(request):
                 'error': 'Invalid size selection'
             }, status=400)
 
-        # Get size definition
+        # Get size definition based on addon type
         size_filters = {
             'addon_type': addon_type,
             'size_code': size,
@@ -778,8 +779,26 @@ def calculate_addon_price(request):
                 }, status=400)
 
             size_filters['stitch_complexity'] = stitch_complexity
+            size_definition = AddonSizeDefinition.objects.filter(**size_filters).first()
 
-        size_definition = AddonSizeDefinition.objects.filter(**size_filters).first()
+        # For Heat Transfer and Screen Print, filter by color_range
+        elif addon_type in ['heat_transfer', 'screen_print']:
+            color_range = data.get('color_range')
+
+            if not color_range:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Color range is required for Heat Transfer and Screen Print'
+                }, status=400)
+
+            # Filter by color range in display_label (e.g., "Small - 8x8 cm (1-2 colors)")
+            size_definition = AddonSizeDefinition.objects.filter(
+                **size_filters,
+                display_label__icontains=color_range
+            ).first()
+        else:
+            # Fallback for any other addon types
+            size_definition = AddonSizeDefinition.objects.filter(**size_filters).first()
 
         if not size_definition:
             return JsonResponse({

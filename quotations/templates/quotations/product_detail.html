@@ -1089,220 +1089,231 @@
         </div>
     </div>
 </div>
-<!-- ADDON SELECTION SECTION (Base Garments Only) -->
-{% if bespoke_addons %}
-<div class="addon-section">
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-light">
-                    <h5 class="mb-0">
-                        <i class="mdi mdi-plus-box me-2"></i>Add Customizations
-                    </h5>
-                    <p class="text-muted mb-0 mt-2">
-                        Select additional customizations for your garment
-                    </p>
-                </div>
-                <div class="card-body">
+<!-- ADDON SELECTION SECTION (Bespoke Products Only) -->
+{% if product_type|lower == 'bespokeproduct' %}
+<div class="addon-section mt-4">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">
+                            <i class="mdi mdi-plus-box me-2"></i>Add Customizations
+                        </h5>
+                        <p class="text-muted mb-0 mt-2">
+                            Customize your garment with heat transfer, screen print, or embroidery
+                        </p>
+                    </div>
+                    <div class="card-body">
+                        <!-- Accordion for addon types -->
+                        <div class="accordion" id="addonAccordion">
 
-                    <!-- Screen Print Section -->
-                    {% if bespoke_addons.screen_prints %}
-                    <div class="addon-group">
-                        <h6 class="fw-bold text-primary mb-3">
-                            <i class="mdi mdi-palette me-2"></i>Screen Print
-                        </h6>
-                        <div class="row">
-                            {% for addon in bespoke_addons.screen_prints %}
-                            <div class="col-md-6 mb-3">
-                                <div class="card border addon-card">
-                                    <div class="card-body">
-                                        <div class="form-check mb-3">
-                                            <input class="form-check-input addon-checkbox"
-                                                   type="checkbox"
-                                                   id="addon_{{ addon.id }}"
-                                                   data-addon-id="{{ addon.id }}"
-                                                   data-addon-type="screen_print">
-                                            <label class="form-check-label fw-bold" for="addon_{{ addon.id }}">
-                                                {{ addon.name }}
-                                            </label>
-                                        </div>
-
-                                        <div class="addon-details" id="addon_details_{{ addon.id }}" style="display: none;">
-                                            <p class="text-muted small mb-2">SKU: {{ addon.sku }}</p>
-
-                                            {% if addon.product_type == 'variable' and addon.variations.all %}
-                                            <div class="mb-2">
-                                                <label class="form-label small">Select Option:</label>
-                                                <select class="form-select form-select-sm addon-variation-select"
-                                                        id="variation_{{ addon.id }}"
-                                                        data-addon-id="{{ addon.id }}" disabled>
-                                                    <option value="">Choose...</option>
-                                                    {% for variation in addon.variations.all %}
-                                                    <option value="{{ variation.id }}"
-                                                            data-price="{{ variation.price|default:'0' }}">
-                                                        {{ variation.option1_value }}{% if variation.option2_value %} - {{ variation.option2_value }}{% endif %} - ${{ variation.price|default:'0' }}
-                                                    </option>
-                                                    {% endfor %}
+                            <!-- Heat Transfer Addon -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="headingHeatTransfer">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                            data-bs-target="#collapseHeatTransfer" aria-expanded="false"
+                                            aria-controls="collapseHeatTransfer">
+                                        <i class="mdi mdi-fire me-2 text-danger"></i>
+                                        <strong>Heat Transfer</strong>
+                                    </button>
+                                </h2>
+                                <div id="collapseHeatTransfer" class="accordion-collapse collapse"
+                                     aria-labelledby="headingHeatTransfer" data-bs-parent="#addonAccordion">
+                                    <div class="accordion-body">
+                                        <div class="row">
+                                            <div class="col-md-4 mb-3">
+                                                <label class="form-label">Size <span class="text-danger">*</span></label>
+                                                <select class="form-select" id="ht_size" required>
+                                                    <option value="">Select size...</option>
+                                                    <option value="small">Small (8x8cm)</option>
+                                                    <option value="medium">Medium (16x16cm)</option>
+                                                    <option value="large">Large (25x25cm)</option>
                                                 </select>
                                             </div>
-                                            {% else %}
-                                            <p class="small mb-2">Price: ${{ addon.price|default:'0' }}</p>
-                                            {% endif %}
-
-                                            <div class="mb-2">
-                                                <label class="form-label small">Quantity:</label>
-                                                <input type="number"
-                                                       class="form-control form-control-sm addon-quantity"
-                                                       id="quantity_{{ addon.id }}"
-                                                       data-addon-id="{{ addon.id }}"
-                                                       min="1"
-                                                       value="1"
-                                                       disabled>
+                                            <div class="col-md-4 mb-3">
+                                                <label class="form-label">Number of Colours <span class="text-danger">*</span></label>
+                                                <select class="form-select" id="ht_colors" required disabled>
+                                                    <option value="">Select colours...</option>
+                                                    <option value="1-2">1-2 Colours</option>
+                                                    <option value="3-4">3-4 Colours</option>
+                                                    <option value="5-6">5-6 Colours</option>
+                                                </select>
+                                                <small class="text-muted">Select size first</small>
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <label class="form-label">Quantity <span class="text-danger">*</span></label>
+                                                <input type="number" class="form-control" id="ht_quantity"
+                                                       min="1" value="1" required disabled>
+                                                <small class="text-muted">Select size first</small>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="alert alert-info mb-0" id="ht_price_display" style="display: none;">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <strong>Estimated Price:</strong>
+                                                            <div class="mt-1">
+                                                                <span class="fs-5 fw-bold" style="color: #0065F8;" id="ht_total_price">$0.00</span>
+                                                                <small class="text-muted ms-2">(<span id="ht_unit_price">$0.00</span> per unit)</small>
+                                                            </div>
+                                                        </div>
+                                                        <button type="button" class="btn btn-sm btn-primary" id="ht_add_btn" style="background: linear-gradient(135deg, #0065F8 0%, #0052CC 100%); border: none;">
+                                                            <i class="mdi mdi-plus me-1"></i>Add to Quote
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div class="alert alert-warning mb-0" id="ht_error_display" style="display: none;">
+                                                    <i class="mdi mdi-alert me-1"></i><span id="ht_error_msg"></span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
 
-                    <!-- Heat Transfer Section -->
-                    {% if bespoke_addons.heat_transfers %}
-                    <div class="addon-group">
-                        <h6 class="fw-bold text-primary mb-3">
-                            <i class="mdi mdi-fire me-2"></i>Heat Transfer
-                        </h6>
-                        <div class="row">
-                            {% for addon in bespoke_addons.heat_transfers %}
-                            <div class="col-md-6 mb-3">
-                                <div class="card border addon-card">
-                                    <div class="card-body">
-                                        <div class="form-check mb-3">
-                                            <input class="form-check-input addon-checkbox"
-                                                   type="checkbox"
-                                                   id="addon_{{ addon.id }}"
-                                                   data-addon-id="{{ addon.id }}"
-                                                   data-addon-type="heat_transfer">
-                                            <label class="form-check-label fw-bold" for="addon_{{ addon.id }}">
-                                                {{ addon.name }}
-                                            </label>
-                                        </div>
-
-                                        <div class="addon-details" id="addon_details_{{ addon.id }}" style="display: none;">
-                                            <p class="text-muted small mb-2">SKU: {{ addon.sku }}</p>
-
-                                            {% if addon.product_type == 'variable' and addon.variations.all %}
-                                            <div class="mb-2">
-                                                <label class="form-label small">Select Option:</label>
-                                                <select class="form-select form-select-sm addon-variation-select"
-                                                        id="variation_{{ addon.id }}"
-                                                        data-addon-id="{{ addon.id }}" disabled>
-                                                    <option value="">Choose...</option>
-                                                    {% for variation in addon.variations.all %}
-                                                    <option value="{{ variation.id }}"
-                                                            data-price="{{ variation.price|default:'0' }}">
-                                                        {{ variation.option1_value }}{% if variation.option2_value %} - {{ variation.option2_value }}{% endif %} - ${{ variation.price|default:'0' }}
-                                                    </option>
-                                                    {% endfor %}
+                            <!-- Screen Print Addon -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="headingScreenPrint">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                            data-bs-target="#collapseScreenPrint" aria-expanded="false"
+                                            aria-controls="collapseScreenPrint">
+                                        <i class="mdi mdi-palette me-2 text-primary"></i>
+                                        <strong>Screen Print</strong>
+                                    </button>
+                                </h2>
+                                <div id="collapseScreenPrint" class="accordion-collapse collapse"
+                                     aria-labelledby="headingScreenPrint" data-bs-parent="#addonAccordion">
+                                    <div class="accordion-body">
+                                        <div class="row">
+                                            <div class="col-md-4 mb-3">
+                                                <label class="form-label">Size <span class="text-danger">*</span></label>
+                                                <select class="form-select" id="sp_size" required>
+                                                    <option value="">Select size...</option>
+                                                    <option value="small">Small (8x8cm)</option>
+                                                    <option value="medium">Medium (16x16cm)</option>
+                                                    <option value="large">Large (25x25cm)</option>
                                                 </select>
                                             </div>
-                                            {% else %}
-                                            <p class="small mb-2">Price: ${{ addon.price|default:'0' }}</p>
-                                            {% endif %}
-
-                                            <div class="mb-2">
-                                                <label class="form-label small">Quantity:</label>
-                                                <input type="number"
-                                                       class="form-control form-control-sm addon-quantity"
-                                                       id="quantity_{{ addon.id }}"
-                                                       data-addon-id="{{ addon.id }}"
-                                                       min="1"
-                                                       value="1"
-                                                       disabled>
+                                            <div class="col-md-4 mb-3">
+                                                <label class="form-label">Number of Colours <span class="text-danger">*</span></label>
+                                                <select class="form-select" id="sp_colors" required disabled>
+                                                    <option value="">Select colours...</option>
+                                                    <option value="1-2">1-2 Colours</option>
+                                                    <option value="3-4">3-4 Colours</option>
+                                                    <option value="5-7">5-7 Colours</option>
+                                                </select>
+                                                <small class="text-muted">Select size first</small>
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <label class="form-label">Quantity <span class="text-danger">*</span></label>
+                                                <input type="number" class="form-control" id="sp_quantity"
+                                                       min="1" value="1" required disabled>
+                                                <small class="text-muted">Select size first</small>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="alert alert-info mb-0" id="sp_price_display" style="display: none;">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <strong>Estimated Price:</strong>
+                                                            <div class="mt-1">
+                                                                <span class="fs-5 fw-bold" style="color: #0065F8;" id="sp_total_price">$0.00</span>
+                                                                <small class="text-muted ms-2">(<span id="sp_unit_price">$0.00</span> per unit)</small>
+                                                            </div>
+                                                        </div>
+                                                        <button type="button" class="btn btn-sm btn-primary" id="sp_add_btn" style="background: linear-gradient(135deg, #0065F8 0%, #0052CC 100%); border: none;">
+                                                            <i class="mdi mdi-plus me-1"></i>Add to Quote
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div class="alert alert-warning mb-0" id="sp_error_display" style="display: none;">
+                                                    <i class="mdi mdi-alert me-1"></i><span id="sp_error_msg"></span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
 
-                    <!-- Embroidery Section -->
-                    {% if bespoke_addons.embroidery %}
-                    <div class="addon-group">
-                        <h6 class="fw-bold text-primary mb-3">
-                            <i class="mdi mdi-needle me-2"></i>Embroidery
-                        </h6>
-                        <div class="row">
-                            {% for addon in bespoke_addons.embroidery %}
-                            <div class="col-md-6 mb-3">
-                                <div class="card border addon-card">
-                                    <div class="card-body">
-                                        <div class="form-check mb-3">
-                                            <input class="form-check-input addon-checkbox"
-                                                   type="checkbox"
-                                                   id="addon_{{ addon.id }}"
-                                                   data-addon-id="{{ addon.id }}"
-                                                   data-addon-type="embroidery">
-                                            <label class="form-check-label fw-bold" for="addon_{{ addon.id }}">
-                                                {{ addon.name }}
-                                            </label>
+                            <!-- EMB/Applique Addon -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="headingEmbApplique">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                            data-bs-target="#collapseEmbApplique" aria-expanded="false"
+                                            aria-controls="collapseEmbApplique">
+                                        <i class="mdi mdi-needle me-2 text-success"></i>
+                                        <strong>EMB / Applique</strong>
+                                    </button>
+                                </h2>
+                                <div id="collapseEmbApplique" class="accordion-collapse collapse"
+                                     aria-labelledby="headingEmbApplique" data-bs-parent="#addonAccordion">
+                                    <div class="accordion-body">
+                                        <div class="row">
+                                            <div class="col-md-12 mb-3">
+                                                <label class="form-label d-block">Type <span class="text-danger">*</span></label>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="radio" name="emb_type"
+                                                           id="emb_type_emb" value="emb" checked>
+                                                    <label class="form-check-label" for="emb_type_emb">
+                                                        <strong>EMB</strong> (Embroidery)
+                                                    </label>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="radio" name="emb_type"
+                                                           id="emb_type_applique" value="applique">
+                                                    <label class="form-check-label" for="emb_type_applique">
+                                                        <strong>APPLIQUE</strong>
+                                                    </label>
+                                                </div>
+                                            </div>
                                         </div>
-
-                                        <div class="addon-details" id="addon_details_{{ addon.id }}" style="display: none;">
-                                            <p class="text-muted small mb-2">SKU: {{ addon.sku }}</p>
-
-                                            {% if addon.product_type == 'variable' and addon.variations.all %}
-                                            <div class="mb-2">
-                                                <label class="form-label small">Select Option:</label>
-                                                <select class="form-select form-select-sm addon-variation-select"
-                                                        id="variation_{{ addon.id }}"
-                                                        data-addon-id="{{ addon.id }}" disabled>
-                                                    <option value="">Choose...</option>
-                                                    {% for variation in addon.variations.all %}
-                                                    <option value="{{ variation.id }}"
-                                                            data-price="{{ variation.price|default:'0' }}">
-                                                        {{ variation.option1_value }}{% if variation.option2_value %} - {{ variation.option2_value }}{% endif %} - ${{ variation.price|default:'0' }}
-                                                    </option>
-                                                    {% endfor %}
+                                        <div class="row">
+                                            <div class="col-md-4 mb-3">
+                                                <label class="form-label">Stitch Complexity <span class="text-danger">*</span></label>
+                                                <select class="form-select" id="emb_stitch" required>
+                                                    <option value="">Select complexity...</option>
+                                                    <option value="low">Low Stitch (1-12,000)</option>
+                                                    <option value="avg">Avg Stitch (13-26,000)</option>
+                                                    <option value="lrg">Lrg Stitch (26-50,000)</option>
                                                 </select>
                                             </div>
-                                            {% else %}
-                                            <p class="small mb-2">Price: ${{ addon.price|default:'0' }}</p>
-                                            {% endif %}
-
-                                            <div class="mb-2">
-                                                <label class="form-label small">Quantity:</label>
-                                                <input type="number"
-                                                       class="form-control form-control-sm addon-quantity"
-                                                       id="quantity_{{ addon.id }}"
-                                                       data-addon-id="{{ addon.id }}"
-                                                       min="1"
-                                                       value="1"
-                                                       disabled>
+                                            <div class="col-md-4 mb-3">
+                                                <label class="form-label">Quantity <span class="text-danger">*</span></label>
+                                                <input type="number" class="form-control" id="emb_quantity"
+                                                       min="1" value="1" required disabled>
+                                                <small class="text-muted">Select stitch complexity first</small>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="alert alert-info mb-0" id="emb_price_display" style="display: none;">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <strong>Estimated Price:</strong>
+                                                            <div class="mt-1">
+                                                                <span class="fs-5 fw-bold" style="color: #0065F8;" id="emb_total_price">$0.00</span>
+                                                                <small class="text-muted ms-2">(<span id="emb_unit_price">$0.00</span> per unit)</small>
+                                                            </div>
+                                                        </div>
+                                                        <button type="button" class="btn btn-sm btn-primary" id="emb_add_btn" style="background: linear-gradient(135deg, #0065F8 0%, #0052CC 100%); border: none;">
+                                                            <i class="mdi mdi-plus me-1"></i>Add to Quote
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div class="alert alert-warning mb-0" id="emb_error_display" style="display: none;">
+                                                    <i class="mdi mdi-alert me-1"></i><span id="emb_error_msg"></span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            {% endfor %}
+
                         </div>
                     </div>
-                    {% endif %}
-
-                    <div class="text-end mt-4">
-                        <button type="button" class="btn btn-secondary me-2" id="cancelAddonsBtn">
-                            <i class="mdi mdi-close me-1"></i>Cancel
-                        </button>
-                        <button type="button" class="btn btn-primary" id="confirmAddonsBtn">
-                            <i class="mdi mdi-check me-1"></i>Add Selected Addons
-                        </button>
-                    </div>
-
                 </div>
             </div>
         </div>
@@ -1950,121 +1961,246 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ========================================
-// ADDON SELECTION FUNCTIONALITY
+// ADDON PRICE CALCULATION FUNCTIONALITY
 // ========================================
-{% if bespoke_addons %}
+{% if product_type|lower == 'bespokeproduct' %}
 (function() {
-    // Handle checkbox changes
-    const addonCheckboxes = document.querySelectorAll('.addon-checkbox');
-    addonCheckboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            const addonId = this.dataset.addonId;
-            const detailsDiv = document.getElementById(`addon_details_${addonId}`);
-            const variationSelect = document.getElementById(`variation_${addonId}`);
-            const quantityInput = document.getElementById(`quantity_${addonId}`);
-            const card = this.closest('.addon-card');
+    'use strict';
 
-            if (this.checked) {
-                // Show details and enable controls
-                if (detailsDiv) detailsDiv.style.display = 'block';
-                if (variationSelect) variationSelect.disabled = false;
-                if (quantityInput) quantityInput.disabled = false;
-                if (card) card.classList.add('selected');
+    const API_ENDPOINT = '/bespoke/api/pricing/calculate/';
+
+    // Helper function to get CSRF token
+    function getCsrfToken() {
+        return csrftoken || '';
+    }
+
+    // Helper function to format currency
+    function formatCurrency(amount) {
+        return '$' + parseFloat(amount).toFixed(2);
+    }
+
+    // Generic price calculation function
+    async function calculatePrice(addonType, data) {
+        try {
+            const response = await fetch(API_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({
+                    addon_type: addonType,
+                    ...data
+                })
+            });
+
+            const result = await response.json();
+            return result;
+        } catch (error) {
+            console.error('Price calculation error:', error);
+            return {
+                success: false,
+                error: 'Network error. Please try again.'
+            };
+        }
+    }
+
+    // Display price or error
+    function displayResult(prefix, result) {
+        const priceDisplay = document.getElementById(`${prefix}_price_display`);
+        const errorDisplay = document.getElementById(`${prefix}_error_display`);
+        const errorMsg = document.getElementById(`${prefix}_error_msg`);
+        const totalPrice = document.getElementById(`${prefix}_total_price`);
+        const unitPrice = document.getElementById(`${prefix}_unit_price`);
+
+        if (result.success) {
+            // Show price
+            totalPrice.textContent = formatCurrency(result.total_price);
+            unitPrice.textContent = formatCurrency(result.price_per_unit);
+            priceDisplay.style.display = 'block';
+            errorDisplay.style.display = 'none';
+        } else {
+            // Show error
+            errorMsg.textContent = result.error || result.message || 'Price not available';
+            errorDisplay.style.display = 'block';
+            priceDisplay.style.display = 'none';
+        }
+    }
+
+    // ========================================
+    // HEAT TRANSFER
+    // ========================================
+    const htSize = document.getElementById('ht_size');
+    const htColors = document.getElementById('ht_colors');
+    const htQuantity = document.getElementById('ht_quantity');
+    const htAddBtn = document.getElementById('ht_add_btn');
+
+    if (htSize) {
+        htSize.addEventListener('change', function() {
+            if (this.value) {
+                htColors.disabled = false;
+                htQuantity.disabled = false;
             } else {
-                // Hide details and disable controls
-                if (detailsDiv) detailsDiv.style.display = 'none';
-                if (variationSelect) {
-                    variationSelect.disabled = true;
-                    variationSelect.value = '';
-                }
-                if (quantityInput) {
-                    quantityInput.disabled = true;
-                    quantityInput.value = 1;
-                }
-                if (card) card.classList.remove('selected');
+                htColors.disabled = true;
+                htQuantity.disabled = true;
+                htColors.value = '';
+                document.getElementById('ht_price_display').style.display = 'none';
+                document.getElementById('ht_error_display').style.display = 'none';
             }
-        });
-    });
-
-    // Handle cancel button
-    const cancelBtn = document.getElementById('cancelAddonsBtn');
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', function() {
-            // Uncheck all checkboxes and reset form
-            addonCheckboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    checkbox.checked = false;
-                    checkbox.dispatchEvent(new Event('change'));
-                }
-            });
         });
     }
 
-    // Handle confirm button
-    const confirmBtn = document.getElementById('confirmAddonsBtn');
-    if (confirmBtn) {
-        confirmBtn.addEventListener('click', function() {
-            const selectedAddons = [];
+    async function calculateHeatTransferPrice() {
+        const size = htSize.value;
+        const colors = htColors.value;
+        const quantity = parseInt(htQuantity.value) || 1;
 
-            // Collect all selected addons
-            addonCheckboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    const addonId = checkbox.dataset.addonId;
-                    const variationSelect = document.getElementById(`variation_${addonId}`);
-                    const quantityInput = document.getElementById(`quantity_${addonId}`);
-                    const addonType = checkbox.dataset.addonType;
-                    const addonName = checkbox.nextElementSibling.textContent.trim();
+        if (!size || !colors || !quantity) {
+            return;
+        }
 
-                    const addonData = {
-                        id: addonId,
-                        type: addonType,
-                        name: addonName,
-                        quantity: quantityInput ? parseInt(quantityInput.value) : 1
-                    };
+        const result = await calculatePrice('heat_transfer', {
+            size: size,
+            color_range: colors,
+            quantity: quantity
+        });
 
-                    // Add variation if selected
-                    if (variationSelect && variationSelect.value) {
-                        addonData.variation_id = variationSelect.value;
-                        addonData.variation_name = variationSelect.options[variationSelect.selectedIndex].text;
-                    }
+        displayResult('ht', result);
+    }
 
-                    selectedAddons.push(addonData);
-                }
-            });
+    if (htColors) {
+        htColors.addEventListener('change', calculateHeatTransferPrice);
+        htQuantity.addEventListener('input', calculateHeatTransferPrice);
+    }
 
-            if (selectedAddons.length === 0) {
-                alert('Please select at least one addon to add.');
-                return;
-            }
+    if (htAddBtn) {
+        htAddBtn.addEventListener('click', function() {
+            const totalPrice = document.getElementById('ht_total_price').textContent;
+            const quantity = htQuantity.value;
+            const size = htSize.options[htSize.selectedIndex].text;
+            const colors = htColors.options[htColors.selectedIndex].text;
 
-            // Display selected addons info
-            console.log('Selected addons:', selectedAddons);
-
-            // TODO: Implement actual add to quotation functionality
-            // This would typically involve AJAX calls to add each addon to the quotation
-            // For now, show a confirmation message
-
-            let message = 'Selected Addons:\n\n';
-            selectedAddons.forEach(addon => {
-                message += `- ${addon.name}`;
-                if (addon.variation_name) {
-                    message += ` (${addon.variation_name})`;
-                }
-                message += ` x ${addon.quantity}\n`;
-            });
-            message += '\n\nNote: Addon functionality needs to be integrated with quotation cart.';
-
-            alert(message);
-
-            // Reset form after confirmation
-            addonCheckboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    checkbox.checked = false;
-                    checkbox.dispatchEvent(new Event('change'));
-                }
-            });
+            showSuccessNotification(`Heat Transfer: ${size}, ${colors}, Qty: ${quantity}, Total: ${totalPrice} - Ready to add to quote`);
         });
     }
+
+    // ========================================
+    // SCREEN PRINT
+    // ========================================
+    const spSize = document.getElementById('sp_size');
+    const spColors = document.getElementById('sp_colors');
+    const spQuantity = document.getElementById('sp_quantity');
+    const spAddBtn = document.getElementById('sp_add_btn');
+
+    if (spSize) {
+        spSize.addEventListener('change', function() {
+            if (this.value) {
+                spColors.disabled = false;
+                spQuantity.disabled = false;
+            } else {
+                spColors.disabled = true;
+                spQuantity.disabled = true;
+                spColors.value = '';
+                document.getElementById('sp_price_display').style.display = 'none';
+                document.getElementById('sp_error_display').style.display = 'none';
+            }
+        });
+    }
+
+    async function calculateScreenPrintPrice() {
+        const size = spSize.value;
+        const colors = spColors.value;
+        const quantity = parseInt(spQuantity.value) || 1;
+
+        if (!size || !colors || !quantity) {
+            return;
+        }
+
+        const result = await calculatePrice('screen_print', {
+            size: size,
+            color_range: colors,
+            quantity: quantity
+        });
+
+        displayResult('sp', result);
+    }
+
+    if (spColors) {
+        spColors.addEventListener('change', calculateScreenPrintPrice);
+        spQuantity.addEventListener('input', calculateScreenPrintPrice);
+    }
+
+    if (spAddBtn) {
+        spAddBtn.addEventListener('click', function() {
+            const totalPrice = document.getElementById('sp_total_price').textContent;
+            const quantity = spQuantity.value;
+            const size = spSize.options[spSize.selectedIndex].text;
+            const colors = spColors.options[spColors.selectedIndex].text;
+
+            showSuccessNotification(`Screen Print: ${size}, ${colors}, Qty: ${quantity}, Total: ${totalPrice} - Ready to add to quote`);
+        });
+    }
+
+    // ========================================
+    // EMB/APPLIQUE
+    // ========================================
+    const embStitch = document.getElementById('emb_stitch');
+    const embQuantity = document.getElementById('emb_quantity');
+    const embTypeRadios = document.querySelectorAll('input[name="emb_type"]');
+    const embAddBtn = document.getElementById('emb_add_btn');
+
+    if (embStitch) {
+        embStitch.addEventListener('change', function() {
+            if (this.value) {
+                embQuantity.disabled = false;
+            } else {
+                embQuantity.disabled = true;
+                document.getElementById('emb_price_display').style.display = 'none';
+                document.getElementById('emb_error_display').style.display = 'none';
+            }
+        });
+    }
+
+    async function calculateEmbPrice() {
+        const stitch = embStitch.value;
+        const quantity = parseInt(embQuantity.value) || 1;
+        const embType = document.querySelector('input[name="emb_type"]:checked')?.value || 'emb';
+
+        if (!stitch || !quantity) {
+            return;
+        }
+
+        // Note: EMB/Applique pricing uses 'small' size as default since size isn't a user selection for this addon
+        const result = await calculatePrice('emb_applique', {
+            size: 'small',  // Default size for EMB
+            stitch_complexity: stitch,
+            emb_or_applique: embType,
+            quantity: quantity
+        });
+
+        displayResult('emb', result);
+    }
+
+    if (embStitch) {
+        embStitch.addEventListener('change', calculateEmbPrice);
+        embQuantity.addEventListener('input', calculateEmbPrice);
+        embTypeRadios.forEach(radio => {
+            radio.addEventListener('change', calculateEmbPrice);
+        });
+    }
+
+    if (embAddBtn) {
+        embAddBtn.addEventListener('click', function() {
+            const totalPrice = document.getElementById('emb_total_price').textContent;
+            const quantity = embQuantity.value;
+            const stitch = embStitch.options[embStitch.selectedIndex].text;
+            const embType = document.querySelector('input[name="emb_type"]:checked')?.value || 'emb';
+            const embTypeLabel = embType === 'emb' ? 'EMB (Embroidery)' : 'APPLIQUE';
+
+            showSuccessNotification(`${embTypeLabel}: ${stitch}, Qty: ${quantity}, Total: ${totalPrice} - Ready to add to quote`);
+        });
+    }
+
 })();
 {% endif %}
 </script>
