@@ -631,6 +631,150 @@
     }
 }
 
+/* Addon Sub-Items Styling */
+.addon-item {
+    border-left: 3px solid #d1d9e6;
+    margin-left: 2.5rem;
+    padding: 0.5rem 0.75rem;
+    background-color: #f9fafb;
+}
+
+.addon-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
+    width: 100%;
+}
+
+.addon-prefix {
+    flex: 0 0 auto;
+    color: #74788d;
+    font-size: 14px;
+    font-weight: 500;
+    margin-right: 0.5rem;
+}
+
+.addon-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-right: 0.5rem;
+}
+
+.addon-col-details {
+    flex: 0 0 30%;
+    min-width: 200px;
+}
+
+.addon-col-size {
+    flex: 0 0 15%;
+    min-width: 100px;
+}
+
+.addon-col-options {
+    flex: 0 0 15%;
+    min-width: 100px;
+}
+
+.addon-col-qty {
+    flex: 0 0 10%;
+    min-width: 70px;
+}
+
+.addon-col-price {
+    flex: 0 0 13%;
+    min-width: 90px;
+}
+
+.addon-col-total {
+    flex: 0 0 15%;
+    min-width: 100px;
+}
+
+.addon-label {
+    font-size: 10px;
+    color: #74788d;
+    text-transform: uppercase;
+    margin-bottom: 0.2rem;
+    font-weight: 500;
+}
+
+.addon-value {
+    font-size: 13px;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.addon-price {
+    font-size: 13px;
+    color: #556ee6;
+    font-weight: 600;
+}
+
+.addon-total {
+    font-size: 14px;
+    color: #495057;
+    font-weight: 600;
+}
+
+.addon-type-badge {
+    display: inline-block;
+    background-color: #e3f2fd;
+    color: #1976d2;
+    padding: 0.2rem 0.6rem;
+    border-radius: 0.25rem;
+    font-size: 11px;
+    font-weight: 500;
+    margin-right: 0.25rem;
+    white-space: nowrap;
+}
+
+.addon-type-badge.heat-transfer {
+    background-color: #fff3e0;
+    color: #f57c00;
+}
+
+.addon-type-badge.screen-print {
+    background-color: #e8f5e9;
+    color: #388e3c;
+}
+
+.addon-type-badge.embroidery {
+    background-color: #f3e5f5;
+    color: #7b1fa2;
+}
+
+/* Responsive - Stack on Mobile */
+@media (max-width: 767px) {
+    .addon-row {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .addon-col-details {
+        width: 100%;
+        min-width: unset;
+    }
+
+    .addon-col-size,
+    .addon-col-options {
+        width: calc(50% - 0.375rem);
+        min-width: unset;
+    }
+
+    .addon-col-qty,
+    .addon-col-price {
+        width: calc(50% - 0.375rem);
+        min-width: unset;
+    }
+
+    .addon-col-total {
+        width: 100%;
+        min-width: unset;
+    }
+}
+
 /* Empty Cart State */
 .empty-cart-container {
     text-align: center;
@@ -830,6 +974,78 @@
                                     </a>
                                 </div>
                             </div>
+
+                            <!-- Display Addons for Bespoke Products -->
+                            {% if item.product_type|lower == 'bespokeproduct' and item.addons %}
+                                {% for addon in item.addons %}
+                                <div class="addon-item border-top">
+                                    <div class="addon-row">
+                                        <!-- Prefix Arrow/Icon -->
+                                        <div class="addon-prefix">
+                                            ↳
+                                        </div>
+
+                                        <!-- Column 1: Addon Type and Name -->
+                                        <div class="addon-col addon-col-details">
+                                            <div class="addon-label">Customization</div>
+                                            <div>
+                                                {% if addon.addon_type == 'heat_transfer' %}
+                                                    <span class="addon-type-badge heat-transfer">Heat Transfer</span>
+                                                {% elif addon.addon_type == 'screen_print' %}
+                                                    <span class="addon-type-badge screen-print">Screen Print</span>
+                                                {% elif addon.addon_type == 'emb_applique' %}
+                                                    <span class="addon-type-badge embroidery">Embroidery/Applique</span>
+                                                {% else %}
+                                                    <span class="addon-type-badge">{{ addon.addon_type|title }}</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        <!-- Column 2: Size -->
+                                        <div class="addon-col addon-col-size">
+                                            <div class="addon-label">Size</div>
+                                            {% if addon.size %}
+                                                <div class="addon-value">{{ addon.size|title }}</div>
+                                            {% else %}
+                                                <div class="addon-value text-muted">-</div>
+                                            {% endif %}
+                                        </div>
+
+                                        <!-- Column 3: Colors/Stitch -->
+                                        <div class="addon-col addon-col-options">
+                                            <div class="addon-label">Details</div>
+                                            {% if addon.colors %}
+                                                <div class="addon-value">{{ addon.colors }} color{{ addon.colors|pluralize }}</div>
+                                            {% elif addon.stitch_complexity %}
+                                                <div class="addon-value">{{ addon.stitch_complexity|upper }} stitch</div>
+                                            {% elif addon.emb_or_applique %}
+                                                <div class="addon-value">{{ addon.emb_or_applique|upper }}</div>
+                                            {% else %}
+                                                <div class="addon-value text-muted">-</div>
+                                            {% endif %}
+                                        </div>
+
+                                        <!-- Column 4: Quantity -->
+                                        <div class="addon-col addon-col-qty">
+                                            <div class="addon-label">Qty</div>
+                                            <div class="addon-value">{{ addon.quantity }}</div>
+                                        </div>
+
+                                        <!-- Column 5: Price Per Unit -->
+                                        <div class="addon-col addon-col-price">
+                                            <div class="addon-label">Unit Price</div>
+                                            <div class="addon-price">${{ addon.price_per_unit|floatformat:2|intcomma }}</div>
+                                        </div>
+
+                                        <!-- Column 6: Total Price -->
+                                        <div class="addon-col addon-col-total">
+                                            <div class="addon-label">Addon Total</div>
+                                            <div class="addon-total">${{ addon.total_price|floatformat:2|intcomma }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% endif %}
                         </div>
                         {% endfor %}
                     </div>

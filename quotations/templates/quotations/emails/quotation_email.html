@@ -169,6 +169,97 @@
 
                             <p style="font-size: 14px; color: #333333; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">{% if is_update %}Please find the attachment for your updated price quote.{% else %}Please find the attachment for the price quote for the items you requested.{% endif %}</p>
 
+                            <!-- Order Summary -->
+                            {% if items %}
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 25px 0; border-collapse: collapse; font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                <thead>
+                                    <tr style="background-color: #f8f9fa;">
+                                        <th style="padding: 12px; text-align: left; font-size: 12px; font-weight: 600; color: #495057; border-bottom: 2px solid #eff2f7;">Item</th>
+                                        <th style="padding: 12px; text-align: left; font-size: 12px; font-weight: 600; color: #495057; border-bottom: 2px solid #eff2f7;">Price</th>
+                                        <th style="padding: 12px; text-align: left; font-size: 12px; font-weight: 600; color: #495057; border-bottom: 2px solid #eff2f7;">Qty</th>
+                                        <th style="padding: 12px; text-align: right; font-size: 12px; font-weight: 600; color: #495057; border-bottom: 2px solid #eff2f7;">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in items %}
+                                    <!-- Base Item Row -->
+                                    <tr>
+                                        <td style="padding: 12px; font-size: 13px; color: #333333; border-bottom: 1px solid #eff2f7;">
+                                            <strong>{{ item.product_name }}</strong>
+                                            {% if item.variations %}
+                                                <br>
+                                                <span style="font-size: 12px; color: #6c757d;">
+                                                    {% if item.product_sku %}SKU: {{ item.product_sku }}{% endif %}
+                                                    {% if item.variations.size %}{% if item.product_sku %} | {% endif %}Size: {{ item.variations.size }}{% endif %}
+                                                    {% if item.variations.color %} | Color: {{ item.variations.color }}{% endif %}
+                                                </span>
+                                            {% endif %}
+                                            {% if item.notes %}
+                                                <br><span style="font-size: 11px; color: #74788d;">Note: {{ item.notes }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td style="padding: 12px; font-size: 13px; color: #333333; border-bottom: 1px solid #eff2f7;">${{ item.unit_price|floatformat:2 }}</td>
+                                        <td style="padding: 12px; font-size: 13px; color: #333333; border-bottom: 1px solid #eff2f7;">{{ item.quantity }}</td>
+                                        <td style="padding: 12px; font-size: 13px; color: #333333; text-align: right; border-bottom: 1px solid #eff2f7;">${{ item.line_total|floatformat:2 }}</td>
+                                    </tr>
+
+                                    <!-- Addon Rows -->
+                                    {% if not item.is_addon and item.addons.all %}
+                                        {% for addon in item.addons.all %}
+                                        <tr style="background-color: #f9fafb;">
+                                            <td style="padding: 8px 12px 8px 32px; font-size: 12px; color: #6c757d; border-bottom: 1px solid #eff2f7;">
+                                                <span style="color: #74788d; font-weight: 500; margin-right: 4px;">↳</span>
+                                                {% if addon.addon_type == 'heat_transfer' %}
+                                                    <span style="display: inline-block; background-color: #fff3e0; color: #f57c00; padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: 500;">Heat Transfer</span>
+                                                {% elif addon.addon_type == 'screen_print' %}
+                                                    <span style="display: inline-block; background-color: #e8f5e9; color: #388e3c; padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: 500;">Screen Print</span>
+                                                {% elif addon.addon_type == 'emb_applique' %}
+                                                    <span style="display: inline-block; background-color: #f3e5f5; color: #7b1fa2; padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: 500;">Embroidery/Applique</span>
+                                                {% else %}
+                                                    <span style="display: inline-block; background-color: #e3f2fd; color: #1976d2; padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: 500;">{{ addon.addon_type|title }}</span>
+                                                {% endif %}
+                                                <span style="font-size: 11px; color: #6c757d;">
+                                                    {% if addon.variations.size %} | Size: {{ addon.variations.size|title }}{% endif %}
+                                                    {% if addon.variations.colors %} | {{ addon.variations.colors }} color{{ addon.variations.colors|pluralize }}{% endif %}
+                                                    {% if addon.variations.stitch_complexity %} | {{ addon.variations.stitch_complexity|upper }} stitch{% endif %}
+                                                    {% if addon.variations.emb_or_applique %} | {{ addon.variations.emb_or_applique|upper }}{% endif %}
+                                                </span>
+                                            </td>
+                                            <td style="padding: 8px 12px; font-size: 12px; color: #556ee6; font-weight: 600; border-bottom: 1px solid #eff2f7;">${{ addon.unit_price|floatformat:2 }}</td>
+                                            <td style="padding: 8px 12px; font-size: 12px; color: #6c757d; border-bottom: 1px solid #eff2f7;">{{ addon.quantity }}</td>
+                                            <td style="padding: 8px 12px; font-size: 12px; color: #556ee6; font-weight: 600; text-align: right; border-bottom: 1px solid #eff2f7;">${{ addon.line_total|floatformat:2 }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% endif %}
+                                    {% endfor %}
+
+                                    <!-- Totals -->
+                                    <tr>
+                                        <td colspan="3" style="padding: 12px; text-align: right; font-size: 13px; font-weight: 600; color: #333333; border-top: 2px solid #eff2f7;">Subtotal:</td>
+                                        <td style="padding: 12px; text-align: right; font-size: 13px; color: #333333; border-top: 2px solid #eff2f7;">${{ quotation.subtotal|floatformat:2 }}</td>
+                                    </tr>
+                                    {% if quotation.discount_percentage or quotation.discount_amount %}
+                                    <tr>
+                                        <td colspan="3" style="padding: 12px; text-align: right; font-size: 13px; font-weight: 600; color: #333333;">
+                                            Discount {% if quotation.discount_percentage %}({{ quotation.discount_percentage }}%){% endif %}:
+                                        </td>
+                                        <td style="padding: 12px; text-align: right; font-size: 13px; color: #f46a6a;">
+                                            -${{ discount_amount|floatformat:2 }}
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                    <tr>
+                                        <td colspan="3" style="padding: 12px; text-align: right; font-size: 13px; font-weight: 600; color: #333333;">Tax (GST {{ quotation.tax_percentage }}%):</td>
+                                        <td style="padding: 12px; text-align: right; font-size: 13px; color: #333333;">${{ quotation.tax_amount|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="3" style="padding: 12px; text-align: right; font-size: 15px; font-weight: 700; color: #333333; border-top: 2px solid #eff2f7;">Total:</td>
+                                        <td style="padding: 12px; text-align: right; font-size: 15px; font-weight: 700; color: #333333; border-top: 2px solid #eff2f7;">${{ quotation.total|floatformat:2 }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            {% endif %}
+
             <!-- Terms and Conditions -->
             <div class="terms-section" style="font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
                 <h3 style="font-family: 'Jost', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">Important Terms</h3>

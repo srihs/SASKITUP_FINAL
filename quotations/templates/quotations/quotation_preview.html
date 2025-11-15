@@ -249,6 +249,73 @@
 .badge.bg-secondary {
     background-color: #74788d !important;
 }
+
+/* Addon Sub-Items Styling */
+.addon-row {
+    background-color: #f9fafb;
+}
+
+.addon-row td {
+    padding: 8px 12px;
+    font-size: 11px;
+    color: #6c757d;
+}
+
+.addon-prefix {
+    color: #74788d;
+    font-weight: 500;
+    padding-right: 4px;
+}
+
+.addon-type-badge {
+    display: inline-block;
+    background-color: #e3f2fd;
+    color: #1976d2;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.addon-type-badge.heat-transfer {
+    background-color: #fff3e0;
+    color: #f57c00;
+}
+
+.addon-type-badge.screen-print {
+    background-color: #e8f5e9;
+    color: #388e3c;
+}
+
+.addon-type-badge.embroidery {
+    background-color: #f3e5f5;
+    color: #7b1fa2;
+}
+
+.addon-details {
+    font-size: 11px;
+    color: #6c757d;
+}
+
+.addon-price {
+    color: #556ee6;
+    font-weight: 600;
+}
+
+@media print {
+    .addon-row {
+        background-color: #f9fafb !important;
+    }
+
+    .addon-row td {
+        font-size: 11px !important;
+    }
+
+    .addon-type-badge {
+        font-size: 10px !important;
+    }
+}
 </style>
 {% endblock %}
 
@@ -388,6 +455,37 @@
                                         <td>{{ item.quantity }}</td>
                                         <td class="text-end">${{ item.line_total|floatformat:2 }}</td>
                                     </tr>
+
+                                    <!-- Display Addons for Bespoke Products -->
+                                    {% if not item.is_addon and item.addons.all %}
+                                        {% for addon in item.addons.all %}
+                                        <tr class="addon-row">
+                                            <td></td>
+                                            <td>
+                                                <span class="addon-prefix">↳</span>
+                                                {% if addon.addon_type == 'heat_transfer' %}
+                                                    <span class="addon-type-badge heat-transfer">Heat Transfer</span>
+                                                {% elif addon.addon_type == 'screen_print' %}
+                                                    <span class="addon-type-badge screen-print">Screen Print</span>
+                                                {% elif addon.addon_type == 'emb_applique' %}
+                                                    <span class="addon-type-badge embroidery">Embroidery/Applique</span>
+                                                {% else %}
+                                                    <span class="addon-type-badge">{{ addon.addon_type|title }}</span>
+                                                {% endif %}
+                                                <span class="addon-details">
+                                                    {% if addon.variations.size %} | Size: {{ addon.variations.size|title }}{% endif %}
+                                                    {% if addon.variations.colors %} | {{ addon.variations.colors }} color{{ addon.variations.colors|pluralize }}{% endif %}
+                                                    {% if addon.variations.stitch_complexity %} | {{ addon.variations.stitch_complexity|upper }} stitch{% endif %}
+                                                    {% if addon.variations.emb_or_applique %} | {{ addon.variations.emb_or_applique|upper }}{% endif %}
+                                                </span>
+                                            </td>
+                                            <td><span class="addon-price">${{ addon.unit_price|floatformat:2 }}</span></td>
+                                            <td>{{ addon.quantity }}</td>
+                                            <td class="text-end"><span class="addon-price">${{ addon.line_total|floatformat:2 }}</span></td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% endif %}
+
                                     {% empty %}
                                     <tr>
                                         <td colspan="5" class="text-center text-muted">No items in this quotation</td>

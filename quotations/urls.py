@@ -44,6 +44,7 @@ urlpatterns = [
 
     # AJAX Endpoints
     path('add/', views.AddToQuotationView.as_view(), name='add-item'),
+    # REMOVED: path('add-addon/') - Addons are now added together with the base product
     path('update/', views.UpdateQuotationItemView.as_view(), name='update-item'),
     path('remove/', views.RemoveQuotationItemView.as_view(), name='remove-item'),
     path('clear/', views.ClearQuotationView.as_view(), name='clear'),

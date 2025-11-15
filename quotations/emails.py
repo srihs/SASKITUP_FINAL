@@ -160,10 +160,18 @@ def send_quotation_email(
         if quotation.institution:
             subject += f" - {quotation.institution_name}"
 
-        # Get quotation items
-        items = quotation.items.select_related(
+        # Get quotation items with addons (only base items, not addon items themselves)
+        items = quotation.items.filter(is_addon=False).select_related(
             'product_content_type'
-        ).all()
+        ).prefetch_related('addons').all()
+
+        # Calculate discount amount for email display
+        from decimal import Decimal
+        discount_amount = Decimal('0.00')
+        if quotation.discount_percentage:
+            discount_amount = (quotation.subtotal * quotation.discount_percentage / Decimal('100')).quantize(Decimal('0.01'))
+        elif quotation.discount_amount:
+            discount_amount = quotation.discount_amount
 
         # Context for email templates
         email_context = {
@@ -173,6 +181,7 @@ def send_quotation_email(
             'institution_name': quotation.institution_name,
             'quotation_url': _get_quotation_url(quotation),
             'EMAIL_HOST_USER': settings.EMAIL_HOST_USER,
+            'discount_amount': discount_amount,
         }
 
         # Render HTML email template

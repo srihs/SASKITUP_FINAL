@@ -751,6 +751,36 @@ class QuotationItem(models.Model):
         help_text="Notes about this item"
     )
 
+    # Addon-specific fields
+    is_addon = models.BooleanField(
+        default=False,
+        help_text="Whether this item is an addon (customization) for a base garment"
+    )
+    parent_item = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='addons',
+        help_text="Parent base garment item (if this is an addon)"
+    )
+    addon_type = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        choices=[
+            ('heat_transfer', 'Heat Transfer'),
+            ('screen_print', 'Screen Print'),
+            ('emb_applique', 'EMB/Applique'),
+        ],
+        help_text="Type of addon customization"
+    )
+    addon_details = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Addon configuration details (size, colors, stitch complexity, etc.)"
+    )
+
     # Ordering
     sort_order = models.PositiveIntegerField(
         default=0,
@@ -854,6 +884,30 @@ class QuotationItem(models.Model):
             'tusproduct': 'TUS Retail',
         }
         return type_map.get(model_name, model_name.title())
+
+    def get_addon_type_display_name(self):
+        """Get display name for addon type"""
+        if not self.is_addon or not self.addon_type:
+            return None
+        addon_map = {
+            'heat_transfer': 'Heat Transfer',
+            'screen_print': 'Screen Print',
+            'emb_applique': 'EMB/Applique',
+        }
+        return addon_map.get(self.addon_type, self.addon_type.replace('_', ' ').title())
+
+    def can_have_addons(self):
+        """Check if this item type supports addons (only Bespoke products)"""
+        if not self.product_content_type:
+            return False
+        model_name = self.product_content_type.model
+        return model_name.lower() == 'bespokeproduct'
+
+    def get_addons(self):
+        """Get addon items for this base item (only for Bespoke products)"""
+        if self.can_have_addons():
+            return self.addons.filter(is_addon=True)
+        return QuotationItem.objects.none()
 
 
 class CustomerInstitutionAssignment(models.Model):

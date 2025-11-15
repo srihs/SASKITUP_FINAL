@@ -119,7 +119,7 @@ def clear_quotation_session(request):
 
 
 def calculate_quotation_totals(quotation_data):
-    """Calculate totals for quotation session data"""
+    """Calculate totals for quotation session data including addons"""
     from .models import SiteSettings
 
     subtotal = Decimal('0.00')
@@ -129,8 +129,16 @@ def calculate_quotation_totals(quotation_data):
     tax_percentage = settings.gst_percentage
 
     for item in quotation_data.get('items', []):
+        # Base product price
         line_total = Decimal(str(item['unit_price'])) * Decimal(str(item['quantity']))
         subtotal += line_total
+
+        # Add addon prices ONLY for Bespoke products
+        product_type = item.get('product_type', '')
+        if product_type and product_type.lower() == 'bespokeproduct':
+            for addon in item.get('addons', []):
+                addon_total = Decimal(str(addon.get('total_price', 0)))
+                subtotal += addon_total
 
     tax_amount = (subtotal * tax_percentage / Decimal('100')).quantize(Decimal('0.01'))
     total = (subtotal + tax_amount).quantize(Decimal('0.01'))
@@ -990,7 +998,7 @@ class QuotationCartView(LoginRequiredMixin, View):
 # =====================================
 
 class AddToQuotationView(LoginRequiredMixin, View):
-    """AJAX endpoint to add product to quotation"""
+    """AJAX endpoint to add product to quotation with optional addons"""
 
     def post(self, request):
         try:
@@ -1006,6 +1014,16 @@ class AddToQuotationView(LoginRequiredMixin, View):
                 variations = json.loads(variations_json)
             except json.JSONDecodeError:
                 variations = {}
+
+            # Get addons array if provided (only process for Bespoke products)
+            addons_json = request.POST.get('addons', '[]')
+            addons = []
+            if product_type and product_type.lower() == 'bespokeproduct':
+                try:
+                    addons = json.loads(addons_json)
+                except json.JSONDecodeError:
+                    addons = []
+            # For non-bespoke products, addons remain empty even if sent
 
             # Get product
             product = get_product_by_type_and_id(product_type, product_id)
@@ -1049,6 +1067,34 @@ class AddToQuotationView(LoginRequiredMixin, View):
                 # Get margin_75_price from variations or product
                 margin_75_price = variations.get('margin_75_price') or str(getattr(product, 'margin_75_price', None) or '')
 
+                # Process addons - format them for storage
+                formatted_addons = []
+                for addon in addons:
+                    addon_type = addon.get('addon_type', '')
+                    addon_display_name = addon_type.replace('_', ' ').title()
+
+                    # Build display name with details
+                    if addon.get('size'):
+                        addon_display_name += f" ({addon['size'].capitalize()})"
+                    if addon.get('colors'):
+                        addon_display_name += f" - {addon['colors']} colors"
+                    if addon.get('stitch_complexity'):
+                        addon_display_name += f" ({addon['stitch_complexity'].upper()} stitch)"
+                    if addon.get('emb_or_applique'):
+                        addon_display_name += f" - {addon['emb_or_applique'].upper()}"
+
+                    formatted_addons.append({
+                        'addon_type': addon_type,
+                        'display_name': addon_display_name,
+                        'size': addon.get('size', ''),
+                        'colors': addon.get('colors', ''),
+                        'stitch_complexity': addon.get('stitch_complexity', ''),
+                        'emb_or_applique': addon.get('emb_or_applique', ''),
+                        'quantity': addon.get('quantity', 1),
+                        'price_per_unit': str(addon.get('price_per_unit', 0)),
+                        'total_price': str(addon.get('total_price', 0)),
+                    })
+
                 quotation_data['items'].append({
                     'product_type': product_type,
                     'product_id': product_id,
@@ -1058,6 +1104,7 @@ class AddToQuotationView(LoginRequiredMixin, View):
                     'unit_price': str(unit_price),
                     'margin_75_price': margin_75_price,
                     'variations': variations,
+                    'addons': formatted_addons,  # Store addons with the product
                 })
 
             # Save session
@@ -1068,10 +1115,11 @@ class AddToQuotationView(LoginRequiredMixin, View):
 
             # Log action
             variation_info = f" ({variations.get('size', '')})" if variations.get('size') else ""
+            addons_info = f" with {len(addons)} customization(s)" if addons else ""
             if existing_item:
                 action_desc = f'Updated quotation: Changed "{product.name}{variation_info}" quantity to {quantity}'
             else:
-                action_desc = f'Updated quotation: Added item "{product.name}{variation_info}" (Qty: {quantity}, Price: ${unit_price})'
+                action_desc = f'Updated quotation: Added item "{product.name}{variation_info}"{addons_info} (Qty: {quantity}, Price: ${unit_price})'
             AuditLog.log_action(
                 user=request.user,
                 action_type='quotation_updated',
@@ -1096,6 +1144,9 @@ class AddToQuotationView(LoginRequiredMixin, View):
         except Exception as e:
             logger.error(f"Error adding to quotation: {e}")
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+# REMOVED: AddAddonToQuotationView - Addons are now added together with the base product in AddToQuotationView
 
 
 class UpdateQuotationItemView(LoginRequiredMixin, View):
@@ -1604,7 +1655,8 @@ class SaveQuotationView(LoginRequiredMixin, View):
                 elif hasattr(product, 'image') and product.image:
                     product_image_url = str(product.image)
 
-                QuotationItem.objects.create(
+                # Create base garment item
+                base_item = QuotationItem.objects.create(
                     quotation=quotation,
                     product_content_type=product_content_type,
                     product_object_id=product.id,
@@ -1616,6 +1668,30 @@ class SaveQuotationView(LoginRequiredMixin, View):
                     variations=item_data.get('variations', {}),
                 )
                 items_created += 1
+
+                # Create addon items ONLY for Bespoke products
+                product_type = item_data.get('product_type', '')
+                if product_type and product_type.lower() == 'bespokeproduct':
+                    for addon in item_data.get('addons', []):
+                        QuotationItem.objects.create(
+                            quotation=quotation,
+                            product_content_type=product_content_type,
+                            product_object_id=product.id,
+                            product_name=addon.get('display_name', 'Customization'),
+                            product_sku='',
+                            product_image_url='',
+                            quantity=addon.get('quantity', 1),
+                            unit_price=Decimal(str(addon.get('price_per_unit', 0))),
+                            variations={
+                                'size': addon.get('size', ''),
+                                'colors': addon.get('colors', ''),
+                                'stitch_complexity': addon.get('stitch_complexity', ''),
+                                'emb_or_applique': addon.get('emb_or_applique', ''),
+                            },
+                            is_addon=True,
+                            parent_item=base_item,
+                            addon_type=addon.get('addon_type', ''),
+                        )
 
             if items_created == 0:
                 if not is_editing:
@@ -2127,8 +2203,8 @@ class QuotationPreviewView(LoginRequiredMixin, DetailView):
 
         context = super().get_context_data(**kwargs)
 
-        # Get quotation items with product details
-        context['items'] = self.object.items.all().select_related('product_content_type').order_by('sort_order', 'created_at')
+        # Get quotation items with product details and prefetch addons
+        context['items'] = self.object.items.filter(is_addon=False).select_related('product_content_type').prefetch_related('addons').order_by('sort_order', 'created_at')
 
         # Company details
         context['company'] = {
