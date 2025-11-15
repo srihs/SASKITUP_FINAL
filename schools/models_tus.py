@@ -908,9 +908,29 @@ class TUSProductVariation(models.Model):
         help_text="Stock status"
     )
     sku = models.CharField(max_length=100, blank=True, null=True, help_text="Variation SKU")
+    barcode = models.CharField(max_length=100, blank=True, null=True, db_index=True, help_text="Variation barcode (for CIN7 matching)")
 
     # Status
     is_active = models.BooleanField(default=True, help_text="Whether this variation is active")
+
+    # OPTIONAL: CIN7 reference fields (informational only - no sync required)
+    related_cin7_code = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="CIN7 product code for reference only (if a wholesale equivalent exists)"
+    )
+    cin7_conversion_factor = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Unit conversion factor to CIN7 equivalent (e.g., 3.0 for 3-pack)"
+    )
+    is_retail_only = models.BooleanField(
+        default=True,
+        help_text="True if this product only exists in TUS shop (not in CIN7 wholesale)"
+    )
 
     # Additional variation data from WooCommerce
     attributes = models.JSONField(blank=True, null=True, help_text="WooCommerce variation attributes")
@@ -939,6 +959,7 @@ class TUSProductVariation(models.Model):
             models.Index(fields=['stock_quantity']),
             models.Index(fields=['menu_order']),
             models.Index(fields=['created_at']),
+            models.Index(fields=['related_cin7_code'], name='tus_pv_cin7_code_idx'),
         ]
 
     def save(self, *args, **kwargs):

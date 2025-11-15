@@ -323,7 +323,7 @@ class Cin7ApiService:
                 'cin7_id': option.get('id'),  # Use productOption id, not product id
                 'product_id': product.get('id'),  # Parent product id
                 'sku': (option.get('code') or '').strip(),
-                'barcode': (option.get('barcode') or '').strip(),
+                'barcode': (option.get('productOptionSizeBarcode') or option.get('barcode') or '').strip(),
                 'style_code': (product.get('styleCode') or '').strip(),
                 'product_name': f"{product.get('name', '')} - {option.get('option1', '')}".strip(),
                 'cost': cost_price,

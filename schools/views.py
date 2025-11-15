@@ -3942,6 +3942,11 @@ def cin7_match_products(request):
                     variation_sku_map[variation.sku] = (variation, variation.product)
                     variation_sku_iexact_map[variation.sku.upper()] = (variation, variation.product)
 
+                # Barcode mappings (NEW: TUS variations now have barcode field for CIN7 matching)
+                if variation.barcode:
+                    variation_barcode_map[variation.barcode] = (variation, variation.product)
+                    variation_barcode_iexact_map[variation.barcode.upper()] = (variation, variation.product)
+
             logger.info(f"Loaded {len(all_variations)} TUS variations into memory")
 
         elif category == 'sas-clubs':
@@ -4114,7 +4119,20 @@ def cin7_match_products(request):
                     product = product_sku_iexact_map[code_upper]
                     return product, None, "sku_iexact (via SKU)"
 
-            # Priority 3: Try Barcode against variation cin7_sku (exact)
+            # Priority 3: Try Barcode against variation barcode (exact) - NEW for TUS products
+            if cin7_product.barcode:
+                # Exact match
+                if cin7_product.barcode in variation_barcode_map:
+                    variation, product = variation_barcode_map[cin7_product.barcode]
+                    return product, variation, "variation_barcode_exact (via Barcode)"
+
+                # Case-insensitive match
+                barcode_upper = cin7_product.barcode.upper()
+                if barcode_upper in variation_barcode_iexact_map:
+                    variation, product = variation_barcode_iexact_map[barcode_upper]
+                    return product, variation, "variation_barcode_iexact (via Barcode)"
+
+            # Priority 4: Try Barcode against variation cin7_sku (exact) - fallback for legacy matching
             if cin7_product.barcode:
                 # Exact match
                 if cin7_product.barcode in variation_sku_map:
@@ -4127,7 +4145,7 @@ def cin7_match_products(request):
                     variation, product = variation_sku_iexact_map[barcode_upper]
                     return product, variation, "cin7_sku_iexact (via Barcode)"
 
-            # Priority 4: Try Barcode against product cin7_barcode (exact)
+            # Priority 5: Try Barcode against product cin7_barcode (exact)
             if cin7_product.barcode:
                 # Exact match
                 if cin7_product.barcode in product_barcode_map:
@@ -4140,7 +4158,7 @@ def cin7_match_products(request):
                     product = product_barcode_iexact_map[barcode_upper]
                     return product, None, "barcode_iexact (via Barcode)"
 
-            # Priority 5: Try Style_code against variation cin7_sku (exact)
+            # Priority 6: Try Style_code against variation cin7_sku (exact)
             if cin7_product.style_code:
                 # Exact match
                 if cin7_product.style_code in variation_sku_map:
@@ -4153,7 +4171,7 @@ def cin7_match_products(request):
                     variation, product = variation_sku_iexact_map[style_upper]
                     return product, variation, "cin7_sku_iexact (via Style_code)"
 
-            # Priority 6: Try Style_code against product cin7_sku (exact)
+            # Priority 7: Try Style_code against product cin7_sku (exact)
             if cin7_product.style_code:
                 # Exact match
                 if cin7_product.style_code in product_sku_map:
