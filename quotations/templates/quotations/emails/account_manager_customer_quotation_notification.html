@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer {{ action|title }} Quotation - {{ quotation.quotation_number }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .header img {
+            max-width: 200px;
+            height: auto;
+        }
+        .alert {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .alert-info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        .alert-success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .details-table th {
+            background-color: #f8f9fa;
+            text-align: left;
+            padding: 10px;
+            border-bottom: 2px solid #dee2e6;
+        }
+        .details-table td {
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .items-table th {
+            background-color: #343a40;
+            color: white;
+            text-align: left;
+            padding: 10px;
+        }
+        .items-table td {
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .items-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        .total-row {
+            font-weight: bold;
+            background-color: #f8f9fa;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #dee2e6;
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="cid:company_logo" alt="SAS KITUP Logo">
+    </div>
+
+    {% if action == 'approved' %}
+    <div class="alert alert-success">
+        <h2 style="margin: 0;">Customer Approved Quotation</h2>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <h2 style="margin: 0;">Customer {{ action|title }} Quotation</h2>
+    </div>
+    {% endif %}
+
+    <p>Dear {{ account_manager_name }},</p>
+
+    <p>A customer has <strong>{{ action_past_tense }}</strong> a quotation that requires your attention.</p>
+
+    <table class="details-table">
+        <tr>
+            <th>Quotation Number:</th>
+            <td><strong>{{ quotation.quotation_number }}</strong></td>
+        </tr>
+        <tr>
+            <th>Customer:</th>
+            <td>{{ customer_name }} ({{ customer_email }})</td>
+        </tr>
+        <tr>
+            <th>Institution:</th>
+            <td>{{ institution_name }}</td>
+        </tr>
+        <tr>
+            <th>Status:</th>
+            <td><strong>{{ quotation.get_status_display }}</strong></td>
+        </tr>
+        <tr>
+            <th>Date {{ action|title }}:</th>
+            <td>{{ quotation.created_at|date:"F d, Y \a\t h:i A" }}</td>
+        </tr>
+        {% if quotation.expires_at %}
+        <tr>
+            <th>Expires:</th>
+            <td>{{ quotation.expires_at|date:"F d, Y \a\t h:i A" }}</td>
+        </tr>
+        {% endif %}
+    </table>
+
+    <h3>Quotation Summary</h3>
+
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>SKU</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.product_name }}</td>
+                <td>{{ item.product_sku|default:"-" }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>${{ item.unit_price }}</td>
+                <td>${{ item.line_total }}</td>
+            </tr>
+            {% if item.addons.all %}
+                {% for addon in item.addons.all %}
+                <tr style="background-color: #f8f9fa;">
+                    <td style="padding-left: 30px;">└ {{ addon.product_name }}</td>
+                    <td>-</td>
+                    <td>{{ addon.quantity }}</td>
+                    <td>${{ addon.unit_price }}</td>
+                    <td>${{ addon.line_total }}</td>
+                </tr>
+                {% endfor %}
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <table class="details-table" style="margin-top: 20px;">
+        <tr>
+            <th>Subtotal:</th>
+            <td>${{ quotation.subtotal }}</td>
+        </tr>
+        {% if discount_amount and discount_amount > 0 %}
+        <tr>
+            <th>Discount:</th>
+            <td>-${{ discount_amount }}</td>
+        </tr>
+        {% endif %}
+        <tr>
+            <th>Tax ({{ quotation.tax_percentage }}%):</th>
+            <td>${{ quotation.tax_amount }}</td>
+        </tr>
+        <tr class="total-row">
+            <th>Total:</th>
+            <td><strong>${{ quotation.total }}</strong></td>
+        </tr>
+    </table>
+
+    {% if quotation.customer_notes %}
+    <h3>Customer Notes</h3>
+    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+        {{ quotation.customer_notes|linebreaks }}
+    </div>
+    {% endif %}
+
+    <p>
+        <a href="{{ quotation_url }}" class="btn">View Quotation Details</a>
+    </p>
+
+    <div class="footer">
+        <p><strong>Note:</strong> A PDF copy of this quotation is attached to this email for your reference.</p>
+        <p>
+            This is an automated notification sent to all account managers.<br>
+            For questions, please contact {{ EMAIL_HOST_USER }}.
+        </p>
+        <p style="margin-top: 20px;">
+            Best regards,<br>
+            <strong>SAS KITUP Team</strong>
+        </p>
+    </div>
+</body>
+</html>

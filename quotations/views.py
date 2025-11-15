@@ -4127,6 +4127,19 @@ class ApproveQuotationView(LoginRequiredMixin, View):
                 total_amount=str(quotation.total)
             )
 
+            # Send notification to ALL account managers when customer approves quotation
+            if request.user.is_customer:
+                try:
+                    from .emails import send_customer_quotation_notification_to_account_managers
+                    send_customer_quotation_notification_to_account_managers(
+                        quotation=quotation,
+                        action='approved',
+                        request=request
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send account manager notifications for approved quotation {quotation.quotation_number}: {e}")
+                    # Don't fail the approval if notifications fail
+
             return JsonResponse({
                 'success': True,
                 'message': f'Quotation {quotation.quotation_number} approved successfully',

@@ -281,6 +281,23 @@ def send_quotation_email(
                     exc_info=True
                 )
 
+        # Send notification to ALL account managers when customer creates/updates quotation
+        # Only send if created by customer (not sales rep or account manager)
+        if quotation.created_by and quotation.created_by.is_customer:
+            try:
+                action = 'updated' if is_update else 'created'
+                send_customer_quotation_notification_to_account_managers(
+                    quotation=quotation,
+                    action=action,
+                    request=request
+                )
+            except Exception as am_error:
+                # Don't fail the entire operation if account manager notifications fail
+                logger.error(
+                    f"Failed to send account manager notifications for quotation {quotation.quotation_number}: {str(am_error)}",
+                    exc_info=True
+                )
+
         return True, None
 
     except Exception as e:
@@ -647,6 +664,192 @@ def validate_email_configuration() -> Tuple[bool, Optional[str]]:
             return False, f"Missing email settings: {', '.join(missing)}"
 
     return True, None
+
+
+# =====================================
+# HELPER FUNCTIONS FOR ACCOUNT MANAGERS
+# =====================================
+
+def get_all_active_account_managers():
+    """
+    Get all active account managers in the system.
+
+    Returns:
+        QuerySet: All active account manager User objects
+    """
+    from authentication.models import User
+    return User.objects.filter(
+        user_type='account_manager',
+        is_active=True
+    ).exclude(email='')
+
+
+def send_customer_quotation_notification_to_account_managers(
+    quotation: Quotation,
+    action: str = 'created',
+    request=None
+) -> Tuple[bool, Optional[str]]:
+    """
+    Send email notification to ALL account managers when a customer creates or approves a quotation.
+
+    This ensures all account managers are aware of customer-initiated quotations,
+    regardless of whether they are assigned to the specific institution.
+
+    Args:
+        quotation: Quotation instance
+        action: 'created', 'approved', or 'updated'
+        request: HTTP request object for audit logging (optional)
+
+    Returns:
+        Tuple of (success: bool, error_message: Optional[str])
+    """
+    try:
+        # Get all active account managers
+        account_managers = get_all_active_account_managers()
+
+        if not account_managers.exists():
+            error_msg = "No active account managers found in the system"
+            logger.warning(error_msg)
+            return False, error_msg
+
+        # Get quotation items for email display
+        items = quotation.items.filter(is_addon=False).select_related(
+            'product_content_type'
+        ).prefetch_related('addons').all()
+
+        # Calculate discount amount for email display
+        discount_amount = Decimal('0.00')
+        if quotation.discount_percentage:
+            discount_amount = (quotation.subtotal * quotation.discount_percentage / Decimal('100')).quantize(Decimal('0.01'))
+        elif quotation.discount_amount:
+            discount_amount = quotation.discount_amount
+
+        # Determine subject and action text based on action type
+        if action == 'approved':
+            subject = f"Customer Approved Quotation - {quotation.quotation_number}"
+            action_text = "approved"
+            action_past_tense = "approved"
+        elif action == 'updated':
+            subject = f"Customer Updated Quotation - {quotation.quotation_number}"
+            action_text = "updated"
+            action_past_tense = "updated"
+        else:  # created
+            subject = f"New Customer Quotation - {quotation.quotation_number}"
+            action_text = "created"
+            action_past_tense = "created"
+
+        # Get company logo path
+        logo_path = os.path.join(settings.BASE_DIR, 'static', 'assets', 'images', 'sas-logo.png')
+
+        # Generate PDF once for all emails
+        pdf_bytes = generate_quotation_pdf(quotation)
+
+        # Send to each account manager
+        successful_sends = 0
+        failed_sends = 0
+
+        for account_manager in account_managers:
+            try:
+                # Context for account manager notification template
+                context = {
+                    'quotation': quotation,
+                    'items': items,
+                    'discount_amount': discount_amount,
+                    'account_manager_name': account_manager.first_name or account_manager.get_full_name(),
+                    'customer_name': quotation.created_by.get_full_name() if quotation.created_by else 'Customer',
+                    'customer_email': quotation.created_by.email if quotation.created_by else '',
+                    'action': action_text,
+                    'action_past_tense': action_past_tense,
+                    'institution_name': quotation.institution_name,
+                    'quotation_url': _get_quotation_url(quotation),
+                    'EMAIL_HOST_USER': settings.EMAIL_HOST_USER,
+                }
+
+                # Render account manager notification templates
+                html_content = render_to_string(
+                    'quotations/emails/account_manager_customer_quotation_notification.html',
+                    context
+                )
+
+                text_content = render_to_string(
+                    'quotations/emails/account_manager_customer_quotation_notification.txt',
+                    context
+                )
+
+                # Create email
+                email = EmailMultiAlternatives(
+                    subject=subject,
+                    body=text_content,
+                    from_email=_get_from_email(),
+                    to=[account_manager.email],
+                )
+
+                # Attach HTML version
+                email.attach_alternative(html_content, "text/html")
+
+                # Embed company logo
+                if os.path.exists(logo_path):
+                    with open(logo_path, 'rb') as logo_file:
+                        logo_image = MIMEImage(logo_file.read())
+                        logo_image.add_header('Content-ID', '<company_logo>')
+                        logo_image.add_header('Content-Disposition', 'inline', filename='sas-logo.png')
+                        email.attach(logo_image)
+
+                # Attach PDF quotation if available
+                if pdf_bytes:
+                    email.attach(
+                        f'Quotation_{quotation.quotation_number}.pdf',
+                        pdf_bytes,
+                        'application/pdf'
+                    )
+
+                # Send email
+                email.send(fail_silently=False)
+                successful_sends += 1
+
+                logger.info(
+                    f"Account manager notification ({action}) for quotation {quotation.quotation_number} "
+                    f"sent to {account_manager.get_full_name()} ({account_manager.email})"
+                )
+
+            except Exception as e:
+                failed_sends += 1
+                logger.error(
+                    f"Failed to send account manager notification to {account_manager.email} "
+                    f"for quotation {quotation.quotation_number}: {str(e)}",
+                    exc_info=True
+                )
+                # Continue to next account manager even if one fails
+
+        # Log notification action
+        if successful_sends > 0:
+            AuditLog.log_action(
+                user=quotation.created_by,
+                action_type='quotation_account_manager_notification_sent',
+                description=(
+                    f'Customer {action} quotation {quotation.quotation_number} - '
+                    f'Notified {successful_sends} account manager(s)'
+                ),
+                request=request,
+                affected_model='Quotation',
+                affected_object_id=str(quotation.id),
+                quotation_id=str(quotation.id),
+                quotation_number=quotation.quotation_number,
+                notification_count=successful_sends,
+                action_type_detail=action
+            )
+
+        if successful_sends == 0:
+            return False, f"Failed to send notifications to any account managers ({failed_sends} failures)"
+        elif failed_sends > 0:
+            return True, f"Sent to {successful_sends} account managers, {failed_sends} failed"
+        else:
+            return True, None
+
+    except Exception as e:
+        error_msg = f"Failed to send account manager notifications for quotation {quotation.quotation_number}: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return False, error_msg
 
 
 # =====================================

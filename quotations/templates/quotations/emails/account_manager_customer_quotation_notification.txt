@@ -1,0 +1,56 @@
+{% if action == 'approved' %}CUSTOMER APPROVED QUOTATION{% else %}CUSTOMER {{ action|upper }} QUOTATION{% endif %}
+
+Dear {{ account_manager_name }},
+
+A customer has {{ action_past_tense }} a quotation that requires your attention.
+
+QUOTATION DETAILS
+================================================================================
+Quotation Number: {{ quotation.quotation_number }}
+Customer: {{ customer_name }} ({{ customer_email }})
+Institution: {{ institution_name }}
+Status: {{ quotation.get_status_display }}
+Date {{ action|title }}: {{ quotation.created_at|date:"F d, Y \a\t h:i A" }}
+{% if quotation.expires_at %}Expires: {{ quotation.expires_at|date:"F d, Y \a\t h:i A" }}{% endif %}
+
+QUOTATION SUMMARY
+================================================================================
+{% for item in items %}
+{{ item.product_name }}
+  SKU: {{ item.product_sku|default:"-" }}
+  Quantity: {{ item.quantity }}
+  Unit Price: ${{ item.unit_price }}
+  Total: ${{ item.line_total }}
+{% if item.addons.all %}
+  Addons:
+  {% for addon in item.addons.all %}
+  - {{ addon.product_name }} (Qty: {{ addon.quantity }}, Price: ${{ addon.unit_price }}, Total: ${{ addon.line_total }})
+  {% endfor %}
+{% endif %}
+
+{% endfor %}
+
+TOTALS
+================================================================================
+Subtotal: ${{ quotation.subtotal }}
+{% if discount_amount and discount_amount > 0 %}Discount: -${{ discount_amount }}{% endif %}
+Tax ({{ quotation.tax_percentage }}%): ${{ quotation.tax_amount }}
+--------------------------------------------------------------------------------
+TOTAL: ${{ quotation.total }}
+
+{% if quotation.customer_notes %}
+CUSTOMER NOTES
+================================================================================
+{{ quotation.customer_notes }}
+
+{% endif %}
+View full quotation details: {{ quotation_url }}
+
+================================================================================
+NOTE: A PDF copy of this quotation is attached to this email for your reference.
+
+This is an automated notification sent to all account managers.
+For questions, please contact {{ EMAIL_HOST_USER }}.
+
+Best regards,
+SAS KITUP Team
