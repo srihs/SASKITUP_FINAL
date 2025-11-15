@@ -273,6 +273,7 @@ class Cin7ApiService:
             # Skip inactive options (only process Active or Primary status)
             option_status = option.get('status', '').lower()
             if option_status not in ['active', 'primary']:
+                logger.info(f"Status Filter: Skipping product option {option.get('code')} - Status: {option_status} (Product: {product.get('name')})")
                 continue
 
             # Extract price columns

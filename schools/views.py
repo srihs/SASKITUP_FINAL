@@ -3711,6 +3711,7 @@ def cin7_price_fetch(request):
                 sku = option_data.get('sku') or ''
                 style_code = option_data.get('style_code') or ''
                 if price_type != 'Bespoke' and (sku.upper().startswith('BS') or style_code.upper().startswith('BS')):
+                    logger.info(f"BS Filter: Skipping {option_data.get('product_name')} (SKU: {sku}, Style: {style_code})")
                     skipped_bs_products += 1
                     continue
 
@@ -3727,7 +3728,7 @@ def cin7_price_fetch(request):
 
                 if is_bespoke_addon:
                     skipped_bs_products += 1  # Use same counter for simplicity
-                    logger.debug(f"Skipping bespoke addon product: {product_name} (SKU: {sku})")
+                    logger.info(f"Addon Filter: Skipping {product_name} (SKU: {sku}, Category: {category_path})")
                     continue
 
                 # Get pricing data from Cin7
