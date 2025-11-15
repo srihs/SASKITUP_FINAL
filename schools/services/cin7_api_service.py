@@ -159,6 +159,13 @@ class Cin7ApiService:
         Returns:
             Tuple of (products_list, total_fetched, total_available)
         """
+        # Parameter validation to prevent common errors
+        if where_clause is not None and not isinstance(where_clause, str):
+            raise TypeError(f"where_clause must be a string or None, got {type(where_clause).__name__}")
+
+        if progress_callback is not None and not callable(progress_callback):
+            raise TypeError(f"progress_callback must be callable or None, got {type(progress_callback).__name__}")
+
         all_products = []
         page = 1
         rows_per_page = 100  # Cin7 max is 250, but 100 is safer for rate limiting

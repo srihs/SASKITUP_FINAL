@@ -3670,7 +3670,11 @@ def cin7_price_fetch(request):
 
         # Fetch all products from Cin7
         update_progress(0, 100, "Initializing Cin7 connection...")
-        products, fetched, total = cin7_service.fetch_all_products(price_type, update_progress)
+        products, fetched, total = cin7_service.fetch_all_products(
+            price_type=price_type,
+            where_clause=None,
+            progress_callback=update_progress
+        )
 
         logger.info(f"Fetched {fetched} products from Cin7")
 
