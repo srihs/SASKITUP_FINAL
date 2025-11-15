@@ -6,7 +6,7 @@ Quotation {{ quotation.quotation_number }}
 
 Hi {{ recipient_name }},
 
-This is to inform you that {% if is_update %}a quotation has been updated{% else %}a new quotation has been generated{% endif %} for your customer.
+This is to inform you that {% if is_update %}a quotation has been updated{% else %}a new quotation has been generated{% endif %} by a customer.
 
 Please find the attached quotation for your reference.
 
