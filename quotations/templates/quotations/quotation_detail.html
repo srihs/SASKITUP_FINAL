@@ -592,6 +592,117 @@
                         </div>
                     </div>
 
+                    <!-- Edit History -->
+                    {% if quotation.last_edited_by %}
+                    <div class="card mb-3 d-print-none">
+                        <div class="card-body">
+                            <h6 class="card-title mb-3">
+                                <i class="uil uil-history text-primary me-2" aria-hidden="true"></i>
+                                Edit History
+                            </h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p class="mb-1"><strong>Last Edited By:</strong></p>
+                                    <p class="text-muted">
+                                        {{ quotation.last_edited_by.get_full_name }}
+                                        <span class="badge bg-info-subtle text-info ms-2">
+                                            {{ quotation.last_edited_by.user_type|title }}
+                                        </span>
+                                    </p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="mb-1"><strong>Last Edited At:</strong></p>
+                                    <p class="text-muted">{{ quotation.last_edited_at|date:"M d, Y g:i A" }}</p>
+                                </div>
+                            </div>
+                            {% if quotation.status == 'pending' %}
+                            <div class="alert alert-info mt-3 mb-0">
+                                <i class="uil uil-info-circle me-2" aria-hidden="true"></i>
+                                This quotation has been modified by the account manager and is awaiting final approval.
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Account Manager Approval Actions -->
+                    {% if user.is_account_manager or user.is_admin %}
+                        {% if quotation.status == 'pending' %}
+                        <div class="card border-warning mb-3 d-print-none">
+                            <div class="card-body">
+                                <h5 class="card-title text-warning">
+                                    <i class="uil uil-exclamation-triangle me-2" aria-hidden="true"></i>
+                                    Approval Required
+                                </h5>
+                                <p class="text-muted">This quotation requires your approval before proceeding to CIN7 sync.</p>
+
+                                <div class="d-flex gap-2 mt-3 flex-wrap">
+                                    <button type="button" class="btn btn-success" onclick="approveQuotation()" aria-label="Approve quotation and sync to CIN7">
+                                        <i class="uil uil-check me-1" aria-hidden="true"></i> Approve & Sync to CIN7
+                                    </button>
+                                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal" aria-label="Reject quotation">
+                                        <i class="uil uil-times me-1" aria-hidden="true"></i> Reject
+                                    </button>
+                                    <a href="{% url 'quotations:edit-quotation' quotation.id %}" class="btn btn-primary" title="Edit quotation before approving" data-bs-toggle="tooltip" aria-label="Edit quotation">
+                                        <i class="uil uil-edit me-1" aria-hidden="true"></i> Edit Quotation
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endif %}
+
+                    <!-- CIN7 Sync Status -->
+                    {% if quotation.cin7_sync_status == 'synced' %}
+                    <div class="card border-success mb-3 d-print-none">
+                        <div class="card-body">
+                            <h5 class="card-title text-success">
+                                <i class="uil uil-check-circle me-2" aria-hidden="true"></i>
+                                Synced to CIN7
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p class="mb-1"><strong>CIN7 SO Number:</strong> {{ quotation.cin7_so_number }}</p>
+                                    <p class="mb-1"><strong>Synced At:</strong> {{ quotation.cin7_synced_at|date:"M d, Y g:i A" }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="mb-1"><strong>Approved By:</strong> {{ quotation.approved_by.get_full_name }}</p>
+                                    <p class="mb-1"><strong>Approved At:</strong> {{ quotation.account_manager_approved_at|date:"M d, Y g:i A" }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% elif quotation.cin7_sync_status == 'failed' %}
+                    <div class="card border-danger mb-3 d-print-none">
+                        <div class="card-body">
+                            <h5 class="card-title text-danger">
+                                <i class="uil uil-exclamation-octagon me-2" aria-hidden="true"></i>
+                                CIN7 Sync Failed
+                            </h5>
+                            <p class="text-muted">{{ quotation.cin7_sync_error }}</p>
+                            {% if user.is_admin %}
+                            <button type="button" class="btn btn-primary btn-sm" onclick="retryCin7Sync()" aria-label="Retry CIN7 synchronization">
+                                <i class="uil uil-redo me-1" aria-hidden="true"></i> Retry Sync
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Approval/Rejection Information -->
+                    {% if quotation.status == 'approved' and quotation.approved_by %}
+                    <div class="alert alert-success d-print-none" role="alert">
+                        <i class="uil uil-check-circle me-2" aria-hidden="true"></i>
+                        Approved by <strong>{{ quotation.approved_by.get_full_name }}</strong> on {{ quotation.account_manager_approved_at|date:"M d, Y g:i A" }}
+                    </div>
+                    {% elif quotation.status == 'rejected' %}
+                    <div class="alert alert-danger d-print-none" role="alert">
+                        <i class="uil uil-times-circle me-2" aria-hidden="true"></i>
+                        Rejected by <strong>{{ quotation.rejected_by.get_full_name }}</strong> on {{ quotation.rejected_at|date:"M d, Y g:i A" }}
+                        <p class="mt-2 mb-0"><strong>Reason:</strong> {{ quotation.rejection_reason }}</p>
+                    </div>
+                    {% endif %}
+
                     <!-- Order Summary -->
                     <div class="py-2 order-summary">
                         <h5 class="font-size-15">Order summary</h5>
@@ -753,6 +864,54 @@
     <!-- P.T.O marker (Please Turn Over) - only visible in print when content spans multiple pages -->
     <div class="pto-marker d-none d-print-block">P.T.O</div>
 
+    <!-- Reject Modal -->
+    <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="rejectModalLabel">Reject Quotation</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="rejectionReason" class="form-label">Rejection Reason <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="rejectionReason" rows="3" required aria-required="true"></textarea>
+                        <div class="invalid-feedback" id="rejectionReasonError">Please provide a rejection reason.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" onclick="submitRejection()">Reject Quotation</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Request Changes Modal - REMOVED: Account Managers can now edit quotations directly -->
+    <!--
+    <div class="modal fade" id="requestChangesModal" tabindex="-1" aria-labelledby="requestChangesModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="requestChangesModalLabel">Request Changes</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="changeNotes" class="form-label">Requested Changes <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="changeNotes" rows="3" required aria-required="true"></textarea>
+                        <div class="invalid-feedback" id="changeNotesError">Please provide change request notes.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-warning" onclick="submitChangeRequest()">Request Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    -->
+
     <!-- Approve Confirmation Modal -->
     <div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -810,7 +969,153 @@ window.onbeforeprint = function() {
     document.title = '{{ quotation.quotation_number }}';
 };
 
-// Approve quotation function
+// Approve quotation function (Account Manager)
+function approveQuotation() {
+    if (!confirm('Are you sure you want to approve this quotation? This will trigger sync to CIN7.')) {
+        return;
+    }
+
+    fetch("{% url 'quotations:quotation-approve' quotation.id %}", {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            toastr.success(data.message);
+            setTimeout(function() {
+                window.location.reload();
+            }, 1500);
+        } else {
+            toastr.error('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        toastr.error('An error occurred while approving the quotation');
+    });
+}
+
+// Submit rejection
+function submitRejection() {
+    const reason = document.getElementById('rejectionReason').value;
+    const errorDiv = document.getElementById('rejectionReasonError');
+    const textarea = document.getElementById('rejectionReason');
+
+    if (!reason.trim()) {
+        textarea.classList.add('is-invalid');
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    textarea.classList.remove('is-invalid');
+    errorDiv.style.display = 'none';
+
+    fetch("{% url 'quotations:quotation-reject' quotation.id %}", {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ reason: reason })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            toastr.success(data.message);
+            const modal = bootstrap.Modal.getInstance(document.getElementById('rejectModal'));
+            modal.hide();
+            setTimeout(function() {
+                window.location.href = data.redirect_url;
+            }, 1500);
+        } else {
+            toastr.error('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        toastr.error('An error occurred while rejecting the quotation');
+    });
+}
+
+// Submit change request - REMOVED: Account Managers can now edit quotations directly
+{% comment %}
+function submitChangeRequest() {
+    const notes = document.getElementById('changeNotes').value;
+    const errorDiv = document.getElementById('changeNotesError');
+    const textarea = document.getElementById('changeNotes');
+
+    if (!notes.trim()) {
+        textarea.classList.add('is-invalid');
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    textarea.classList.remove('is-invalid');
+    errorDiv.style.display = 'none';
+
+    fetch("{% url 'quotations:quotation-request-changes' quotation.id %}", {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ change_notes: notes })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            toastr.success(data.message);
+            const modal = bootstrap.Modal.getInstance(document.getElementById('requestChangesModal'));
+            modal.hide();
+            setTimeout(function() {
+                window.location.href = data.redirect_url;
+            }, 1500);
+        } else {
+            toastr.error('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        toastr.error('An error occurred while requesting changes');
+    });
+}
+{% endcomment %}
+
+// Retry CIN7 sync (Admin only)
+function retryCin7Sync() {
+    if (!confirm('Are you sure you want to retry CIN7 sync?')) {
+        return;
+    }
+
+    fetch("{% url 'quotations:quotation-approve' quotation.id %}", {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            toastr.success('CIN7 sync retry initiated successfully');
+            setTimeout(function() {
+                window.location.reload();
+            }, 1500);
+        } else {
+            toastr.error('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        toastr.error('An error occurred while retrying CIN7 sync');
+    });
+}
+
+// Customer approval function (existing)
 function confirmApproval() {
     // Close the modal
     const modal = bootstrap.Modal.getInstance(document.getElementById('approveModal'));
@@ -840,6 +1145,24 @@ function confirmApproval() {
         toastr.error('An error occurred while approving the quotation');
     });
 }
+
+// Clear validation on input
+document.addEventListener('DOMContentLoaded', function() {
+    const rejectionReason = document.getElementById('rejectionReason');
+
+    if (rejectionReason) {
+        rejectionReason.addEventListener('input', function() {
+            this.classList.remove('is-invalid');
+            document.getElementById('rejectionReasonError').style.display = 'none';
+        });
+    }
+
+    // Initialize Bootstrap tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
 </script>
 
 <!-- Include Edit History Modals -->

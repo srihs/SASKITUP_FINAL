@@ -18,6 +18,7 @@ from django.db.models import Q, Prefetch
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
+from django.utils import timezone
 from django.views import View
 from django.views.generic import ListView, DetailView, FormView
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -32,6 +33,7 @@ from authentication.permissions import (
     SalesRepOrAccountManagerOrCustomerMixin,
 )
 from authentication.models import User, SalesRepSchoolAssignment, SalesRepClubAssignment, AuditLog
+from functools import wraps
 from schools.models import School, WholesaleSchool, WholesaleProduct, WholesaleProductVariation
 from schools.models_tus import TUSProductVariation
 from clubs.models_lotto import LottoClub, LottoProduct
@@ -776,7 +778,53 @@ class QuotationCartView(LoginRequiredMixin, View):
                 enriched_item['index'] = idx  # Add index for update/remove operations
                 enriched_item['line_total'] = Decimal(str(item['unit_price'])) * Decimal(str(item['quantity']))
 
+                # Check if this is an addon item and enrich with addon-specific display data
+                is_addon = item.get('is_addon', False)
+                enriched_item['is_addon'] = is_addon
+
+                if is_addon:
+                    # Get addon type and create display name
+                    addon_type = item.get('addon_type', '')
+                    addon_details = item.get('addon_details', {})
+
+                    # Map addon types to display names
+                    addon_type_map = {
+                        'heat_transfer': 'Heat Transfer',
+                        'screen_print': 'Screen Print',
+                        'emb_applique': 'Embroidery/Applique',
+                    }
+                    addon_type_display = addon_type_map.get(addon_type, addon_type.replace('_', ' ').title())
+                    enriched_item['addon_type_display'] = addon_type_display
+
+                    # Build descriptive SKU label for addon
+                    addon_sku_parts = [addon_type_display]
+
+                    # Add size if available
+                    if addon_details.get('size'):
+                        addon_sku_parts.append(addon_details['size'].title())
+
+                    # Add color/stitch info
+                    if addon_type in ['heat_transfer', 'screen_print'] and addon_details.get('colors'):
+                        colors = addon_details['colors']
+                        # Handle both numeric and string color values (e.g., "3-4" or 3)
+                        if isinstance(colors, str):
+                            addon_sku_parts.append(f"{colors} colors")
+                        else:
+                            addon_sku_parts.append(f"{colors} color{'s' if colors > 1 else ''}")
+                    elif addon_type == 'emb_applique':
+                        if addon_details.get('stitch_complexity'):
+                            addon_sku_parts.append(f"{addon_details['stitch_complexity'].upper()} stitch")
+                        if addon_details.get('emb_or_applique'):
+                            addon_sku_parts.append(addon_details['emb_or_applique'].title())
+
+                    # Create formatted SKU label
+                    addon_sku_label = f"Addon: {' - '.join(addon_sku_parts)}"
+                    enriched_item['addon_sku_label'] = addon_sku_label
+                    enriched_item['product_sku'] = ''  # Clear product SKU for addons to use addon_sku_label
+
                 # Add pricing information for discount display
+                # Skip margin calculation for addons (they are service charges, not wholesale products)
+                is_addon = item.get('is_addon', False)
                 margin_price = None
                 unit_price_decimal = Decimal(str(item['unit_price']))
 
@@ -799,6 +847,9 @@ class QuotationCartView(LoginRequiredMixin, View):
                         elif product_type == 'lottoproduct':
                             from clubs.models_lotto import LottoProductVariation
                             variation_obj = LottoProductVariation.objects.get(pk=variation_id)
+                        elif product_type == 'bespokeproduct':
+                            from bespoke.models import BespokeProductVariation
+                            variation_obj = BespokeProductVariation.objects.get(pk=variation_id)
                     except Exception as e:
                         logger.warning(f"Could not fetch variation {variation_id} for {product_type}: {e}")
                         variation_obj = None
@@ -814,65 +865,82 @@ class QuotationCartView(LoginRequiredMixin, View):
 
                 # Try to get margin_75_price from variation first, then fall back to product
                 # Priority: variation.margin_75_price > product.margin_75_price > calculated > retail > regular
+                # Skip this entire section for addons (they don't have wholesale/retail margins)
 
-                # Check variation first if it exists
-                if variation_obj and hasattr(variation_obj, 'margin_75_price') and variation_obj.margin_75_price:
-                    margin_price = variation_obj.margin_75_price
-                # Fall back to product's margin_75_price
-                elif hasattr(product, 'margin_75_price') and product.margin_75_price:
-                    margin_price = product.margin_75_price
-                # Try to calculate from variation's cost_price
-                elif variation_obj and hasattr(variation_obj, 'cost_price') and variation_obj.cost_price and variation_obj.cost_price > 0:
-                    calculated_margin = (variation_obj.cost_price / Decimal('0.25')).quantize(Decimal('0.01'))
-                    if calculated_margin > unit_price_decimal:
-                        margin_price = calculated_margin
-                # Try to calculate from product's cost_price
-                elif hasattr(product, 'cost_price') and product.cost_price and product.cost_price > 0:
-                    calculated_margin = (product.cost_price / Decimal('0.25')).quantize(Decimal('0.01'))
-                    if calculated_margin > unit_price_decimal:
-                        margin_price = calculated_margin
-                # For variations with retail_price
-                elif variation_obj and hasattr(variation_obj, 'retail_price') and variation_obj.retail_price and variation_obj.retail_price > 0:
-                    if variation_obj.retail_price > unit_price_decimal:
-                        margin_price = variation_obj.retail_price
-                # For products with retail_price
-                elif hasattr(product, 'retail_price') and product.retail_price and product.retail_price > 0:
-                    if product.retail_price > unit_price_decimal:
-                        margin_price = product.retail_price
-                # For variations with regular_price
-                elif variation_obj and hasattr(variation_obj, 'regular_price') and variation_obj.regular_price and variation_obj.regular_price > 0:
-                    if variation_obj.regular_price > unit_price_decimal:
-                        margin_price = variation_obj.regular_price
-                # For products with regular_price
-                elif hasattr(product, 'regular_price') and product.regular_price and product.regular_price > 0:
-                    if product.regular_price > unit_price_decimal:
-                        margin_price = product.regular_price
+                if not is_addon:
+                    # Check variation first if it exists
+                    if variation_obj and hasattr(variation_obj, 'margin_75_price') and variation_obj.margin_75_price:
+                        margin_price = variation_obj.margin_75_price
+                    # Fall back to product's margin_75_price
+                    elif hasattr(product, 'margin_75_price') and product.margin_75_price:
+                        margin_price = product.margin_75_price
+                    # Try to calculate from variation's cost_price
+                    elif variation_obj and hasattr(variation_obj, 'cost_price') and variation_obj.cost_price and variation_obj.cost_price > 0:
+                        calculated_margin = (variation_obj.cost_price / Decimal('0.25')).quantize(Decimal('0.01'))
+                        if calculated_margin > unit_price_decimal:
+                            margin_price = calculated_margin
+                    # Try to calculate from product's cost_price
+                    elif hasattr(product, 'cost_price') and product.cost_price and product.cost_price > 0:
+                        calculated_margin = (product.cost_price / Decimal('0.25')).quantize(Decimal('0.01'))
+                        if calculated_margin > unit_price_decimal:
+                            margin_price = calculated_margin
+                    # For variations with retail_price
+                    elif variation_obj and hasattr(variation_obj, 'retail_price') and variation_obj.retail_price and variation_obj.retail_price > 0:
+                        if variation_obj.retail_price > unit_price_decimal:
+                            margin_price = variation_obj.retail_price
+                    # For products with retail_price
+                    elif hasattr(product, 'retail_price') and product.retail_price and product.retail_price > 0:
+                        if product.retail_price > unit_price_decimal:
+                            margin_price = product.retail_price
+                    # For variations with regular_price
+                    elif variation_obj and hasattr(variation_obj, 'regular_price') and variation_obj.regular_price and variation_obj.regular_price > 0:
+                        if variation_obj.regular_price > unit_price_decimal:
+                            margin_price = variation_obj.regular_price
+                    # For products with regular_price
+                    elif hasattr(product, 'regular_price') and product.regular_price and product.regular_price > 0:
+                        if product.regular_price > unit_price_decimal:
+                            margin_price = product.regular_price
 
-                # Only set margin_75_price if we found a valid margin price greater than unit price
-                if margin_price and margin_price > unit_price_decimal:
-                    # Round margin price to nearest $5
-                    rounded_margin_price = round_to_nearest_5(margin_price)
+                    # Only set margin_75_price if we found a valid margin price greater than unit price
+                    if margin_price and margin_price > unit_price_decimal:
+                        # Round margin price to nearest $5
+                        rounded_margin_price = round_to_nearest_5(margin_price)
 
-                    # Use rounded margin price for all calculations
-                    enriched_item['margin_75_price'] = rounded_margin_price
-                    unit_discount = rounded_margin_price - unit_price_decimal
-                    item_savings = unit_discount * Decimal(str(item['quantity']))
-                    total_savings += item_savings
-                    enriched_item['unit_discount'] = unit_discount
-                    enriched_item['item_discount'] = item_savings
-                    # Calculate discount percentage using rounded margin price
-                    discount_percentage = int(((rounded_margin_price - unit_price_decimal) / rounded_margin_price) * 100)
-                    enriched_item['discount_percentage'] = discount_percentage
+                        # Use rounded margin price for all calculations
+                        enriched_item['margin_75_price'] = rounded_margin_price
+                        unit_discount = rounded_margin_price - unit_price_decimal
+                        item_savings = unit_discount * Decimal(str(item['quantity']))
+                        total_savings += item_savings
+                        enriched_item['unit_discount'] = unit_discount
+                        enriched_item['item_discount'] = item_savings
+                        # Calculate discount percentage using rounded margin price
+                        discount_percentage = int(((rounded_margin_price - unit_price_decimal) / rounded_margin_price) * 100)
+                        enriched_item['discount_percentage'] = discount_percentage
+                    else:
+                        enriched_item['unit_discount'] = Decimal('0.00')
+                        enriched_item['item_discount'] = Decimal('0.00')
+                        enriched_item['discount_percentage'] = 0
                 else:
+                    # For addons, set all margin/discount fields to zero
+                    enriched_item['margin_75_price'] = None
                     enriched_item['unit_discount'] = Decimal('0.00')
                     enriched_item['item_discount'] = Decimal('0.00')
                     enriched_item['discount_percentage'] = 0
 
-                # Get discount_percentage from variation first, then product
-                if variation_obj and hasattr(variation_obj, 'discount_percentage') and variation_obj.discount_percentage:
-                    enriched_item['discount_percentage'] = variation_obj.discount_percentage
-                elif hasattr(product, 'discount_percentage') and product.discount_percentage:
-                    enriched_item['discount_percentage'] = product.discount_percentage
+                # Get discount_percentage from variation first, then product (skip for addons)
+                if not is_addon:
+                    if variation_obj and hasattr(variation_obj, 'discount_percentage') and variation_obj.discount_percentage:
+                        enriched_item['discount_percentage'] = variation_obj.discount_percentage
+                    elif hasattr(product, 'discount_percentage') and product.discount_percentage:
+                        enriched_item['discount_percentage'] = product.discount_percentage
+
+                # Get SKU from variation object if available
+                if variation_obj and hasattr(variation_obj, 'sku') and variation_obj.sku:
+                    enriched_item['product_sku'] = variation_obj.sku
+                # If not in variation_obj, check if it's in the item data already
+                elif not enriched_item.get('product_sku'):
+                    # Fall back to product SKU if variation SKU not available
+                    enriched_item['product_sku'] = getattr(product, 'cin7_sku', '') or getattr(product, 'sku', '')
 
                 # Add variation display info if variations exist
                 if item.get('variations'):
@@ -1704,13 +1772,24 @@ class SaveQuotationView(LoginRequiredMixin, View):
             # Calculate quotation totals
             quotation.calculate_totals()
 
-            # Create version snapshot for edited quotations
+            # Track account manager edits
             if is_editing:
+                # Update edit tracking fields
+                quotation.last_edited_by = request.user
+                quotation.last_edited_at = timezone.now()
+                quotation.save(update_fields=['last_edited_by', 'last_edited_at', 'updated_at'])
+
+                # Create version snapshot with appropriate note
                 try:
+                    if request.user.is_account_manager or request.user.is_admin:
+                        version_note = f"Edited by Account Manager: {request.user.get_full_name()}"
+                    else:
+                        version_note = f"Edited by {request.user.get_full_name()}"
+
                     quotation.create_edit_snapshot(
                         user=request.user,
                         change_note=change_note,
-                        description=f'Edited by {request.user.get_full_name()}: {items_created} items'
+                        description=f'{version_note}: {items_created} items'
                     )
                 except ValueError as e:
                     return JsonResponse({
@@ -1872,16 +1951,27 @@ class EditQuotationView(LoginRequiredMixin, View):
             # Get the quotation
             quotation = get_object_or_404(Quotation, pk=pk)
 
-            # Check ownership (user must own the quotation or be admin/account manager)
-            if not (quotation.created_by == request.user or
-                    request.user.is_admin or
-                    request.user.is_account_manager):
-                messages.error(request, 'You do not have permission to edit this quotation.')
-                return redirect('quotations:my-quotations')
+            # Permission check logic:
+            # 1. Owner can edit draft/pending quotations
+            # 2. Account Managers can edit pending quotations (for approval workflow)
+            # 3. Admins can edit any non-approved quotations
 
-            # Check if quotation is approved/confirmed - these cannot be edited
+            # Allow owner to edit draft/pending quotations
+            if quotation.created_by == request.user and quotation.status in ['draft', 'pending', 'rejected']:
+                pass  # Permission granted
+            # Allow account managers to edit pending quotations
+            elif quotation.can_be_edited_by_account_manager(request.user):
+                pass  # Permission granted
+            # Allow admins to edit any non-approved quotations
+            elif request.user.is_admin and quotation.status not in ['approved', 'confirmed']:
+                pass  # Permission granted
+            else:
+                messages.error(request, 'You do not have permission to edit this quotation.')
+                return redirect('quotations:quotation-detail', pk=quotation.id)
+
+            # Prevent editing if approved/confirmed
             if quotation.status in ['approved', 'confirmed']:
-                messages.error(request, 'Approved quotations cannot be edited.')
+                messages.error(request, 'Approved or confirmed quotations cannot be edited.')
                 return redirect('quotations:quotation-detail', pk=quotation.id)
 
             # Clear any existing cart session
@@ -1902,7 +1992,7 @@ class EditQuotationView(LoginRequiredMixin, View):
 
             # Load quotation items into session
             for item in quotation.items.all():
-                quotation_data['items'].append({
+                item_data = {
                     'product_type': item.product_content_type.model,
                     'product_id': item.product_object_id,
                     'product_name': item.product_name,
@@ -1911,7 +2001,20 @@ class EditQuotationView(LoginRequiredMixin, View):
                     'unit_price': str(item.unit_price),
                     'margin_75_price': '',  # Will be populated if available
                     'variations': item.variations,
-                })
+                }
+
+                # Include addon fields for BespokeProduct addons
+                if item.is_addon:
+                    item_data['is_addon'] = True
+                    item_data['addon_type'] = item.addon_type
+                    # Addon details are stored in variations field
+                    item_data['addon_details'] = item.variations
+                    if item.parent_item_id:
+                        item_data['parent_item_id'] = str(item.parent_item_id)
+                else:
+                    item_data['is_addon'] = False
+
+                quotation_data['items'].append(item_data)
 
             # Save to session
             save_quotation_session(request, quotation_data)
@@ -4984,3 +5087,432 @@ def proxy_image(request):
     except Exception as e:
         logger.error(f"Image proxy unexpected error for URL: {image_url} - {e}", exc_info=True)
         return HttpResponse(status=500)
+
+
+# =====================================
+# APPROVAL WORKFLOW VIEWS
+# =====================================
+
+def account_manager_required(view_func):
+    """Decorator to restrict access to account managers and admins"""
+    @wraps(view_func)
+    def wrapped(request, *args, **kwargs):
+        if not (request.user.is_authenticated and (request.user.is_account_manager or request.user.is_admin)):
+            raise PermissionDenied("Only Account Managers and Admins can access this page")
+        return view_func(request, *args, **kwargs)
+    return wrapped
+
+
+class PendingApprovalsListView(LoginRequiredMixin, ListView):
+    """
+    Display all quotations with status='pending' for Account Managers/Admins.
+    Provides filtering by sales rep, date range, institution.
+    """
+    model = Quotation
+    template_name = 'quotations/pending_approvals.html'
+    context_object_name = 'quotations'
+    paginate_by = 25
+
+    def dispatch(self, request, *args, **kwargs):
+        # Check permissions
+        if not (request.user.is_account_manager or request.user.is_admin):
+            raise PermissionDenied("Only Account Managers and Admins can access pending approvals")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        """Get pending quotations with filtering"""
+        from django.db.models import F, ExpressionWrapper, fields
+
+        queryset = Quotation.objects.filter(
+            status='pending'
+        ).select_related(
+            'created_by',
+            'submitted_by',
+            'institution_content_type'
+        ).prefetch_related('items').annotate(
+            days_pending=ExpressionWrapper(
+                timezone.now() - F('submitted_for_approval_at'),
+                output_field=fields.DurationField()
+            )
+        )
+
+        # Filter by sales rep
+        sales_rep_id = self.request.GET.get('sales_rep')
+        if sales_rep_id:
+            queryset = queryset.filter(created_by_id=sales_rep_id)
+
+        # Filter by date range
+        date_from = self.request.GET.get('date_from')
+        date_to = self.request.GET.get('date_to')
+        if date_from:
+            queryset = queryset.filter(submitted_for_approval_at__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(submitted_for_approval_at__lte=date_to)
+
+        # Filter by institution
+        institution_type = self.request.GET.get('institution_type')
+        institution_id = self.request.GET.get('institution_id')
+        if institution_type and institution_id:
+            ct = ContentType.objects.get(model=institution_type.lower())
+            queryset = queryset.filter(
+                institution_content_type=ct,
+                institution_object_id=institution_id
+            )
+
+        # Search by quotation number
+        search_query = self.request.GET.get('search')
+        if search_query:
+            queryset = queryset.filter(quotation_number__icontains=search_query)
+
+        return queryset.order_by('-submitted_for_approval_at')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Get all sales reps for filter dropdown
+        context['sales_reps'] = User.objects.filter(
+            user_type='sales_rep',
+            is_active=True
+        ).order_by('first_name', 'last_name')
+
+        # Pass filter parameters
+        context['selected_sales_rep'] = self.request.GET.get('sales_rep', '')
+        context['search_query'] = self.request.GET.get('search', '')
+        context['date_from'] = self.request.GET.get('date_from', '')
+        context['date_to'] = self.request.GET.get('date_to', '')
+
+        # Calculate days pending for each quotation
+        for quotation in context['quotations']:
+            if quotation.submitted_for_approval_at:
+                delta = timezone.now() - quotation.submitted_for_approval_at
+                quotation.days_pending_count = delta.days
+
+        return context
+
+
+class QuotationApproveView(LoginRequiredMixin, View):
+    """
+    Approve a quotation and trigger CIN7 sync.
+    POST only view with CSRF protection.
+    """
+
+    @account_manager_required
+    def post(self, request, pk):
+        try:
+            quotation = get_object_or_404(Quotation, pk=pk)
+
+            # Validate quotation can be approved
+            if quotation.status != 'pending':
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Only pending quotations can be approved'
+                }, status=400)
+
+            # Update quotation status
+            quotation.status = 'approved'
+            quotation.approved_by = request.user
+            quotation.approved_at = timezone.now()
+            quotation.account_manager_approved_at = timezone.now()
+            quotation.save(update_fields=['status', 'approved_by', 'approved_at', 'account_manager_approved_at', 'updated_at'])
+
+            # Create version snapshot
+            quotation.create_version_snapshot(
+                description=f'Approved by {request.user.get_full_name()}',
+                user=request.user,
+                change_note=f'Quotation approved by Account Manager'
+            )
+
+            # Log approval action
+            AuditLog.log_action(
+                user=request.user,
+                action_type='quotation_approved',
+                description=f'Approved quotation {quotation.quotation_number}',
+                request=request,
+                affected_model='Quotation',
+                affected_object_id=str(quotation.id),
+                quotation_id=str(quotation.id),
+                quotation_number=quotation.quotation_number,
+                status=quotation.status
+            )
+
+            # Trigger CIN7 sync if quotation has Bespoke items
+            cin7_sync_message = None
+            cin7_sync_success = False
+
+            if quotation.can_be_synced_to_cin7():
+                try:
+                    from quotations.services.cin7_sales_order_service import Cin7SalesOrderService
+
+                    # Update status to syncing
+                    quotation.cin7_sync_status = 'syncing'
+                    quotation.save(update_fields=['cin7_sync_status', 'updated_at'])
+
+                    # Sync to CIN7
+                    service = Cin7SalesOrderService()
+                    sync_result = service.create_sales_order(quotation)
+
+                    cin7_sync_success = sync_result.get('success', False)
+                    cin7_sync_message = sync_result.get('message', 'CIN7 sync completed')
+
+                    # Log CIN7 sync
+                    AuditLog.log_action(
+                        user=request.user,
+                        action_type='cin7_so_created' if cin7_sync_success else 'cin7_sync_failed',
+                        description=f'CIN7 sync for quotation {quotation.quotation_number}: {cin7_sync_message}',
+                        request=request,
+                        affected_model='Quotation',
+                        affected_object_id=str(quotation.id),
+                        quotation_id=str(quotation.id),
+                        cin7_order_id=sync_result.get('cin7_order_id'),
+                        cin7_reference=sync_result.get('cin7_reference')
+                    )
+
+                except Exception as e:
+                    logger.error(f"CIN7 sync failed for quotation {quotation.quotation_number}: {e}")
+                    cin7_sync_message = f"CIN7 sync failed: {str(e)}"
+                    cin7_sync_success = False
+
+                    # Update quotation with error
+                    quotation.cin7_sync_status = 'failed'
+                    quotation.cin7_sync_error = str(e)
+                    quotation.save(update_fields=['cin7_sync_status', 'cin7_sync_error', 'updated_at'])
+
+                    # Log error
+                    AuditLog.log_action(
+                        user=request.user,
+                        action_type='cin7_sync_failed',
+                        description=f'CIN7 sync failed for quotation {quotation.quotation_number}: {str(e)}',
+                        request=request,
+                        affected_model='Quotation',
+                        affected_object_id=str(quotation.id),
+                        quotation_id=str(quotation.id),
+                        error_message=str(e)
+                    )
+
+            # Send email notification to sales rep
+            try:
+                from quotations.emails import send_quotation_approval_email
+                send_quotation_approval_email(quotation)
+            except Exception as e:
+                logger.error(f"Failed to send approval email for quotation {quotation.quotation_number}: {e}")
+
+            # Success message
+            success_message = f'Quotation {quotation.quotation_number} approved successfully'
+            if cin7_sync_message:
+                success_message += f'. {cin7_sync_message}'
+
+            messages.success(request, success_message)
+
+            return JsonResponse({
+                'success': True,
+                'message': success_message,
+                'cin7_sync': cin7_sync_success,
+                'redirect_url': reverse('quotations:quotation-detail', kwargs={'pk': quotation.id})
+            })
+
+        except Quotation.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Quotation not found'
+            }, status=404)
+        except Exception as e:
+            logger.error(f"Error approving quotation: {e}")
+            return JsonResponse({
+                'success': False,
+                'message': f'Error approving quotation: {str(e)}'
+            }, status=500)
+
+
+class QuotationRejectView(LoginRequiredMixin, View):
+    """
+    Reject a quotation with mandatory reason.
+    POST only view with CSRF protection.
+    """
+
+    @account_manager_required
+    def post(self, request, pk):
+        try:
+            quotation = get_object_or_404(Quotation, pk=pk)
+
+            # Validate quotation can be rejected
+            if quotation.status != 'pending':
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Only pending quotations can be rejected'
+                }, status=400)
+
+            # Get rejection reason
+            rejection_reason = request.POST.get('reason', '').strip()
+            if not rejection_reason:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Rejection reason is required'
+                }, status=400)
+
+            # Update quotation status
+            quotation.status = 'rejected'
+            quotation.rejected_by = request.user
+            quotation.rejected_at = timezone.now()
+            quotation.rejection_reason = rejection_reason
+            quotation.save(update_fields=['status', 'rejected_by', 'rejected_at', 'rejection_reason', 'updated_at'])
+
+            # Create version snapshot
+            quotation.create_version_snapshot(
+                description=f'Rejected by {request.user.get_full_name()}',
+                user=request.user,
+                change_note=f'Quotation rejected: {rejection_reason}'
+            )
+
+            # Log rejection action
+            AuditLog.log_action(
+                user=request.user,
+                action_type='quotation_rejected',
+                description=f'Rejected quotation {quotation.quotation_number}: {rejection_reason}',
+                request=request,
+                affected_model='Quotation',
+                affected_object_id=str(quotation.id),
+                quotation_id=str(quotation.id),
+                quotation_number=quotation.quotation_number,
+                status=quotation.status,
+                rejection_reason=rejection_reason
+            )
+
+            # Send email notification to sales rep
+            try:
+                from quotations.emails import send_quotation_rejection_email
+                send_quotation_rejection_email(quotation)
+            except Exception as e:
+                logger.error(f"Failed to send rejection email for quotation {quotation.quotation_number}: {e}")
+
+            messages.success(request, f'Quotation {quotation.quotation_number} rejected')
+
+            return JsonResponse({
+                'success': True,
+                'message': f'Quotation {quotation.quotation_number} rejected',
+                'redirect_url': reverse('quotations:pending-approvals')
+            })
+
+        except Quotation.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Quotation not found'
+            }, status=404)
+        except Exception as e:
+            logger.error(f"Error rejecting quotation: {e}")
+            return JsonResponse({
+                'success': False,
+                'message': f'Error rejecting quotation: {str(e)}'
+            }, status=500)
+
+
+# DEPRECATED: QuotationRequestChangesView - Account Managers can now edit quotations directly
+# Keeping this for reference only - functionality replaced by direct editing capability
+"""
+class QuotationRequestChangesView(LoginRequiredMixin, View):
+    '''
+    Send quotation back to sales rep for changes.
+    POST only view with CSRF protection.
+
+    DEPRECATED: This view is no longer used. Account Managers now edit quotations directly
+    instead of requesting changes. See EditQuotationView for the new workflow.
+    '''
+
+    @account_manager_required
+    def post(self, request, pk):
+        try:
+            quotation = get_object_or_404(Quotation, pk=pk)
+
+            # Validate quotation can have changes requested
+            if quotation.status != 'pending':
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Only pending quotations can have changes requested'
+                }, status=400)
+
+            # Get change request notes
+            change_notes = request.POST.get('notes', '').strip()
+            if not change_notes:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Change request notes are required'
+                }, status=400)
+
+            # Update quotation status to draft
+            quotation.status = 'draft'
+            quotation.submitted_for_approval_at = None
+            quotation.submitted_by = None
+
+            # Add change request note to quotation notes
+            if quotation.notes:
+                quotation.notes += f"\n\n[{timezone.now().strftime('%Y-%m-%d %H:%M')}] Changes requested by {request.user.get_full_name()}:\n{change_notes}"
+            else:
+                quotation.notes = f"[{timezone.now().strftime('%Y-%m-%d %H:%M')}] Changes requested by {request.user.get_full_name()}:\n{change_notes}"
+
+            quotation.save(update_fields=['status', 'submitted_for_approval_at', 'submitted_by', 'notes', 'updated_at'])
+
+            # Create version snapshot
+            quotation.create_version_snapshot(
+                description=f'Changes requested by {request.user.get_full_name()}',
+                user=request.user,
+                change_note=f'Changes requested: {change_notes}'
+            )
+
+            # Log action
+            AuditLog.log_action(
+                user=request.user,
+                action_type='quotation_updated',
+                description=f'Requested changes for quotation {quotation.quotation_number}: {change_notes}',
+                request=request,
+                affected_model='Quotation',
+                affected_object_id=str(quotation.id),
+                quotation_id=str(quotation.id),
+                quotation_number=quotation.quotation_number,
+                status=quotation.status,
+                change_notes=change_notes
+            )
+
+            # Send email notification to sales rep
+            try:
+                from quotations.emails import send_quotation_changes_requested_email
+                send_quotation_changes_requested_email(quotation, change_notes)
+            except Exception as e:
+                logger.error(f"Failed to send changes requested email for quotation {quotation.quotation_number}: {e}")
+
+            messages.success(request, f'Changes requested for quotation {quotation.quotation_number}')
+
+            return JsonResponse({
+                'success': True,
+                'message': f'Changes requested for quotation {quotation.quotation_number}',
+                'redirect_url': reverse('quotations:pending-approvals')
+            })
+
+        except Quotation.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Quotation not found'
+            }, status=404)
+        except Exception as e:
+            logger.error(f"Error requesting changes for quotation: {e}")
+            return JsonResponse({
+                'success': False,
+                'message': f'Error requesting changes: {str(e)}'
+            }, status=500)
+"""
+
+
+class PendingApprovalsCountView(LoginRequiredMixin, View):
+    """
+    API endpoint to get count of pending quotations awaiting account manager approval.
+    Used for badge updates in navigation.
+    """
+
+    def get(self, request):
+        """Return count of pending quotations"""
+        # Only account managers and admins can see pending approvals
+        if not (request.user.is_account_manager or request.user.is_admin):
+            return JsonResponse({'count': 0})
+
+        # Count quotations with pending status
+        count = Quotation.objects.filter(status='pending').count()
+
+        return JsonResponse({'count': count})

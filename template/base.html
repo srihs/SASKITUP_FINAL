@@ -345,6 +345,14 @@
                                 <ul class="sub-menu" aria-expanded="false">
                                     <li><a href="{% url 'quotations:new-quotation' %}">New Quotation</a></li>
                                     <li><a href="{% url 'quotations:my-quotations' %}">My Quotations</a></li>
+                                    {% if user.is_account_manager or user.is_admin %}
+                                    <li>
+                                        <a href="{% url 'quotations:pending-approvals' %}">
+                                            Pending Approvals
+                                            <span class="badge bg-warning rounded-pill ms-2" id="pending-count" style="display: none;" aria-label="Pending approvals count">0</span>
+                                        </a>
+                                    </li>
+                                    {% endif %}
                                 </ul>
                             </li>
 
@@ -496,6 +504,38 @@
 
         <!-- Extra JS Block for page-specific scripts -->
         {% block extra_js %}{% endblock %}
+
+        <!-- Pending Approvals Count Update Script -->
+        <script>
+        // Update pending approvals count
+        function updatePendingCount() {
+            {% if user.is_account_manager or user.is_admin %}
+            fetch("{% url 'quotations:pending-approvals-count' %}")
+                .then(response => response.json())
+                .then(data => {
+                    const badge = document.getElementById('pending-count');
+                    if (badge) {
+                        if (data.count > 0) {
+                            badge.textContent = data.count;
+                            badge.style.display = 'inline';
+                            badge.setAttribute('aria-label', data.count + ' pending approval' + (data.count !== 1 ? 's' : ''));
+                        } else {
+                            badge.style.display = 'none';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching pending count:', error);
+                });
+            {% endif %}
+        }
+
+        // Update on page load
+        document.addEventListener('DOMContentLoaded', updatePendingCount);
+
+        // Update every 60 seconds
+        setInterval(updatePendingCount, 60000);
+        </script>
 
     </body>
 </html>

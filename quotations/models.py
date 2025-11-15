@@ -331,6 +331,89 @@ class Quotation(models.Model):
         help_text="External reference number (PO, etc.)"
     )
 
+    # CIN7 Integration Fields
+    cin7_so_number = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        db_index=True,
+        verbose_name="CIN7 SO Number",
+        help_text="CIN7 Sales Order Number"
+    )
+    cin7_so_id = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name="CIN7 SO ID",
+        help_text="CIN7 Sales Order ID"
+    )
+    cin7_sync_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('not_required', 'Not Required'),
+            ('pending', 'Pending Sync'),
+            ('syncing', 'Syncing'),
+            ('synced', 'Synced to CIN7'),
+            ('failed', 'Sync Failed'),
+        ],
+        default='not_required',
+        blank=True,
+        verbose_name="CIN7 Sync Status",
+        help_text="Status of synchronization with CIN7"
+    )
+    cin7_sync_error = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="CIN7 Sync Error",
+        help_text="Error message if CIN7 sync failed"
+    )
+    cin7_synced_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="CIN7 Synced At",
+        help_text="Timestamp when quotation was synced to CIN7"
+    )
+
+    # Account Manager Approval Fields
+    submitted_for_approval_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Submitted for Approval At",
+        help_text="Timestamp when quotation was submitted for account manager approval"
+    )
+    submitted_by = models.ForeignKey(
+        'authentication.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='quotations_submitted',
+        verbose_name="Submitted By",
+        help_text="User who submitted the quotation for approval"
+    )
+    account_manager_approved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Account Manager Approved At",
+        help_text="Timestamp when account manager approved the quotation"
+    )
+
+    # Account Manager Edit Tracking
+    last_edited_by = models.ForeignKey(
+        'authentication.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='quotations_last_edited',
+        verbose_name="Last Edited By",
+        help_text="User who last edited this quotation (Account Manager or Sales Rep)"
+    )
+    last_edited_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Last Edited At",
+        help_text="Timestamp when quotation was last edited"
+    )
+
     # Metadata
     is_locked = models.BooleanField(
         default=False,
@@ -671,6 +754,85 @@ class Quotation(models.Model):
                 unique_recipients.append(email)
 
         return unique_recipients
+
+    def submit_for_approval(self, submitted_by):
+        """
+        Submit quotation for account manager approval.
+
+        Args:
+            submitted_by: User instance who is submitting the quotation
+
+        Raises:
+            ValidationError: If quotation cannot be submitted
+        """
+        if self.status not in ['draft', 'pending']:
+            raise ValidationError('Only draft or pending quotations can be submitted for approval')
+
+        if self.submitted_for_approval_at:
+            raise ValidationError('Quotation has already been submitted for approval')
+
+        self.submitted_for_approval_at = timezone.now()
+        self.submitted_by = submitted_by
+        self.status = 'pending'
+        self.save(update_fields=['submitted_for_approval_at', 'submitted_by', 'status', 'updated_at'])
+
+    def can_be_synced_to_cin7(self):
+        """
+        Check if quotation is eligible for CIN7 sync.
+
+        Returns:
+            bool: True if quotation can be synced to CIN7, False otherwise
+        """
+        # Must be approved by account manager
+        if not self.account_manager_approved_at:
+            return False
+
+        # Must not already be synced
+        if self.cin7_sync_status == 'synced':
+            return False
+
+        # Must have at least one Bespoke item (Wholesale products go to CIN7)
+        if not self.has_bespoke_items():
+            return False
+
+        # Status must be approved or confirmed
+        if self.status not in ['approved', 'confirmed']:
+            return False
+
+        return True
+
+    def has_bespoke_items(self):
+        """
+        Check if quotation contains any Bespoke products.
+
+        Returns:
+            bool: True if quotation has Bespoke items, False otherwise
+        """
+        from django.contrib.contenttypes.models import ContentType
+
+        # Get ContentType for BespokeProduct
+        try:
+            bespoke_ct = ContentType.objects.get(app_label='bespoke', model='bespokeproduct')
+        except ContentType.DoesNotExist:
+            return False
+
+        # Check if any items reference BespokeProduct
+        return self.items.filter(product_content_type=bespoke_ct).exists()
+
+    def can_be_edited_by_account_manager(self, user):
+        """
+        Check if quotation can be edited by account manager.
+
+        Args:
+            user: User instance to check permissions for
+
+        Returns:
+            bool: True if user can edit this quotation as an account manager
+        """
+        return (
+            self.status == 'pending' and
+            (user.is_account_manager or user.is_admin)
+        )
 
 
 class QuotationItem(models.Model):
@@ -1154,3 +1316,146 @@ class QuotationVersion(models.Model):
 
     def __str__(self):
         return f"{self.quotation.quotation_number} - Version {self.version_number}"
+
+
+class CIN7OrderMapping(models.Model):
+    """
+    Track CIN7 sales orders created from quotations.
+    Maps SASKITUP quotations to CIN7 sales orders for synchronization.
+    """
+
+    SYNC_STATUS_CHOICES = [
+        ('pending', 'Pending Sync'),
+        ('syncing', 'Syncing'),
+        ('synced', 'Synced'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    # Primary identification
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # Quotation relationship (one-to-one)
+    quotation = models.OneToOneField(
+        Quotation,
+        on_delete=models.PROTECT,
+        related_name='cin7_order',
+        verbose_name="Quotation",
+        help_text="Quotation that was synced to CIN7"
+    )
+
+    # CIN7 order details
+    cin7_order_id = models.IntegerField(
+        unique=True,
+        verbose_name="CIN7 Order ID",
+        help_text="CIN7 internal order ID"
+    )
+    cin7_reference = models.CharField(
+        max_length=30,
+        db_index=True,
+        verbose_name="CIN7 Reference",
+        help_text="CIN7 order reference number"
+    )
+    cin7_stage = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="CIN7 Stage",
+        help_text="Current stage of the order in CIN7 (e.g., Draft, Confirmed, Dispatched)"
+    )
+
+    # Sync status tracking
+    sync_status = models.CharField(
+        max_length=20,
+        choices=SYNC_STATUS_CHOICES,
+        default='pending',
+        db_index=True,
+        verbose_name="Sync Status",
+        help_text="Current synchronization status"
+    )
+    sync_attempts = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Sync Attempts",
+        help_text="Number of synchronization attempts"
+    )
+    last_sync_attempt = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Last Sync Attempt",
+        help_text="Timestamp of last synchronization attempt"
+    )
+    error_message = models.TextField(
+        blank=True,
+        verbose_name="Error Message",
+        help_text="Error message if sync failed"
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Created At"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Updated At"
+    )
+
+    class Meta:
+        db_table = 'cin7_order_mappings'
+        verbose_name = 'CIN7 Order Mapping'
+        verbose_name_plural = 'CIN7 Order Mappings'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['cin7_order_id']),
+            models.Index(fields=['cin7_reference']),
+            models.Index(fields=['sync_status', 'last_sync_attempt']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f"CIN7 Order {self.cin7_reference} → {self.quotation.quotation_number} ({self.get_sync_status_display()})"
+
+    def clean(self):
+        """Validate mapping data"""
+        super().clean()
+
+        # Ensure quotation is eligible for CIN7 sync
+        if self.quotation and not self.quotation.can_be_synced_to_cin7():
+            raise ValidationError({
+                'quotation': 'This quotation is not eligible for CIN7 synchronization'
+            })
+
+    def mark_sync_failed(self, error_message):
+        """
+        Mark sync as failed and increment attempt counter.
+
+        Args:
+            error_message (str): Error message describing the failure
+        """
+        self.sync_status = 'failed'
+        self.error_message = error_message
+        self.sync_attempts += 1
+        self.save(update_fields=['sync_status', 'error_message', 'sync_attempts', 'updated_at'])
+
+    def mark_sync_success(self, cin7_stage=None):
+        """
+        Mark sync as successful.
+
+        Args:
+            cin7_stage (str, optional): Current stage in CIN7
+        """
+        self.sync_status = 'synced'
+        self.error_message = ''
+        if cin7_stage:
+            self.cin7_stage = cin7_stage
+        self.save(update_fields=['sync_status', 'error_message', 'cin7_stage', 'updated_at'])
+
+    def can_retry_sync(self, max_attempts=5):
+        """
+        Check if sync can be retried.
+
+        Args:
+            max_attempts (int): Maximum number of sync attempts allowed
+
+        Returns:
+            bool: True if sync can be retried, False otherwise
+        """
+        return self.sync_status == 'failed' and self.sync_attempts < max_attempts

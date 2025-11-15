@@ -83,4 +83,13 @@ urlpatterns = [
 
     # Image Proxy - for password-protected WordPress images
     path('proxy-image/', views.proxy_image, name='proxy-image'),
+
+    # Account Manager Approval Workflow
+    path('pending-approvals/', views.PendingApprovalsListView.as_view(), name='pending-approvals'),
+    path('pending-approvals/count/', views.PendingApprovalsCountView.as_view(), name='pending-approvals-count'),
+    path('<uuid:pk>/approve/', views.QuotationApproveView.as_view(), name='quotation-approve'),
+    path('<uuid:pk>/reject/', views.QuotationRejectView.as_view(), name='quotation-reject'),
+    # DEPRECATED: Request changes functionality replaced by direct editing via edit-quotation
+    # Account Managers can now edit pending quotations directly instead of requesting changes
+    # path('<uuid:pk>/request-changes/', views.QuotationRequestChangesView.as_view(), name='quotation-request-changes'),
 ]

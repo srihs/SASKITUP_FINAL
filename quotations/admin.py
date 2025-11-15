@@ -11,7 +11,8 @@ from .models import (
     Quotation,
     QuotationItem,
     CustomerInstitutionAssignment,
-    QuotationVersion
+    QuotationVersion,
+    CIN7OrderMapping
 )
 
 
@@ -84,6 +85,38 @@ class QuotationVersionInline(admin.TabularInline):
     ordering = ['-version_number']
 
 
+class CIN7OrderMappingInline(admin.StackedInline):
+    """Inline admin for CIN7 order mapping"""
+    model = CIN7OrderMapping
+    extra = 0
+    fields = [
+        'cin7_order_id',
+        'cin7_reference',
+        'cin7_stage',
+        'sync_status',
+        'sync_attempts',
+        'last_sync_attempt',
+        'error_message',
+        'created_at',
+    ]
+    readonly_fields = [
+        'cin7_order_id',
+        'cin7_reference',
+        'cin7_stage',
+        'sync_status',
+        'sync_attempts',
+        'last_sync_attempt',
+        'error_message',
+        'created_at',
+        'updated_at',
+    ]
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        """Don't allow manual creation"""
+        return False
+
+
 @admin.register(Quotation)
 class QuotationAdmin(admin.ModelAdmin):
     """Admin configuration for Quotation model"""
@@ -94,6 +127,7 @@ class QuotationAdmin(admin.ModelAdmin):
         'institution_type_display',
         'created_by',
         'status_badge',
+        'cin7_sync_status_badge',
         'total_display',
         'created_at',
         'expires_at',
@@ -101,9 +135,12 @@ class QuotationAdmin(admin.ModelAdmin):
 
     list_filter = [
         'status',
+        'cin7_sync_status',
         'created_at',
         'expires_at',
         'approved_at',
+        'submitted_for_approval_at',
+        'account_manager_approved_at',
     ]
 
     search_fields = [
@@ -182,13 +219,15 @@ class QuotationAdmin(admin.ModelAdmin):
         }),
     )
 
-    inlines = [QuotationItemInline, QuotationVersionInline]
+    inlines = [QuotationItemInline, QuotationVersionInline, CIN7OrderMappingInline]
 
     actions = [
         'mark_as_approved',
         'mark_as_rejected',
         'mark_as_cancelled',
         'recalculate_totals',
+        'sync_to_cin7',
+        'retry_failed_sync',
     ]
 
     def institution_display(self, obj):
@@ -274,6 +313,99 @@ class QuotationAdmin(admin.ModelAdmin):
         if count > 0:
             self.message_user(request, f'Totals recalculated for {count} quotation(s).')
     recalculate_totals.short_description = 'Recalculate totals'
+
+    def cin7_sync_status_badge(self, obj):
+        """Display CIN7 sync status as colored badge"""
+        colors = {
+            'not_required': '#6c757d',  # Gray
+            'pending': '#ffc107',       # Amber
+            'syncing': '#17a2b8',       # Cyan
+            'synced': '#28a745',        # Green
+            'failed': '#dc3545',        # Red
+        }
+        color = colors.get(obj.cin7_sync_status, '#6c757d')
+        return format_html(
+            '<span style="padding: 3px 8px; border-radius: 3px; background-color: {}; color: white; font-weight: bold;">{}</span>',
+            color,
+            obj.get_cin7_sync_status_display()
+        )
+    cin7_sync_status_badge.short_description = 'CIN7 Status'
+
+    def sync_to_cin7(self, request, queryset):
+        """Manually trigger CIN7 sync for selected quotations"""
+        if not request.user.is_admin:
+            self.message_user(request, 'Only administrators can sync quotations to CIN7.', level='error')
+            return
+
+        from quotations.services.cin7_service import CIN7Service
+
+        success_count = 0
+        error_count = 0
+
+        for quotation in queryset:
+            if not quotation.can_be_synced_to_cin7():
+                self.message_user(
+                    request,
+                    f'{quotation.quotation_number}: Not eligible for CIN7 sync (must be approved by account manager)',
+                    level='warning'
+                )
+                error_count += 1
+                continue
+
+            try:
+                cin7_service = CIN7Service()
+                cin7_service.sync_quotation_to_cin7(quotation)
+                success_count += 1
+            except Exception as e:
+                self.message_user(
+                    request,
+                    f'{quotation.quotation_number}: Sync failed - {str(e)}',
+                    level='error'
+                )
+                error_count += 1
+
+        if success_count > 0:
+            self.message_user(request, f'{success_count} quotation(s) synced to CIN7 successfully.')
+        if error_count > 0:
+            self.message_user(request, f'{error_count} quotation(s) failed to sync.', level='warning')
+
+    sync_to_cin7.short_description = 'Sync to CIN7'
+
+    def retry_failed_sync(self, request, queryset):
+        """Retry CIN7 sync for quotations with failed sync status"""
+        if not request.user.is_admin:
+            self.message_user(request, 'Only administrators can retry CIN7 sync.', level='error')
+            return
+
+        from quotations.services.cin7_service import CIN7Service
+
+        failed_quotations = queryset.filter(cin7_sync_status='failed')
+        if not failed_quotations.exists():
+            self.message_user(request, 'No quotations with failed sync status in selection.', level='warning')
+            return
+
+        success_count = 0
+        error_count = 0
+
+        for quotation in failed_quotations:
+            try:
+                cin7_service = CIN7Service()
+                cin7_service.sync_quotation_to_cin7(quotation)
+                success_count += 1
+            except Exception as e:
+                self.message_user(
+                    request,
+                    f'{quotation.quotation_number}: Retry failed - {str(e)}',
+                    level='error'
+                )
+                error_count += 1
+
+        if success_count > 0:
+            self.message_user(request, f'{success_count} quotation(s) retried successfully.')
+        if error_count > 0:
+            self.message_user(request, f'{error_count} quotation(s) still failed.', level='warning')
+
+    retry_failed_sync.short_description = 'Retry failed CIN7 sync'
 
 
 @admin.register(QuotationItem)
@@ -527,3 +659,104 @@ class QuotationVersionAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         """Disable deletion of versions"""
         return False
+
+
+@admin.register(CIN7OrderMapping)
+class CIN7OrderMappingAdmin(admin.ModelAdmin):
+    """Admin configuration for CIN7OrderMapping model"""
+
+    list_display = [
+        'quotation_number_display',
+        'cin7_reference',
+        'cin7_order_id',
+        'sync_status_badge',
+        'sync_attempts',
+        'created_at',
+    ]
+
+    list_filter = [
+        'sync_status',
+        'created_at',
+        'last_sync_attempt',
+    ]
+
+    search_fields = [
+        'quotation__quotation_number',
+        'cin7_order_id',
+        'cin7_reference',
+    ]
+
+    readonly_fields = [
+        'id',
+        'quotation',
+        'cin7_order_id',
+        'cin7_reference',
+        'cin7_stage',
+        'sync_status',
+        'sync_attempts',
+        'last_sync_attempt',
+        'error_message',
+        'created_at',
+        'updated_at',
+    ]
+
+    fieldsets = (
+        ('Quotation Reference', {
+            'fields': (
+                'id',
+                'quotation',
+            )
+        }),
+        ('CIN7 Order Details', {
+            'fields': (
+                'cin7_order_id',
+                'cin7_reference',
+                'cin7_stage',
+            )
+        }),
+        ('Sync Status', {
+            'fields': (
+                'sync_status',
+                'sync_attempts',
+                'last_sync_attempt',
+                'error_message',
+            )
+        }),
+        ('Timestamps', {
+            'fields': (
+                'created_at',
+                'updated_at',
+            )
+        }),
+    )
+
+    def quotation_number_display(self, obj):
+        """Display quotation number with link"""
+        url = reverse('admin:quotations_quotation_change', args=[obj.quotation.pk])
+        return format_html('<a href="{}">{}</a>', url, obj.quotation.quotation_number)
+    quotation_number_display.short_description = 'Quotation'
+
+    def sync_status_badge(self, obj):
+        """Display sync status as colored badge"""
+        colors = {
+            'pending': '#ffc107',    # Amber
+            'syncing': '#17a2b8',    # Cyan
+            'synced': '#28a745',     # Green
+            'failed': '#dc3545',     # Red
+            'cancelled': '#6c757d',  # Gray
+        }
+        color = colors.get(obj.sync_status, '#6c757d')
+        return format_html(
+            '<span style="padding: 3px 8px; border-radius: 3px; background-color: {}; color: white; font-weight: bold;">{}</span>',
+            color,
+            obj.get_sync_status_display()
+        )
+    sync_status_badge.short_description = 'Sync Status'
+
+    def has_add_permission(self, request):
+        """Disable manual creation"""
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        """Allow deletion for cleanup"""
+        return request.user.is_admin

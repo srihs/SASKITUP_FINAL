@@ -404,6 +404,44 @@
     background-color: #fafbfc;
 }
 
+/* Addon Variation Item Styling */
+.variation-item.addon-variation-item {
+    background-color: #f0f8ff;
+    border-left: 3px solid #556ee6;
+    margin-left: 1rem;
+    padding: 0.75rem 0.75rem; /* Increased padding for better spacing */
+}
+
+/* Addon SKU Column - Wider to accommodate full text */
+.addon-variation-item .variation-col-sku {
+    flex: 0 0 18%; /* Increased from 10% to 18% */
+    min-width: 160px; /* Increased from 90px */
+}
+
+/* Addon Description - Simple text display without badge */
+.addon-description-simple {
+    font-size: 12px;
+    color: #495057;
+    line-height: 1.4;
+    font-weight: 500;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Adjust other columns for addons to maintain balance */
+.addon-variation-item .variation-col-selling-price,
+.addon-variation-item .variation-col-price {
+    flex: 0 0 12%;
+}
+
+.addon-variation-item .variation-col-unit-discount {
+    flex: 0 0 8%; /* Slightly smaller since we'll hide discount % */
+}
+
+.addon-variation-item .variation-col-total {
+    flex: 0 0 14%;
+}
+
 .variation-badge {
     display: inline-block;
     background-color: #556ee6;
@@ -605,6 +643,17 @@
     .variation-col-sku {
         width: 100%;
         min-width: unset;
+    }
+
+    /* Addon items maintain proper width on mobile */
+    .addon-variation-item .variation-col-sku {
+        width: 100%;
+        flex: 1 1 100%;
+        min-width: unset;
+    }
+
+    .addon-description-simple {
+        font-size: 12px; /* Slightly larger on mobile for readability */
     }
 
     .variation-col-selling-price,
@@ -837,12 +886,31 @@
     {% if is_editing %}
     <div class="row mb-3">
         <div class="col-12">
-            <div class="alert alert-info alert-dismissible fade show" role="alert">
-                <i class="uil uil-info-circle me-2"></i>
-                <strong>Editing Quotation:</strong> You are currently editing quotation <strong>{{ editing_quotation.quotation_number }}</strong>.
-                Make your changes below and click "Update Quotation" when done.
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
+            {% if user.is_account_manager or user.is_admin %}
+                {% if editing_quotation.status == 'pending' %}
+                <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    <i class="uil uil-shield-exclamation me-2"></i>
+                    <strong>Account Manager Edit Mode:</strong>
+                    You are editing quotation <strong>{{ editing_quotation.quotation_number }}</strong> that is pending approval.
+                    All changes will be tracked and versioned. After saving, you can approve or reject the quotation.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% else %}
+                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                    <i class="uil uil-info-circle me-2"></i>
+                    <strong>Editing Quotation:</strong> You are currently editing quotation <strong>{{ editing_quotation.quotation_number }}</strong>.
+                    Make your changes below and click "Update Quotation" when done.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                    <i class="uil uil-info-circle me-2"></i>
+                    <strong>Editing Quotation:</strong> You are currently editing quotation <strong>{{ editing_quotation.quotation_number }}</strong>.
+                    Make your changes below and click "Update Quotation" when done.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endif %}
         </div>
     </div>
     {% endif %}
@@ -888,7 +956,7 @@
                     <!-- Collapsible Variations -->
                     <div class="collapse show" id="product-group-{{ forloop.counter }}">
                         {% for item in group.list %}
-                        <div class="variation-item border-top">
+                        <div class="variation-item border-top{% if item.is_addon %} addon-variation-item{% endif %}">
                             <div class="variation-row">
                                 <!-- Column 1: Size/Color Badges -->
                                 <div class="variation-col variation-col-badges">
@@ -909,8 +977,12 @@
 
                                 <!-- Column 2: SKU -->
                                 <div class="variation-col variation-col-sku">
-                                    <div class="variation-label">SKU</div>
-                                    {% if item.product_sku %}
+                                    <div class="variation-label">{% if item.is_addon %}Type{% else %}SKU{% endif %}</div>
+                                    {% if item.is_addon %}
+                                        <div class="addon-description-simple">
+                                            {{ item.addon_sku_label }}
+                                        </div>
+                                    {% elif item.product_sku %}
                                         <div class="variation-sku">{{ item.product_sku }}</div>
                                     {% else %}
                                         <div class="variation-sku">-</div>
@@ -931,7 +1003,9 @@
                                 <div class="variation-col variation-col-unit-discount">
                                     <div class="variation-label">Discount</div>
                                     <div id="unit-discount-{{ item.index }}">
-                                        {% if item.discount_percentage and item.discount_percentage > 0 %}
+                                        {% if item.is_addon %}
+                                            <span class="variation-value text-muted">-</span>
+                                        {% elif item.discount_percentage and item.discount_percentage > 0 %}
                                             <span class="variation-discount">{{ item.discount_percentage }}%</span>
                                         {% else %}
                                             <span class="variation-value text-muted">0%</span>
@@ -985,18 +1059,36 @@
                                             ↳
                                         </div>
 
-                                        <!-- Column 1: Addon Type and Name -->
+                                        <!-- Column 1: Addon Type and Description -->
                                         <div class="addon-col addon-col-details">
                                             <div class="addon-label">Customization</div>
                                             <div>
                                                 {% if addon.addon_type == 'heat_transfer' %}
                                                     <span class="addon-type-badge heat-transfer">Heat Transfer</span>
+                                                    <div class="addon-value mt-1" style="font-size: 11px; color: #6c757d;">
+                                                        Heat Transfer Customization
+                                                        {% if addon.size %} - {{ addon.size|title }}{% endif %}
+                                                        {% if addon.colors %} - {{ addon.colors }} color{{ addon.colors|pluralize }}{% endif %}
+                                                    </div>
                                                 {% elif addon.addon_type == 'screen_print' %}
                                                     <span class="addon-type-badge screen-print">Screen Print</span>
+                                                    <div class="addon-value mt-1" style="font-size: 11px; color: #6c757d;">
+                                                        Screen Print Customization
+                                                        {% if addon.size %} - {{ addon.size|title }}{% endif %}
+                                                        {% if addon.colors %} - {{ addon.colors }} color{{ addon.colors|pluralize }}{% endif %}
+                                                    </div>
                                                 {% elif addon.addon_type == 'emb_applique' %}
                                                     <span class="addon-type-badge embroidery">Embroidery/Applique</span>
+                                                    <div class="addon-value mt-1" style="font-size: 11px; color: #6c757d;">
+                                                        {% if addon.emb_or_applique %}{{ addon.emb_or_applique|title }} {% endif %}Customization
+                                                        {% if addon.size %} - {{ addon.size|title }}{% endif %}
+                                                        {% if addon.stitch_complexity %} - {{ addon.stitch_complexity|upper }} stitch{% endif %}
+                                                    </div>
                                                 {% else %}
                                                     <span class="addon-type-badge">{{ addon.addon_type|title }}</span>
+                                                    <div class="addon-value mt-1" style="font-size: 11px; color: #6c757d;">
+                                                        {{ addon.addon_type|title }} Customization
+                                                    </div>
                                                 {% endif %}
                                             </div>
                                         </div>

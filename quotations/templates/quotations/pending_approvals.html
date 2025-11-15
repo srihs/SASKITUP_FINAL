@@ -1,0 +1,531 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body_class %}quotation-pending-approvals{% endblock %}
+
+{% block extra_css %}
+<!-- DataTables CSS -->
+<link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap4.min.css" rel="stylesheet">
+<link href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap4.min.css" rel="stylesheet">
+
+<style>
+/* Status Badge Styles */
+.badge.bg-warning-subtle {
+    background-color: #fff3cd !important;
+    color: #997404 !important;
+}
+
+.badge.bg-primary-subtle {
+    background-color: #cfe2ff !important;
+    color: #084298 !important;
+}
+
+.badge.bg-info-subtle {
+    background-color: #cff4fc !important;
+    color: #055160 !important;
+}
+
+/* Priority Badges */
+.badge.days-critical {
+    background-color: #f8d7da !important;
+    color: #842029 !important;
+}
+
+.badge.days-warning {
+    background-color: #fff3cd !important;
+    color: #997404 !important;
+}
+
+.badge.days-normal {
+    background-color: #d1e7dd !important;
+    color: #0a3622 !important;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #6c757d;
+}
+
+.empty-state i {
+    font-size: 5rem;
+    color: #dee2e6;
+    margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+/* Action Buttons */
+.btn-action {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Filter Sidebar */
+.filter-card {
+    position: sticky;
+    top: 80px;
+}
+
+/* Modal Styles */
+.modal-body textarea {
+    min-height: 120px;
+}
+
+/* Loading State */
+.btn-loading {
+    position: relative;
+    pointer-events: none;
+}
+
+.btn-loading::after {
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 50%;
+    left: 50%;
+    margin-left: -8px;
+    margin-top: -8px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spinner 0.6s linear infinite;
+}
+
+@keyframes spinner {
+    to { transform: rotate(360deg); }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0">Pending Approvals</h4>
+            <div class="page-title-right">
+                <ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="{% url 'quotations:my-quotations' %}">Quotations</a></li>
+                    <li class="breadcrumb-item active">Pending Approvals</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Filters Sidebar -->
+    <div class="col-lg-3">
+        <div class="card filter-card">
+            <div class="card-body">
+                <h5 class="card-title mb-3">
+                    <i class="uil uil-filter me-2"></i>Filters
+                </h5>
+
+                <form method="get" action="{% url 'quotations:pending-approvals' %}" id="filter-form">
+                    <!-- Search -->
+                    <div class="mb-3">
+                        <label class="form-label">Search Quotation</label>
+                        <input type="text" class="form-control" name="search" value="{{ search_query }}" placeholder="Q-20250115-0001">
+                    </div>
+
+                    <!-- Sales Rep Filter -->
+                    <div class="mb-3">
+                        <label class="form-label">Sales Representative</label>
+                        <select class="form-select" name="sales_rep">
+                            <option value="">All Sales Reps</option>
+                            {% for rep in sales_reps %}
+                            <option value="{{ rep.id }}" {% if selected_sales_rep == rep.id|stringformat:"s" %}selected{% endif %}>
+                                {{ rep.get_full_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Date Range -->
+                    <div class="mb-3">
+                        <label class="form-label">Date From</label>
+                        <input type="date" class="form-control" name="date_from" value="{{ date_from }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Date To</label>
+                        <input type="date" class="form-control" name="date_to" value="{{ date_to }}">
+                    </div>
+
+                    <!-- Filter Buttons -->
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="uil uil-check me-1"></i>Apply Filters
+                        </button>
+                        <a href="{% url 'quotations:pending-approvals' %}" class="btn btn-soft-secondary">
+                            <i class="uil uil-redo me-1"></i>Clear Filters
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="col-lg-9">
+        <div class="card">
+            <div class="card-body">
+                {% if quotations %}
+                <div class="table-responsive mb-4">
+                    <table class="table table-centered table-nowrap table-hover datatable dt-responsive nowrap w-100">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Quotation ID</th>
+                                <th>Sales Rep</th>
+                                <th>Institution</th>
+                                <th>Date Submitted</th>
+                                <th>Days Pending</th>
+                                <th>Total</th>
+                                <th style="width: 200px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for quotation in quotations %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'quotations:quotation-detail' quotation.id %}" class="text-dark fw-bold">
+                                        {{ quotation.quotation_number }}
+                                    </a>
+                                    {% if quotation.last_edited_by %}
+                                    <span class="badge bg-info-subtle text-info ms-2" title="Edited by {{ quotation.last_edited_by.get_full_name }}" data-bs-toggle="tooltip">
+                                        <i class="uil uil-pen"></i> Edited
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ quotation.created_by.get_full_name }}
+                                </td>
+                                <td>
+                                    {% if quotation.institution %}
+                                        <span class="text-muted">{{ quotation.institution_name|truncatechars:30 }}</span>
+                                    {% else %}
+                                        <span class="text-muted">No Institution</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ quotation.submitted_for_approval_at|date:"M d, Y H:i" }}</td>
+                                <td>
+                                    {% if quotation.days_pending_count >= 7 %}
+                                        <span class="badge bg-pill days-critical">{{ quotation.days_pending_count }} days</span>
+                                    {% elif quotation.days_pending_count >= 3 %}
+                                        <span class="badge bg-pill days-warning">{{ quotation.days_pending_count }} days</span>
+                                    {% else %}
+                                        <span class="badge bg-pill days-normal">{{ quotation.days_pending_count }} days</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="fw-semibold">${{ quotation.total|floatformat:2 }}</span>
+                                </td>
+                                <td>
+                                    <button onclick="approveQuotation('{{ quotation.id }}')" class="btn btn-success btn-sm btn-action" title="Approve quotation" data-bs-toggle="tooltip">
+                                        <i class="uil uil-check"></i> Approve
+                                    </button>
+                                    <button onclick="showRejectModal('{{ quotation.id }}', '{{ quotation.quotation_number }}')" class="btn btn-danger btn-sm btn-action" title="Reject quotation" data-bs-toggle="tooltip">
+                                        <i class="uil uil-times"></i> Reject
+                                    </button>
+                                    <a href="{% url 'quotations:edit-quotation' quotation.id %}" class="btn btn-primary btn-sm btn-action" title="Edit quotation before approving" data-bs-toggle="tooltip">
+                                        <i class="uil uil-edit"></i> Edit
+                                    </a>
+                                    <a href="{% url 'quotations:quotation-detail' quotation.id %}" class="btn btn-secondary btn-sm btn-action" title="View full details" data-bs-toggle="tooltip">
+                                        <i class="uil uil-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <!-- Empty State -->
+                <div class="empty-state">
+                    <i class="uil uil-check-circle"></i>
+                    <h3>No Pending Approvals</h3>
+                    <p class="text-muted">There are no quotations waiting for approval at the moment.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Quotation Modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="rejectModalLabel">Reject Quotation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="rejectForm">
+                {% csrf_token %}
+                <input type="hidden" id="reject-quotation-id">
+                <div class="modal-body">
+                    <p>You are about to reject quotation <strong id="reject-quotation-number"></strong>.</p>
+                    <div class="mb-3">
+                        <label for="reject-reason" class="form-label">Rejection Reason <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="reject-reason" name="reason" required placeholder="Enter the reason for rejection..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="uil uil-times me-1"></i>Reject Quotation
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Request Changes Modal - REMOVED: Account Managers can now edit quotations directly -->
+<!--
+<div class="modal fade" id="changesModal" tabindex="-1" aria-labelledby="changesModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="changesModalLabel">Request Changes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="changesForm">
+                {% csrf_token %}
+                <input type="hidden" id="changes-quotation-id">
+                <div class="modal-body">
+                    <p>Request changes for quotation <strong id="changes-quotation-number"></strong>.</p>
+                    <div class="mb-3">
+                        <label for="change-notes" class="form-label">Change Request Notes <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="change-notes" name="notes" required placeholder="Describe the changes needed..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="uil uil-edit me-1"></i>Request Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+-->
+{% endblock %}
+
+{% block extra_js %}
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap4.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap4.min.js"></script>
+
+<script>
+let quotationsTable;
+
+$(document).ready(function() {
+    // Initialize DataTable
+    if ($('.datatable').length) {
+        quotationsTable = $('.datatable').DataTable({
+            pageLength: 25,
+            lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+            order: [[3, 'desc']], // Sort by date submitted descending
+            responsive: true,
+            language: {
+                search: "Search:",
+                lengthMenu: "Show _MENU_ entries",
+                info: "Showing _START_ to _END_ of _TOTAL_ entries",
+                infoEmpty: "No entries available",
+                infoFiltered: "(filtered from _MAX_ total entries)",
+                zeroRecords: "No matching records found",
+                paginate: {
+                    first: "First",
+                    last: "Last",
+                    next: "Next",
+                    previous: "Previous"
+                }
+            },
+            columnDefs: [
+                { orderable: true, targets: [0, 1, 2, 3, 4, 5] },
+                { orderable: false, targets: [6] }
+            ]
+        });
+    }
+
+    // Initialize Bootstrap tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+
+// Approve quotation with confirmation
+function approveQuotation(quotationId) {
+    if (confirm('Are you sure you want to approve this quotation? This will trigger CIN7 sync if applicable.')) {
+        const btn = event.target.closest('button');
+        btn.classList.add('btn-loading');
+        btn.disabled = true;
+
+        fetch(`/quotations/${quotationId}/approve/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                if (data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    window.location.reload();
+                }
+            } else {
+                alert('Error: ' + data.message);
+                btn.classList.remove('btn-loading');
+                btn.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while approving the quotation');
+            btn.classList.remove('btn-loading');
+            btn.disabled = false;
+        });
+    }
+}
+
+// Show reject modal
+function showRejectModal(quotationId, quotationNumber) {
+    document.getElementById('reject-quotation-id').value = quotationId;
+    document.getElementById('reject-quotation-number').textContent = quotationNumber;
+    document.getElementById('reject-reason').value = '';
+
+    const modal = new bootstrap.Modal(document.getElementById('rejectModal'));
+    modal.show();
+}
+
+// Show request changes modal - REMOVED: Account Managers can now edit quotations directly
+/*
+function showChangesModal(quotationId, quotationNumber) {
+    document.getElementById('changes-quotation-id').value = quotationId;
+    document.getElementById('changes-quotation-number').textContent = quotationNumber;
+    document.getElementById('change-notes').value = '';
+
+    const modal = new bootstrap.Modal(document.getElementById('changesModal'));
+    modal.show();
+}
+*/
+
+// Handle reject form submission
+document.getElementById('rejectForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const quotationId = document.getElementById('reject-quotation-id').value;
+    const reason = document.getElementById('reject-reason').value;
+    const submitBtn = this.querySelector('button[type="submit"]');
+
+    submitBtn.classList.add('btn-loading');
+    submitBtn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('reason', reason);
+    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+
+    fetch(`/quotations/${quotationId}/reject/`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('rejectModal')).hide();
+            alert(data.message);
+            if (data.redirect_url) {
+                window.location.href = data.redirect_url;
+            } else {
+                window.location.reload();
+            }
+        } else {
+            alert('Error: ' + data.message);
+            submitBtn.classList.remove('btn-loading');
+            submitBtn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while rejecting the quotation');
+        submitBtn.classList.remove('btn-loading');
+        submitBtn.disabled = false;
+    });
+});
+
+// Handle changes form submission - REMOVED: Account Managers can now edit quotations directly
+/*
+document.getElementById('changesForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const quotationId = document.getElementById('changes-quotation-id').value;
+    const notes = document.getElementById('change-notes').value;
+    const submitBtn = this.querySelector('button[type="submit"]');
+
+    submitBtn.classList.add('btn-loading');
+    submitBtn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('notes', notes);
+    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+
+    fetch(`/quotations/${quotationId}/request-changes/`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('changesModal')).hide();
+            alert(data.message);
+            if (data.redirect_url) {
+                window.location.href = data.redirect_url;
+            } else {
+                window.location.reload();
+            }
+        } else {
+            alert('Error: ' + data.message);
+            submitBtn.classList.remove('btn-loading');
+            submitBtn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while requesting changes');
+        submitBtn.classList.remove('btn-loading');
+        submitBtn.disabled = false;
+    });
+});
+*/
+
+// Get CSRF token from cookies
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

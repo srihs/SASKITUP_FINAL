@@ -773,6 +773,13 @@ class AuditLog(models.Model):
         ('quotation_update_email_sent', 'Quotation Update Email Sent'),
         ('quotation_approval_email_sent', 'Quotation Approval Email Sent'),
         ('quotation_email_failed', 'Quotation Email Failed'),
+
+        # Quotation Approval and CIN7 Sync Operations
+        ('quotation_submitted_for_approval', 'Quotation Submitted for Approval'),
+        ('quotation_sent_to_cin7', 'Quotation Sent to CIN7'),
+        ('cin7_so_created', 'CIN7 Sales Order Created'),
+        ('cin7_sync_failed', 'CIN7 Sync Failed'),
+        ('cin7_sync_retried', 'CIN7 Sync Retried'),
     ]
 
     # Primary identification

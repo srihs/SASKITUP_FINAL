@@ -647,3 +647,258 @@ def validate_email_configuration() -> Tuple[bool, Optional[str]]:
             return False, f"Missing email settings: {', '.join(missing)}"
 
     return True, None
+
+
+# =====================================
+# APPROVAL WORKFLOW EMAIL NOTIFICATIONS
+# =====================================
+
+def send_quotation_approval_email(quotation: Quotation) -> bool:
+    """
+    Send email notification to sales rep when quotation is approved.
+
+    Args:
+        quotation: Approved Quotation instance
+
+    Returns:
+        bool: True if email sent successfully, False otherwise
+    """
+    try:
+        if not quotation.created_by or not quotation.created_by.email:
+            logger.warning(f"Cannot send approval email for quotation {quotation.quotation_number}: No sales rep email")
+            return False
+
+        # Prepare context
+        context = {
+            'quotation': quotation,
+            'recipient_name': quotation.created_by.first_name or quotation.created_by.get_full_name(),
+            'approved_by': quotation.approved_by.get_full_name() if quotation.approved_by else 'Account Manager',
+            'approved_at': quotation.approved_at,
+            'cin7_synced': quotation.cin7_sync_status == 'synced',
+            'cin7_so_number': quotation.cin7_so_number,
+            'EMAIL_HOST_USER': settings.EMAIL_HOST_USER,
+        }
+
+        # Render email templates
+        subject = f"Quotation {quotation.quotation_number} Approved"
+        html_content = f"""
+        <html>
+        <body>
+            <h2>Quotation Approved</h2>
+            <p>Dear {context['recipient_name']},</p>
+            <p>Your quotation <strong>{quotation.quotation_number}</strong> has been approved by {context['approved_by']}.</p>
+            <p><strong>Quotation Details:</strong></p>
+            <ul>
+                <li>Institution: {quotation.institution_name}</li>
+                <li>Total: ${quotation.total}</li>
+                <li>Approved: {quotation.approved_at.strftime('%B %d, %Y at %I:%M %p')}</li>
+            </ul>
+            {f'<p>This quotation has been synced to CIN7 Sales Order: <strong>{quotation.cin7_so_number}</strong></p>' if context['cin7_synced'] else ''}
+            <p>Best regards,<br>SAS KITUP Team</p>
+        </body>
+        </html>
+        """
+
+        text_content = f"""
+Quotation Approved
+
+Dear {context['recipient_name']},
+
+Your quotation {quotation.quotation_number} has been approved by {context['approved_by']}.
+
+Quotation Details:
+- Institution: {quotation.institution_name}
+- Total: ${quotation.total}
+- Approved: {quotation.approved_at.strftime('%B %d, %Y at %I:%M %p')}
+
+{'This quotation has been synced to CIN7 Sales Order: ' + quotation.cin7_so_number if context['cin7_synced'] else ''}
+
+Best regards,
+SAS KITUP Team
+        """
+
+        # Create and send email
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_content,
+            from_email=_get_from_email(),
+            to=[quotation.created_by.email],
+        )
+        email.attach_alternative(html_content, "text/html")
+        email.send(fail_silently=False)
+
+        logger.info(f"Approval email sent for quotation {quotation.quotation_number} to {quotation.created_by.email}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to send approval email for quotation {quotation.quotation_number}: {e}", exc_info=True)
+        return False
+
+
+def send_quotation_rejection_email(quotation: Quotation) -> bool:
+    """
+    Send email notification to sales rep when quotation is rejected.
+
+    Args:
+        quotation: Rejected Quotation instance
+
+    Returns:
+        bool: True if email sent successfully, False otherwise
+    """
+    try:
+        if not quotation.created_by or not quotation.created_by.email:
+            logger.warning(f"Cannot send rejection email for quotation {quotation.quotation_number}: No sales rep email")
+            return False
+
+        # Prepare context
+        context = {
+            'quotation': quotation,
+            'recipient_name': quotation.created_by.first_name or quotation.created_by.get_full_name(),
+            'rejected_by': quotation.rejected_by.get_full_name() if quotation.rejected_by else 'Account Manager',
+            'rejected_at': quotation.rejected_at,
+            'rejection_reason': quotation.rejection_reason,
+            'EMAIL_HOST_USER': settings.EMAIL_HOST_USER,
+        }
+
+        # Render email templates
+        subject = f"Quotation {quotation.quotation_number} Rejected"
+        html_content = f"""
+        <html>
+        <body>
+            <h2>Quotation Rejected</h2>
+            <p>Dear {context['recipient_name']},</p>
+            <p>Your quotation <strong>{quotation.quotation_number}</strong> has been rejected by {context['rejected_by']}.</p>
+            <p><strong>Rejection Reason:</strong></p>
+            <p style="background-color: #f8d7da; padding: 10px; border-left: 4px solid #f5c2c7;">{context['rejection_reason']}</p>
+            <p><strong>Quotation Details:</strong></p>
+            <ul>
+                <li>Institution: {quotation.institution_name}</li>
+                <li>Total: ${quotation.total}</li>
+                <li>Rejected: {quotation.rejected_at.strftime('%B %d, %Y at %I:%M %p')}</li>
+            </ul>
+            <p>Please review the feedback and create a new quotation if needed.</p>
+            <p>Best regards,<br>SAS KITUP Team</p>
+        </body>
+        </html>
+        """
+
+        text_content = f"""
+Quotation Rejected
+
+Dear {context['recipient_name']},
+
+Your quotation {quotation.quotation_number} has been rejected by {context['rejected_by']}.
+
+Rejection Reason:
+{context['rejection_reason']}
+
+Quotation Details:
+- Institution: {quotation.institution_name}
+- Total: ${quotation.total}
+- Rejected: {quotation.rejected_at.strftime('%B %d, %Y at %I:%M %p')}
+
+Please review the feedback and create a new quotation if needed.
+
+Best regards,
+SAS KITUP Team
+        """
+
+        # Create and send email
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_content,
+            from_email=_get_from_email(),
+            to=[quotation.created_by.email],
+        )
+        email.attach_alternative(html_content, "text/html")
+        email.send(fail_silently=False)
+
+        logger.info(f"Rejection email sent for quotation {quotation.quotation_number} to {quotation.created_by.email}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to send rejection email for quotation {quotation.quotation_number}: {e}", exc_info=True)
+        return False
+
+
+def send_quotation_changes_requested_email(quotation: Quotation, change_notes: str) -> bool:
+    """
+    Send email notification to sales rep when changes are requested.
+
+    Args:
+        quotation: Quotation instance
+        change_notes: Notes describing requested changes
+
+    Returns:
+        bool: True if email sent successfully, False otherwise
+    """
+    try:
+        if not quotation.created_by or not quotation.created_by.email:
+            logger.warning(f"Cannot send changes requested email for quotation {quotation.quotation_number}: No sales rep email")
+            return False
+
+        # Prepare context
+        context = {
+            'quotation': quotation,
+            'recipient_name': quotation.created_by.first_name or quotation.created_by.get_full_name(),
+            'change_notes': change_notes,
+            'EMAIL_HOST_USER': settings.EMAIL_HOST_USER,
+        }
+
+        # Render email templates
+        subject = f"Changes Requested for Quotation {quotation.quotation_number}"
+        html_content = f"""
+        <html>
+        <body>
+            <h2>Changes Requested</h2>
+            <p>Dear {context['recipient_name']},</p>
+            <p>The Account Manager has requested changes to quotation <strong>{quotation.quotation_number}</strong>.</p>
+            <p><strong>Requested Changes:</strong></p>
+            <p style="background-color: #fff3cd; padding: 10px; border-left: 4px solid #ffc107;">{change_notes}</p>
+            <p><strong>Quotation Details:</strong></p>
+            <ul>
+                <li>Institution: {quotation.institution_name}</li>
+                <li>Total: ${quotation.total}</li>
+            </ul>
+            <p>The quotation has been moved back to draft status. Please make the requested changes and resubmit for approval.</p>
+            <p>Best regards,<br>SAS KITUP Team</p>
+        </body>
+        </html>
+        """
+
+        text_content = f"""
+Changes Requested
+
+Dear {context['recipient_name']},
+
+The Account Manager has requested changes to quotation {quotation.quotation_number}.
+
+Requested Changes:
+{change_notes}
+
+Quotation Details:
+- Institution: {quotation.institution_name}
+- Total: ${quotation.total}
+
+The quotation has been moved back to draft status. Please make the requested changes and resubmit for approval.
+
+Best regards,
+SAS KITUP Team
+        """
+
+        # Create and send email
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_content,
+            from_email=_get_from_email(),
+            to=[quotation.created_by.email],
+        )
+        email.attach_alternative(html_content, "text/html")
+        email.send(fail_silently=False)
+
+        logger.info(f"Changes requested email sent for quotation {quotation.quotation_number} to {quotation.created_by.email}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to send changes requested email for quotation {quotation.quotation_number}: {e}", exc_info=True)
+        return False
