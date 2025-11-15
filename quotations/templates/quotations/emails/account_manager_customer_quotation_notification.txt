@@ -1,56 +1,29 @@
-{% if action == 'approved' %}CUSTOMER APPROVED QUOTATION{% else %}CUSTOMER {{ action|upper }} QUOTATION{% endif %}
+{% if action == 'approved' %}QUOTATION APPROVED{% else %}NEW QUOTATION GENERATED{% endif %}
 
-Dear {{ account_manager_name }},
+Quotation {{ quotation.quotation_number }}
 
-A customer has {{ action_past_tense }} a quotation that requires your attention.
+Hi {{ account_manager_name }},
+
+{% if action == 'approved' %}A customer has approved a quotation that requires your attention.{% else %}A customer has created a quotation that requires your attention.{% endif %}
+
+Please find the attached quotation for your reference.
 
 QUOTATION DETAILS
 ================================================================================
-Quotation Number: {{ quotation.quotation_number }}
-Customer: {{ customer_name }} ({{ customer_email }})
-Institution: {{ institution_name }}
-Status: {{ quotation.get_status_display }}
-Date {{ action|title }}: {{ quotation.created_at|date:"F d, Y \a\t h:i A" }}
-{% if quotation.expires_at %}Expires: {{ quotation.expires_at|date:"F d, Y \a\t h:i A" }}{% endif %}
-
-QUOTATION SUMMARY
-================================================================================
-{% for item in items %}
-{{ item.product_name }}
-  SKU: {{ item.product_sku|default:"-" }}
-  Quantity: {{ item.quantity }}
-  Unit Price: ${{ item.unit_price }}
-  Total: ${{ item.line_total }}
-{% if item.addons.all %}
-  Addons:
-  {% for addon in item.addons.all %}
-  - {{ addon.product_name }} (Qty: {{ addon.quantity }}, Price: ${{ addon.unit_price }}, Total: ${{ addon.line_total }})
-  {% endfor %}
-{% endif %}
-
-{% endfor %}
-
-TOTALS
-================================================================================
-Subtotal: ${{ quotation.subtotal }}
-{% if discount_amount and discount_amount > 0 %}Discount: -${{ discount_amount }}{% endif %}
-Tax ({{ quotation.tax_percentage }}%): ${{ quotation.tax_amount }}
---------------------------------------------------------------------------------
-TOTAL: ${{ quotation.total }}
-
-{% if quotation.customer_notes %}
-CUSTOMER NOTES
-================================================================================
-{{ quotation.customer_notes }}
-
-{% endif %}
-View full quotation details: {{ quotation_url }}
+Quotation Number:  {{ quotation.quotation_number }}
+Total Amount:      Rs. {{ quotation.total|floatformat:2 }}
+Status:            {{ quotation.get_status_display }}
+Valid Until:       {% if quotation.expires_at %}{{ quotation.expires_at|date:"F d, Y" }}{% else %}N/A{% endif %}
 
 ================================================================================
-NOTE: A PDF copy of this quotation is attached to this email for your reference.
-
-This is an automated notification sent to all account managers.
-For questions, please contact {{ EMAIL_HOST_USER }}.
+IMPORTANT: Kindly review the details and follow up with the customer as needed.
+================================================================================
 
 Best regards,
-SAS KITUP Team
+SAS Team
+SAS Sports (Pvt) Ltd
+
+--------------------------------------------------------------------------------
+SAS Sports (Pvt) Ltd
+No. 123, Sports Avenue, Colombo 05, Sri Lanka
+Tel: +94 11 234 5678 | Email: info@sassports.lk

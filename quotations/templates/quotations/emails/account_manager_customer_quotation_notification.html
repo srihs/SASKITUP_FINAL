@@ -3,228 +3,173 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customer {{ action|title }} Quotation - {{ quotation.quotation_number }}</title>
+    <title>{% if action == 'approved' %}Quotation Approved{% else %}New Quotation Generated{% endif %} - {{ quotation.quotation_number }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             line-height: 1.6;
             color: #333;
-            max-width: 800px;
+            max-width: 600px;
             margin: 0 auto;
             padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .email-container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .header {
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 5px;
-            margin-bottom: 20px;
+            background-color: #ffffff;
+            padding: 30px 20px 20px;
             text-align: center;
+            border-bottom: 1px solid #e0e0e0;
         }
         .header img {
-            max-width: 200px;
+            max-width: 150px;
             height: auto;
         }
-        .alert {
-            background-color: #d1ecf1;
-            border: 1px solid #bee5eb;
-            border-radius: 5px;
+        .title-section {
+            padding: 30px 40px 20px;
+            text-align: center;
+        }
+        .title-section h1 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+            color: #333;
+            font-weight: 600;
+        }
+        .title-section .subtitle {
+            margin: 0;
+            font-size: 18px;
+            color: #666;
+            font-weight: normal;
+        }
+        .content {
+            padding: 20px 40px;
+        }
+        .greeting {
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+        .message {
+            margin-bottom: 20px;
+            line-height: 1.8;
+            color: #333;
+        }
+        .details-section {
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+        .details-section h3 {
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            color: #333;
+            font-weight: 600;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        .detail-label {
+            color: #666;
+            font-weight: 500;
+        }
+        .detail-value {
+            color: #333;
+            font-weight: 600;
+            text-align: right;
+        }
+        .action-reminder {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
             padding: 15px;
-            margin-bottom: 20px;
-        }
-        .alert-info {
-            background-color: #d1ecf1;
-            border-color: #bee5eb;
-            color: #0c5460;
-        }
-        .alert-success {
-            background-color: #d4edda;
-            border-color: #c3e6cb;
-            color: #155724;
-        }
-        .details-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        .details-table th {
-            background-color: #f8f9fa;
-            text-align: left;
-            padding: 10px;
-            border-bottom: 2px solid #dee2e6;
-        }
-        .details-table td {
-            padding: 10px;
-            border-bottom: 1px solid #dee2e6;
-        }
-        .items-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        .items-table th {
-            background-color: #343a40;
-            color: white;
-            text-align: left;
-            padding: 10px;
-        }
-        .items-table td {
-            padding: 10px;
-            border-bottom: 1px solid #dee2e6;
-        }
-        .items-table tr:hover {
-            background-color: #f8f9fa;
-        }
-        .total-row {
-            font-weight: bold;
-            background-color: #f8f9fa;
+            margin: 20px 0;
+            border-radius: 4px;
         }
         .footer {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 2px solid #dee2e6;
-            font-size: 0.9em;
-            color: #6c757d;
+            padding: 30px 40px;
+            background-color: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
         }
-        .btn {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            margin-top: 15px;
+        .signature {
+            margin-bottom: 20px;
+            line-height: 1.8;
         }
-        .btn:hover {
-            background-color: #0056b3;
+        .company-info {
+            font-size: 12px;
+            color: #666;
+            line-height: 1.6;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <img src="cid:company_logo" alt="SAS KITUP Logo">
-    </div>
+    <div class="email-container">
+        <div class="header">
+            <img src="cid:company_logo" alt="SAS Logo">
+        </div>
 
-    {% if action == 'approved' %}
-    <div class="alert alert-success">
-        <h2 style="margin: 0;">Customer Approved Quotation</h2>
-    </div>
-    {% else %}
-    <div class="alert alert-info">
-        <h2 style="margin: 0;">Customer {{ action|title }} Quotation</h2>
-    </div>
-    {% endif %}
+        <div class="title-section">
+            <h1>{% if action == 'approved' %}Quotation Approved{% else %}New Quotation Generated{% endif %}</h1>
+            <p class="subtitle">Quotation {{ quotation.quotation_number }}</p>
+        </div>
 
-    <p>Dear {{ account_manager_name }},</p>
+        <div class="content">
+            <p class="greeting">Hi {{ account_manager_name }},</p>
 
-    <p>A customer has <strong>{{ action_past_tense }}</strong> a quotation that requires your attention.</p>
+            <div class="message">
+                <p>{% if action == 'approved' %}A customer has approved a quotation that requires your attention.{% else %}A customer has created a quotation that requires your attention.{% endif %}</p>
+                <p>Please find the attached quotation for your reference.</p>
+            </div>
 
-    <table class="details-table">
-        <tr>
-            <th>Quotation Number:</th>
-            <td><strong>{{ quotation.quotation_number }}</strong></td>
-        </tr>
-        <tr>
-            <th>Customer:</th>
-            <td>{{ customer_name }} ({{ customer_email }})</td>
-        </tr>
-        <tr>
-            <th>Institution:</th>
-            <td>{{ institution_name }}</td>
-        </tr>
-        <tr>
-            <th>Status:</th>
-            <td><strong>{{ quotation.get_status_display }}</strong></td>
-        </tr>
-        <tr>
-            <th>Date {{ action|title }}:</th>
-            <td>{{ quotation.created_at|date:"F d, Y \a\t h:i A" }}</td>
-        </tr>
-        {% if quotation.expires_at %}
-        <tr>
-            <th>Expires:</th>
-            <td>{{ quotation.expires_at|date:"F d, Y \a\t h:i A" }}</td>
-        </tr>
-        {% endif %}
-    </table>
+            <div class="details-section">
+                <h3>Quotation Details</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Quotation Number</span>
+                    <span class="detail-value">{{ quotation.quotation_number }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Total Amount</span>
+                    <span class="detail-value">Rs. {{ quotation.total|floatformat:2 }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Status</span>
+                    <span class="detail-value">{{ quotation.get_status_display }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Valid Until</span>
+                    <span class="detail-value">{% if quotation.expires_at %}{{ quotation.expires_at|date:"F d, Y" }}{% else %}N/A{% endif %}</span>
+                </div>
+            </div>
 
-    <h3>Quotation Summary</h3>
+            <div class="action-reminder">
+                <p style="margin: 0;">Kindly review the details and follow up with the customer as needed.</p>
+            </div>
+        </div>
 
-    <table class="items-table">
-        <thead>
-            <tr>
-                <th>Item</th>
-                <th>SKU</th>
-                <th>Quantity</th>
-                <th>Unit Price</th>
-                <th>Total</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in items %}
-            <tr>
-                <td>{{ item.product_name }}</td>
-                <td>{{ item.product_sku|default:"-" }}</td>
-                <td>{{ item.quantity }}</td>
-                <td>${{ item.unit_price }}</td>
-                <td>${{ item.line_total }}</td>
-            </tr>
-            {% if item.addons.all %}
-                {% for addon in item.addons.all %}
-                <tr style="background-color: #f8f9fa;">
-                    <td style="padding-left: 30px;">└ {{ addon.product_name }}</td>
-                    <td>-</td>
-                    <td>{{ addon.quantity }}</td>
-                    <td>${{ addon.unit_price }}</td>
-                    <td>${{ addon.line_total }}</td>
-                </tr>
-                {% endfor %}
-            {% endif %}
-            {% endfor %}
-        </tbody>
-    </table>
+        <div class="footer">
+            <div class="signature">
+                <p style="margin: 0 0 5px 0;">Best regards,</p>
+                <p style="margin: 0 0 5px 0; font-weight: 600;">SAS Team</p>
+                <p style="margin: 0; color: #666;">SAS Sports (Pvt) Ltd</p>
+            </div>
 
-    <table class="details-table" style="margin-top: 20px;">
-        <tr>
-            <th>Subtotal:</th>
-            <td>${{ quotation.subtotal }}</td>
-        </tr>
-        {% if discount_amount and discount_amount > 0 %}
-        <tr>
-            <th>Discount:</th>
-            <td>-${{ discount_amount }}</td>
-        </tr>
-        {% endif %}
-        <tr>
-            <th>Tax ({{ quotation.tax_percentage }}%):</th>
-            <td>${{ quotation.tax_amount }}</td>
-        </tr>
-        <tr class="total-row">
-            <th>Total:</th>
-            <td><strong>${{ quotation.total }}</strong></td>
-        </tr>
-    </table>
-
-    {% if quotation.customer_notes %}
-    <h3>Customer Notes</h3>
-    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
-        {{ quotation.customer_notes|linebreaks }}
-    </div>
-    {% endif %}
-
-    <p>
-        <a href="{{ quotation_url }}" class="btn">View Quotation Details</a>
-    </p>
-
-    <div class="footer">
-        <p><strong>Note:</strong> A PDF copy of this quotation is attached to this email for your reference.</p>
-        <p>
-            This is an automated notification sent to all account managers.<br>
-            For questions, please contact {{ EMAIL_HOST_USER }}.
-        </p>
-        <p style="margin-top: 20px;">
-            Best regards,<br>
-            <strong>SAS KITUP Team</strong>
-        </p>
+            <div class="company-info">
+                <p style="margin: 0 0 5px 0; font-weight: 600;">SAS Sports (Pvt) Ltd</p>
+                <p style="margin: 0;">No. 123, Sports Avenue, Colombo 05, Sri Lanka</p>
+                <p style="margin: 5px 0 0 0;">Tel: +94 11 234 5678 | Email: info@sassports.lk</p>
+            </div>
+        </div>
     </div>
 </body>
 </html>
