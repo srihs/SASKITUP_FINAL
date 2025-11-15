@@ -161,11 +161,8 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Assignments</h5>
                 <div>
-                    <a href="{% url 'authentication:school-assignment-create' %}?sales_rep={{ object.pk }}" class="btn btn-outline-primary btn-sm">
-                        <i class="uil-plus me-1"></i>Assign School
-                    </a>
-                    <a href="{% url 'authentication:club-assignment-create' %}?sales_rep={{ object.pk }}" class="btn btn-outline-info btn-sm">
-                        <i class="uil-plus me-1"></i>Assign Club
+                    <a href="{% url 'authentication:bulk-assignment' %}?sales_rep={{ object.pk }}" class="btn btn-outline-primary btn-sm">
+                        <i class="uil-plus me-1"></i>Manage Assignments
                     </a>
                 </div>
             </div>
@@ -343,11 +340,8 @@
                     </a>
 
                     {% if object.user_type == 'sales_rep' %}
-                        <a href="{% url 'authentication:school-assignment-create' %}?sales_rep={{ object.pk }}" class="btn btn-outline-success">
-                            <i class="uil-building me-2"></i>Assign School
-                        </a>
-                        <a href="{% url 'authentication:club-assignment-create' %}?sales_rep={{ object.pk }}" class="btn btn-outline-info">
-                            <i class="uil-users-alt me-2"></i>Assign Club
+                        <a href="{% url 'authentication:bulk-assignment' %}?sales_rep={{ object.pk }}" class="btn btn-outline-success">
+                            <i class="uil-building me-2"></i>Manage Assignments
                         </a>
                     {% endif %}
 
