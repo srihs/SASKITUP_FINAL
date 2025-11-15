@@ -758,12 +758,14 @@
                                     <i class="mdi mdi-school me-1"></i> Schools
                                 </a>
                             </li>
+                            {% if not request.user.is_customer %}
                             <li class="nav-item">
                                 <a class="nav-link {% if active_tab == 'clubs' %}active{% endif %}"
                                    href="?tab=clubs{% if search_query %}&search={{ search_query }}{% endif %}">
                                     <i class="mdi mdi-soccer me-1"></i> Clubs
                                 </a>
                             </li>
+                            {% endif %}
                             <li class="nav-item">
                                 <a class="nav-link {% if active_tab == 'accessories' %}active{% endif %}"
                                    href="?tab=accessories{% if search_query %}&search={{ search_query }}{% endif %}">

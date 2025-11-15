@@ -2657,8 +2657,11 @@ class ProductDetailForQuotationView(LoginRequiredMixin, SalesRepOrAccountManager
 class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMixin, View):
     """
     New quotation page with tab-based product selection.
-    Shows Schools and Clubs tabs with products from assigned institutions.
-    Only accessible to sales reps and account managers.
+    Shows:
+    - Schools tab: ALL active TUS schools + assigned wholesale schools
+    - Accessories tab: Generic products available to all
+    - Custom Garments tab: Bespoke products
+    Note: Clubs tab removed - not applicable for quotations
     """
     template_name = 'quotations/new_quotation.html'
     paginate_by = 24  # Products per page
@@ -2685,7 +2688,7 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
         page_obj = None
         is_paginated = False
 
-        # Get user's assigned institutions
+        # Get user's assigned institutions (only used for wholesale schools, NOT TUS schools)
         assigned_schools = request.user.get_assigned_schools()
 
         # ========================================
@@ -2694,11 +2697,15 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
         if active_tab == 'schools':
             from django.db.models import Exists, OuterRef, Q as QOuter
 
-            # Get TUS School Products
+            # Get TUS School Products - Show ALL active TUS schools (no customer assignment filtering)
+            # Quotations should allow creating quotes for ANY TUS school regardless of assignment
             tus_products_qs = TUSProduct.objects.none()
-            if assigned_schools.get('regular'):
-                tus_school_ids = [school.id for school in assigned_schools['regular']]
 
+            # Get ALL active TUS schools (no assignment filtering for quotations)
+            active_tus_schools = TUSSchool.objects.filter(is_active=True)
+            tus_school_ids = list(active_tus_schools.values_list('id', flat=True))
+
+            if tus_school_ids:
                 # Stock filtering for TUS Products:
                 # - If product has variations: At least ONE variation must have stock_quantity > 0
                 # - If product has no variations: Base product must have stock_status in ['instock', 'onbackorder']
@@ -2844,167 +2851,181 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                             product.variation_display = {}
 
         # ========================================
-        # CLUBS TAB - SAS Clubs and LOTTO Clubs
+        # CLUBS TAB - Club-Specific Products (SAS Clubs + LOTTO Clubs)
+        # CUSTOMER RESTRICTION: This tab is NOT accessible to customers
+        # Only Admin, Account Manager, and Sales Rep can access
         # ========================================
         elif active_tab == 'clubs':
-            from django.db.models import Exists, OuterRef, Q as QOuter
-            from clubs.models_sas import SASProductVariation
-            from clubs.models_lotto import LottoProductVariation
-
-            # Get assigned clubs (EXCLUDE generic categories/shops - they go to accessories tab)
-            if request.user.is_admin or request.user.is_account_manager:
-                # Admin and account managers have access to all clubs (excluding generic)
-                sas_clubs = SASClub.objects.filter(is_active=True, is_generic_category=False)
-                lotto_clubs = LottoClub.objects.filter(is_active=True, is_generic_shop=False)
-            elif request.user.is_sales_rep:
-                # Get club assignments (GenericForeignKey)
-                club_assignments = SalesRepClubAssignment.objects.filter(
-                    sales_rep=request.user,
-                    is_active=True
-                ).select_related('club_content_type')
-
-                sas_club_ids = []
-                lotto_club_ids = []
-
-                for assignment in club_assignments:
-                    if assignment.club:
-                        if isinstance(assignment.club, SASClub):
-                            sas_club_ids.append(assignment.club.id)
-                        elif isinstance(assignment.club, LottoClub):
-                            lotto_club_ids.append(assignment.club.id)
-
-                sas_clubs = SASClub.objects.filter(id__in=sas_club_ids, is_generic_category=False)
-                lotto_clubs = LottoClub.objects.filter(id__in=lotto_club_ids, is_generic_shop=False)
+            # CUSTOMER CHECK: Customers cannot access clubs tab
+            if request.user.is_customer:
+                # Redirect customers to schools tab
+                active_tab = 'schools'
+                # Recursively handle schools tab by continuing to schools logic
+                # This is handled by redirecting in the template, but for safety
+                # we'll set empty results here
+                page_obj = None
+                is_paginated = False
             else:
-                sas_clubs = SASClub.objects.none()
-                lotto_clubs = LottoClub.objects.none()
+                # Proceed with clubs tab for admin/account manager/sales rep
+                from django.db.models import Exists, OuterRef, Q as QOuter
+                from clubs.models_sas import SASProductVariation
+                from clubs.models_lotto import LottoProductVariation
 
-            # Stock filtering for SAS Products:
-            # - If product has variations: At least ONE variation must have stock_quantity > 0
-            # - If product has no variations: Base product must have stock_status in ['instock', 'onbackorder']
+                # Get assigned clubs based on user role
+                if request.user.is_admin or request.user.is_account_manager:
+                    # Admin and account managers have access to all clubs
+                    sas_clubs = SASClub.objects.filter(is_active=True)
+                    lotto_clubs = LottoClub.objects.filter(is_active=True)
+                elif request.user.is_sales_rep:
+                    # Get club assignments (GenericForeignKey)
+                    club_assignments = SalesRepClubAssignment.objects.filter(
+                        sales_rep=request.user,
+                        is_active=True
+                    ).select_related('club_content_type')
 
-            # Subquery to check if product has at least one variation with stock
-            has_stock_variation_sas = Exists(
-                SASProductVariation.objects.filter(
-                    product=OuterRef('pk'),
-                    is_active=True,
-                    stock_quantity__gt=0
+                    sas_club_ids = []
+                    lotto_club_ids = []
+
+                    for assignment in club_assignments:
+                        if assignment.club:
+                            if isinstance(assignment.club, SASClub):
+                                sas_club_ids.append(assignment.club.id)
+                            elif isinstance(assignment.club, LottoClub):
+                                lotto_club_ids.append(assignment.club.id)
+
+                    sas_clubs = SASClub.objects.filter(id__in=sas_club_ids)
+                    lotto_clubs = LottoClub.objects.filter(id__in=lotto_club_ids)
+                else:
+                    # Fallback: no clubs for other user types
+                    sas_clubs = SASClub.objects.none()
+                    lotto_clubs = LottoClub.objects.none()
+
+                # Stock filtering for SAS Products:
+                # - If product has variations: At least ONE variation must have stock_quantity > 0
+                # - If product has no variations: Base product must have stock_status in ['instock', 'onbackorder']
+
+                # Subquery to check if product has at least one variation with stock
+                has_stock_variation_sas = Exists(
+                    SASProductVariation.objects.filter(
+                        product=OuterRef('pk'),
+                        is_active=True,
+                        stock_quantity__gt=0
+                    )
                 )
-            )
 
-            # Subquery to check if product has any variations at all
-            has_any_variation_sas = Exists(
-                SASProductVariation.objects.filter(
-                    product=OuterRef('pk'),
+                # Subquery to check if product has any variations at all
+                has_any_variation_sas = Exists(
+                    SASProductVariation.objects.filter(
+                        product=OuterRef('pk'),
+                        is_active=True
+                    )
+                )
+
+                # Get SAS Products with stock filtering
+                sas_products_qs = SASProduct.objects.filter(
+                    club__in=sas_clubs,
                     is_active=True
+                ).annotate(
+                    has_stock_variation=has_stock_variation_sas,
+                    has_any_variation=has_any_variation_sas
+                ).filter(
+                    # Filter: (has variations AND has stock in at least one variation) OR
+                    #         (no variations AND product stock_status is instock/onbackorder)
+                    QOuter(
+                        QOuter(has_any_variation=True, has_stock_variation=True) |
+                        QOuter(has_any_variation=False, stock_status__in=['instock', 'onbackorder'])
+                    )
+                ).select_related('club').prefetch_related('variations')
+
+                # Apply search filter
+                if search_query:
+                    sas_products_qs = sas_products_qs.filter(
+                        Q(name__icontains=search_query) |
+                        Q(sku__icontains=search_query) |
+                        Q(description__icontains=search_query) |
+                        Q(variations__sku_suffix__icontains=search_query) |  # Search in variation SKU suffix
+                        Q(club__name__icontains=search_query) |  # Club name (acts as category)
+                        Q(club__sport__name__icontains=search_query) |  # Sport name (parent category)
+                        Q(club__city__icontains=search_query) |  # City
+                        Q(club__province__icontains=search_query) |  # Province
+                        Q(club__address__icontains=search_query)  # Address
+                    ).distinct()
+
+                # Stock filtering for LOTTO Products:
+                # - If product has variations: At least ONE variation must have stock_quantity > 0
+                # - If product has no variations: Base product must have stock_status in ['instock', 'onbackorder']
+
+                # Subquery to check if product has at least one variation with stock
+                has_stock_variation_lotto = Exists(
+                    LottoProductVariation.objects.filter(
+                        product=OuterRef('pk'),
+                        is_active=True,
+                        stock_quantity__gt=0
+                    )
                 )
-            )
 
-            # Get SAS Products with stock filtering
-            sas_products_qs = SASProduct.objects.filter(
-                club__in=sas_clubs,
-                is_active=True
-            ).annotate(
-                has_stock_variation=has_stock_variation_sas,
-                has_any_variation=has_any_variation_sas
-            ).filter(
-                # Filter: (has variations AND has stock in at least one variation) OR
-                #         (no variations AND product stock_status is instock/onbackorder)
-                QOuter(
-                    QOuter(has_any_variation=True, has_stock_variation=True) |
-                    QOuter(has_any_variation=False, stock_status__in=['instock', 'onbackorder'])
-                )
-            ).select_related('club').prefetch_related('variations')
+                # Get LOTTO Products with stock filtering
+                lotto_products_qs = LottoProduct.objects.filter(
+                    category__club__in=lotto_clubs,
+                ).annotate(
+                    has_stock_variation=has_stock_variation_lotto
+                ).filter(
+                    # Filter: (has variations AND has stock in at least one variation) OR
+                    #         (no variations AND product stock_status is instock/onbackorder)
+                    QOuter(
+                        QOuter(type='variable', has_stock_variation=True) |
+                        QOuter(type='simple', stock_status__in=['instock', 'onbackorder'])
+                    )
+                ).select_related('category__club').prefetch_related('variations')
 
-            # Apply search filter
-            if search_query:
-                sas_products_qs = sas_products_qs.filter(
-                    Q(name__icontains=search_query) |
-                    Q(sku__icontains=search_query) |
-                    Q(description__icontains=search_query) |
-                    Q(variations__sku_suffix__icontains=search_query) |  # Search in variation SKU suffix
-                    Q(club__name__icontains=search_query) |  # Club name (acts as category)
-                    Q(club__sport__name__icontains=search_query) |  # Sport name (parent category)
-                    Q(club__city__icontains=search_query) |  # City
-                    Q(club__province__icontains=search_query) |  # Province
-                    Q(club__address__icontains=search_query)  # Address
-                ).distinct()
+                # Apply search filter
+                if search_query:
+                    lotto_products_qs = lotto_products_qs.filter(
+                        Q(name__icontains=search_query) |
+                        Q(sku__icontains=search_query) |
+                        Q(description__icontains=search_query) |
+                        Q(variations__sku_suffix__icontains=search_query) |  # Search in variation SKU suffix
+                        Q(category__name__icontains=search_query) |  # Category name
+                        Q(category__club__name__icontains=search_query) |  # Club name
+                        Q(category__club__address__icontains=search_query)  # Address
+                    ).distinct()
 
-            # Stock filtering for LOTTO Products:
-            # - If product has variations: At least ONE variation must have stock_quantity > 0
-            # - If product has no variations: Base product must have stock_status in ['instock', 'onbackorder']
+                # PERFORMANCE OPTIMIZATION: Paginate BEFORE processing variations
+                # Convert to lists and merge (since they're different models)
+                sas_products_list = list(sas_products_qs)
+                lotto_products_list = list(lotto_products_qs)
 
-            # Subquery to check if product has at least one variation with stock
-            has_stock_variation_lotto = Exists(
-                LottoProductVariation.objects.filter(
-                    product=OuterRef('pk'),
-                    is_active=True,
-                    stock_quantity__gt=0
-                )
-            )
+                # Combine and paginate FIRST (before variation processing)
+                combined_products = sas_products_list + lotto_products_list
+                paginator = Paginator(combined_products, self.paginate_by)
+                try:
+                    page_obj = paginator.get_page(page)
+                except PageNotAnInteger:
+                    page_obj = paginator.get_page(1)
+                except EmptyPage:
+                    page_obj = paginator.get_page(paginator.num_pages)
 
-            # Get LOTTO Products with stock filtering
-            lotto_products_qs = LottoProduct.objects.filter(
-                category__club__in=lotto_clubs,
-            ).annotate(
-                has_stock_variation=has_stock_variation_lotto
-            ).filter(
-                # Filter: (has variations AND has stock in at least one variation) OR
-                #         (no variations AND product stock_status is instock/onbackorder)
-                QOuter(
-                    QOuter(type='variable', has_stock_variation=True) |
-                    QOuter(type='simple', stock_status__in=['instock', 'onbackorder'])
-                )
-            ).select_related('category__club').prefetch_related('variations')
+                is_paginated = paginator.num_pages > 1
 
-            # Apply search filter
-            if search_query:
-                lotto_products_qs = lotto_products_qs.filter(
-                    Q(name__icontains=search_query) |
-                    Q(sku__icontains=search_query) |
-                    Q(description__icontains=search_query) |
-                    Q(variations__sku_suffix__icontains=search_query) |  # Search in variation SKU suffix
-                    Q(category__name__icontains=search_query) |  # Category name
-                    Q(category__club__name__icontains=search_query) |  # Club name
-                    Q(category__club__address__icontains=search_query)  # Address
-                ).distinct()
-
-            # PERFORMANCE OPTIMIZATION: Paginate BEFORE processing variations
-            # Convert to lists and merge (since they're different models)
-            sas_products_list = list(sas_products_qs)
-            lotto_products_list = list(lotto_products_qs)
-
-            # Combine and paginate FIRST (before variation processing)
-            combined_products = sas_products_list + lotto_products_list
-            paginator = Paginator(combined_products, self.paginate_by)
-            try:
-                page_obj = paginator.get_page(page)
-            except PageNotAnInteger:
-                page_obj = paginator.get_page(1)
-            except EmptyPage:
-                page_obj = paginator.get_page(paginator.num_pages)
-
-            is_paginated = paginator.num_pages > 1
-
-            # ONLY process variations for products on CURRENT PAGE (24 products instead of ALL)
-            for product in page_obj.object_list:
-                # Determine product type by model class
-                if product.__class__.__name__ == 'SASProduct':
-                    product.product_type = 'sasproduct'
-                    # Fetch variations only for displayed products
-                    if product.has_variations:
-                        variations = list(product.variations.filter(is_active=True))
-                        product.variation_display = self._get_variation_display_data(variations, 'sas')
-                    else:
-                        product.variation_display = {}
-                elif product.__class__.__name__ == 'LottoProduct':
-                    product.product_type = 'lottoproduct'
-                    # Fetch variations only for displayed products
-                    if product.has_variations:
-                        variations = list(product.variations.filter(is_active=True))
-                        product.variation_display = self._get_variation_display_data(variations, 'lotto')
-                    else:
-                        product.variation_display = {}
+                # ONLY process variations for products on CURRENT PAGE (24 products instead of ALL)
+                for product in page_obj.object_list:
+                    # Determine product type by model class
+                    if product.__class__.__name__ == 'SASProduct':
+                        product.product_type = 'sasproduct'
+                        # Fetch variations only for displayed products
+                        if product.has_variations:
+                            variations = list(product.variations.filter(is_active=True))
+                            product.variation_display = self._get_variation_display_data(variations, 'sas')
+                        else:
+                            product.variation_display = {}
+                    elif product.__class__.__name__ == 'LottoProduct':
+                        product.product_type = 'lottoproduct'
+                        # Fetch variations only for displayed products
+                        if product.has_variations:
+                            variations = list(product.variations.filter(is_active=True))
+                            product.variation_display = self._get_variation_display_data(variations, 'lotto')
+                        else:
+                            product.variation_display = {}
 
         # ========================================
         # ACCESSORIES TAB - Generic Products Only (SAS Generic + LOTTO Generic Shop + BallStore)

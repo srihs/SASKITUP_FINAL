@@ -780,8 +780,13 @@ class Quotation(models.Model):
         """
         Check if quotation is eligible for CIN7 sync.
 
+        Business Rules:
+        - All non-Bespoke items → Sync to CIN7
+        - Mixed (Bespoke + non-Bespoke) → Sync non-Bespoke items to CIN7
+        - All Bespoke items → Don't sync (goes to eWand)
+
         Returns:
-            bool: True if quotation can be synced to CIN7, False otherwise
+            bool: True if quotation has syncable items for CIN7, False otherwise
         """
         # Must be approved by account manager
         if not self.account_manager_approved_at:
@@ -791,15 +796,16 @@ class Quotation(models.Model):
         if self.cin7_sync_status == 'synced':
             return False
 
-        # Must have at least one Bespoke item (Wholesale products go to CIN7)
-        if not self.has_bespoke_items():
-            return False
-
         # Status must be approved or confirmed
         if self.status not in ['approved', 'confirmed']:
             return False
 
-        return True
+        # Check if quotation has any non-Bespoke items
+        # This handles all three scenarios:
+        # 1. All non-Bespoke → has_non_bespoke_items() = True → Sync
+        # 2. Mixed → has_non_bespoke_items() = True → Sync non-Bespoke only
+        # 3. All Bespoke → has_non_bespoke_items() = False → Don't sync
+        return self.has_non_bespoke_items()
 
     def has_bespoke_items(self):
         """
@@ -818,6 +824,29 @@ class Quotation(models.Model):
 
         # Check if any items reference BespokeProduct
         return self.items.filter(product_content_type=bespoke_ct).exists()
+
+    def has_non_bespoke_items(self):
+        """
+        Check if quotation contains any non-Bespoke products.
+
+        Non-Bespoke products include: Wholesale, Lotto, SAS, TUS, BallStore.
+        These products are eligible for CIN7 sync.
+
+        Returns:
+            bool: True if quotation has at least one non-Bespoke item, False otherwise
+        """
+        from django.contrib.contenttypes.models import ContentType
+
+        # Get ContentType for BespokeProduct
+        try:
+            bespoke_ct = ContentType.objects.get(app_label='bespoke', model='bespokeproduct')
+        except ContentType.DoesNotExist:
+            # If BespokeProduct model doesn't exist, all items are non-Bespoke
+            return self.items.exists()
+
+        # Check if any items are NOT BespokeProduct
+        # Returns True if at least one non-Bespoke item exists
+        return self.items.exclude(product_content_type=bespoke_ct).exists()
 
     def can_be_edited_by_account_manager(self, user):
         """

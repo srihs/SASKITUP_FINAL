@@ -357,12 +357,18 @@ class TUSRetailSchoolsView(TUSAuditMixin, SearchAuditMixin, ListView):
 
     def get_queryset(self):
         from authentication.models import SalesRepSchoolAssignment
+        from quotations.models import CustomerInstitutionAssignment
         from django.db.models import Count, Q
+        from django.contrib.contenttypes.models import ContentType
 
         # Use utility function to get locations with stats
         queryset = get_tus_locations_with_stats()
 
         user = self.request.user
+
+        # Anonymous users get empty queryset
+        if not user.is_authenticated:
+            return queryset.none()
 
         # Admin and Account Manager: See ALL locations
         if user.is_admin or user.is_account_manager:
@@ -398,7 +404,40 @@ class TUSRetailSchoolsView(TUSAuditMixin, SearchAuditMixin, ListView):
                 )
             )
 
-        # Customer or other user types: No access
+        # Customer: See ONLY assigned retail schools
+        elif user.is_customer:
+            # Get TUS school ContentType
+            tus_school_ct = ContentType.objects.get_for_model(TUSSchool)
+
+            # Get assigned TUS school IDs for this customer
+            assigned_school_ids = CustomerInstitutionAssignment.objects.filter(
+                customer=user,
+                is_active=True,
+                institution_content_type=tus_school_ct
+            ).values_list('institution_object_id', flat=True)
+
+            # Filter locations that contain these schools
+            queryset = queryset.filter(schools__id__in=assigned_school_ids).distinct()
+
+            # Override the school count and product count to show only assigned schools
+            queryset = queryset.annotate(
+                assigned_schools_count=Count(
+                    'schools',
+                    filter=Q(schools__id__in=assigned_school_ids, schools__is_active=True),
+                    distinct=True
+                ),
+                assigned_products_count=Count(
+                    'schools__categories__product_assignments__product',
+                    filter=Q(
+                        schools__id__in=assigned_school_ids,
+                        schools__is_active=True,
+                        schools__categories__product_assignments__product__stock_status__in=['instock', 'onbackorder']
+                    ),
+                    distinct=True
+                )
+            )
+
+        # Other user types: No access
         else:
             return queryset.none()
 
@@ -424,6 +463,8 @@ class TUSRetailSchoolsView(TUSAuditMixin, SearchAuditMixin, ListView):
 
     def get_context_data(self, **kwargs):
         from authentication.models import SalesRepSchoolAssignment
+        from quotations.models import CustomerInstitutionAssignment
+        from django.contrib.contenttypes.models import ContentType
 
         context = super().get_context_data(**kwargs)
         user = self.request.user
@@ -435,6 +476,43 @@ class TUSRetailSchoolsView(TUSAuditMixin, SearchAuditMixin, ListView):
                 is_active=True,
                 tus_school__isnull=False
             ).values_list('tus_school_id', flat=True)
+
+            # Override stats with filtered counts
+            context['total_locations'] = TUSLocation.objects.filter(
+                is_active=True,
+                schools__id__in=assigned_school_ids
+            ).distinct().count()
+            context['total_schools'] = TUSSchool.objects.filter(
+                is_active=True,
+                id__in=assigned_school_ids
+            ).count()
+            context['total_general_categories'] = TUSGeneralCategory.objects.filter(is_active=True).count()
+            context['total_school_categories'] = TUSSchoolCategory.objects.filter(
+                school__id__in=assigned_school_ids
+            ).count()
+            context['total_products'] = TUSProduct.objects.filter(
+                category_assignments__school_category__school__id__in=assigned_school_ids
+            ).distinct().count()
+            context['total_variations'] = TUSProductVariation.objects.filter(
+                is_active=True,
+                product__category_assignments__school_category__school__id__in=assigned_school_ids
+            ).distinct().count()
+            context['featured_products_count'] = TUSProduct.objects.filter(
+                featured=True,
+                category_assignments__school_category__school__id__in=assigned_school_ids
+            ).distinct().count()
+            context['on_sale_products_count'] = TUSProduct.objects.filter(
+                on_sale=True,
+                category_assignments__school_category__school__id__in=assigned_school_ids
+            ).distinct().count()
+        elif user.is_customer:
+            # Customer: Show stats for assigned schools only
+            tus_school_ct = ContentType.objects.get_for_model(TUSSchool)
+            assigned_school_ids = CustomerInstitutionAssignment.objects.filter(
+                customer=user,
+                is_active=True,
+                institution_content_type=tus_school_ct
+            ).values_list('institution_object_id', flat=True)
 
             # Override stats with filtered counts
             context['total_locations'] = TUSLocation.objects.filter(
@@ -480,7 +558,7 @@ class TUSRetailSchoolsView(TUSAuditMixin, SearchAuditMixin, ListView):
         return context
 
 
-class TUSLocationDetailView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, TUSAuditMixin, DetailView):
+class TUSLocationDetailView(LoginRequiredMixin, TUSAuditMixin, DetailView):
     """
     Location detail view - shows schools within a location
 
@@ -488,7 +566,7 @@ class TUSLocationDetailView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, T
     - Admin: Full access to all locations and schools
     - Account Manager: Full access to all locations and schools
     - Sales Rep: Access to assigned schools only within locations
-    - Customer: NO ACCESS (blocked by SalesRepOrAccountManagerMixin)
+    - Customer: Access to assigned schools only within locations
     """
     model = TUSLocation
     template_name = 'schools/retail/location_detail.html'
@@ -520,18 +598,32 @@ class TUSLocationDetailView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, T
         )
 
         # Permission-based filtering
-        # Priority: Check admin/account_manager BEFORE sales_rep
         # Admin and Account Manager: See all schools (no filtering)
         # Sales Rep: Filter to only assigned schools
+        # Customer: Filter to only assigned schools
         assigned_school_ids = None
-        if not user.is_admin and not user.is_account_manager and user.is_sales_rep:
-            # Only apply filtering if user is PURELY a sales rep (not admin/account manager)
+        if user.is_admin or user.is_account_manager:
+            # No filtering for admin/account manager
+            pass
+        elif user.is_sales_rep:
+            # Sales rep: filter to assigned schools
             assigned_school_ids = SalesRepSchoolAssignment.objects.filter(
                 sales_rep=user,
                 is_active=True,
                 tus_school__isnull=False
             ).values_list('tus_school_id', flat=True)
+            schools = schools.filter(id__in=assigned_school_ids)
+        elif user.is_customer:
+            # Customer: filter to assigned schools
+            from quotations.models import CustomerInstitutionAssignment
+            from django.contrib.contenttypes.models import ContentType
 
+            tus_school_ct = ContentType.objects.get_for_model(TUSSchool)
+            assigned_school_ids = CustomerInstitutionAssignment.objects.filter(
+                customer=user,
+                is_active=True,
+                institution_content_type=tus_school_ct
+            ).values_list('institution_object_id', flat=True)
             schools = schools.filter(id__in=assigned_school_ids)
 
         # Pagination for schools

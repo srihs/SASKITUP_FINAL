@@ -172,12 +172,17 @@ class LottoClubsView(ListView):
     def get_queryset(self):
         from .models_lotto import LottoClub
         from authentication.models import SalesRepClubAssignment
+        from quotations.models import CustomerInstitutionAssignment
         from django.contrib.contenttypes.models import ContentType
 
         # Use clubs_only() to exclude generic shops
         queryset = LottoClub.objects.clubs_only().prefetch_related('categories')
 
         user = self.request.user
+
+        # Anonymous users get empty queryset
+        if not user.is_authenticated:
+            return queryset.none()
 
         # Admin and Account Manager: See ALL clubs
         if user.is_admin or user.is_account_manager:
@@ -195,7 +200,21 @@ class LottoClubsView(ListView):
 
             queryset = queryset.filter(id__in=assigned_ids)
 
-        # Customer or other user types: No access
+        # Customer: See assigned LOTTO generic shops only (auto-assigned during registration)
+        elif user.is_customer:
+            # Customers are assigned to LOTTO generic shops (is_generic_shop=True)
+            # They can see these "shops" which contain generic categories
+            lotto_content_type = ContentType.objects.get_for_model(LottoClub)
+            assigned_ids = CustomerInstitutionAssignment.objects.filter(
+                customer=user,
+                is_active=True,
+                institution_content_type=lotto_content_type
+            ).values_list('institution_object_id', flat=True)
+
+            # For customers, show generic shops only
+            queryset = queryset.filter(id__in=assigned_ids, is_generic_shop=True)
+
+        # Other user types: No access
         else:
             return queryset.none()
 
@@ -228,10 +247,13 @@ class LottoClubsView(ListView):
 
         user = self.request.user
 
-        # Get filtered club queryset based on user role (exclude generic shops)
+        # Get filtered club queryset based on user role
         clubs_queryset = LottoClub.objects.clubs_only()
 
-        if not user.is_admin and not user.is_account_manager and user.is_sales_rep:
+        if user.is_admin or user.is_account_manager:
+            # No filtering for admin/account manager
+            pass
+        elif user.is_sales_rep:
             # Filter to assigned clubs only
             lotto_content_type = ContentType.objects.get_for_model(LottoClub)
             assigned_ids = SalesRepClubAssignment.objects.filter(
@@ -240,18 +262,32 @@ class LottoClubsView(ListView):
                 club_content_type=lotto_content_type
             ).values_list('club_object_id', flat=True)
             clubs_queryset = clubs_queryset.filter(id__in=assigned_ids)
+        elif user.is_customer:
+            # Customer: filter to assigned generic shops only
+            from quotations.models import CustomerInstitutionAssignment
+
+            lotto_content_type = ContentType.objects.get_for_model(LottoClub)
+            assigned_ids = CustomerInstitutionAssignment.objects.filter(
+                customer=user,
+                is_active=True,
+                institution_content_type=lotto_content_type
+            ).values_list('institution_object_id', flat=True)
+            clubs_queryset = clubs_queryset.filter(id__in=assigned_ids, is_generic_shop=True)
 
         # LOTTO Statistics for dashboard tiles (filtered by user access)
+        # For sales rep and customers, use filtered queryset
+        use_filtered = user.is_sales_rep or user.is_customer
+
         context['stats'] = {
             'total_clubs': clubs_queryset.count(),
             'total_categories': LottoClubCategory.objects.filter(
                 product_count__gt=0,
                 club__in=clubs_queryset
-            ).count() if user.is_sales_rep else LottoClubCategory.objects.filter(product_count__gt=0).count(),
+            ).count() if use_filtered else LottoClubCategory.objects.filter(product_count__gt=0).count(),
             'total_products': LottoProduct.objects.filter(
                 stock_status__in=['instock', 'onbackorder'],
                 category__club__in=clubs_queryset
-            ).count() if user.is_sales_rep else LottoProduct.objects.filter(
+            ).count() if use_filtered else LottoProduct.objects.filter(
                 stock_status__in=['instock', 'onbackorder']
             ).count(),
             'active_clubs': clubs_queryset.annotate(
@@ -1375,6 +1411,7 @@ class SASClubListView(ListView):
 
     def get_queryset(self):
         from authentication.models import SalesRepClubAssignment
+        from quotations.models import CustomerInstitutionAssignment
         from django.contrib.contenttypes.models import ContentType
 
         # Use clubs_only() manager to automatically exclude schools and generic categories
@@ -1387,6 +1424,10 @@ class SASClubListView(ListView):
             queryset = SASClub.objects.filter(is_active=True, is_generic_category=False).select_related('sport')
 
         user = self.request.user
+
+        # Anonymous users get empty queryset
+        if not user.is_authenticated:
+            return queryset.none()
 
         # Admin and Account Manager: See ALL clubs
         if user.is_admin or user.is_account_manager:
@@ -1404,7 +1445,21 @@ class SASClubListView(ListView):
 
             queryset = queryset.filter(id__in=assigned_ids)
 
-        # Customer or other user types: No access
+        # Customer: See assigned SAS generic categories only (auto-assigned during registration)
+        elif user.is_customer:
+            # Customers are assigned to SAS generic categories (is_generic_category=True)
+            # Show generic categories containing products like Bags, Balls, Clothing
+            sas_content_type = ContentType.objects.get_for_model(SASClub)
+            assigned_ids = CustomerInstitutionAssignment.objects.filter(
+                customer=user,
+                is_active=True,
+                institution_content_type=sas_content_type
+            ).values_list('institution_object_id', flat=True)
+
+            # For customers, show generic categories only
+            queryset = queryset.filter(id__in=assigned_ids, is_generic_category=True)
+
+        # Other user types: No access
         else:
             return queryset.none()
 
