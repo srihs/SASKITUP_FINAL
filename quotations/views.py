@@ -2874,8 +2874,9 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                 # Get assigned clubs based on user role
                 if request.user.is_admin or request.user.is_account_manager:
                     # Admin and account managers have access to all clubs
-                    sas_clubs = SASClub.objects.filter(is_active=True)
-                    lotto_clubs = LottoClub.objects.filter(is_active=True)
+                    # EXCLUDE generic categories/shops to prevent duplication with accessories tab
+                    sas_clubs = SASClub.objects.filter(is_active=True, is_generic_category=False)
+                    lotto_clubs = LottoClub.objects.filter(is_active=True, is_generic_shop=False)
                 elif request.user.is_sales_rep:
                     # Get club assignments (GenericForeignKey)
                     club_assignments = SalesRepClubAssignment.objects.filter(
@@ -2893,8 +2894,9 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
                             elif isinstance(assignment.club, LottoClub):
                                 lotto_club_ids.append(assignment.club.id)
 
-                    sas_clubs = SASClub.objects.filter(id__in=sas_club_ids)
-                    lotto_clubs = LottoClub.objects.filter(id__in=lotto_club_ids)
+                    # Exclude generic categories/shops for consistency
+                    sas_clubs = SASClub.objects.filter(id__in=sas_club_ids, is_generic_category=False)
+                    lotto_clubs = LottoClub.objects.filter(id__in=lotto_club_ids, is_generic_shop=False)
                 else:
                     # Fallback: no clubs for other user types
                     sas_clubs = SASClub.objects.none()
