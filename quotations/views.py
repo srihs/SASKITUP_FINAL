@@ -15,6 +15,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.validators import validate_email
 from django.db.models import Q, Prefetch
+from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
@@ -5132,10 +5133,18 @@ def proxy_image(request):
 def account_manager_required(view_func):
     """Decorator to restrict access to account managers and admins"""
     @wraps(view_func)
-    def wrapped(request, *args, **kwargs):
+    def wrapped(self_or_request, *args, **kwargs):
+        # Handle both function-based views (request) and class-based views (self, request)
+        if hasattr(self_or_request, 'user'):
+            # This is a request object (function-based view)
+            request = self_or_request
+        else:
+            # This is self (class-based view), request is in args
+            request = args[0] if args else kwargs.get('request')
+
         if not (request.user.is_authenticated and (request.user.is_account_manager or request.user.is_admin)):
             raise PermissionDenied("Only Account Managers and Admins can access this page")
-        return view_func(request, *args, **kwargs)
+        return view_func(self_or_request, *args, **kwargs)
     return wrapped
 
 
@@ -5230,6 +5239,9 @@ class QuotationApproveView(LoginRequiredMixin, View):
     """
     Approve a quotation and trigger CIN7 sync.
     POST only view with CSRF protection.
+
+    CRITICAL: CIN7 sync must succeed before quotation is approved.
+    If sync fails, approval is rolled back and quotation remains in pending status.
     """
 
     @account_manager_required
@@ -5244,88 +5256,112 @@ class QuotationApproveView(LoginRequiredMixin, View):
                     'message': 'Only pending quotations can be approved'
                 }, status=400)
 
-            # Update quotation status
-            quotation.status = 'approved'
-            quotation.approved_by = request.user
-            quotation.approved_at = timezone.now()
-            quotation.account_manager_approved_at = timezone.now()
-            quotation.save(update_fields=['status', 'approved_by', 'approved_at', 'account_manager_approved_at', 'updated_at'])
+            # Use database transaction to ensure atomicity
+            # If CIN7 sync fails, entire approval will be rolled back
+            try:
+                with transaction.atomic():
+                    # Check if CIN7 sync is required
+                    requires_cin7_sync = quotation.can_be_synced_to_cin7()
 
-            # Create version snapshot
-            quotation.create_version_snapshot(
-                description=f'Approved by {request.user.get_full_name()}',
-                user=request.user,
-                change_note=f'Quotation approved by Account Manager'
-            )
+                    # If CIN7 sync required, perform it BEFORE approval
+                    if requires_cin7_sync:
+                        from quotations.services.cin7_sales_order_service import Cin7SalesOrderService
 
-            # Log approval action
-            AuditLog.log_action(
-                user=request.user,
-                action_type='quotation_approved',
-                description=f'Approved quotation {quotation.quotation_number}',
-                request=request,
-                affected_model='Quotation',
-                affected_object_id=str(quotation.id),
-                quotation_id=str(quotation.id),
-                quotation_number=quotation.quotation_number,
-                status=quotation.status
-            )
+                        # Update status to syncing
+                        quotation.cin7_sync_status = 'syncing'
+                        quotation.save(update_fields=['cin7_sync_status', 'updated_at'])
 
-            # Trigger CIN7 sync if quotation has Bespoke items
-            cin7_sync_message = None
-            cin7_sync_success = False
+                        # Perform CIN7 sync
+                        logger.info(f"Attempting CIN7 sync for quotation {quotation.quotation_number} before approval")
+                        service = Cin7SalesOrderService()
+                        sync_result = service.create_sales_order(quotation)
 
-            if quotation.can_be_synced_to_cin7():
-                try:
-                    from quotations.services.cin7_sales_order_service import Cin7SalesOrderService
+                        # Check sync result
+                        cin7_sync_success = sync_result.get('success', False)
+                        cin7_sync_message = sync_result.get('message', 'CIN7 sync completed')
 
-                    # Update status to syncing
-                    quotation.cin7_sync_status = 'syncing'
-                    quotation.save(update_fields=['cin7_sync_status', 'updated_at'])
+                        if not cin7_sync_success:
+                            # Sync failed - raise exception to trigger rollback
+                            raise Exception(f"CIN7 sync failed: {cin7_sync_message}")
 
-                    # Sync to CIN7
-                    service = Cin7SalesOrderService()
-                    sync_result = service.create_sales_order(quotation)
+                        # Log successful CIN7 sync
+                        AuditLog.log_action(
+                            user=request.user,
+                            action_type='cin7_so_created',
+                            description=f'CIN7 sync for quotation {quotation.quotation_number}: {cin7_sync_message}',
+                            request=request,
+                            affected_model='Quotation',
+                            affected_object_id=str(quotation.id),
+                            quotation_id=str(quotation.id),
+                            cin7_order_id=sync_result.get('cin7_order_id'),
+                            cin7_reference=sync_result.get('cin7_reference')
+                        )
 
-                    cin7_sync_success = sync_result.get('success', False)
-                    cin7_sync_message = sync_result.get('message', 'CIN7 sync completed')
+                    # CIN7 sync succeeded (or not required) - proceed with approval
+                    quotation.status = 'approved'
+                    quotation.approved_by = request.user
+                    quotation.approved_at = timezone.now()
+                    quotation.account_manager_approved_at = timezone.now()
+                    quotation.save(update_fields=['status', 'approved_by', 'approved_at', 'account_manager_approved_at', 'updated_at'])
 
-                    # Log CIN7 sync
+                    # Create version snapshot
+                    quotation.create_version_snapshot(
+                        description=f'Approved by {request.user.get_full_name()}',
+                        user=request.user,
+                        change_note=f'Quotation approved by Account Manager'
+                    )
+
+                    # Log approval action
                     AuditLog.log_action(
                         user=request.user,
-                        action_type='cin7_so_created' if cin7_sync_success else 'cin7_sync_failed',
-                        description=f'CIN7 sync for quotation {quotation.quotation_number}: {cin7_sync_message}',
+                        action_type='quotation_approved',
+                        description=f'Approved quotation {quotation.quotation_number}',
                         request=request,
                         affected_model='Quotation',
                         affected_object_id=str(quotation.id),
                         quotation_id=str(quotation.id),
-                        cin7_order_id=sync_result.get('cin7_order_id'),
-                        cin7_reference=sync_result.get('cin7_reference')
+                        quotation_number=quotation.quotation_number,
+                        status=quotation.status
                     )
 
-                except Exception as e:
-                    logger.error(f"CIN7 sync failed for quotation {quotation.quotation_number}: {e}")
-                    cin7_sync_message = f"CIN7 sync failed: {str(e)}"
-                    cin7_sync_success = False
+                    # Transaction will commit here if no exceptions raised
 
-                    # Update quotation with error
-                    quotation.cin7_sync_status = 'failed'
-                    quotation.cin7_sync_error = str(e)
-                    quotation.save(update_fields=['cin7_sync_status', 'cin7_sync_error', 'updated_at'])
+            except Exception as sync_error:
+                # CIN7 sync or approval failed - transaction has been rolled back
+                logger.error(f"CIN7 sync failed for quotation {quotation.quotation_number}: {sync_error}")
 
-                    # Log error
-                    AuditLog.log_action(
-                        user=request.user,
-                        action_type='cin7_sync_failed',
-                        description=f'CIN7 sync failed for quotation {quotation.quotation_number}: {str(e)}',
-                        request=request,
-                        affected_model='Quotation',
-                        affected_object_id=str(quotation.id),
-                        quotation_id=str(quotation.id),
-                        error_message=str(e)
-                    )
+                # Reload quotation to get fresh state after rollback
+                quotation.refresh_from_db()
 
-            # Send email notification to sales rep
+                # Update quotation with sync error
+                quotation.cin7_sync_status = 'failed'
+                quotation.cin7_sync_error = str(sync_error)
+                quotation.save(update_fields=['cin7_sync_status', 'cin7_sync_error', 'updated_at'])
+
+                # Log sync failure
+                AuditLog.log_action(
+                    user=request.user,
+                    action_type='cin7_sync_failed',
+                    description=f'CIN7 sync failed for quotation {quotation.quotation_number}: {str(sync_error)}',
+                    request=request,
+                    affected_model='Quotation',
+                    affected_object_id=str(quotation.id),
+                    quotation_id=str(quotation.id),
+                    error_message=str(sync_error)
+                )
+
+                # Return error response - quotation remains in pending status
+                error_message = f'Quotation approval failed: CIN7 sync error - {str(sync_error)}'
+                messages.error(request, error_message)
+
+                return JsonResponse({
+                    'success': False,
+                    'message': error_message,
+                    'cin7_sync': False,
+                    'quotation_status': quotation.status  # Should still be 'pending'
+                }, status=400)
+
+            # Send email notification to sales rep (outside transaction)
             try:
                 from quotations.emails import send_quotation_approval_email
                 send_quotation_approval_email(quotation)
@@ -5334,15 +5370,15 @@ class QuotationApproveView(LoginRequiredMixin, View):
 
             # Success message
             success_message = f'Quotation {quotation.quotation_number} approved successfully'
-            if cin7_sync_message:
-                success_message += f'. {cin7_sync_message}'
+            if requires_cin7_sync:
+                success_message += ' and synced to CIN7'
 
             messages.success(request, success_message)
 
             return JsonResponse({
                 'success': True,
                 'message': success_message,
-                'cin7_sync': cin7_sync_success,
+                'cin7_sync': requires_cin7_sync,
                 'redirect_url': reverse('quotations:quotation-detail', kwargs={'pk': quotation.id})
             })
 
