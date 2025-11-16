@@ -397,6 +397,40 @@ class Quotation(models.Model):
         help_text="Timestamp when account manager approved the quotation"
     )
 
+    # Customer Approval Fields (First Level Approval)
+    customer_approved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Customer Approved At",
+        help_text="Timestamp when customer approved the quotation"
+    )
+    customer_approved_by = models.ForeignKey(
+        'authentication.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='quotations_customer_approved',
+        verbose_name="Customer Approved By",
+        help_text="User who gave customer approval (customer or sales rep on their behalf)"
+    )
+
+    # Account Manager Approval Override Fields
+    approval_override_by = models.ForeignKey(
+        'authentication.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='quotations_approval_override',
+        verbose_name="Approval Override By",
+        help_text="Account manager who overrode customer approval requirement"
+    )
+    approval_override_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Approval Override At",
+        help_text="Timestamp when account manager overrode customer approval requirement"
+    )
+
     # Account Manager Edit Tracking
     last_edited_by = models.ForeignKey(
         'authentication.User',
@@ -776,7 +810,78 @@ class Quotation(models.Model):
         self.status = 'pending'
         self.save(update_fields=['submitted_for_approval_at', 'submitted_by', 'status', 'updated_at'])
 
-    def can_be_synced_to_cin7(self):
+    def customer_approve(self, approved_by):
+        """
+        Customer approval - First level of two-level approval system.
+
+        Args:
+            approved_by: User instance who is approving (customer or sales rep)
+
+        Raises:
+            ValidationError: If quotation cannot be approved by customer
+        """
+        if self.status not in ['draft', 'pending']:
+            raise ValidationError('Only draft or pending quotations can be approved by customer')
+
+        if self.customer_approved_at:
+            raise ValidationError('Quotation has already been approved by customer')
+
+        # Set customer approval fields
+        self.customer_approved_at = timezone.now()
+        self.customer_approved_by = approved_by
+        self.status = 'pending'  # Status remains pending, awaiting account manager approval
+        self.save(update_fields=['customer_approved_at', 'customer_approved_by', 'status', 'updated_at'])
+
+        # Create version snapshot
+        self.create_version_snapshot(
+            description=f'Customer approved by {approved_by.get_full_name()}',
+            user=approved_by,
+            change_note='Customer approval granted'
+        )
+
+    def can_be_approved_by_customer(self, user):
+        """
+        Check if quotation can be approved by customer.
+
+        Args:
+            user: User instance to check permissions for
+
+        Returns:
+            bool: True if user can approve as customer
+        """
+        return (
+            self.status in ['draft', 'pending'] and
+            not self.customer_approved_at and
+            (user.is_customer or user.is_sales_rep)
+        )
+
+    def needs_customer_approval(self):
+        """
+        Check if quotation is pending customer approval.
+
+        Returns:
+            bool: True if quotation needs customer approval
+        """
+        return (
+            self.status in ['draft', 'pending'] and
+            not self.customer_approved_at and
+            not self.account_manager_approved_at
+        )
+
+    def needs_account_manager_approval(self):
+        """
+        Check if quotation is pending account manager approval.
+
+        Returns:
+            bool: True if quotation needs account manager approval
+        """
+        return (
+            self.status == 'pending' and
+            self.customer_approved_at and
+            not self.account_manager_approved_at
+        )
+
+    def can_be_synced_to_cin7(self, during_approval=False):
         """
         Check if quotation is eligible for CIN7 sync.
 
@@ -785,20 +890,30 @@ class Quotation(models.Model):
         - Mixed (Bespoke + non-Bespoke) → Sync non-Bespoke items to CIN7
         - All Bespoke items → Don't sync (goes to eWand)
 
+        Args:
+            during_approval: If True, skip checks for fields that will be set during approval.
+                           This is used when validating sync eligibility before the approval transaction.
+
         Returns:
             bool: True if quotation has syncable items for CIN7, False otherwise
         """
-        # Must be approved by account manager
-        if not self.account_manager_approved_at:
-            return False
-
         # Must not already be synced
         if self.cin7_sync_status == 'synced':
             return False
 
-        # Status must be approved or confirmed
-        if self.status not in ['approved', 'confirmed']:
-            return False
+        if during_approval:
+            # During approval flow: quotation is still 'pending' and account_manager_approved_at is not set yet
+            # Only check if quotation has syncable items
+            if self.status != 'pending':
+                return False
+        else:
+            # Normal check: quotation must be approved and have account manager approval timestamp
+            if not self.account_manager_approved_at:
+                return False
+
+            # Status must be approved or confirmed
+            if self.status not in ['approved', 'confirmed']:
+                return False
 
         # Check if quotation has any non-Bespoke items
         # This handles all three scenarios:
@@ -942,6 +1057,32 @@ class QuotationItem(models.Model):
         help_text="Notes about this item"
     )
 
+    # CIN7 Integration Fields
+    cin7_product_option_id = models.IntegerField(
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name="CIN7 Product Option ID",
+        help_text="CIN7 product option ID (variant ID) from API lookup"
+    )
+    cin7_match_method = models.CharField(
+        max_length=50,
+        blank=True,
+        choices=[
+            ('barcode', 'Barcode Match'),
+            ('sku', 'SKU Match'),
+            ('database', 'Database Match'),
+        ],
+        verbose_name="CIN7 Match Method",
+        help_text="Method used to match this item to CIN7 product option"
+    )
+    cin7_matched_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="CIN7 Matched At",
+        help_text="Timestamp when CIN7 product option was matched"
+    )
+
     # Addon-specific fields
     is_addon = models.BooleanField(
         default=False,
@@ -1011,6 +1152,10 @@ class QuotationItem(models.Model):
             # Get image URL
             image_url = getattr(self.product, 'image_url', None) or getattr(self.product, 'image', '')
             self.product_image_url = image_url if isinstance(image_url, str) else ''
+
+        # Lookup CIN7 product option ID if not already set
+        if not self.cin7_product_option_id and self.product:
+            self._lookup_cin7_product_option()
 
         super().save(*args, **kwargs)
 
@@ -1099,6 +1244,181 @@ class QuotationItem(models.Model):
         if self.can_have_addons():
             return self.addons.filter(is_addon=True)
         return QuotationItem.objects.none()
+
+    def _lookup_cin7_product_option(self):
+        """
+        Lookup and set CIN7 product option ID from API using product-type specific strategy.
+
+        Product Type Mapping Strategy:
+        - TUS Products: SKU → CIN7 Barcode
+        - Bespoke Products: SKU → CIN7 Code
+        - LOTTO Products: SKU → CIN7 Code
+        - SAS Products: SKU → CIN7 Barcode
+        - Unknown/Other: Try barcode first, then code
+
+        Sets cin7_product_option_id, cin7_match_method, and cin7_matched_at if found.
+        """
+        from schools.services.cin7_api_service import Cin7ApiService
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        try:
+            api = Cin7ApiService()
+
+            # Get product type
+            product_type = self.product_content_type.model.lower() if self.product_content_type else None
+
+            # Get SKU and barcode values
+            sku = self._get_sku()
+            barcode = self._get_barcode()
+
+            logger.info(f"CIN7 lookup for '{self.product_name}' (type: {product_type}, SKU: {sku}, barcode: {barcode})")
+
+            # Product-type specific lookup strategies
+            if product_type == 'tusproduct':
+                # TUS Products: SKU → CIN7 Barcode
+                if sku:
+                    logger.info(f"[TUS] Attempting barcode lookup with SKU value: {sku}")
+                    option = api.lookup_product_option_by_barcode(sku)
+                    if option and 'id' in option:
+                        self.cin7_product_option_id = option['id']
+                        self.cin7_match_method = 'barcode_from_sku'
+                        self.cin7_matched_at = timezone.now()
+                        logger.info(f"[TUS] ✓ Matched to CIN7 option {option['id']} via barcode (from SKU)")
+                        return
+
+                # Fallback: Try actual barcode field
+                if barcode:
+                    logger.info(f"[TUS] Fallback: Attempting barcode lookup: {barcode}")
+                    option = api.lookup_product_option_by_barcode(barcode)
+                    if option and 'id' in option:
+                        self.cin7_product_option_id = option['id']
+                        self.cin7_match_method = 'barcode'
+                        self.cin7_matched_at = timezone.now()
+                        logger.info(f"[TUS] ✓ Matched to CIN7 option {option['id']} via barcode field")
+                        return
+
+            elif product_type in ['bespokeproduct', 'lottoproduct']:
+                # Bespoke/LOTTO Products: SKU → CIN7 Code
+                if sku:
+                    logger.info(f"[{product_type.upper()}] Attempting code lookup with SKU: {sku}")
+                    option = api.lookup_product_option_by_code(sku)
+                    if option and 'id' in option:
+                        self.cin7_product_option_id = option['id']
+                        self.cin7_match_method = 'code'
+                        self.cin7_matched_at = timezone.now()
+                        logger.info(f"[{product_type.upper()}] ✓ Matched to CIN7 option {option['id']} via code")
+                        return
+
+                # Fallback: Try barcode if SKU lookup failed
+                if barcode:
+                    logger.info(f"[{product_type.upper()}] Fallback: Attempting barcode lookup: {barcode}")
+                    option = api.lookup_product_option_by_barcode(barcode)
+                    if option and 'id' in option:
+                        self.cin7_product_option_id = option['id']
+                        self.cin7_match_method = 'barcode'
+                        self.cin7_matched_at = timezone.now()
+                        logger.info(f"[{product_type.upper()}] ✓ Matched to CIN7 option {option['id']} via barcode")
+                        return
+
+            elif product_type == 'sasproduct':
+                # SAS Products: SKU → CIN7 Barcode
+                if sku:
+                    logger.info(f"[SAS] Attempting barcode lookup with SKU value: {sku}")
+                    option = api.lookup_product_option_by_barcode(sku)
+                    if option and 'id' in option:
+                        self.cin7_product_option_id = option['id']
+                        self.cin7_match_method = 'barcode_from_sku'
+                        self.cin7_matched_at = timezone.now()
+                        logger.info(f"[SAS] ✓ Matched to CIN7 option {option['id']} via barcode (from SKU)")
+                        return
+
+                # Fallback: Try actual barcode field
+                if barcode:
+                    logger.info(f"[SAS] Fallback: Attempting barcode lookup: {barcode}")
+                    option = api.lookup_product_option_by_barcode(barcode)
+                    if option and 'id' in option:
+                        self.cin7_product_option_id = option['id']
+                        self.cin7_match_method = 'barcode'
+                        self.cin7_matched_at = timezone.now()
+                        logger.info(f"[SAS] ✓ Matched to CIN7 option {option['id']} via barcode field")
+                        return
+
+            else:
+                # Unknown product type: Try generic strategy
+                logger.info(f"[UNKNOWN:{product_type}] Using generic lookup strategy")
+
+                # Try barcode first
+                if barcode:
+                    logger.info(f"[UNKNOWN] Attempting barcode lookup: {barcode}")
+                    option = api.lookup_product_option_by_barcode(barcode)
+                    if option and 'id' in option:
+                        self.cin7_product_option_id = option['id']
+                        self.cin7_match_method = 'barcode'
+                        self.cin7_matched_at = timezone.now()
+                        logger.info(f"[UNKNOWN] ✓ Matched to CIN7 option {option['id']} via barcode")
+                        return
+
+                # Fallback to code lookup
+                if sku:
+                    logger.info(f"[UNKNOWN] Attempting code lookup with SKU: {sku}")
+                    option = api.lookup_product_option_by_code(sku)
+                    if option and 'id' in option:
+                        self.cin7_product_option_id = option['id']
+                        self.cin7_match_method = 'code'
+                        self.cin7_matched_at = timezone.now()
+                        logger.info(f"[UNKNOWN] ✓ Matched to CIN7 option {option['id']} via code")
+                        return
+
+                # Final fallback: Try SKU as barcode if numeric
+                if sku and sku.replace('-', '').replace(' ', '').isdigit():
+                    logger.info(f"[UNKNOWN] Final fallback: Attempting barcode with SKU: {sku}")
+                    option = api.lookup_product_option_by_barcode(sku)
+                    if option and 'id' in option:
+                        self.cin7_product_option_id = option['id']
+                        self.cin7_match_method = 'barcode_from_sku'
+                        self.cin7_matched_at = timezone.now()
+                        logger.info(f"[UNKNOWN] ✓ Matched to CIN7 option {option['id']} via barcode (from SKU)")
+                        return
+
+            logger.warning(f"✗ Could not find CIN7 product option for '{self.product_name}' (type: {product_type}, barcode: {barcode}, SKU: {sku})")
+
+        except Exception as e:
+            # Don't block quotation item creation if CIN7 lookup fails
+            logger.error(f"✗ Error during CIN7 product option lookup for '{self.product_name}': {e}", exc_info=True)
+
+    def _get_barcode(self):
+        """Extract barcode from product"""
+        if not self.product:
+            return None
+
+        # Try various barcode field names
+        for field in ['barcode', 'cin7_barcode', 'product_barcode']:
+            if hasattr(self.product, field):
+                value = getattr(self.product, field)
+                if value and str(value).strip():
+                    return str(value).strip()
+
+        return None
+
+    def _get_sku(self):
+        """Extract SKU from product or quotation item"""
+        # First check quotation item's product_sku field
+        if self.product_sku and self.product_sku.strip():
+            return self.product_sku.strip()
+
+        if not self.product:
+            return None
+
+        # Try various SKU field names
+        for field in ['sku', 'cin7_sku', 'product_code', 'code']:
+            if hasattr(self.product, field):
+                value = getattr(self.product, field)
+                if value and str(value).strip():
+                    return str(value).strip()
+
+        return None
 
 
 class CustomerInstitutionAssignment(models.Model):

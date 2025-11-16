@@ -87,6 +87,11 @@ urlpatterns = [
     # Account Manager Approval Workflow
     path('pending-approvals/', views.PendingApprovalsListView.as_view(), name='pending-approvals'),
     path('pending-approvals/count/', views.PendingApprovalsCountView.as_view(), name='pending-approvals-count'),
+
+    # Customer Approval (First Level - Two-Level Approval System)
+    path('<uuid:pk>/customer-approve/', views.QuotationCustomerApproveView.as_view(), name='quotation-customer-approve'),
+
+    # Account Manager Approval (Second Level - Two-Level Approval System)
     path('<uuid:pk>/approve/', views.QuotationApproveView.as_view(), name='quotation-approve'),
     path('<uuid:pk>/reject/', views.QuotationRejectView.as_view(), name='quotation-reject'),
     # DEPRECATED: Request changes functionality replaced by direct editing via edit-quotation

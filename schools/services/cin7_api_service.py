@@ -339,6 +339,104 @@ class Cin7ApiService:
 
         return extracted_options
 
+    def lookup_product_option_by_barcode(self, barcode: str) -> Optional[Dict]:
+        """
+        Lookup product option by barcode using CIN7 API.
+
+        Args:
+            barcode: Product barcode to search for
+
+        Returns:
+            Dict with product option details (id, code, barcode, etc.) or None if not found
+        """
+        if not barcode or not barcode.strip():
+            logger.warning("lookup_product_option_by_barcode called with empty barcode")
+            return None
+
+        barcode = barcode.strip()
+        where_clause = f"barcode='{barcode}'"
+
+        logger.info(f"Looking up CIN7 product option by barcode: {barcode}")
+
+        try:
+            response = self._make_request('ProductOptions', {'where': where_clause, 'rows': 1})
+
+            if not response:
+                logger.warning(f"No CIN7 product option found for barcode: {barcode}")
+                return None
+
+            # Response can be a list or dict with Items
+            options = response if isinstance(response, list) else response.get('Items', [])
+
+            if not options or len(options) == 0:
+                logger.warning(f"No CIN7 product option found for barcode: {barcode}")
+                return None
+
+            option = options[0]
+            logger.info(f"Found CIN7 product option {option.get('id')} for barcode: {barcode}")
+
+            return {
+                'id': option.get('id'),
+                'code': option.get('code', ''),
+                'barcode': option.get('barcode', ''),
+                'product_id': option.get('productId'),
+                'option1': option.get('option1', ''),
+                'status': option.get('status', '')
+            }
+
+        except Exception as e:
+            logger.error(f"Error looking up product option by barcode {barcode}: {e}")
+            return None
+
+    def lookup_product_option_by_code(self, code: str) -> Optional[Dict]:
+        """
+        Lookup product option by code (SKU) using CIN7 API.
+
+        Args:
+            code: Product option code/SKU to search for
+
+        Returns:
+            Dict with product option details (id, code, barcode, etc.) or None if not found
+        """
+        if not code or not code.strip():
+            logger.warning("lookup_product_option_by_code called with empty code")
+            return None
+
+        code = code.strip()
+        where_clause = f"code='{code}'"
+
+        logger.info(f"Looking up CIN7 product option by code: {code}")
+
+        try:
+            response = self._make_request('ProductOptions', {'where': where_clause, 'rows': 1})
+
+            if not response:
+                logger.warning(f"No CIN7 product option found for code: {code}")
+                return None
+
+            # Response can be a list or dict with Items
+            options = response if isinstance(response, list) else response.get('Items', [])
+
+            if not options or len(options) == 0:
+                logger.warning(f"No CIN7 product option found for code: {code}")
+                return None
+
+            option = options[0]
+            logger.info(f"Found CIN7 product option {option.get('id')} for code: {code}")
+
+            return {
+                'id': option.get('id'),
+                'code': option.get('code', ''),
+                'barcode': option.get('barcode', ''),
+                'product_id': option.get('productId'),
+                'option1': option.get('option1', ''),
+                'status': option.get('status', '')
+            }
+
+        except Exception as e:
+            logger.error(f"Error looking up product option by code {code}: {e}")
+            return None
+
     def test_connection(self) -> bool:
         """Test connection to Cin7 API"""
         try:

@@ -1897,7 +1897,9 @@ class MyQuotationsListView(LoginRequiredMixin, ListView):
         ).select_related(
             'created_by',
             'approved_by',
-            'rejected_by'
+            'rejected_by',
+            'customer_approved_by',
+            'approval_override_by'
         ).prefetch_related('items').annotate(
             is_edited=Case(
                 When(version__gt=1, then=Value(True)),
@@ -5235,6 +5237,97 @@ class PendingApprovalsListView(LoginRequiredMixin, ListView):
         return context
 
 
+class QuotationCustomerApproveView(LoginRequiredMixin, View):
+    """
+    Customer approval endpoint - First level of two-level approval system.
+    Can be called from listing grid via AJAX.
+    POST only view with CSRF protection.
+
+    Permissions:
+    - Customers: Can approve quotations assigned to them
+    - Sales Reps: Can approve quotations on behalf of customers
+    """
+
+    def post(self, request, pk):
+        try:
+            quotation = get_object_or_404(Quotation, pk=pk)
+
+            # Validate user permissions
+            if not (request.user.is_customer or request.user.is_sales_rep or request.user.is_account_manager or request.user.is_admin):
+                return JsonResponse({
+                    'success': False,
+                    'message': 'You do not have permission to approve quotations'
+                }, status=403)
+
+            # Validate quotation can be approved by customer
+            if not quotation.can_be_approved_by_customer(request.user):
+                if quotation.customer_approved_at:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'This quotation has already been approved by customer'
+                    }, status=400)
+                else:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'This quotation cannot be approved at this time'
+                    }, status=400)
+
+            # Perform customer approval
+            try:
+                quotation.customer_approve(request.user)
+
+                # Log approval action
+                AuditLog.log_action(
+                    user=request.user,
+                    action_type='quotation_customer_approved',
+                    description=f'Customer approved quotation {quotation.quotation_number}',
+                    request=request,
+                    affected_model='Quotation',
+                    affected_object_id=str(quotation.id),
+                    quotation_id=str(quotation.id),
+                    quotation_number=quotation.quotation_number,
+                    status=quotation.status
+                )
+
+                # Send notification to account manager
+                try:
+                    if quotation.account_manager:
+                        # TODO: Send email notification to account manager
+                        logger.info(f"Customer approval notification should be sent to account manager for quotation {quotation.quotation_number}")
+                except Exception as e:
+                    logger.error(f"Failed to send notification to account manager for quotation {quotation.quotation_number}: {e}")
+
+                success_message = f'Quotation {quotation.quotation_number} approved successfully. Awaiting account manager approval.'
+                messages.success(request, success_message)
+
+                return JsonResponse({
+                    'success': True,
+                    'message': success_message,
+                    'quotation_status': quotation.status,
+                    'customer_approved': True,
+                    'customer_approved_at': quotation.customer_approved_at.isoformat() if quotation.customer_approved_at else None,
+                    'customer_approved_by': quotation.customer_approved_by.get_full_name() if quotation.customer_approved_by else None
+                })
+
+            except ValidationError as ve:
+                return JsonResponse({
+                    'success': False,
+                    'message': str(ve)
+                }, status=400)
+
+        except Quotation.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Quotation not found'
+            }, status=404)
+        except Exception as e:
+            logger.error(f"Error approving quotation by customer: {e}")
+            return JsonResponse({
+                'success': False,
+                'message': f'Error approving quotation: {str(e)}'
+            }, status=500)
+
+
 class QuotationApproveView(LoginRequiredMixin, View):
     """
     Approve a quotation and trigger CIN7 sync.
@@ -5256,12 +5349,24 @@ class QuotationApproveView(LoginRequiredMixin, View):
                     'message': 'Only pending quotations can be approved'
                 }, status=400)
 
+            # NEW: Two-level approval system with account manager override capability
+            # Check if customer approval exists
+            if not quotation.customer_approved_at:
+                # Account manager can override customer approval requirement
+                quotation.approval_override_by = request.user
+                quotation.approval_override_at = timezone.now()
+                quotation.save(update_fields=['approval_override_by', 'approval_override_at', 'updated_at'])
+
+                logger.warning(f"Account manager {request.user.get_full_name()} overriding customer approval requirement for {quotation.quotation_number}")
+
             # Use database transaction to ensure atomicity
             # If CIN7 sync fails, entire approval will be rolled back
             try:
                 with transaction.atomic():
                     # Check if CIN7 sync is required
-                    requires_cin7_sync = quotation.can_be_synced_to_cin7()
+                    # Pass during_approval=True since we're in the approval flow
+                    # This allows validation to pass even though account_manager_approved_at is not set yet
+                    requires_cin7_sync = quotation.can_be_synced_to_cin7(during_approval=True)
 
                     # If CIN7 sync required, perform it BEFORE approval
                     if requires_cin7_sync:

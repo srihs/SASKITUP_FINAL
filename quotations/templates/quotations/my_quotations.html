@@ -153,8 +153,9 @@
                                 <th>Edited</th>
                                 <th>Latest Change</th>
                                 <th>Total</th>
+                                <th>Approval Status</th>
                                 <th>Status</th>
-                                <th style="width: 120px;">Action</th>
+                                <th style="width: 160px;">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -205,6 +206,33 @@
                                     <span class="fw-semibold">${{ quotation.total|floatformat:2 }}</span>
                                 </td>
                                 <td>
+                                    {% if quotation.customer_approved_at %}
+                                        <span class="badge bg-pill bg-success-subtle text-success font-size-11" title="Customer approved on {{ quotation.customer_approved_at|date:'M d, Y H:i' }}">
+                                            <i class="uil uil-check-circle me-1"></i>Customer
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-pill bg-warning-subtle text-warning font-size-11">
+                                            <i class="uil uil-clock me-1"></i>Pending Customer
+                                        </span>
+                                    {% endif %}
+
+                                    {% if quotation.account_manager_approved_at %}
+                                        <span class="badge bg-pill bg-success-subtle text-success font-size-11 mt-1" title="Account Manager approved on {{ quotation.account_manager_approved_at|date:'M d, Y H:i' }}">
+                                            <i class="uil uil-check-circle me-1"></i>Manager
+                                        </span>
+                                    {% elif quotation.customer_approved_at %}
+                                        <span class="badge bg-pill bg-warning-subtle text-warning font-size-11 mt-1">
+                                            <i class="uil uil-clock me-1"></i>Pending Manager
+                                        </span>
+                                    {% endif %}
+
+                                    {% if quotation.approval_override_by %}
+                                        <span class="badge bg-pill bg-info-subtle text-info font-size-11 mt-1" title="Override by {{ quotation.approval_override_by.get_full_name }}">
+                                            <i class="uil uil-shield-check me-1"></i>Override
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
                                     {% if quotation.status == 'approved' %}
                                     <span class="badge bg-pill bg-success-subtle text-success font-size-12">Approved</span>
                                     {% elif quotation.status == 'pending' %}
@@ -218,21 +246,26 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <a href="{% url 'quotations:quotation-detail' quotation.id %}" class="text-primary px-3" title="View Details">
+                                    {% if not quotation.customer_approved_at and quotation.status in 'draft,pending' %}
+                                    <a href="javascript:void(0);" onclick="approveQuotationCustomer('{{ quotation.id }}')" class="text-success px-2" title="Approve as Customer">
+                                        <i class="uil uil-check-circle font-size-18"></i>
+                                    </a>
+                                    {% endif %}
+                                    <a href="{% url 'quotations:quotation-detail' quotation.id %}" class="text-primary px-2" title="View Details">
                                         <i class="uil uil-eye font-size-18"></i>
                                     </a>
                                     {% if quotation.status not in 'approved,confirmed' %}
-                                    <a href="{% url 'quotations:edit-quotation' quotation.id %}" class="text-warning px-3" title="Edit Quotation">
+                                    <a href="{% url 'quotations:edit-quotation' quotation.id %}" class="text-warning px-2" title="Edit Quotation">
                                         <i class="uil uil-pen font-size-18"></i>
                                     </a>
                                     {% endif %}
                                     {% if quotation.is_edited %}
-                                    <a href="javascript:void(0);" onclick="loadVersionHistory('{{ quotation.id }}')" class="text-info px-3" title="Version History">
+                                    <a href="javascript:void(0);" onclick="loadVersionHistory('{{ quotation.id }}')" class="text-info px-2" title="Version History">
                                         <i class="uil uil-history font-size-18"></i>
                                     </a>
                                     {% endif %}
                                     {% if quotation.status in 'approved,confirmed,rejected' %}
-                                    <a href="javascript:void(0);" onclick="downloadPDF('{{ quotation.id }}')" class="text-success px-3" title="Download PDF">
+                                    <a href="javascript:void(0);" onclick="downloadPDF('{{ quotation.id }}')" class="text-success px-2" title="Download PDF">
                                         <i class="uil uil-download-alt font-size-18"></i>
                                     </a>
                                     {% endif %}
@@ -289,8 +322,8 @@ $(document).ready(function() {
                 }
             },
             columnDefs: [
-                { orderable: false, targets: [0, 5, 8] }, // Disable sorting for checkbox, latest change, and action columns
-                { orderable: true, targets: [1, 2, 3, 4, 6, 7] }, // Enable sorting for other columns
+                { orderable: false, targets: [0, 5, 9] }, // Disable sorting for checkbox, latest change, and action columns
+                { orderable: true, targets: [1, 2, 3, 4, 6, 7, 8] }, // Enable sorting for other columns
                 { searchable: true, targets: [5] } // Make latest change column searchable
             ],
             dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
@@ -308,9 +341,9 @@ $(document).ready(function() {
         $('#status-selectinput').on('change', function() {
             var status = $(this).val();
             if (status === 'all') {
-                quotationsTable.column(7).search('').draw(); // Column 7 is now Status (was 6)
+                quotationsTable.column(8).search('').draw(); // Column 8 is now Status (was 7)
             } else {
-                quotationsTable.column(7).search(status, true, false).draw();
+                quotationsTable.column(8).search(status, true, false).draw();
             }
         });
 
@@ -333,6 +366,43 @@ $(document).ready(function() {
         });
     }
 });
+
+function approveQuotationCustomer(quotationId) {
+    // Show confirmation dialog
+    if (!confirm('Are you sure you want to approve this quotation as a customer?')) {
+        return;
+    }
+
+    // Get CSRF token
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                      $('meta[name="csrf-token"]').attr('content');
+
+    // Make AJAX call to approve quotation
+    $.ajax({
+        url: `/quotations/${quotationId}/customer-approve/`,
+        type: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken
+        },
+        success: function(response) {
+            if (response.success) {
+                // Show success message
+                alert(response.message);
+                // Reload page to show updated status
+                window.location.reload();
+            } else {
+                alert('Error: ' + response.message);
+            }
+        },
+        error: function(xhr) {
+            let errorMessage = 'Failed to approve quotation';
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                errorMessage = xhr.responseJSON.message;
+            }
+            alert('Error: ' + errorMessage);
+        }
+    });
+}
 
 function downloadPDF(quotationId) {
     window.location.href = `/quotations/${quotationId}/pdf/`;

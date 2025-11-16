@@ -17,6 +17,7 @@ Date: 2025-11-15
 
 import logging
 import time
+from datetime import timezone as dt_timezone
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
 from decouple import config
@@ -76,7 +77,7 @@ class Cin7SalesOrderService:
 
         # Make API request
         import requests
-        url = f"{self.api_url.rstrip('/')}/v1/SalesOrders"
+        url = f"{self.api_url.rstrip('/')}/SalesOrders"
 
         try:
             logger.info(f"Creating CIN7 sales order for quotation {quotation.quotation_number}")
@@ -121,8 +122,11 @@ class Cin7SalesOrderService:
         errors = []
 
         # Check quotation status
-        if quotation.status not in ['approved', 'confirmed']:
-            errors.append(f"Quotation status must be approved or confirmed, got '{quotation.status}'")
+        # IMPORTANT: 'pending' is valid because CIN7 sync happens DURING the approval transaction
+        # The quotation status is still 'pending' when sync occurs, and only changes to 'approved'
+        # after successful sync. This is by design for transaction atomicity.
+        if quotation.status not in ['pending', 'approved', 'confirmed']:
+            errors.append(f"Quotation status must be pending, approved, or confirmed, got '{quotation.status}'")
 
         # Check if quotation has items
         if not quotation.items.exists():
@@ -135,8 +139,10 @@ class Cin7SalesOrderService:
 
         # Validate CIN7 product IDs for syncable items
         for item in syncable_items:
-            if not hasattr(item.product, 'cin7_id') or not item.product.cin7_id:
-                errors.append(f"Product '{item.product_name}' missing CIN7 ID")
+            # Check for CIN7 product option ID (preferred) or product.cin7_id (fallback)
+            if not item.cin7_product_option_id:
+                if not hasattr(item.product, 'cin7_id') or not item.product.cin7_id:
+                    errors.append(f"Product '{item.product_name}' missing CIN7 product option ID and CIN7 ID")
 
         # Check financial data
         if quotation.total <= 0:
@@ -180,11 +186,12 @@ class Cin7SalesOrderService:
                 logger.info(f"Excluding Bespoke product '{item.product_name}' from CIN7 sync")
                 continue
 
-            # Skip items without CIN7 ID
-            if not hasattr(item.product, 'cin7_id') or not item.product.cin7_id:
-                excluded_count += 1
-                logger.warning(f"Excluding product '{item.product_name}' - missing CIN7 ID")
-                continue
+            # Skip items without CIN7 product option ID or product CIN7 ID
+            if not item.cin7_product_option_id:
+                if not hasattr(item.product, 'cin7_id') or not item.product.cin7_id:
+                    excluded_count += 1
+                    logger.warning(f"Excluding product '{item.product_name}' - missing CIN7 product option ID and CIN7 ID")
+                    continue
 
             syncable_items.append(item)
 
@@ -290,8 +297,15 @@ class Cin7SalesOrderService:
 
         line_items = []
         for item in syncable_items:
+            # Use product option ID if available, otherwise use parent product ID
+            product_id = item.cin7_product_option_id or (item.product.cin7_id if hasattr(item.product, 'cin7_id') else None)
+
+            if not product_id:
+                logger.error(f"Item '{item.product_name}' has no CIN7 product option ID or parent product ID")
+                continue
+
             line_items.append({
-                'productId': item.product.cin7_id,
+                'productId': product_id,
                 'quantity': item.quantity,
                 'price': str(item.unit_price),
                 'discount': '0.00',  # Item-level discounts not currently implemented
@@ -402,9 +416,9 @@ class Cin7SalesOrderService:
 
         # Ensure UTC timezone
         if timezone.is_naive(dt):
-            dt = timezone.make_aware(dt, timezone.utc)
+            dt = timezone.make_aware(dt, dt_timezone.utc)
         else:
-            dt = dt.astimezone(timezone.utc)
+            dt = dt.astimezone(dt_timezone.utc)
 
         return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
