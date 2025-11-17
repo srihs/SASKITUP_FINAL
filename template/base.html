@@ -366,6 +366,9 @@
                                     <span>Reports</span>
                                 </a>
                                 <ul class="sub-menu" aria-expanded="false">
+                                    {% if user.is_account_manager or user.is_admin %}
+                                    <li><a href="{% url 'quotations:quotations-report' %}">Quotations Report</a></li>
+                                    {% endif %}
                                     <li>
                                         <a href="javascript: void(0);" class="has-arrow">Products</a>
                                         <ul class="sub-menu" aria-expanded="false">

@@ -74,6 +74,7 @@ urlpatterns = [
     path('approve/<uuid:pk>/', views.ApproveQuotationView.as_view(), name='approve-quotation'),
 
     # Reports
+    path('reports/', views.QuotationsReportView.as_view(), name='quotations-report'),
     path('reports/products/missing-cost/', views.ProductsMissingCostView.as_view(), name='products-missing-cost'),
     path('reports/products/price-anomaly/', views.ProductsPriceAnomalyView.as_view(), name='products-price-anomaly'),
     path('reports/products/low-margin/', views.ProductsLowMarginView.as_view(), name='products-low-margin'),

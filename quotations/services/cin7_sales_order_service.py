@@ -15,6 +15,7 @@ Author: Claude Code
 Date: 2025-11-15
 """
 
+import json
 import logging
 import time
 from datetime import timezone as dt_timezone
@@ -81,6 +82,8 @@ class Cin7SalesOrderService:
 
         try:
             logger.info(f"Creating CIN7 sales order for quotation {quotation.quotation_number}")
+            logger.info(f"CIN7 API Request - Line items count: {len(payload.get('lineItems', []))}")
+            logger.debug(f"CIN7 API Request - Full payload: {payload}")
 
             response = requests.post(
                 url,
@@ -272,7 +275,7 @@ class Cin7SalesOrderService:
             'customerOrderNo': quotation.reference_number or '',
 
             # Line items (excluding Bespoke products)
-            'lines': self._build_line_items(quotation)
+            'lineItems': self._build_line_items(quotation)
         }
 
         return payload
@@ -305,11 +308,12 @@ class Cin7SalesOrderService:
                 continue
 
             line_items.append({
-                'productId': product_id,
-                'quantity': item.quantity,
-                'price': str(item.unit_price),
-                'discount': '0.00',  # Item-level discounts not currently implemented
-                'taxRate': str(quotation.tax_percentage)
+                'productOptionId': product_id,  # CIN7 API expects 'productOptionId', not 'productId'
+                'qty': item.quantity,            # CIN7 API expects 'qty', not 'quantity'
+                'unitPrice': str(item.unit_price),  # CIN7 API expects 'unitPrice', not 'price'
+                'discount': str(item.discount if hasattr(item, 'discount') and item.discount else 0),
+                'code': item.product_sku or '',  # Product code/SKU
+                'name': item.product_name or ''  # Product name
             })
 
         logger.info(f"Built {len(line_items)} line items for quotation {quotation.quotation_number}")
@@ -474,6 +478,19 @@ class Cin7SalesOrderService:
         """
         data = response.json()
 
+        # ==========================================================================
+        # DETAILED LOGGING: Full CIN7 API Response
+        # ==========================================================================
+        print("=" * 80)
+        print("CIN7 API RESPONSE - FULL RAW DATA:")
+        print(json.dumps(data, indent=2))
+        print("=" * 80)
+
+        logger.info("=" * 80)
+        logger.info("CIN7 API RESPONSE - FULL RAW DATA:")
+        logger.info(json.dumps(data, indent=2))
+        logger.info("=" * 80)
+
         # CIN7 API returns an array of orders since we send [payload]
         if not isinstance(data, list) or len(data) == 0:
             error_msg = f"Unexpected CIN7 response format: expected array with at least 1 order, got {type(data).__name__}"
@@ -483,10 +500,42 @@ class Cin7SalesOrderService:
         # Get first order from response array
         order_data = data[0]
 
+        # ==========================================================================
+        # DETAILED LOGGING: Response Data Structure
+        # ==========================================================================
+        print("\n" + "=" * 80)
+        print("CIN7 API RESPONSE - ORDER DATA (first element):")
+        print(json.dumps(order_data, indent=2))
+        print("=" * 80)
+
+        logger.info("=" * 80)
+        logger.info("CIN7 API RESPONSE - ORDER DATA (first element):")
+        logger.info(json.dumps(order_data, indent=2))
+        logger.info("=" * 80)
+
         cin7_order_id = order_data['id']
-        # Use 'reference' from response if available, otherwise use quotation number
-        cin7_reference = order_data.get('reference', quotation.quotation_number)
+        # Use 'code' from response (CIN7 sales order code like "SALE4-28"), fallback to quotation number
+        cin7_reference = order_data.get('code', quotation.quotation_number)
         cin7_stage = order_data.get('stage', 'Processing')
+
+        # ==========================================================================
+        # DETAILED LOGGING: Extracted Fields
+        # ==========================================================================
+        print("\n" + "=" * 80)
+        print("CIN7 API RESPONSE - EXTRACTED FIELDS:")
+        print(f"  CIN7 ORDER ID: {cin7_order_id}")
+        print(f"  CIN7 ORDER CODE (reference): {cin7_reference}")
+        print(f"  CIN7 ORDER STAGE: {cin7_stage}")
+        print(f"  QUOTATION NUMBER: {quotation.quotation_number}")
+        print("=" * 80 + "\n")
+
+        logger.info("=" * 80)
+        logger.info("CIN7 API RESPONSE - EXTRACTED FIELDS:")
+        logger.info(f"  CIN7 ORDER ID: {cin7_order_id}")
+        logger.info(f"  CIN7 ORDER CODE (reference): {cin7_reference}")
+        logger.info(f"  CIN7 ORDER STAGE: {cin7_stage}")
+        logger.info(f"  QUOTATION NUMBER: {quotation.quotation_number}")
+        logger.info("=" * 80)
 
         logger.info(f"Successfully created CIN7 order {cin7_order_id} for quotation {quotation.quotation_number}")
 

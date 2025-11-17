@@ -1,0 +1,394 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<!-- DataTables -->
+<link href="{% static 'assets/libs/datatables.net-bs4/css/dataTables.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+<link href="{% static 'assets/libs/datatables.net-buttons-bs4/css/buttons.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+<link href="{% static 'assets/libs/datatables.net-responsive-bs4/css/responsive.bootstrap4.min.css' %}" rel="stylesheet" type="text/css" />
+
+<style>
+    .report-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 0.25rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stats-card {
+        border-radius: 0.25rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+        transition: transform 0.3s ease;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
+    }
+
+    .stats-card .card-icon {
+        font-size: 3rem;
+        opacity: 0.2;
+        position: absolute;
+        right: 1rem;
+        top: 1rem;
+    }
+
+    .stats-card h2 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .stats-card p {
+        margin-bottom: 0;
+        opacity: 0.8;
+    }
+
+    .stats-card.total { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .stats-card.approved { background: linear-gradient(135deg, #34c38f 0%, #2ca87f 100%); color: white; }
+    .stats-card.rejected { background: linear-gradient(135deg, #f46a6a 0%, #e85347 100%); color: white; }
+    .stats-card.pending { background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%); color: white; }
+
+    .filter-card {
+        background: white;
+        border-radius: 0.25rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .table-wrapper {
+        background: white;
+        border-radius: 0.25rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+        padding: 1rem;
+    }
+
+    .badge-status {
+        padding: 0.35rem 0.75rem;
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .badge-draft { background-color: #e7e8ea; color: #495057; }
+    .badge-pending { background-color: #fff3cd; color: #997404; }
+    .badge-approved { background-color: #d1e7dd; color: #0a3622; }
+    .badge-confirmed { background-color: #cfe2ff; color: #084298; }
+    .badge-rejected { background-color: #f8d7da; color: #842029; }
+
+    .badge-synced { background-color: #d1e7dd; color: #0a3622; }
+    .badge-not_required { background-color: #e7e8ea; color: #495057; }
+    .badge-pending_sync { background-color: #fff3cd; color: #997404; }
+    .badge-failed { background-color: #f8d7da; color: #842029; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Report Header -->
+<div class="row">
+    <div class="col-12">
+        <div class="report-header">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h3 class="mb-2">Quotations Report</h3>
+                    <p class="mb-0 opacity-75">Comprehensive overview of all quotations with detailed statistics and filtering</p>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <button type="button" class="btn btn-light" onclick="exportToCSV()">
+                        <i class="uil-export me-1"></i> Export CSV
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row">
+    <div class="col-xl-3 col-md-6">
+        <div class="stats-card total">
+            <i class="uil-clipboard-notes card-icon"></i>
+            <h2>{{ total_quotations }}</h2>
+            <p>Total Quotations</p>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="stats-card approved">
+            <i class="uil-check-circle card-icon"></i>
+            <h2>{{ approved_percentage }}%</h2>
+            <p>Approved ({{ approved_count }})</p>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="stats-card rejected">
+            <i class="uil-times-circle card-icon"></i>
+            <h2>{{ rejected_percentage }}%</h2>
+            <p>Rejected ({{ rejected_count }})</p>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="stats-card pending">
+            <i class="uil-clock card-icon"></i>
+            <h2>{{ open_percentage }}%</h2>
+            <p>Open/Pending ({{ open_count }})</p>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="row">
+    <div class="col-12">
+        <div class="filter-card">
+            <h5 class="mb-3"><i class="uil-filter me-2"></i>Filters</h5>
+            <form method="get" id="filterForm">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="date_from" class="form-label">Date From</label>
+                        <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="date_to" class="form-label">Date To</label>
+                        <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="status" class="form-label">Status</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="" {% if not status_filter %}selected{% endif %}>All Statuses</option>
+                            <option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>Draft</option>
+                            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                            <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>Approved</option>
+                            <option value="confirmed" {% if status_filter == 'confirmed' %}selected{% endif %}>Confirmed</option>
+                            <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Rejected</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="search" class="form-label">Search Quotation #</label>
+                        <input type="text" class="form-control" id="search" name="search" placeholder="Q-20250101-0001" value="{{ search_query }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="created_by" class="form-label">Created By</label>
+                        <select class="form-select" id="created_by" name="created_by">
+                            <option value="">All Users</option>
+                            {% for user in all_users %}
+                            <option value="{{ user.id }}" {% if created_by_filter == user.id|stringformat:"s" %}selected{% endif %}>
+                                {{ user.get_full_name }} ({{ user.get_user_type_display }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="approved_by" class="form-label">Approved By</label>
+                        <select class="form-select" id="approved_by" name="approved_by">
+                            <option value="">All Approvers</option>
+                            {% for approver in approvers %}
+                            <option value="{{ approver.id }}" {% if approved_by_filter == approver.id|stringformat:"s" %}selected{% endif %}>
+                                {{ approver.get_full_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary me-2">
+                            <i class="uil-search me-1"></i> Apply Filters
+                        </button>
+                        <a href="{% url 'quotations:quotations-report' %}" class="btn btn-secondary">
+                            <i class="uil-redo me-1"></i> Reset
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Quotations Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="table-wrapper">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 datatable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Quotation #</th>
+                            <th>Created Date</th>
+                            <th>Created By</th>
+                            <th>Status</th>
+                            <th>Total</th>
+                            <th>Customer Approved</th>
+                            <th>Manager Approved</th>
+                            <th>CIN7 Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for quotation in quotations %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'quotations:quotation-detail' quotation.id %}" class="fw-bold">
+                                    {{ quotation.quotation_number }}
+                                </a>
+                            </td>
+                            <td>{{ quotation.created_at|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                {{ quotation.created_by.get_full_name }}
+                                <br>
+                                <small class="text-muted">({{ quotation.created_by.get_user_type_display }})</small>
+                            </td>
+                            <td>
+                                <span class="badge-status badge-{{ quotation.status }}">
+                                    {{ quotation.get_status_display }}
+                                </span>
+                            </td>
+                            <td class="fw-bold">${{ quotation.total|floatformat:2 }}</td>
+                            <td>
+                                {% if quotation.customer_approved_at %}
+                                    {{ quotation.customer_approved_by.get_full_name|default:"N/A" }}<br>
+                                    <small class="text-muted">{{ quotation.customer_approved_at|date:"Y-m-d" }}</small>
+                                {% else %}
+                                    <span class="text-muted">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if quotation.account_manager_approved_at %}
+                                    {{ quotation.approved_by.get_full_name|default:"N/A" }}<br>
+                                    <small class="text-muted">{{ quotation.account_manager_approved_at|date:"Y-m-d" }}</small>
+                                {% else %}
+                                    <span class="text-muted">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge-status badge-{{ quotation.cin7_sync_status }}">
+                                    {% if quotation.cin7_sync_status == 'not_required' %}Not Required
+                                    {% elif quotation.cin7_sync_status == 'pending' %}Pending
+                                    {% elif quotation.cin7_sync_status == 'syncing' %}Syncing
+                                    {% elif quotation.cin7_sync_status == 'synced' %}
+                                        Synced
+                                        {% if quotation.cin7_so_number %}
+                                            <br><small class="text-muted">SO: {{ quotation.cin7_so_number }}</small>
+                                        {% endif %}
+                                    {% elif quotation.cin7_sync_status == 'failed' %}Failed
+                                    {% else %}{{ quotation.cin7_sync_status }}
+                                    {% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{% url 'quotations:quotation-detail' quotation.id %}" class="text-primary" title="View Details">
+                                    <i class="uil uil-eye font-size-18"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-4">
+                                <i class="uil uil-info-circle text-muted" style="font-size: 3rem;"></i>
+                                <p class="text-muted mt-2">No quotations found matching your filters.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if quotations.has_other_pages %}
+            <div class="row mt-3">
+                <div class="col-12">
+                    <nav aria-label="Quotations pagination">
+                        <ul class="pagination justify-content-center">
+                            {% if quotations.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ quotations.previous_page_number }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if created_by_filter %}&created_by={{ created_by_filter }}{% endif %}{% if approved_by_filter %}&approved_by={{ approved_by_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Previous</a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in quotations.paginator.page_range %}
+                            {% if quotations.number == num %}
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            {% elif num > quotations.number|add:'-3' and num < quotations.number|add:'3' %}
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if created_by_filter %}&created_by={{ created_by_filter }}{% endif %}{% if approved_by_filter %}&approved_by={{ approved_by_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a></li>
+                            {% endif %}
+                            {% endfor %}
+
+                            {% if quotations.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ quotations.next_page_number }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if created_by_filter %}&created_by={{ created_by_filter }}{% endif %}{% if approved_by_filter %}&approved_by={{ approved_by_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Next</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- DataTables -->
+<script src="{% static 'assets/libs/datatables.net/js/jquery.dataTables.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-bs4/js/dataTables.bootstrap4.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-buttons/js/dataTables.buttons.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-buttons-bs4/js/buttons.bootstrap4.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-responsive/js/dataTables.responsive.min.js' %}"></script>
+<script src="{% static 'assets/libs/datatables.net-responsive-bs4/js/responsive.bootstrap4.min.js' %}"></script>
+
+<script>
+$(document).ready(function() {
+    // Initialize DataTables
+    $('.datatable').DataTable({
+        pageLength: 50,
+        order: [[1, 'desc']], // Sort by created date descending
+        responsive: true,
+        paging: false, // We're using Django pagination
+        searching: false, // We're using custom search
+        info: false,
+        language: {
+            paginate: {
+                previous: "<i class='mdi mdi-chevron-left'>",
+                next: "<i class='mdi mdi-chevron-right'>"
+            }
+        }
+    });
+});
+
+function exportToCSV() {
+    // Collect table data
+    let csv = 'Quotation #,Created Date,Created By,Status,Total,Customer Approved,Manager Approved,CIN7 Status\n';
+
+    $('.datatable tbody tr').each(function() {
+        if ($(this).find('td').length === 1) return; // Skip empty row
+
+        const cols = $(this).find('td');
+        const row = [
+            $(cols[0]).text().trim(),
+            $(cols[1]).text().trim(),
+            $(cols[2]).text().trim().replace(/\n/g, ' '),
+            $(cols[3]).text().trim(),
+            $(cols[4]).text().trim(),
+            $(cols[5]).text().trim().replace(/\n/g, ' '),
+            $(cols[6]).text().trim().replace(/\n/g, ' '),
+            $(cols[7]).text().trim().replace(/\n/g, ' ')
+        ];
+        csv += row.map(val => '"' + val + '"').join(',') + '\n';
+    });
+
+    // Download CSV
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'quotations_report_' + new Date().toISOString().slice(0,10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+}
+</script>
+{% endblock %}

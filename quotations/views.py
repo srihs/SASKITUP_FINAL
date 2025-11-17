@@ -5677,6 +5677,172 @@ class QuotationRequestChangesView(LoginRequiredMixin, View):
 """
 
 
+# =====================================
+# REPORTS - QUOTATIONS REPORT
+# =====================================
+
+class QuotationsReportView(LoginRequiredMixin, UserPassesTestMixin, View):
+    """
+    Comprehensive quotations report for account managers and admins.
+
+    Features:
+    - Statistics dashboard (total, approved %, rejected %, pending %)
+    - Detailed quotations table with all relevant information
+    - Filters: date range, status, created by, approved by, institution
+    - Search by quotation number
+
+    Accessible to Admin and Account Managers only.
+    """
+    template_name = 'quotations/reports/quotations_report.html'
+
+    def test_func(self):
+        """Check if user has permission to view quotations report"""
+        user = self.request.user
+        return user.is_admin or user.is_account_manager
+
+    def get(self, request):
+        """Generate and display quotations report"""
+        from datetime import datetime, timedelta
+        from django.db.models import Count, Q
+
+        # Get filter parameters
+        date_from = request.GET.get('date_from', '')
+        date_to = request.GET.get('date_to', '')
+        status_filter = request.GET.get('status', '')
+        created_by_filter = request.GET.get('created_by', '')
+        approved_by_filter = request.GET.get('approved_by', '')
+        institution_filter = request.GET.get('institution', '')
+        search_query = request.GET.get('search', '').strip()
+
+        # Base queryset - all quotations
+        quotations = Quotation.objects.all().select_related(
+            'created_by',
+            'approved_by',
+            'customer_approved_by',
+            'institution_content_type'
+        ).prefetch_related('items')
+
+        # Apply date range filter
+        if date_from:
+            try:
+                date_from_obj = datetime.strptime(date_from, '%Y-%m-%d')
+                quotations = quotations.filter(created_at__gte=date_from_obj)
+            except ValueError:
+                pass
+
+        if date_to:
+            try:
+                date_to_obj = datetime.strptime(date_to, '%Y-%m-%d')
+                # Add 1 day to include the end date
+                date_to_obj = date_to_obj + timedelta(days=1)
+                quotations = quotations.filter(created_at__lt=date_to_obj)
+            except ValueError:
+                pass
+
+        # Apply status filter
+        if status_filter and status_filter != 'all':
+            quotations = quotations.filter(status=status_filter)
+
+        # Apply created by filter
+        if created_by_filter:
+            quotations = quotations.filter(created_by_id=created_by_filter)
+
+        # Apply approved by filter (account manager approval)
+        if approved_by_filter:
+            quotations = quotations.filter(approved_by_id=approved_by_filter)
+
+        # Apply institution filter
+        if institution_filter:
+            quotations = quotations.filter(
+                Q(institution_content_type__model__icontains=institution_filter) |
+                Q(institution_object_id=institution_filter)
+            )
+
+        # Apply search query (quotation number)
+        if search_query:
+            quotations = quotations.filter(
+                Q(quotation_number__icontains=search_query) |
+                Q(recipient_name__icontains=search_query)
+            )
+
+        # Calculate statistics
+        total_quotations = quotations.count()
+
+        # Approved quotations (have account manager approval)
+        approved_quotations = quotations.filter(
+            account_manager_approved_at__isnull=False
+        ).count()
+        approved_percentage = (approved_quotations / total_quotations * 100) if total_quotations > 0 else 0
+
+        # Rejected quotations
+        rejected_quotations = quotations.filter(status='rejected').count()
+        rejected_percentage = (rejected_quotations / total_quotations * 100) if total_quotations > 0 else 0
+
+        # Open/Pending quotations (not approved by account manager and not rejected)
+        open_quotations = quotations.filter(
+            account_manager_approved_at__isnull=True,
+            status__in=['draft', 'pending']
+        ).count()
+        open_percentage = (open_quotations / total_quotations * 100) if total_quotations > 0 else 0
+
+        # Get all users for filters (sales reps, account managers, customers, admins)
+        all_users = User.objects.filter(
+            Q(user_type__in=['sales_rep', 'account_manager', 'customer', 'admin']) |
+            Q(is_superuser=True)
+        ).order_by('first_name', 'last_name')
+
+        # Get unique account managers who have approved quotations
+        approvers = User.objects.filter(
+            quotations_approved__isnull=False
+        ).distinct().order_by('first_name', 'last_name')
+
+        # Paginate quotations
+        paginator = Paginator(quotations, 50)  # 50 quotations per page
+        page = request.GET.get('page', 1)
+
+        try:
+            quotations_page = paginator.page(page)
+        except PageNotAnInteger:
+            quotations_page = paginator.page(1)
+        except EmptyPage:
+            quotations_page = paginator.page(paginator.num_pages)
+
+        # Log access
+        AuditLog.log_action(
+            user=request.user,
+            action_type='report_access',
+            description='Viewed Quotations Report',
+            request=request,
+            total_quotations=total_quotations,
+            date_from=date_from or None,
+            date_to=date_to or None,
+            status_filter=status_filter or None
+        )
+
+        context = {
+            'quotations': quotations_page,
+            'total_quotations': total_quotations,
+            'approved_count': approved_quotations,
+            'approved_percentage': round(approved_percentage, 1),
+            'rejected_count': rejected_quotations,
+            'rejected_percentage': round(rejected_percentage, 1),
+            'open_count': open_quotations,
+            'open_percentage': round(open_percentage, 1),
+            'all_users': all_users,
+            'approvers': approvers,
+            'date_from': date_from,
+            'date_to': date_to,
+            'status_filter': status_filter,
+            'created_by_filter': created_by_filter,
+            'approved_by_filter': approved_by_filter,
+            'institution_filter': institution_filter,
+            'search_query': search_query,
+            'page_title': 'Quotations Report',
+        }
+
+        return render(request, self.template_name, context)
+
+
 class PendingApprovalsCountView(LoginRequiredMixin, View):
     """
     API endpoint to get count of pending quotations awaiting account manager approval.
