@@ -484,7 +484,8 @@ class Cin7SalesOrderService:
         order_data = data[0]
 
         cin7_order_id = order_data['id']
-        cin7_reference = order_data['reference']
+        # Use 'reference' from response if available, otherwise use quotation number
+        cin7_reference = order_data.get('reference', quotation.quotation_number)
         cin7_stage = order_data.get('stage', 'Processing')
 
         logger.info(f"Successfully created CIN7 order {cin7_order_id} for quotation {quotation.quotation_number}")
