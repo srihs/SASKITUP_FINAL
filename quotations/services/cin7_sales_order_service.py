@@ -473,7 +473,15 @@ class Cin7SalesOrderService:
             dict: Response data
         """
         data = response.json()
-        order_data = data['data'][0]
+
+        # CIN7 API returns an array of orders since we send [payload]
+        if not isinstance(data, list) or len(data) == 0:
+            error_msg = f"Unexpected CIN7 response format: expected array with at least 1 order, got {type(data).__name__}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        # Get first order from response array
+        order_data = data[0]
 
         cin7_order_id = order_data['id']
         cin7_reference = order_data['reference']
