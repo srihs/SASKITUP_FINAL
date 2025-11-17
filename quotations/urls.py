@@ -69,6 +69,7 @@ urlpatterns = [
 
     # Site Settings
     path('settings/', views.SiteSettingsView.as_view(), name='site-settings'),
+    path('settings/shipping/', views.ShippingSettingsView.as_view(), name='shipping-settings'),
 
     # Approve Quotation
     path('approve/<uuid:pk>/', views.ApproveQuotationView.as_view(), name='approve-quotation'),

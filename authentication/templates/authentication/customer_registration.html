@@ -148,20 +148,80 @@
                                         {% endif %}
                                     </div>
 
-                                    <!-- Address -->
+                                    <!-- Shipping Address Section -->
                                     <div class="mb-3">
-                                        <label class="form-label" for="id_address" style="color: #495057;">Address <span class="text-danger">*</span></label>
-                                        <div class="input-group">
-                                            <span class="input-group-text" style="background-color: #f5f6fa; border-color: #ced4da; align-items: start; padding-top: 0.47rem;">
-                                                <i class="mdi mdi-map-marker-outline"></i>
-                                            </span>
-                                            {{ form.address }}
-                                        </div>
-                                        {% if form.address.errors %}
-                                            <div class="text-danger small mt-1">
-                                                {% for error in form.address.errors %}{{ error }}{% endfor %}
+                                        <h6 class="mb-3" style="color: #495057; font-weight: 600;">
+                                            <i class="mdi mdi-truck-delivery-outline me-1"></i>Shipping Address
+                                        </h6>
+
+                                        <!-- Street Address -->
+                                        <div class="mb-3">
+                                            <label class="form-label" for="id_street_address" style="color: #495057;">Street Address</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text" style="background-color: #f5f6fa; border-color: #ced4da;">
+                                                    <i class="mdi mdi-map-marker-outline"></i>
+                                                </span>
+                                                {{ form.street_address }}
                                             </div>
-                                        {% endif %}
+                                            {% if form.street_address.errors %}
+                                                <div class="text-danger small mt-1">
+                                                    {% for error in form.street_address.errors %}{{ error }}{% endfor %}
+                                                </div>
+                                            {% endif %}
+                                            <small class="form-text text-muted">Street number and name</small>
+                                        </div>
+
+                                        <!-- Suburb and City Row -->
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label" for="id_suburb" style="color: #495057;">Suburb</label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text" style="background-color: #f5f6fa; border-color: #ced4da;">
+                                                            <i class="mdi mdi-home-city-outline"></i>
+                                                        </span>
+                                                        {{ form.suburb }}
+                                                    </div>
+                                                    {% if form.suburb.errors %}
+                                                        <div class="text-danger small mt-1">
+                                                            {% for error in form.suburb.errors %}{{ error }}{% endfor %}
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label" for="id_city" style="color: #495057;">Town/City</label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text" style="background-color: #f5f6fa; border-color: #ced4da;">
+                                                            <i class="mdi mdi-city-variant-outline"></i>
+                                                        </span>
+                                                        {{ form.city }}
+                                                    </div>
+                                                    {% if form.city.errors %}
+                                                        <div class="text-danger small mt-1">
+                                                            {% for error in form.city.errors %}{{ error }}{% endfor %}
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Postcode -->
+                                        <div class="mb-3">
+                                            <label class="form-label" for="id_postcode" style="color: #495057;">Postcode</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text" style="background-color: #f5f6fa; border-color: #ced4da;">
+                                                    <i class="mdi mdi-mailbox-outline"></i>
+                                                </span>
+                                                {{ form.postcode }}
+                                            </div>
+                                            {% if form.postcode.errors %}
+                                                <div class="text-danger small mt-1">
+                                                    {% for error in form.postcode.errors %}{{ error }}{% endfor %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
                                     </div>
 
                                     <!-- Password Fields Row -->

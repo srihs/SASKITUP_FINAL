@@ -1808,3 +1808,7 @@ class CIN7OrderMapping(models.Model):
             bool: True if sync can be retried, False otherwise
         """
         return self.sync_status == 'failed' and self.sync_attempts < max_attempts
+
+
+# Import shipping settings model
+from .models_shipping import ShippingSettings

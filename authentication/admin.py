@@ -41,6 +41,11 @@ class UserAdmin(BaseUserAdmin):
                 'hire_date', 'is_active_sales_rep'
             ),
         }),
+        ('Address Information', {
+            'fields': (
+                'street_address', 'suburb', 'city', 'postcode'
+            ),
+        }),
         ('System Information', {
             'fields': ('last_login_ip', 'created_at', 'updated_at'),
             'classes': ('collapse',),
@@ -55,9 +60,32 @@ class UserAdmin(BaseUserAdmin):
                 'hire_date', 'first_name', 'last_name', 'email'
             ),
         }),
+        ('Address Information', {
+            'fields': (
+                'street_address', 'suburb', 'city', 'postcode'
+            ),
+            'description': 'Address information (primarily for customer users)'
+        }),
     )
 
+    # Exclude the old 'address' field from forms
+    exclude = ('address',)
+
     readonly_fields = ['created_at', 'updated_at', 'last_login_ip']
+
+    class Media:
+        js = ('admin/js/user_type_address_toggle.js',)
+
+    def get_fieldsets(self, request, obj=None):
+        """
+        Dynamically adjust fieldsets based on user_type
+        """
+        if obj and obj.user_type != 'customer':
+            # For edit form: hide address fields for non-customers
+            fieldsets = list(super().get_fieldsets(request, obj))
+            # Keep the fieldsets but mark address as collapsed and less important
+            return fieldsets
+        return super().get_fieldsets(request, obj)
 
     def get_full_name(self, obj):
         """Display full name or username if no name available"""

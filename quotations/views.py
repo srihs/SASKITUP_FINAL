@@ -39,7 +39,7 @@ from schools.models import School, WholesaleSchool, WholesaleProduct, WholesaleP
 from schools.models_tus import TUSProductVariation
 from clubs.models_lotto import LottoClub, LottoProduct
 from clubs.models_sas import SASClub, SASProduct
-from .models import Quotation, QuotationItem, CustomerInstitutionAssignment, SiteSettings
+from .models import Quotation, QuotationItem, CustomerInstitutionAssignment, SiteSettings, ShippingSettings
 from .forms import SiteSettingsForm
 
 logger = logging.getLogger(__name__)
@@ -5859,3 +5859,100 @@ class PendingApprovalsCountView(LoginRequiredMixin, View):
         count = Quotation.objects.filter(status='pending').count()
 
         return JsonResponse({'count': count})
+
+
+# =====================================
+# SHIPPING SETTINGS VIEW
+# =====================================
+
+class ShippingSettingsView(LoginRequiredMixin, UserPassesTestMixin, View):
+    """
+    Shipping Settings management view.
+    Allows admin users to configure box capacity and shipping rates.
+    """
+    template_name = 'quotations/settings/shipping_settings.html'
+
+    def test_func(self):
+        """Only admin users can access shipping settings"""
+        return self.request.user.is_authenticated and self.request.user.is_admin
+
+    def get_object(self):
+        """Get or create the singleton ShippingSettings instance"""
+        return ShippingSettings.get_settings()
+
+    def get(self, request):
+        """Display shipping settings form"""
+        settings = self.get_object()
+
+        context = {
+            'page_title': 'Shipping & Box Calculation Settings',
+            'settings': settings,
+            'product_capacities': settings.get_product_capacities_display(),
+            'shipping_rates': settings.get_shipping_rates_display(),
+        }
+
+        return render(request, self.template_name, context)
+
+    def post(self, request):
+        """Save updated shipping settings"""
+        try:
+            settings = self.get_object()
+
+            # Update box weight limit
+            box_weight = request.POST.get('box_weight_limit_kg')
+            if box_weight:
+                settings.box_weight_limit_kg = Decimal(box_weight)
+
+            # Update RD delivery surcharge
+            rd_surcharge = request.POST.get('rd_delivery_surcharge')
+            if rd_surcharge:
+                settings.rd_delivery_surcharge = Decimal(rd_surcharge)
+
+            # Update product capacities
+            product_capacities = {}
+            for key in settings.product_capacities.keys():
+                capacity_value = request.POST.get(f'capacity_{key}')
+                if capacity_value:
+                    product_capacities[key] = int(capacity_value)
+
+            if product_capacities:
+                settings.product_capacities = product_capacities
+
+            # Update shipping rates
+            shipping_rates = {}
+            for key in settings.shipping_rates.keys():
+                cost = request.POST.get(f'rate_cost_{key}')
+                max_weight = request.POST.get(f'rate_weight_{key}')
+                description = request.POST.get(f'rate_desc_{key}')
+
+                if cost and max_weight:
+                    shipping_rates[key] = {
+                        'cost': cost,
+                        'max_weight_kg': int(max_weight),
+                        'description': description or ''
+                    }
+
+            if shipping_rates:
+                settings.shipping_rates = shipping_rates
+
+            # Update audit fields
+            settings.updated_by = request.user
+            settings.save()
+
+            # Log action
+            AuditLog.log_action(
+                user=request.user,
+                action_type='data_update',
+                description=f'Updated shipping settings: Box weight={settings.box_weight_limit_kg}kg, RD surcharge=${settings.rd_delivery_surcharge}',
+                request=request,
+                box_weight_limit=str(settings.box_weight_limit_kg),
+                rd_delivery_surcharge=str(settings.rd_delivery_surcharge)
+            )
+
+            messages.success(request, 'Shipping settings updated successfully!')
+
+        except (ValueError, KeyError, ValidationError) as e:
+            logger.error(f'Error updating shipping settings: {e}')
+            messages.error(request, f'Error updating settings: {str(e)}')
+
+        return redirect('quotations:shipping-settings')

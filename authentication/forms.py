@@ -138,8 +138,9 @@ class UserForm(forms.ModelForm):
         model = User
         fields = [
             'email', 'username', 'first_name', 'last_name',
-            'user_type', 'employee_id', 'phone', 'address', 'department',
-            'hire_date', 'is_active', 'is_staff', 'is_active_sales_rep'
+            'user_type', 'employee_id', 'phone',
+            'street_address', 'suburb', 'city', 'postcode',
+            'department', 'hire_date', 'is_active', 'is_staff', 'is_active_sales_rep'
         ]
         # Note: email_verified is referenced in template but not in model
         widgets = {
@@ -169,10 +170,21 @@ class UserForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'Enter phone number'
             }),
-            'address': forms.Textarea(attrs={
+            'street_address': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Enter physical address',
-                'rows': 3
+                'placeholder': 'Enter street number and name'
+            }),
+            'suburb': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter suburb'
+            }),
+            'city': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter town/city'
+            }),
+            'postcode': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter postcode'
             }),
             'department': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -603,13 +615,45 @@ class CustomerRegistrationForm(forms.ModelForm):
         })
     )
 
-    address = forms.CharField(
-        required=True,
-        widget=forms.Textarea(attrs={
+    # Structured address fields
+    street_address = forms.CharField(
+        max_length=255,
+        required=False,
+        widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Enter your full address',
-            'rows': 3
-        })
+            'placeholder': 'Enter street number and name'
+        }),
+        help_text='Street number and name'
+    )
+
+    suburb = forms.CharField(
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter suburb'
+        }),
+        help_text='Suburb'
+    )
+
+    city = forms.CharField(
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter town/city'
+        }),
+        help_text='Town or city'
+    )
+
+    postcode = forms.CharField(
+        max_length=10,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter postcode'
+        }),
+        help_text='Postcode (required)'
     )
 
     password1 = forms.CharField(
@@ -638,7 +682,7 @@ class CustomerRegistrationForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ['email', 'first_name', 'last_name', 'phone', 'address']
+        fields = ['email', 'first_name', 'last_name', 'phone', 'street_address', 'suburb', 'city', 'postcode']
 
     def clean_email(self):
         """Validate email is unique (case-insensitive)"""

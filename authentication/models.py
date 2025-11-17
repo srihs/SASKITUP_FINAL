@@ -38,6 +38,13 @@ class User(AbstractUser):
     # Profile information
     phone = models.CharField(max_length=20, blank=True, help_text="Contact phone number")
     address = models.TextField(blank=True, help_text="Physical address for deliveries")
+
+    # Shipping/Delivery Address (structured fields)
+    street_address = models.CharField(max_length=255, blank=True, help_text="Street number and name")
+    suburb = models.CharField(max_length=100, blank=True, help_text="Suburb")
+    city = models.CharField(max_length=100, blank=True, help_text="Town/City")
+    postcode = models.CharField(max_length=10, blank=False, help_text="Postcode")
+
     department = models.CharField(max_length=100, blank=True, help_text="Department or team")
     hire_date = models.DateField(null=True, blank=True, help_text="Date hired")
     employee_id = models.CharField(max_length=50, blank=True, unique=True, null=True, help_text="Employee ID")

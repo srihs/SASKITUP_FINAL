@@ -1,0 +1,556 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body_class %}shipping-settings{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Form Styling */
+.form-control:focus {
+    border-color: #556ee6;
+    box-shadow: 0 0 0 0.2rem rgba(85, 110, 230, 0.25);
+}
+
+.form-label {
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.form-text {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+/* Button Styling */
+.btn-primary {
+    background-color: #556ee6;
+    border-color: #556ee6;
+}
+
+.btn-primary:hover {
+    background-color: #4558d1;
+    border-color: #4558d1;
+}
+
+.btn-secondary {
+    background-color: #74788d;
+    border-color: #74788d;
+}
+
+.btn-secondary:hover {
+    background-color: #5f6377;
+    border-color: #5f6377;
+}
+
+/* Card Styling */
+.settings-card {
+    box-shadow: 0 0.75rem 1.5rem rgba(18, 38, 63, 0.03);
+    margin-bottom: 1.5rem;
+}
+
+/* Table Styling */
+.settings-table {
+    background-color: white;
+    margin-bottom: 0;
+}
+
+.settings-table thead {
+    background-color: #f8f9fa;
+}
+
+.settings-table thead th {
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+    padding: 0.75rem;
+}
+
+.settings-table tbody td {
+    padding: 0.75rem;
+    vertical-align: middle;
+}
+
+.settings-table input.form-control {
+    max-width: 150px;
+}
+
+/* Section Headers */
+.section-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 0.25rem 0.25rem 0 0;
+    margin: 0;
+}
+
+.section-header i {
+    font-size: 1.25rem;
+    margin-right: 0.5rem;
+}
+
+/* Info Box */
+.info-box {
+    background-color: #f0f4ff;
+    border-left: 4px solid #556ee6;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    border-radius: 0.25rem;
+}
+
+.info-box i {
+    color: #556ee6;
+    font-size: 1.25rem;
+    margin-right: 0.5rem;
+}
+
+/* Input Group Styling */
+.input-group-text {
+    background-color: #f8f9fa;
+    border-color: #ced4da;
+    color: #495057;
+    font-weight: 500;
+}
+
+/* Badge Styling */
+.badge-capacity {
+    background-color: #34c38f;
+    color: white;
+    padding: 0.35rem 0.65rem;
+    border-radius: 0.25rem;
+    font-weight: 500;
+}
+
+.badge-rate {
+    background-color: #f46a6a;
+    color: white;
+    padding: 0.35rem 0.65rem;
+    border-radius: 0.25rem;
+    font-weight: 500;
+}
+
+/* Last Updated Info */
+.last-updated {
+    background-color: #f8f9fa;
+    padding: 0.75rem 1rem;
+    border-radius: 0.25rem;
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .settings-table input.form-control {
+        max-width: 100%;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Display Messages -->
+{% if messages %}
+<div class="row">
+    <div class="col-12">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            <i class="mdi mdi-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}alert-circle{% else %}information{% endif %} me-2"></i>
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-12">
+        <!-- Page Header -->
+        <div class="mb-4">
+            <h4 class="mb-2">
+                <i class="uil-package me-2"></i>Shipping & Box Calculation Settings
+            </h4>
+            <p class="text-muted">Configure box capacities and shipping rates for quotations</p>
+        </div>
+
+        <!-- Settings Form -->
+        <form method="post" action="{% url 'quotations:shipping-settings' %}" id="shippingSettingsForm">
+            {% csrf_token %}
+
+            <!-- Box Capacity Configuration Section -->
+            <div class="card settings-card">
+                <h5 class="section-header">
+                    <i class="uil-box"></i>Box Capacity Configuration (20kg Standard Carton)
+                </h5>
+                <div class="card-body">
+                    <div class="info-box mb-4">
+                        <i class="mdi mdi-information"></i>
+                        <strong>Note:</strong> These values define how many units of each product type can fit in a standard 20kg box. These are used for calculating shipping requirements.
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered settings-table">
+                            <thead>
+                                <tr>
+                                    <th>Product Type</th>
+                                    <th style="width: 200px;">Units per Box</th>
+                                    <th style="width: 120px;">Current</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for capacity in product_capacities %}
+                                <tr>
+                                    <td>{{ capacity.label }}</td>
+                                    <td>
+                                        <input
+                                            type="number"
+                                            class="form-control"
+                                            name="capacity_{{ capacity.key }}"
+                                            value="{{ capacity.capacity }}"
+                                            min="1"
+                                            max="1000"
+                                            required
+                                        >
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge-capacity">{{ capacity.capacity }} units</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shipping Rates Section -->
+            <div class="card settings-card">
+                <h5 class="section-header">
+                    <i class="uil-truck"></i>Shipping Rates (incl. GST)
+                </h5>
+                <div class="card-body">
+                    <div class="info-box mb-4">
+                        <i class="mdi mdi-information"></i>
+                        <strong>Reference:</strong> Rates as at 27.06.16, including GST. Update these values to reflect current shipping costs.
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered settings-table">
+                            <thead>
+                                <tr>
+                                    <th>Region</th>
+                                    <th style="width: 150px;">Max Weight (kg)</th>
+                                    <th style="width: 150px;">Cost ($)</th>
+                                    <th>Description</th>
+                                    <th style="width: 120px;">Current Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for rate in shipping_rates %}
+                                <tr>
+                                    <td><strong>{{ rate.label }}</strong></td>
+                                    <td>
+                                        <input
+                                            type="number"
+                                            class="form-control"
+                                            name="rate_weight_{{ rate.key }}"
+                                            value="{{ rate.max_weight_kg }}"
+                                            min="1"
+                                            max="100"
+                                            required
+                                        >
+                                    </td>
+                                    <td>
+                                        <div class="input-group">
+                                            <span class="input-group-text">$</span>
+                                            <input
+                                                type="number"
+                                                class="form-control"
+                                                name="rate_cost_{{ rate.key }}"
+                                                value="{{ rate.cost }}"
+                                                min="0"
+                                                max="1000"
+                                                step="0.01"
+                                                required
+                                            >
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <input
+                                            type="text"
+                                            class="form-control"
+                                            name="rate_desc_{{ rate.key }}"
+                                            value="{{ rate.description }}"
+                                            placeholder="Description"
+                                        >
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge-rate">${{ rate.cost }}</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional Settings Section -->
+            <div class="card settings-card">
+                <h5 class="section-header">
+                    <i class="uil-sliders-v-alt"></i>Additional Settings
+                </h5>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    Box Weight Limit
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <input
+                                        type="number"
+                                        class="form-control"
+                                        name="box_weight_limit_kg"
+                                        value="{{ settings.box_weight_limit_kg }}"
+                                        min="1"
+                                        max="100"
+                                        step="0.01"
+                                        required
+                                    >
+                                    <span class="input-group-text">kg</span>
+                                </div>
+                                <div class="form-text">Maximum weight capacity per standard box</div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    Rural Delivery (RD) Surcharge
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input
+                                        type="number"
+                                        class="form-control"
+                                        name="rd_delivery_surcharge"
+                                        value="{{ settings.rd_delivery_surcharge }}"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        required
+                                    >
+                                </div>
+                                <div class="form-text">Additional charge for Rural Delivery addresses</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Last Updated Info -->
+                    <div class="last-updated mt-3">
+                        <i class="mdi mdi-clock-outline me-2"></i>
+                        {% if settings.updated_at %}
+                        Last updated: {{ settings.updated_at|date:"M d, Y g:i A" }}
+                        {% if settings.updated_by %}
+                        by <strong>{{ settings.updated_by.get_full_name }}</strong>
+                        {% endif %}
+                        {% else %}
+                        Never updated
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="card settings-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <a href="{% url 'quotations:my-quotations' %}" class="btn btn-light">
+                                <i class="mdi mdi-arrow-left me-1"></i> Back to Quotations
+                            </a>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-secondary me-2" onclick="resetForm()">
+                                <i class="mdi mdi-refresh me-1"></i> Reset
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="mdi mdi-content-save me-1"></i> Save All Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <!-- Help Card -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="uil-question-circle me-2"></i>Settings Information
+                </h5>
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <h6 class="font-size-14 mb-2">Box Capacity</h6>
+                        <p class="text-muted font-size-13">
+                            Define how many units of each product type can fit in a standard 20kg box. These values are used to calculate the number of boxes needed for shipping and freight costs.
+                        </p>
+                    </div>
+                    <div class="col-md-4">
+                        <h6 class="font-size-14 mb-2">Shipping Rates</h6>
+                        <p class="text-muted font-size-13">
+                            Configure shipping costs by region and weight. These rates include GST and are used for calculating freight charges in quotations. Update regularly to reflect current courier rates.
+                        </p>
+                    </div>
+                    <div class="col-md-4">
+                        <h6 class="font-size-14 mb-2">Additional Settings</h6>
+                        <p class="text-muted font-size-13">
+                            Box weight limit defines the maximum weight per carton. RD surcharge is automatically added for rural delivery addresses. Both values affect final shipping cost calculations.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function resetForm() {
+    // Reset the form to original values
+    document.getElementById('shippingSettingsForm').reset();
+    showToast('Form reset to current saved values', 'info');
+}
+
+function showToast(message, type = 'success') {
+    const alertClass = type === 'success' ? 'alert-success' :
+                      type === 'error' ? 'alert-danger' :
+                      'alert-info';
+
+    const iconClass = type === 'success' ? 'mdi-check-circle' :
+                     type === 'error' ? 'mdi-alert-circle' :
+                     'mdi-information';
+
+    const toast = document.createElement('div');
+    toast.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    toast.innerHTML = `
+        <i class="mdi ${iconClass} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 150);
+    }, 3000);
+}
+
+// Form validation
+document.getElementById('shippingSettingsForm').addEventListener('submit', function(e) {
+    let isValid = true;
+    const errors = [];
+
+    // Validate box weight limit
+    const boxWeight = document.querySelector('input[name="box_weight_limit_kg"]');
+    const boxWeightValue = parseFloat(boxWeight.value);
+    if (isNaN(boxWeightValue) || boxWeightValue < 1 || boxWeightValue > 100) {
+        isValid = false;
+        boxWeight.classList.add('is-invalid');
+        errors.push('Box weight limit must be between 1 and 100 kg');
+    } else {
+        boxWeight.classList.remove('is-invalid');
+    }
+
+    // Validate RD surcharge
+    const rdSurcharge = document.querySelector('input[name="rd_delivery_surcharge"]');
+    const rdSurchargeValue = parseFloat(rdSurcharge.value);
+    if (isNaN(rdSurchargeValue) || rdSurchargeValue < 0 || rdSurchargeValue > 100) {
+        isValid = false;
+        rdSurcharge.classList.add('is-invalid');
+        errors.push('RD surcharge must be between 0 and 100');
+    } else {
+        rdSurcharge.classList.remove('is-invalid');
+    }
+
+    // Validate product capacities
+    const capacityInputs = document.querySelectorAll('input[name^="capacity_"]');
+    capacityInputs.forEach(input => {
+        const value = parseInt(input.value);
+        if (isNaN(value) || value < 1 || value > 1000) {
+            isValid = false;
+            input.classList.add('is-invalid');
+            errors.push('Product capacities must be between 1 and 1000');
+        } else {
+            input.classList.remove('is-invalid');
+        }
+    });
+
+    // Validate shipping rates
+    const rateCostInputs = document.querySelectorAll('input[name^="rate_cost_"]');
+    rateCostInputs.forEach(input => {
+        const value = parseFloat(input.value);
+        if (isNaN(value) || value < 0 || value > 1000) {
+            isValid = false;
+            input.classList.add('is-invalid');
+            errors.push('Shipping costs must be between 0 and 1000');
+        } else {
+            input.classList.remove('is-invalid');
+        }
+    });
+
+    const rateWeightInputs = document.querySelectorAll('input[name^="rate_weight_"]');
+    rateWeightInputs.forEach(input => {
+        const value = parseInt(input.value);
+        if (isNaN(value) || value < 1 || value > 100) {
+            isValid = false;
+            input.classList.add('is-invalid');
+            errors.push('Weight limits must be between 1 and 100 kg');
+        } else {
+            input.classList.remove('is-invalid');
+        }
+    });
+
+    if (!isValid) {
+        e.preventDefault();
+        // Show first error only
+        if (errors.length > 0) {
+            showToast(errors[0], 'error');
+        }
+    }
+});
+
+// Real-time validation for numeric inputs
+document.querySelectorAll('input[type="number"]').forEach(input => {
+    input.addEventListener('input', function() {
+        const value = parseFloat(this.value);
+        const min = parseFloat(this.getAttribute('min'));
+        const max = parseFloat(this.getAttribute('max'));
+
+        if (isNaN(value) || value < min || value > max) {
+            this.classList.add('is-invalid');
+        } else {
+            this.classList.remove('is-invalid');
+        }
+    });
+});
+
+// Highlight changed values
+document.querySelectorAll('#shippingSettingsForm input').forEach(input => {
+    const originalValue = input.value;
+    input.addEventListener('change', function() {
+        if (this.value !== originalValue) {
+            this.style.backgroundColor = '#fff3cd';
+        } else {
+            this.style.backgroundColor = '';
+        }
+    });
+});
+</script>
+{% endblock %}

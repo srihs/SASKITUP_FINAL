@@ -110,18 +110,72 @@
                 </div>
             </div>
 
-            <!-- Address field - only visible for customers -->
-            <div class="row" id="addressFieldRow" style="display: none;">
-                <div class="col-md-12">
-                    <div class="mb-3">
-                        <label for="{{ form.address.id_for_label }}" class="form-label">{{ form.address.label }}</label>
-                        {{ form.address }}
-                        {% if form.address.errors %}
-                            <div class="text-danger small mt-1">
-                                {% for error in form.address.errors %}{{ error }}{% endfor %}
-                            </div>
-                        {% endif %}
-                        <div class="form-text">Physical address for deliveries (optional)</div>
+            <!-- Address fields - only visible for customers -->
+            <div id="addressFieldsSection" style="display: none;">
+                <hr class="my-4">
+                <h6 class="mb-3">
+                    <i class="uil-map-marker me-2"></i>Delivery Address
+                    <small class="text-muted">(For customer accounts)</small>
+                </h6>
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="form-floating mb-3">
+                            {{ form.street_address }}
+                            <label for="{{ form.street_address.id_for_label }}">
+                                <i class="uil-map-marker me-1"></i>{{ form.street_address.label }}
+                            </label>
+                            {% if form.street_address.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.street_address.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-floating mb-3">
+                            {{ form.suburb }}
+                            <label for="{{ form.suburb.id_for_label }}">
+                                <i class="uil-home-alt me-1"></i>{{ form.suburb.label }}
+                            </label>
+                            {% if form.suburb.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.suburb.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating mb-3">
+                            {{ form.city }}
+                            <label for="{{ form.city.id_for_label }}">
+                                <i class="uil-building me-1"></i>{{ form.city.label }}
+                            </label>
+                            {% if form.city.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.city.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-floating mb-3">
+                            {{ form.postcode }}
+                            <label for="{{ form.postcode.id_for_label }}">
+                                <i class="uil-postcard me-1"></i>{{ form.postcode.label }}
+                            </label>
+                            {% if form.postcode.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.postcode.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -389,20 +443,20 @@
 
         // User type change handler
         const userTypeField = document.getElementById('{{ form.user_type.id_for_label }}');
-        const addressFieldRow = document.getElementById('addressFieldRow');
+        const addressFieldsSection = document.getElementById('addressFieldsSection');
 
-        // Function to toggle address field visibility
-        function toggleAddressField() {
+        // Function to toggle address fields visibility
+        function toggleAddressFields() {
             if (userTypeField.value === 'customer') {
-                addressFieldRow.style.display = 'block';
+                addressFieldsSection.style.display = 'block';
             } else {
-                addressFieldRow.style.display = 'none';
+                addressFieldsSection.style.display = 'none';
             }
         }
 
         if (userTypeField) {
             // Check initial state on page load
-            toggleAddressField();
+            toggleAddressFields();
 
             userTypeField.addEventListener('change', function() {
                 const isStaffField = document.getElementById('{{ form.is_staff.id_for_label }}');
@@ -415,8 +469,8 @@
                     isStaffField.parentElement.classList.remove('alert', 'alert-info');
                 }
 
-                // Toggle address field
-                toggleAddressField();
+                // Toggle address fields
+                toggleAddressFields();
             });
         }
     });
