@@ -232,6 +232,31 @@ const AddressAutocomplete = (function() {
                 detail: { addressData: addressData, place: place }
             });
             inputField.dispatchEvent(event);
+
+            // Force hide the dropdown after selection
+            // Use multiple strategies to ensure dropdown is hidden
+
+            // Strategy 1: Direct blur to trigger autocomplete's internal hiding
+            inputField.blur();
+
+            // Strategy 2: Force hide via display:none with retries
+            const hideDropdown = (attempts = 0) => {
+                const pacContainers = document.querySelectorAll('.pac-container');
+                if (pacContainers.length > 0) {
+                    pacContainers.forEach(container => {
+                        container.style.display = 'none';
+                        container.style.visibility = 'hidden';
+                    });
+                } else if (attempts < 5) {
+                    // Retry if dropdown not yet rendered
+                    setTimeout(() => hideDropdown(attempts + 1), 50);
+                }
+            };
+
+            // Execute immediately and with delays
+            hideDropdown();
+            setTimeout(hideDropdown, 100);
+            setTimeout(hideDropdown, 300);
         });
 
         // Store instance
