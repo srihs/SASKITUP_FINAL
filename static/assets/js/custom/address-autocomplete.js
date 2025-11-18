@@ -233,30 +233,34 @@ const AddressAutocomplete = (function() {
             });
             inputField.dispatchEvent(event);
 
-            // Force hide the dropdown after selection
-            // Use multiple strategies to ensure dropdown is hidden
-
-            // Strategy 1: Direct blur to trigger autocomplete's internal hiding
+            // Hide the dropdown after selection
             inputField.blur();
 
-            // Strategy 2: Force hide via display:none with retries
-            const hideDropdown = (attempts = 0) => {
+            // Aggressively hide the dropdown with multiple attempts
+            const hideDropdown = () => {
                 const pacContainers = document.querySelectorAll('.pac-container');
-                if (pacContainers.length > 0) {
-                    pacContainers.forEach(container => {
-                        container.style.display = 'none';
-                        container.style.visibility = 'hidden';
-                    });
-                } else if (attempts < 5) {
-                    // Retry if dropdown not yet rendered
-                    setTimeout(() => hideDropdown(attempts + 1), 50);
-                }
+                pacContainers.forEach(container => {
+                    container.style.display = 'none';
+                });
             };
 
-            // Execute immediately and with delays
+            // Immediate hide
             hideDropdown();
-            setTimeout(hideDropdown, 100);
+            // Retry after short delay in case Google recreates it
+            setTimeout(hideDropdown, 50);
+            setTimeout(hideDropdown, 150);
             setTimeout(hideDropdown, 300);
+        });
+
+        // Re-enable dropdown when user starts typing again
+        inputField.addEventListener('input', function() {
+            const pacContainers = document.querySelectorAll('.pac-container');
+            pacContainers.forEach(container => {
+                // Remove our display:none to let Google show the dropdown again
+                if (container.style.display === 'none') {
+                    container.style.display = '';
+                }
+            });
         });
 
         // Store instance

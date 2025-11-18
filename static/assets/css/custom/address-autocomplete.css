@@ -1,0 +1,29 @@
+/**
+ * Address Autocomplete Styles
+ *
+ * Custom styles for Google Places autocomplete functionality
+ */
+
+/* Temporary hiding class - used briefly after selection to hide dropdown */
+.pac-hidden-temp {
+    display: none !important;
+}
+
+/* Ensure pac-container can be shown again after temporary hiding */
+.pac-container {
+    z-index: 9999;
+}
+
+/* Loading indicator for autocomplete */
+.autocomplete-loading {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #999;
+}
+
+/* Style for autocomplete field */
+.autocomplete-field {
+    position: relative;
+}
