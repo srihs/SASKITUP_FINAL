@@ -289,6 +289,28 @@ class Quotation(models.Model):
         help_text="Final total amount"
     )
 
+    # Shipping fields
+    shipping_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text="Calculated shipping cost based on boxes and region"
+    )
+    shipping_boxes = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of boxes required for shipping"
+    )
+    shipping_region = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="NZ region for shipping rate calculation"
+    )
+    is_rural_delivery = models.BooleanField(
+        default=False,
+        help_text="Rural Delivery (RD) surcharge applies"
+    )
+
     # Notes and comments
     notes = models.TextField(
         blank=True,
@@ -616,30 +638,157 @@ class Quotation(models.Model):
         delta = self.expires_at - timezone.now()
         return delta.days if delta.days >= 0 else 0
 
+    def calculate_shipping_cost(self):
+        """
+        Calculate shipping cost based on cart items, box capacity, and customer region.
+
+        Returns:
+            Decimal: Total shipping cost (including RD surcharge if applicable)
+        """
+        import logging
+        import math
+        from .models_shipping import ShippingSettings
+        from .utils_shipping import get_region_from_address, get_capacity_key_for_product
+
+        logger = logging.getLogger(__name__)
+
+        # Get customer address
+        customer = self.created_by
+        if not customer:
+            logger.warning(f"Quotation {self.id} has no customer, cannot calculate shipping")
+            self.shipping_cost = Decimal('0.00')
+            self.shipping_boxes = 0
+            self.shipping_region = ''
+            self.is_rural_delivery = False
+            return Decimal('0.00')
+
+        # Get region from address
+        region = get_region_from_address(
+            street_address=customer.street_address,
+            suburb=customer.suburb,
+            city=customer.city,
+            postcode=customer.postcode
+        )
+
+        if not region:
+            logger.warning(f"Could not determine region for customer {customer.id} ({customer.city}), defaulting to Wellington")
+            region = 'Wellington'  # Default fallback
+
+        self.shipping_region = region
+
+        # Get shipping settings
+        try:
+            shipping_settings = ShippingSettings.get_solo()
+        except Exception as e:
+            logger.error(f"Could not load ShippingSettings: {e}")
+            self.shipping_cost = Decimal('0.00')
+            self.shipping_boxes = 0
+            self.is_rural_delivery = False
+            return Decimal('0.00')
+
+        # Calculate boxes needed for each product type
+        total_boxes = 0
+        items = self.items.select_related('product_content_type').all()
+
+        for item in items:
+            if not item.product:
+                logger.warning(f"QuotationItem {item.id} has no product, skipping")
+                continue
+
+            # Get capacity key for this product
+            capacity_key = get_capacity_key_for_product(item.product)
+
+            # Calculate boxes needed for this item
+            boxes = shipping_settings.calculate_boxes_needed(capacity_key, item.quantity)
+
+            if boxes is None:
+                logger.warning(f"Could not calculate boxes for item {item.id} (capacity_key: {capacity_key}), using 1 box per 8 items as fallback")
+                boxes = math.ceil(item.quantity / 8)  # Fallback
+
+            total_boxes += boxes
+            logger.debug(f"Item {item.id} ({item.product_name}): {item.quantity} units = {boxes} boxes (capacity_key: {capacity_key})")
+
+        self.shipping_boxes = total_boxes
+
+        if total_boxes == 0:
+            logger.info(f"Quotation {self.id} has no boxes to ship")
+            self.shipping_cost = Decimal('0.00')
+            self.is_rural_delivery = False
+            return Decimal('0.00')
+
+        # Get shipping rate for region
+        rate = shipping_settings.get_rate_for_region(region)
+
+        if not rate:
+            logger.warning(f"Could not find shipping rate for region '{region}', using Auckland rate as fallback")
+            rate = '7.15'  # Auckland rate as fallback
+
+        rate_decimal = Decimal(rate)
+
+        # Calculate base shipping cost
+        shipping_cost = rate_decimal * total_boxes
+
+        # Check for rural delivery surcharge
+        # RD applies to: Waikato, Tairāwhiti, Hawke's Bay, Taranaki, Manawatū-Whanganui, Otago, Southland, West Coast
+        rural_regions = [
+            'Waikato', 'Tairāwhiti', "Hawke's Bay", 'Taranaki',
+            'Manawatū-Whanganui', 'Otago', 'Southland', 'West Coast'
+        ]
+
+        if region in rural_regions:
+            self.is_rural_delivery = True
+            rd_surcharge = shipping_settings.rural_delivery_surcharge * total_boxes
+            shipping_cost += rd_surcharge
+            logger.info(f"Rural Delivery surcharge applied: ${rd_surcharge} ({total_boxes} boxes × ${shipping_settings.rural_delivery_surcharge})")
+        else:
+            self.is_rural_delivery = False
+
+        self.shipping_cost = shipping_cost.quantize(Decimal('0.01'))
+
+        logger.info(
+            f"Quotation {self.id}: {total_boxes} boxes to {region} "
+            f"= ${self.shipping_cost} (RD: {self.is_rural_delivery})"
+        )
+
+        return self.shipping_cost
+
     def calculate_totals(self):
         """
         Calculate and update all totals based on quotation items.
         Should be called after adding/removing/updating items.
+
+        Calculation order:
+        1. Subtotal (sum of line totals)
+        2. Shipping (based on boxes and region)
+        3. Discount (applied to subtotal only, not shipping)
+        4. Tax (applied to subtotal + shipping - discount)
+        5. Total (subtotal + shipping - discount + tax)
         """
-        # Calculate subtotal from all items
+        # 1. Calculate subtotal from all items
         self.subtotal = sum(
             item.line_total for item in self.items.all()
         )
 
-        # Calculate discount
+        # 2. Calculate shipping cost
+        shipping_cost = self.calculate_shipping_cost()
+
+        # 3. Calculate discount (applied to subtotal only, not shipping)
         if self.discount_percentage:
             discount = (self.subtotal * self.discount_percentage / Decimal('100'))
         else:
             discount = self.discount_amount
 
-        # Calculate tax
-        taxable_amount = self.subtotal - discount
+        # 4. Calculate tax (on subtotal + shipping - discount)
+        taxable_amount = self.subtotal + shipping_cost - discount
         self.tax_amount = (taxable_amount * self.tax_percentage / Decimal('100')).quantize(Decimal('0.01'))
 
-        # Calculate total
+        # 5. Calculate total
         self.total = (taxable_amount + self.tax_amount).quantize(Decimal('0.01'))
 
-        self.save(update_fields=['subtotal', 'tax_amount', 'total', 'updated_at'])
+        self.save(update_fields=[
+            'subtotal', 'shipping_cost', 'shipping_boxes', 'shipping_region',
+            'is_rural_delivery', 'tax_amount', 'total', 'updated_at'
+        ])
 
     def approve(self, approved_by, notes=''):
         """Approve the quotation and set status to confirmed"""
