@@ -7,6 +7,27 @@ from django.core.validators import MinValueValidator
 from decimal import Decimal
 
 
+# New Zealand Regions for shipping rate area mapping
+NZ_REGIONS = [
+    ('Auckland', 'Auckland'),
+    ('Waikato', 'Waikato'),
+    ('Wellington', 'Wellington'),
+    ('Northland', 'Northland'),
+    ('Gisborne', 'Gisborne'),
+    ('Tairāwhiti', 'Tairāwhiti'),
+    ('Hawke\'s Bay', 'Hawke\'s Bay'),
+    ('Taranaki', 'Taranaki'),
+    ('Manawatū-Whanganui', 'Manawatū-Whanganui'),
+    ('Tasman', 'Tasman'),
+    ('Nelson', 'Nelson'),
+    ('Marlborough', 'Marlborough'),
+    ('Canterbury', 'Canterbury'),
+    ('Otago', 'Otago'),
+    ('Southland', 'Southland'),
+    ('West Coast', 'West Coast'),
+]
+
+
 class ShippingSettings(models.Model):
     """
     Singleton model for shipping configuration and box calculation settings.
@@ -109,24 +130,39 @@ class ShippingSettings(models.Model):
     @staticmethod
     def get_default_shipping_rates():
         """
-        Default shipping rates (as at 27.06.16, incl GST).
-        Returns shipping costs by region and weight limit.
+        Default shipping rates (updated rates, incl GST).
+        Returns shipping costs by region.
         """
         return {
-            'local': {
-                'max_weight_kg': 20,
-                'cost': '6.50',
-                'description': 'Local delivery up to 20kg'
+            'auckland': {
+                'cost': '7.15',
+                'description': 'Auckland delivery',
+                'regions': ['Auckland']
+            },
+            'auckland_rural': {
+                'cost': '13.75',
+                'description': 'Auckland Rural delivery',
+                'regions': ['Waikato']
             },
             'north_island': {
-                'max_weight_kg': 10,
-                'cost': '12.50',
-                'description': 'North Island delivery up to 10kg'
+                'cost': '14.30',
+                'description': 'North Island delivery',
+                'regions': ['Wellington', 'Northland', 'Gisborne']
+            },
+            'north_island_rural': {
+                'cost': '16.50',
+                'description': 'North Island Rural delivery',
+                'regions': ['Tairāwhiti', 'Hawke\'s Bay', 'Taranaki', 'Manawatū-Whanganui']
             },
             'south_island': {
-                'max_weight_kg': 10,
-                'cost': '22.50',
-                'description': 'South Island delivery up to 10kg'
+                'cost': '16.50',
+                'description': 'South Island delivery',
+                'regions': ['Tasman', 'Nelson', 'Marlborough', 'Canterbury']
+            },
+            'south_island_rural': {
+                'cost': '21.90',
+                'description': 'South Island Rural delivery',
+                'regions': ['Otago', 'Southland', 'West Coast']
             },
         }
 
@@ -147,12 +183,44 @@ class ShippingSettings(models.Model):
         Get shipping rate information for a specific region.
 
         Args:
-            region_key: Key from shipping_rates dict (e.g., 'local', 'north_island')
+            region_key: Key from shipping_rates dict (e.g., 'auckland', 'north_island')
 
         Returns:
             dict: Shipping rate details, or None if not found
         """
         return self.shipping_rates.get(region_key)
+
+    def get_rate_area_for_region(self, region_name):
+        """
+        Get the rate area (shipping rate key) for a specific NZ region name.
+
+        Args:
+            region_name: Name of the NZ region (e.g., 'Auckland', 'Wellington')
+
+        Returns:
+            str: Rate area key (e.g., 'auckland', 'north_island'), or None if not found
+        """
+        for rate_key, rate_info in self.shipping_rates.items():
+            regions = rate_info.get('regions', [])
+            if region_name in regions:
+                return rate_key
+        return None
+
+    def get_rate_for_region(self, region_name):
+        """
+        Get the shipping rate cost for a specific NZ region name.
+
+        Args:
+            region_name: Name of the NZ region (e.g., 'Auckland', 'Wellington')
+
+        Returns:
+            str: Rate cost as string, or None if not found
+        """
+        rate_area = self.get_rate_area_for_region(region_name)
+        if rate_area:
+            rate_info = self.get_shipping_rate(rate_area)
+            return rate_info.get('cost') if rate_info else None
+        return None
 
     def calculate_boxes_needed(self, product_type_key, quantity):
         """
@@ -209,9 +277,12 @@ class ShippingSettings(models.Model):
             list: List of dicts with region info and rates
         """
         region_labels = {
-            'local': 'Local',
+            'auckland': 'Auckland',
+            'auckland_rural': 'Auckland Rural',
             'north_island': 'North Island',
+            'north_island_rural': 'North Island Rural',
             'south_island': 'South Island',
+            'south_island_rural': 'South Island Rural',
         }
 
         result = []
@@ -219,9 +290,9 @@ class ShippingSettings(models.Model):
             result.append({
                 'key': key,
                 'label': region_labels.get(key, key.replace('_', ' ').title()),
-                'max_weight_kg': rate_info.get('max_weight_kg'),
                 'cost': rate_info.get('cost'),
-                'description': rate_info.get('description', '')
+                'description': rate_info.get('description', ''),
+                'regions': rate_info.get('regions', [])
             })
 
         return result

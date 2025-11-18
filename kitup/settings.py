@@ -93,6 +93,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'quotations.context_processors.quotation_cart',
+                'authentication.context_processors.google_api_key',
             ],
         },
     },
@@ -356,3 +357,8 @@ SESSION_COOKIE_SECURE = False  # Allow cookies over HTTP for development
 SESSION_COOKIE_PATH = '/'  # Ensure cookie is valid for entire site
 SESSION_COOKIE_NAME = 'sessionid'  # Explicit session cookie name
 SESSION_COOKIE_DOMAIN = None  # Explicitly set to None for localhost
+
+# ==========================================
+# GOOGLE MAPS & PLACES API CONFIGURATION
+# ==========================================
+GOOGLE_MAPS_API_KEY = config('GOOGLE_MAPS_API_KEY', default='')

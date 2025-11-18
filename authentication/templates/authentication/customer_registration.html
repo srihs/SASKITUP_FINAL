@@ -38,7 +38,50 @@
             border-color: #556ee6;
             box-shadow: 0 0 0 0.2rem rgba(85, 110, 230, 0.25);
         }
+
+        /* Address Autocomplete Styling */
+        .pac-container {
+            font-family: 'Roboto', Arial, sans-serif;
+            z-index: 9999 !important;
+            border-radius: 4px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .pac-item {
+            padding: 10px;
+            border-top: 1px solid #e6e6e6;
+            cursor: pointer;
+        }
+
+        .pac-item:hover {
+            background-color: #f5f5f5;
+        }
+
+        .pac-item-query {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .autocomplete-loading {
+            pointer-events: none;
+        }
     </style>
+
+    <!-- Google Maps Places API -->
+    {% if GOOGLE_MAPS_API_KEY %}
+    <script>
+        // Callback function for Google Maps API initialization
+        function initGoogleMapsAPI() {
+            console.log('Google Maps API loaded successfully');
+        }
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAPS_API_KEY }}&libraries=places&callback=initGoogleMapsAPI" async defer></script>
+    {% else %}
+    <!-- Google Maps API key not configured -->
+    <script>
+        console.warn('Google Maps API key not configured. Address autocomplete will not be available.');
+    </script>
+    {% endif %}
 </head>
 
 <body style="background-color: #f5f6fa;">
@@ -527,6 +570,11 @@
         </div>
     </div>
 
+    <!-- Address Autocomplete Module -->
+    {% if GOOGLE_MAPS_API_KEY %}
+    <script src="{% static 'assets/js/custom/address-autocomplete.js' %}"></script>
+    {% endif %}
+
     <!-- JAVASCRIPT -->
     <script src="{% static 'assets/libs/jquery/jquery.min.js' %}"></script>
     <script src="{% static 'assets/libs/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
@@ -581,6 +629,33 @@
                 return false;
             }
         });
+
+        // Initialize Address Autocomplete
+        {% if GOOGLE_MAPS_API_KEY %}
+        function initAddressAutocomplete() {
+            if (AddressAutocomplete.isApiReady()) {
+                AddressAutocomplete.init('id_street_address', {
+                    streetField: 'id_street_address',
+                    suburbField: 'id_suburb',
+                    cityField: 'id_city',
+                    postcodeField: 'id_postcode',
+                    regionField: 'id_region'  // Hidden field for shipping
+                });
+
+                console.log('Address autocomplete initialized for customer registration');
+            } else {
+                console.warn('Google Maps API not ready, retrying...');
+                setTimeout(initAddressAutocomplete, 500);
+            }
+        }
+
+        // Wait for page load and API ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initAddressAutocomplete);
+        } else {
+            initAddressAutocomplete();
+        }
+        {% endif %}
     </script>
 </body>
 

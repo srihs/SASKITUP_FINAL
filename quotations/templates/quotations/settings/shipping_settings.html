@@ -238,9 +238,9 @@
                         <table class="table table-bordered settings-table">
                             <thead>
                                 <tr>
-                                    <th>Region</th>
-                                    <th style="width: 150px;">Max Weight (kg)</th>
+                                    <th>Rate Area</th>
                                     <th style="width: 150px;">Cost ($)</th>
+                                    <th>Regions Covered</th>
                                     <th>Description</th>
                                     <th style="width: 120px;">Current Rate</th>
                                 </tr>
@@ -249,17 +249,6 @@
                                 {% for rate in shipping_rates %}
                                 <tr>
                                     <td><strong>{{ rate.label }}</strong></td>
-                                    <td>
-                                        <input
-                                            type="number"
-                                            class="form-control"
-                                            name="rate_weight_{{ rate.key }}"
-                                            value="{{ rate.max_weight_kg }}"
-                                            min="1"
-                                            max="100"
-                                            required
-                                        >
-                                    </td>
                                     <td>
                                         <div class="input-group">
                                             <span class="input-group-text">$</span>
@@ -274,6 +263,14 @@
                                                 required
                                             >
                                         </div>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {% for region in rate.regions %}
+                                                <span class="badge bg-secondary me-1 mb-1">{{ region }}</span>
+                                            {% endfor %}
+                                        </small>
+                                        <input type="hidden" name="rate_regions_{{ rate.key }}" value="{{ rate.regions|join:',' }}">
                                     </td>
                                     <td>
                                         <input
@@ -402,7 +399,7 @@
                     <div class="col-md-4">
                         <h6 class="font-size-14 mb-2">Shipping Rates</h6>
                         <p class="text-muted font-size-13">
-                            Configure shipping costs by region and weight. These rates include GST and are used for calculating freight charges in quotations. Update regularly to reflect current courier rates.
+                            Configure shipping costs by rate area. Each rate area covers specific NZ regions. These rates include GST and are used for calculating freight charges in quotations. Update regularly to reflect current courier rates.
                         </p>
                     </div>
                     <div class="col-md-4">
@@ -500,18 +497,6 @@ document.getElementById('shippingSettingsForm').addEventListener('submit', funct
             isValid = false;
             input.classList.add('is-invalid');
             errors.push('Shipping costs must be between 0 and 1000');
-        } else {
-            input.classList.remove('is-invalid');
-        }
-    });
-
-    const rateWeightInputs = document.querySelectorAll('input[name^="rate_weight_"]');
-    rateWeightInputs.forEach(input => {
-        const value = parseInt(input.value);
-        if (isNaN(value) || value < 1 || value > 100) {
-            isValid = false;
-            input.classList.add('is-invalid');
-            errors.push('Weight limits must be between 1 and 100 kg');
         } else {
             input.classList.remove('is-invalid');
         }

@@ -5922,14 +5922,19 @@ class ShippingSettingsView(LoginRequiredMixin, UserPassesTestMixin, View):
             shipping_rates = {}
             for key in settings.shipping_rates.keys():
                 cost = request.POST.get(f'rate_cost_{key}')
-                max_weight = request.POST.get(f'rate_weight_{key}')
                 description = request.POST.get(f'rate_desc_{key}')
+                regions_str = request.POST.get(f'rate_regions_{key}')
 
-                if cost and max_weight:
+                # Parse regions from comma-separated string
+                regions = []
+                if regions_str:
+                    regions = [r.strip() for r in regions_str.split(',') if r.strip()]
+
+                if cost:
                     shipping_rates[key] = {
                         'cost': cost,
-                        'max_weight_kg': int(max_weight),
-                        'description': description or ''
+                        'description': description or '',
+                        'regions': regions
                     }
 
             if shipping_rates:
