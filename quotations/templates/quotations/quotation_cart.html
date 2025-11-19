@@ -1216,7 +1216,8 @@
                     </div>
                 </div>
 
-                <!-- Institution Selection Section -->
+                <!-- Institution Selection Section (Hidden for Customers) -->
+                {% if user.is_staff or user.is_account_manager %}
                 <div class="card border shadow-none mt-3">
                     <div class="card-header bg-transparent border-bottom py-3 px-4">
                         <h5 class="font-size-16 mb-0">Select School/Club <span class="text-muted font-size-13">(Optional)</span></h5>
@@ -1234,6 +1235,7 @@
                         </div>
                     </div>
                 </div>
+                {% endif %}
                 <!-- end Institution Selection Section -->
 
                 <!-- Hidden Assignment Information (Auto-assigned in background) -->
@@ -1261,8 +1263,42 @@
                             <input type="text" class="form-control" id="recipient_name" placeholder="Enter recipient name" value="{% if is_customer %}{{ user_full_name }}{% endif %}">
                         </div>
                         <div class="mb-3">
-                            <label for="recipient_address" class="form-label">Recipient Address</label>
-                            <textarea class="form-control" id="recipient_address" rows="3" placeholder="Enter recipient address">{% if is_customer %}{{ user_address }}{% endif %}</textarea>
+                            <label for="recipient_street_address" class="form-label">
+                                Street Address
+                                {% if is_customer and user_street_address %}
+                                <small class="text-muted">(From your profile)</small>
+                                {% endif %}
+                            </label>
+                            <input type="text" class="form-control" id="recipient_street_address" placeholder="Enter street address" value="{% if is_customer %}{{ user_street_address }}{% endif %}">
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="recipient_suburb" class="form-label">
+                                    Suburb
+                                    {% if is_customer and user_suburb %}
+                                    <small class="text-muted">(From your profile)</small>
+                                    {% endif %}
+                                </label>
+                                <input type="text" class="form-control" id="recipient_suburb" placeholder="Enter suburb" value="{% if is_customer %}{{ user_suburb }}{% endif %}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="recipient_city" class="form-label">
+                                    City
+                                    {% if is_customer and user_city %}
+                                    <small class="text-muted">(From your profile)</small>
+                                    {% endif %}
+                                </label>
+                                <input type="text" class="form-control" id="recipient_city" placeholder="Enter city" value="{% if is_customer %}{{ user_city }}{% endif %}">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="recipient_postcode" class="form-label">
+                                Postcode
+                                {% if is_customer and user_postcode %}
+                                <small class="text-muted">(From your profile)</small>
+                                {% endif %}
+                            </label>
+                            <input type="text" class="form-control" id="recipient_postcode" placeholder="Enter postcode" value="{% if is_customer %}{{ user_postcode }}{% endif %}">
                         </div>
                         <div class="mb-0">
                             <label for="additional_emails" class="form-label">Additional Email Recipients <span class="text-muted">(Optional)</span></label>
@@ -1467,22 +1503,25 @@ function updateAllGroupTotals() {
 
 // Initialize TouchSpin and Group Totals
 $(document).ready(function() {
-    // Initialize Select2 for institution dropdown
-    const institutionsData = {{ institutions_json|safe }};
-    const currentInstitutionId = "{{ current_institution_id|default:'' }}";
+    // Initialize Select2 for institution dropdown (only if element exists - staff/admin only)
+    const institutionSelectElement = $('#institution_select');
+    if (institutionSelectElement.length) {
+        const institutionsData = {{ institutions_json|safe }};
+        const currentInstitutionId = "{{ current_institution_id|default:'' }}";
 
-    $('#institution_select').select2({
-        data: institutionsData,
-        placeholder: 'Search for a school or club...',
-        allowClear: true,
-        width: '100%',
-        templateResult: formatInstitutionOption,
-        templateSelection: formatInstitutionSelection
-    });
+        institutionSelectElement.select2({
+            data: institutionsData,
+            placeholder: 'Search for a school or club...',
+            allowClear: true,
+            width: '100%',
+            templateResult: formatInstitutionOption,
+            templateSelection: formatInstitutionSelection
+        });
 
-    // Set current institution if available
-    if (currentInstitutionId) {
-        $('#institution_select').val(currentInstitutionId).trigger('change');
+        // Set current institution if available
+        if (currentInstitutionId) {
+            institutionSelectElement.val(currentInstitutionId).trigger('change');
+        }
     }
 
     // Sales rep and account manager are now auto-assigned based on products
@@ -1834,8 +1873,15 @@ function saveQuotationWithNote(changeNote) {
 
     // Get recipient information from the form
     const recipientName = document.getElementById('recipient_name').value;
-    const recipientAddress = document.getElementById('recipient_address').value;
+    const recipientStreetAddress = document.getElementById('recipient_street_address').value;
+    const recipientSuburb = document.getElementById('recipient_suburb').value;
+    const recipientCity = document.getElementById('recipient_city').value;
+    const recipientPostcode = document.getElementById('recipient_postcode').value;
     const additionalEmails = document.getElementById('additional_emails').value.trim();
+
+    // Build full address from structured fields
+    const addressParts = [recipientStreetAddress, recipientSuburb, recipientCity, recipientPostcode].filter(part => part.trim());
+    const recipientAddress = addressParts.join(', ');
 
     // Get selected institution (optional)
     const institutionSelect = $('#institution_select').val();

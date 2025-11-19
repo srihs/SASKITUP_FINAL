@@ -1133,9 +1133,17 @@ class QuotationCartView(LoginRequiredMixin, View):
         # Prepare user data for auto-population (for customer users)
         user_full_name = ''
         user_address = ''
+        user_street_address = ''
+        user_suburb = ''
+        user_city = ''
+        user_postcode = ''
         if request.user.is_customer:
             user_full_name = request.user.get_full_name()
             user_address = getattr(request.user, 'address', '')
+            user_street_address = getattr(request.user, 'street_address', '')
+            user_suburb = getattr(request.user, 'suburb', '')
+            user_city = getattr(request.user, 'city', '')
+            user_postcode = getattr(request.user, 'postcode', '')
 
         # Prepare institutions_json for Select2
         import json
@@ -1193,6 +1201,10 @@ class QuotationCartView(LoginRequiredMixin, View):
             'institution_slug': institution_slug,
             'user_full_name': user_full_name,
             'user_address': user_address,
+            'user_street_address': user_street_address,
+            'user_suburb': user_suburb,
+            'user_city': user_city,
+            'user_postcode': user_postcode,
             'is_customer': request.user.is_customer,
             'institutions_json': institutions_json,
             'current_institution_id': current_institution_id,
