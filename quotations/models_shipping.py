@@ -109,6 +109,11 @@ class ShippingSettings(models.Model):
         )
         return obj
 
+    @classmethod
+    def get_solo(cls):
+        """Alias for get_settings() - for compatibility with django-solo style access"""
+        return cls.get_settings()
+
     @staticmethod
     def get_default_product_capacities():
         """

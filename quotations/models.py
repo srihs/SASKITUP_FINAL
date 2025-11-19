@@ -737,9 +737,9 @@ class Quotation(models.Model):
 
         if region in rural_regions:
             self.is_rural_delivery = True
-            rd_surcharge = shipping_settings.rural_delivery_surcharge * total_boxes
+            rd_surcharge = shipping_settings.rd_delivery_surcharge * total_boxes
             shipping_cost += rd_surcharge
-            logger.info(f"Rural Delivery surcharge applied: ${rd_surcharge} ({total_boxes} boxes × ${shipping_settings.rural_delivery_surcharge})")
+            logger.info(f"Rural Delivery surcharge applied: ${rd_surcharge} ({total_boxes} boxes × ${shipping_settings.rd_delivery_surcharge})")
         else:
             self.is_rural_delivery = False
 
