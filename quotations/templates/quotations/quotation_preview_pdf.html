@@ -413,6 +413,28 @@
                             <td class="text-end text-danger" style="font-weight: bold;">- ${{ discount_amount|floatformat:2 }}</td>
                         </tr>
                         {% endif %}
+                        {% if quotation.shipping_cost %}
+                        <tr>
+                            <td colspan="4" class="text-end" style="font-weight: bold;">
+                                Shipping
+                                {% if quotation.shipping_region %}
+                                    ({{ quotation.shipping_region }}{% if quotation.is_rural_delivery %} - RD{% endif %})
+                                {% endif %}
+                            </td>
+                            <td class="text-end" style="font-weight: bold;">${{ quotation.shipping_cost|floatformat:2 }}</td>
+                        </tr>
+                        {% if quotation.shipping_boxes %}
+                        <tr>
+                            <td colspan="4" class="text-end" style="font-size: 10px; color: #666;">
+                                {{ quotation.shipping_boxes }} box{{ quotation.shipping_boxes|pluralize:"es" }}
+                                {% if quotation.is_rural_delivery %}
+                                    | Rural Delivery
+                                {% endif %}
+                            </td>
+                            <td class="text-end"></td>
+                        </tr>
+                        {% endif %}
+                        {% endif %}
                         <tr>
                             <td colspan="4" class="text-end" style="font-weight: bold;">Tax (GST {{ quotation.tax_percentage }}%)</td>
                             <td class="text-end" style="font-weight: bold;">${{ quotation.tax_amount|floatformat:2 }}</td>

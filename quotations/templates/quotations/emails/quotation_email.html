@@ -248,6 +248,29 @@
                                         </td>
                                     </tr>
                                     {% endif %}
+                                    {% if quotation.shipping_cost %}
+                                    <tr>
+                                        <td colspan="3" style="padding: 12px; text-align: right; font-size: 13px; font-weight: 600; color: #333333;">
+                                            Shipping
+                                            {% if quotation.shipping_region %}
+                                                ({{ quotation.shipping_region }}{% if quotation.is_rural_delivery %} - RD{% endif %}):
+                                            {% else %}:
+                                            {% endif %}
+                                        </td>
+                                        <td style="padding: 12px; text-align: right; font-size: 13px; color: #333333;">${{ quotation.shipping_cost|floatformat:2 }}</td>
+                                    </tr>
+                                    {% if quotation.shipping_boxes %}
+                                    <tr>
+                                        <td colspan="3" style="padding: 12px; text-align: right; font-size: 11px; color: #6c757d;">
+                                            {{ quotation.shipping_boxes }} box{{ quotation.shipping_boxes|pluralize:"es" }}
+                                            {% if quotation.is_rural_delivery %}
+                                                | Rural Delivery
+                                            {% endif %}
+                                        </td>
+                                        <td style="padding: 12px;"></td>
+                                    </tr>
+                                    {% endif %}
+                                    {% endif %}
                                     <tr>
                                         <td colspan="3" style="padding: 12px; text-align: right; font-size: 13px; font-weight: 600; color: #333333;">Tax (GST {{ quotation.tax_percentage }}%):</td>
                                         <td style="padding: 12px; text-align: right; font-size: 13px; color: #333333;">${{ quotation.tax_amount|floatformat:2 }}</td>

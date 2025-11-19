@@ -1186,6 +1186,17 @@
                                         <td>Sub Total :</td>
                                         <td class="text-end" id="subtotal">$ {{ subtotal|floatformat:2|intcomma|default:"0.00" }}</td>
                                     </tr>
+                                    {% if shipping_cost %}
+                                    <tr>
+                                        <td>
+                                            <i class="uil uil-truck me-1"></i> Shipping
+                                            {% if shipping_region %}
+                                                <br><small class="text-muted">{{ shipping_region }}{% if is_rural_delivery %} (RD){% endif %}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end" id="shipping">$ {{ shipping_cost|floatformat:2|intcomma }}</td>
+                                    </tr>
+                                    {% endif %}
                                     <tr>
                                         <td>GST :</td>
                                         <td class="text-end" id="tax">$ {{ tax|floatformat:2|intcomma|default:"0.00" }}</td>

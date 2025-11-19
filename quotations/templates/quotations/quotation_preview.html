@@ -505,6 +505,30 @@
                                         <td class="border-0 text-end text-danger">- ${{ discount_amount|floatformat:2|intcomma }}</td>
                                     </tr>
                                     {% endif %}
+                                    {% if quotation.shipping_cost %}
+                                    <tr>
+                                        <th scope="row" colspan="4" class="border-0 text-end">
+                                            <i class="uil uil-truck me-1"></i> Shipping
+                                            {% if quotation.shipping_region %}
+                                                <span class="text-muted" style="font-size: 11px;">({{ quotation.shipping_region }}{% if quotation.is_rural_delivery %} - RD{% endif %})</span>
+                                            {% endif %}
+                                        </th>
+                                        <td class="border-0 text-end">${{ quotation.shipping_cost|floatformat:2|intcomma }}</td>
+                                    </tr>
+                                    {% if quotation.shipping_boxes %}
+                                    <tr>
+                                        <td colspan="4" class="border-0 text-end">
+                                            <small class="text-muted">
+                                                <i class="uil uil-box me-1"></i> {{ quotation.shipping_boxes }} box{{ quotation.shipping_boxes|pluralize:"es" }}
+                                                {% if quotation.is_rural_delivery %}
+                                                    <span class="badge bg-warning ms-1" style="font-size: 9px;">Rural Delivery</span>
+                                                {% endif %}
+                                            </small>
+                                        </td>
+                                        <td class="border-0"></td>
+                                    </tr>
+                                    {% endif %}
+                                    {% endif %}
                                     <tr>
                                         <th scope="row" colspan="4" class="border-0 text-end">Tax (GST {{ quotation.tax_percentage }}%)</th>
                                         <td class="border-0 text-end">${{ quotation.tax_amount|floatformat:2|intcomma }}</td>

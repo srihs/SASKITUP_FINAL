@@ -136,6 +136,8 @@ class QuotationAdmin(admin.ModelAdmin):
     list_filter = [
         'status',
         'cin7_sync_status',
+        'shipping_region',
+        'is_rural_delivery',
         'created_at',
         'expires_at',
         'approved_at',
@@ -161,6 +163,10 @@ class QuotationAdmin(admin.ModelAdmin):
         'rejected_at',
         'version',
         'subtotal',
+        'shipping_cost',
+        'shipping_boxes',
+        'shipping_region',
+        'is_rural_delivery',
         'tax_amount',
         'total',
     ]
@@ -192,6 +198,15 @@ class QuotationAdmin(admin.ModelAdmin):
                 'tax_amount',
                 'total',
             )
+        }),
+        ('Shipping', {
+            'fields': (
+                'shipping_cost',
+                'shipping_boxes',
+                'shipping_region',
+                'is_rural_delivery',
+            ),
+            'classes': ('collapse',)
         }),
         ('Dates', {
             'fields': (
