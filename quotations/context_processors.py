@@ -28,8 +28,8 @@ def quotation_cart(request):
         # Get quotation session data
         quotation_data = get_quotation_session(request)
 
-        # Calculate totals
-        totals = calculate_quotation_totals(quotation_data)
+        # Calculate totals (pass customer for shipping calculation)
+        totals = calculate_quotation_totals(quotation_data, customer=request.user)
 
         # Group items by product name for mini cart display
         product_groups = defaultdict(lambda: {

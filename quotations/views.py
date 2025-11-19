@@ -39,7 +39,9 @@ from schools.models import School, WholesaleSchool, WholesaleProduct, WholesaleP
 from schools.models_tus import TUSProductVariation
 from clubs.models_lotto import LottoClub, LottoProduct
 from clubs.models_sas import SASClub, SASProduct
-from .models import Quotation, QuotationItem, CustomerInstitutionAssignment, SiteSettings, ShippingSettings
+from .models import Quotation, QuotationItem, CustomerInstitutionAssignment, SiteSettings
+from .models_shipping import ShippingSettings
+from .utils_shipping import get_region_from_address, get_capacity_key_for_product
 from .forms import SiteSettingsForm
 
 logger = logging.getLogger(__name__)
@@ -121,8 +123,129 @@ def clear_quotation_session(request):
     request.session.modified = True
 
 
-def calculate_quotation_totals(quotation_data):
-    """Calculate totals for quotation session data including addons"""
+def calculate_session_shipping(cart_items, customer):
+    """
+    Calculate shipping cost for session-based cart items before quotation is saved.
+
+    Args:
+        cart_items: List of cart item dicts from session
+        customer: User object (request.user)
+
+    Returns:
+        dict with: shipping_cost, shipping_boxes, shipping_region, is_rural_delivery,
+                   box_breakdown (dict of product_type: box_count)
+    """
+    import math
+
+    # Default return values
+    result = {
+        'shipping_cost': Decimal('0.00'),
+        'shipping_boxes': 0,
+        'shipping_region': None,
+        'is_rural_delivery': False,
+        'box_breakdown': {},
+    }
+
+    # Check if customer has address information
+    if not customer or not hasattr(customer, 'city'):
+        logger.debug("Customer has no city information, cannot calculate shipping")
+        return result
+
+    # Get customer address fields
+    city = getattr(customer, 'city', None)
+    suburb = getattr(customer, 'suburb', None)
+    street_address = getattr(customer, 'street_address', None)
+    postcode = getattr(customer, 'postcode', None)
+
+    # Get region from address
+    region = get_region_from_address(
+        street_address=street_address,
+        suburb=suburb,
+        city=city,
+        postcode=postcode
+    )
+
+    if not region:
+        logger.warning(f"Could not determine region for customer {customer.id} with city={city}")
+        return result
+
+    result['shipping_region'] = region
+
+    # Get shipping settings
+    shipping_settings = ShippingSettings.get_solo()
+
+    # Calculate boxes needed per product type
+    box_breakdown = {}
+
+    for item in cart_items:
+        # Get product to determine capacity key
+        product = get_product_by_type_and_id(item['product_type'], item['product_id'])
+        if not product:
+            logger.warning(f"Could not find product {item['product_type']} {item['product_id']}")
+            continue
+
+        # Get capacity key for this product
+        capacity_key = get_capacity_key_for_product(product)
+
+        # Get quantity for this item
+        quantity = int(item.get('quantity', 0))
+
+        # Add to box breakdown by capacity key
+        if capacity_key not in box_breakdown:
+            box_breakdown[capacity_key] = {
+                'quantity': 0,
+                'capacity': shipping_settings.get_product_capacity(capacity_key) or 1,
+                'boxes': 0,
+            }
+
+        box_breakdown[capacity_key]['quantity'] += quantity
+
+    # Calculate boxes needed for each capacity key
+    total_boxes = 0
+    for capacity_key, data in box_breakdown.items():
+        boxes_needed = math.ceil(data['quantity'] / data['capacity'])
+        data['boxes'] = boxes_needed
+        total_boxes += boxes_needed
+
+    result['shipping_boxes'] = total_boxes
+    result['box_breakdown'] = box_breakdown
+
+    # Get shipping rate for region
+    rate_area = shipping_settings.get_rate_area_for_region(region)
+    if not rate_area:
+        logger.warning(f"No rate area found for region {region}")
+        return result
+
+    # Check if rural delivery (based on rate area name)
+    is_rural = 'rural' in rate_area.lower()
+    result['is_rural_delivery'] = is_rural
+
+    # Get base shipping cost per box
+    rate_info = shipping_settings.get_shipping_rate(rate_area)
+    if not rate_info:
+        logger.warning(f"No rate info found for rate area {rate_area}")
+        return result
+
+    cost_per_box = Decimal(str(rate_info.get('cost', '0.00')))
+
+    # Calculate total shipping cost
+    base_shipping = cost_per_box * Decimal(str(total_boxes))
+
+    # Add rural delivery surcharge if applicable
+    total_shipping = base_shipping
+    if is_rural:
+        rd_surcharge = shipping_settings.rd_delivery_surcharge * Decimal(str(total_boxes))
+        total_shipping += rd_surcharge
+
+    result['shipping_cost'] = total_shipping.quantize(Decimal('0.01'))
+
+    logger.info(f"Calculated shipping: {total_boxes} boxes to {region} = ${result['shipping_cost']}")
+
+    return result
+
+
+def calculate_quotation_totals(quotation_data, customer=None):
+    """Calculate totals for quotation session data including addons and shipping"""
     from .models import SiteSettings
 
     subtotal = Decimal('0.00')
@@ -143,11 +266,31 @@ def calculate_quotation_totals(quotation_data):
                 addon_total = Decimal(str(addon.get('total_price', 0)))
                 subtotal += addon_total
 
-    tax_amount = (subtotal * tax_percentage / Decimal('100')).quantize(Decimal('0.01'))
-    total = (subtotal + tax_amount).quantize(Decimal('0.01'))
+    # Calculate shipping if customer provided
+    shipping_info = {
+        'shipping_cost': Decimal('0.00'),
+        'shipping_boxes': 0,
+        'shipping_region': None,
+        'is_rural_delivery': False,
+        'box_breakdown': {},
+    }
+
+    if customer:
+        shipping_info = calculate_session_shipping(quotation_data.get('items', []), customer)
+
+    shipping_cost = shipping_info['shipping_cost']
+
+    # Calculate tax on subtotal + shipping
+    tax_amount = ((subtotal + shipping_cost) * tax_percentage / Decimal('100')).quantize(Decimal('0.01'))
+    total = (subtotal + shipping_cost + tax_amount).quantize(Decimal('0.01'))
 
     return {
         'subtotal': subtotal,
+        'shipping_cost': shipping_cost,
+        'shipping_boxes': shipping_info['shipping_boxes'],
+        'shipping_region': shipping_info['shipping_region'],
+        'is_rural_delivery': shipping_info['is_rural_delivery'],
+        'box_breakdown': shipping_info['box_breakdown'],
         'tax_percentage': tax_percentage,
         'tax_amount': tax_amount,
         'total': total,
@@ -954,8 +1097,8 @@ class QuotationCartView(LoginRequiredMixin, View):
 
                 enriched_items.append(enriched_item)
 
-        # Calculate totals
-        totals = calculate_quotation_totals(quotation_data)
+        # Calculate totals (pass customer for shipping calculation)
+        totals = calculate_quotation_totals(quotation_data, customer=request.user)
 
         # Get institution if set
         institution = None
@@ -1038,6 +1181,10 @@ class QuotationCartView(LoginRequiredMixin, View):
         context = {
             'cart_items': enriched_items,  # Changed from 'items' to match template
             'subtotal': totals['subtotal'],
+            'shipping_cost': totals['shipping_cost'],
+            'shipping_boxes': totals['shipping_boxes'],
+            'shipping_region': totals['shipping_region'],
+            'is_rural_delivery': totals['is_rural_delivery'],
             'tax': totals['tax_amount'],
             'total': totals['total'],
             'total_savings': total_savings,
