@@ -1,0 +1,435 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}CIN7 Contact Mapping - SASKITUP{% endblock %}
+
+{% block extra_css %}
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
+
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+
+<style>
+    /* Select2 styling enhancements */
+    .select2-container--bootstrap-5 .select2-selection {
+        min-height: 31px;
+    }
+
+    .select2-results__option {
+        padding: 8px 12px;
+    }
+
+    /* DataTables styling */
+    #mapping-table_wrapper .dataTables_filter input {
+        margin-left: 0.5em;
+    }
+
+    #mapping-table_wrapper .dataTables_length select {
+        margin: 0 0.5em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="mb-3">CIN7 Contact Mapping</h1>
+            <p class="text-muted">Map schools and clubs to their corresponding CIN7 contacts for sales order processing.</p>
+        </div>
+    </div>
+
+    <!-- Action Bar -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title mb-0">CIN7 Contacts</h5>
+                            <small class="text-muted">
+                                <span id="contact-count">{{ contact_count }}</span> contacts available
+                            </small>
+                        </div>
+                        <button id="fetch-contacts-btn" class="btn btn-primary">
+                            <i class="fas fa-sync-alt me-2"></i>Fetch CIN7 Contacts
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Entity Type Summary -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-3 text-muted">Entity Type Summary (Total: {{ total_all_entities }})</h6>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center p-2 bg-light rounded">
+                                <div class="h4 mb-0 text-primary">{{ type_counts.tus }}</div>
+                                <small class="text-muted">TUS Schools</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-2 bg-light rounded">
+                                <div class="h4 mb-0 text-success">{{ type_counts.wholesale }}</div>
+                                <small class="text-muted">Wholesale Schools</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-2 bg-light rounded">
+                                <div class="h4 mb-0 text-warning">{{ type_counts.lotto }}</div>
+                                <small class="text-muted">LOTTO Clubs</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-2 bg-light rounded">
+                                <div class="h4 mb-0 text-info">{{ type_counts.sas }}</div>
+                                <small class="text-muted">SAS Clubs</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Note: Search, pagination, and filtering are now handled by DataTables -->
+
+    <!-- Mapping Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm" id="mapping-table">
+                            <thead>
+                                <tr>
+                                    <th>Entity Name</th>
+                                    <th>Type</th>
+                                    <th>CIN7 Contact</th>
+                                    <th>Email</th>
+                                    <th class="text-center">Status</th>
+                                    <th class="text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entity in entities %}
+                                <tr data-entity-id="{{ entity.id }}"
+                                    data-entity-type="{{ entity.model }}"
+                                    data-entity-name="{{ entity.name }}"
+                                    data-type="{{ entity.type }}"
+                                    data-status="{% if entity.cin7_id %}mapped{% else %}unmapped{% endif %}">
+                                    <td>
+                                        <strong>{{ entity.name }}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge
+                                            {% if entity.type == 'TUS School' %}bg-primary
+                                            {% elif entity.type == 'Wholesale School' %}bg-success
+                                            {% elif entity.type == 'LOTTO Club' %}bg-warning text-dark
+                                            {% elif entity.type == 'SAS Club' %}bg-info
+                                            {% endif %}">
+                                            {{ entity.type }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <select class="form-select form-select-sm cin7-contact-select"
+                                                data-entity-id="{{ entity.id }}"
+                                                data-entity-type="{{ entity.model }}"
+                                                style="width: 100%;">
+                                            <option value="">Select CIN7 Contact...</option>
+                                            {% if entity.cin7_id %}
+                                            <option value="{{ entity.cin7_id }}"
+                                                    data-email="{{ entity.cin7_email }}"
+                                                    data-company="{{ entity.cin7_company_name }}"
+                                                    selected>
+                                                {{ entity.cin7_company_name }}
+                                            </option>
+                                            {% endif %}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <small class="contact-email text-muted">
+                                            {{ entity.cin7_email|default:"" }}
+                                        </small>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if entity.cin7_id %}
+                                            <span class="badge bg-success">Mapped</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Unmapped</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-success save-mapping-btn"
+                                                data-entity-id="{{ entity.id }}"
+                                                data-entity-type="{{ entity.model }}"
+                                                {% if not entity.cin7_id %}disabled{% endif %}>
+                                            <i class="fas fa-save"></i> Save
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">
+                                        <i class="fas fa-inbox me-2"></i>No entities found
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Pagination is handled by DataTables -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notification -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="notification-toast" class="toast hide" role="alert">
+        <div class="toast-header">
+            <strong class="me-auto">Notification</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body"></div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    // Initialize DataTable
+    var table = $('#mapping-table').DataTable({
+        pageLength: 50,
+        lengthMenu: [[25, 50, 100, -1], [25, 50, 100, "All"]],
+        order: [[0, 'asc']], // Sort by entity name
+        columnDefs: [
+            { orderable: false, targets: [5] }, // Disable sorting on Actions column
+            { searchable: false, targets: [5] }  // Disable search on Actions column
+        ],
+        language: {
+            search: "Search entities:",
+            lengthMenu: "Show _MENU_ entities per page",
+            info: "Showing _START_ to _END_ of _TOTAL_ entities",
+            infoEmpty: "Showing 0 to 0 of 0 entities",
+            infoFiltered: "(filtered from _MAX_ total entities)",
+            zeroRecords: "No matching entities found",
+            emptyTable: "No entities available",
+            paginate: {
+                first: "First",
+                last: "Last",
+                next: "Next",
+                previous: "Previous"
+            }
+        },
+        dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rtip',
+        drawCallback: function() {
+            // Reinitialize Select2 after DataTable draw
+            initializeSelect2();
+        }
+    });
+
+    // Initialize Select2 for CIN7 contact dropdowns
+    function initializeSelect2() {
+        $('.cin7-contact-select').each(function() {
+            if (!$(this).hasClass('select2-hidden-accessible')) {
+                $(this).select2({
+                    theme: 'bootstrap-5',
+                    placeholder: 'Search CIN7 contacts...',
+                    allowClear: true,
+                    minimumInputLength: 2,
+                    width: '100%',
+                    ajax: {
+                        url: '{% url "schools:cin7-search-contacts" %}',
+                        dataType: 'json',
+                        delay: 250,
+                        data: function(params) {
+                            return {
+                                q: params.term,
+                                page: params.page || 1
+                            };
+                        },
+                        processResults: function(data) {
+                            return {
+                                results: data.results,
+                                pagination: {
+                                    more: data.has_more
+                                }
+                            };
+                        },
+                        cache: true
+                    },
+                    templateResult: formatContact,
+                    templateSelection: formatContactSelection
+                });
+            }
+        });
+    }
+
+    // Format contact for dropdown display
+    function formatContact(contact) {
+        if (!contact.id) return contact.text;
+        return $('<div><strong>' + contact.company + '</strong><br><small class="text-muted">' + contact.email + '</small></div>');
+    }
+
+    // Format selected contact
+    function formatContactSelection(contact) {
+        return contact.company || contact.text;
+    }
+
+    // Initialize Select2 on page load
+    initializeSelect2();
+
+    // Handle Select2 selection change
+    $(document).on('select2:select', '.cin7-contact-select', function(e) {
+        var data = e.params.data;
+        var $row = $(this).closest('tr');
+        var $emailCell = $row.find('.contact-email');
+        var $saveBtn = $row.find('.save-mapping-btn');
+
+        // Update email display
+        $emailCell.text(data.email || '');
+
+        // Enable save button
+        $saveBtn.prop('disabled', false);
+
+        // Update status badge
+        $row.find('td:eq(4)').html('<span class="badge bg-warning text-dark">Modified</span>');
+    });
+
+    // Handle Select2 clear
+    $(document).on('select2:clear', '.cin7-contact-select', function() {
+        var $row = $(this).closest('tr');
+        var $emailCell = $row.find('.contact-email');
+        var $saveBtn = $row.find('.save-mapping-btn');
+
+        // Clear email
+        $emailCell.text('');
+
+        // Disable save button
+        $saveBtn.prop('disabled', true);
+
+        // Update status badge
+        $row.find('td:eq(4)').html('<span class="badge bg-secondary">Unmapped</span>');
+    });
+
+    // Fetch CIN7 Contacts
+    $('#fetch-contacts-btn').on('click', function() {
+        const $btn = $(this);
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Fetching...');
+
+        $.ajax({
+            url: '{% url "schools:cin7-fetch-contacts" %}',
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.success) {
+                    showNotification('Success', response.message, 'success');
+                    $('#contact-count').text(response.count);
+                    // Reload page to show new contacts
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showNotification('Error', response.error, 'danger');
+                }
+            },
+            error: function(xhr) {
+                const error = xhr.responseJSON?.error || 'Failed to fetch contacts';
+                showNotification('Error', error, 'danger');
+            },
+            complete: function() {
+                $btn.prop('disabled', false).html('<i class="fas fa-sync-alt me-2"></i>Fetch CIN7 Contacts');
+            }
+        });
+    });
+
+    // Save Mapping
+    $(document).on('click', '.save-mapping-btn', function() {
+        const $btn = $(this);
+        const $row = $btn.closest('tr');
+        const entityId = $btn.data('entity-id');
+        const entityType = $btn.data('entity-type');
+        const $selector = $row.find('.cin7-contact-select');
+        const cin7Id = $selector.val();
+
+        if (!cin7Id) {
+            showNotification('Error', 'Please select a CIN7 contact', 'warning');
+            return;
+        }
+
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+
+        $.ajax({
+            url: '{% url "schools:cin7-save-mapping" %}',
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            contentType: 'application/json',
+            data: JSON.stringify({
+                entity_id: entityId,
+                entity_type: entityType,
+                cin7_id: cin7Id
+            }),
+            success: function(response) {
+                if (response.success) {
+                    showNotification('Success', response.message, 'success');
+                    $row.find('.contact-email').text(response.contact.email);
+                    $row.attr('data-status', 'mapped');
+
+                    // Update status badge
+                    $row.find('td:eq(4)').html('<span class="badge bg-success">Mapped</span>');
+
+                    // Update DataTable data
+                    table.row($row).invalidate().draw(false);
+                } else {
+                    showNotification('Error', response.error, 'danger');
+                }
+            },
+            error: function(xhr) {
+                const error = xhr.responseJSON?.error || 'Failed to save mapping';
+                showNotification('Error', error, 'danger');
+            },
+            complete: function() {
+                $btn.prop('disabled', false).html('<i class="fas fa-save"></i> Save');
+            }
+        });
+    });
+
+    // Toast Notification Helper
+    function showNotification(title, message, type) {
+        const $toast = $('#notification-toast');
+        const $header = $toast.find('.toast-header');
+        const $body = $toast.find('.toast-body');
+
+        $header.removeClass('bg-success bg-danger bg-warning').addClass('bg-' + type + ' text-white');
+        $header.find('strong').text(title);
+        $body.text(message);
+
+        const toast = new bootstrap.Toast($toast[0]);
+        toast.show();
+    }
+});
+</script>
+{% endblock %}

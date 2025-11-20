@@ -87,4 +87,10 @@ urlpatterns = [
 
     # Legacy placeholder pages
     path('retail-legacy/', views.RetailSchoolsView.as_view(), name='retail_schools_legacy'),
+
+    # CIN7 Contact Mapping
+    path('cin7/mapping/', views.CIN7MappingView.as_view(), name='cin7-mapping'),
+    path('cin7/fetch-contacts/', views.FetchCIN7ContactsView.as_view(), name='cin7-fetch-contacts'),
+    path('cin7/save-mapping/', views.SaveCIN7MappingView.as_view(), name='cin7-save-mapping'),
+    path('cin7/search-contacts/', views.CIN7ContactSearchView.as_view(), name='cin7-search-contacts'),
 ]

@@ -15,6 +15,9 @@ import threading
 from .models import School
 from .services import SchoolAPIService
 
+# Initialize logger
+logger = logging.getLogger(__name__)
+
 # Import permission mixins
 from authentication.permissions import SalesRepOrAccountManagerMixin
 
@@ -4602,3 +4605,494 @@ def cin7_price_progress(request, session_id):
         'status': 'in_progress',
         'progress': progress_data
     })
+
+
+# =====================================
+# CIN7 CONTACT MAPPING VIEWS
+# =====================================
+
+
+class CIN7MappingView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, TemplateView):
+    """
+    Main CIN7 contact mapping interface.
+
+    Displays all entities (TUSSchool, WholesaleSchool, LottoClub, SASClub) with
+    their current CIN7 mapping status and allows mapping to CIN7 contacts.
+
+    Uses DataTables for client-side pagination, searching, and sorting.
+    Uses Select2 with AJAX for efficient contact selection.
+    """
+    template_name = 'schools/cin7_mapping.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Import models
+        from .models import WholesaleSchool, CIN7Contact
+        from .models_tus import TUSSchool
+        from clubs.models_lotto import LottoClub
+        from clubs.models_sas import SASClub
+
+        # Collect all entities (DataTables handles pagination client-side)
+        entities = []
+
+        # Track counts by type
+        type_counts = {
+            'tus': 0,
+            'wholesale': 0,
+            'lotto': 0,
+            'sas': 0
+        }
+
+        # TUS Schools - load all active schools
+        tus_schools = TUSSchool.objects.filter(is_active=True).order_by('name')
+        type_counts['tus'] = tus_schools.count()
+        for school in tus_schools:
+            entities.append({
+                'id': school.id,
+                'name': school.name,
+                'type': 'TUS School',
+                'model': 'tus',
+                'cin7_id': school.cin7_id or '',
+                'cin7_company_name': school.cin7_company_name or '',
+                'cin7_email': school.cin7_email or ''
+            })
+
+        # Wholesale Schools - load all active schools
+        wholesale_schools = WholesaleSchool.objects.filter(is_active=True).order_by('name')
+        type_counts['wholesale'] = wholesale_schools.count()
+        for school in wholesale_schools:
+            entities.append({
+                'id': school.id,
+                'name': school.name,
+                'type': 'Wholesale School',
+                'model': 'wholesale',
+                'cin7_id': school.cin7_contact_id or '',
+                'cin7_company_name': school.cin7_company_name or '',
+                'cin7_email': school.cin7_email or ''
+            })
+
+        # LOTTO Clubs - load all active clubs
+        lotto_clubs = LottoClub.objects.filter(is_active=True, is_generic_shop=False).order_by('name')
+        type_counts['lotto'] = lotto_clubs.count()
+        for club in lotto_clubs:
+            entities.append({
+                'id': club.id,
+                'name': club.name,
+                'type': 'LOTTO Club',
+                'model': 'lotto',
+                'cin7_id': club.cin7_id or '',
+                'cin7_company_name': club.cin7_company_name or '',
+                'cin7_email': club.cin7_email or ''
+            })
+
+        # SAS Clubs - load all active clubs
+        sas_clubs = SASClub.objects.filter(is_active=True, is_school=False, is_generic_category=False).order_by('name')
+        type_counts['sas'] = sas_clubs.count()
+        for club in sas_clubs:
+            entities.append({
+                'id': club.id,
+                'name': club.name,
+                'type': 'SAS Club',
+                'model': 'sas',
+                'cin7_id': club.cin7_id or '',
+                'cin7_company_name': club.cin7_company_name or '',
+                'cin7_email': club.cin7_email or ''
+            })
+
+        # Provide all entities to template (DataTables handles pagination client-side)
+        context['entities'] = entities
+        context['total_entity_count'] = len(entities)
+        context['type_counts'] = type_counts
+        context['total_all_entities'] = sum(type_counts.values())
+
+        # Total contact count for display
+        context['contact_count'] = CIN7Contact.objects.filter(
+            company__isnull=False
+        ).exclude(company='').count()
+
+        return context
+
+
+from django.views import View
+import json
+
+
+class FetchCIN7ContactsView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
+    """
+    Fetch CIN7 contacts from API and save to database.
+
+    Only contacts with non-empty company names are saved.
+    """
+
+    def post(self, request):
+        try:
+            from .services.cin7_api_service import Cin7ApiService
+            from .models import CIN7Contact
+
+            # Initialize CIN7 API service
+            api = Cin7ApiService()
+
+            # Start of fetch operation
+            print("\n" + "="*80)
+            print("CIN7 CONTACT SYNC STARTED")
+            print("="*80)
+
+            # Fetch contacts from CIN7 API with pagination
+            logger.info("Fetching CIN7 contacts from API with pagination...")
+            page = 1
+            all_contacts = []
+
+            while True:
+                # Before each API request
+                print(f"\n🔄 Fetching page {page} from CIN7 API (250 rows per page)...")
+                logger.info(f"Fetching page {page} (250 rows per page)...")
+                batch = api._make_request('Contacts', params={'rows': 250, 'page': page})
+
+                if not batch or len(batch) == 0:
+                    # When no more contacts found
+                    print(f"⚠️  No more contacts found on page {page}")
+                    logger.info(f"No more contacts found on page {page}")
+                    break
+
+                # After successful page fetch
+                print(f"✅ Page {page} fetched: {len(batch)} contacts received")
+                logger.info(f"Fetched page {page}: {len(batch)} contacts")
+                all_contacts.extend(batch)
+
+                # If we got fewer than 250 contacts, this is the last page
+                if len(batch) < 250:
+                    # When last page detected
+                    print(f"✅ Last page reached (page {page} had {len(batch)} contacts)")
+                    logger.info(f"Last page reached (page {page} had {len(batch)} contacts)")
+                    break
+
+                page += 1
+
+            if not all_contacts:
+                print(f"\n❌ ERROR: No contacts returned from CIN7 API")
+                print("="*80 + "\n")
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No contacts returned from CIN7 API'
+                })
+
+            # After pagination complete
+            print(f"\n📊 Total contacts fetched: {len(all_contacts)} across {page} pages")
+            logger.info(f"Total contacts fetched across {page} pages: {len(all_contacts)}")
+
+            # Filter to only contacts with company names
+            print(f"🔍 Filtering contacts with company names...")
+            valid_contacts = [c for c in all_contacts if c.get('company') and c.get('company').strip()]
+
+            # After filtering
+            print(f"✅ Valid contacts (with company names): {len(valid_contacts)}")
+            print(f"❌ Excluded contacts (no company name): {len(all_contacts) - len(valid_contacts)}")
+            logger.info(f"Found {len(valid_contacts)} contacts with company names out of {len(all_contacts)} total")
+
+            # Before database operations
+            print(f"\n💾 Clearing existing CIN7 contacts from database...")
+            CIN7Contact.objects.all().delete()
+
+            created_count = 0
+            enriched_count = 0
+
+            for contact_data in valid_contacts:
+                try:
+                    # Safely extract and clean field values, handling None
+                    company = contact_data.get('company', '') or ''
+                    email = contact_data.get('email', '') or ''
+                    first_name = contact_data.get('firstName', '') or ''
+                    last_name = contact_data.get('lastName', '') or ''
+
+                    # Check if critical contact fields are missing (CIN7 list API sometimes returns incomplete data)
+                    # If phone AND all address fields are empty, fetch full contact details
+                    phone = (contact_data.get('phone', '') or '').strip()
+                    address1 = (contact_data.get('address1', '') or '').strip()
+                    postal_address1 = (contact_data.get('postalAddress1', '') or '').strip()
+
+                    needs_enrichment = not phone and not address1 and not postal_address1
+
+                    if needs_enrichment:
+                        # Fetch complete contact data from individual endpoint
+                        contact_id = contact_data['id']
+                        full_contact = api._make_request(f'Contacts/{contact_id}')
+
+                        if full_contact:
+                            # Use full contact data instead of list data
+                            contact_data = full_contact
+                            enriched_count += 1
+                            logger.info(f"Enriched contact {contact_id} ({company}) with full API data")
+
+                    CIN7Contact.objects.create(
+                        cin7_id=contact_data['id'],
+                        company=company.strip(),
+                        email=email.strip(),
+                        first_name=first_name.strip(),
+                        last_name=last_name.strip(),
+
+                        # Contact information
+                        phone=(contact_data.get('phone', '') or '').strip(),
+
+                        # Delivery address
+                        delivery_address1=(contact_data.get('address1', '') or '').strip(),
+                        delivery_address2=(contact_data.get('address2', '') or '').strip(),
+                        delivery_city=(contact_data.get('city', '') or '').strip(),
+                        delivery_state=(contact_data.get('state', '') or '').strip(),
+                        delivery_postcode=(contact_data.get('postCode', '') or '').strip(),
+
+                        # Billing address
+                        billing_address1=(contact_data.get('postalAddress1', '') or '').strip(),
+                        billing_address2=(contact_data.get('postalAddress2', '') or '').strip(),
+                        billing_city=(contact_data.get('postalCity', '') or '').strip(),
+                        billing_state=(contact_data.get('postalState', '') or '').strip(),
+                        billing_postcode=(contact_data.get('postalPostCode', '') or '').strip(),
+
+                        last_synced_at=timezone.now()
+                    )
+                    created_count += 1
+
+                    # During save loop (every 50 contacts)
+                    if created_count % 50 == 0:
+                        print(f"   Saved {created_count} contacts so far... ({enriched_count} enriched with full data)")
+                except Exception as e:
+                    print(f"⚠️  Failed to create contact {contact_data.get('id')}: {str(e)}")
+                    logger.warning(f"Failed to create contact {contact_data.get('id')}: {str(e)}")
+                    continue
+
+            # After save complete
+            print(f"✅ Successfully saved {created_count} CIN7 contacts to database")
+            if enriched_count > 0:
+                print(f"📞 Enriched {enriched_count} contacts with full data (phone/address)")
+            logger.info(f"Successfully saved {created_count} CIN7 contacts ({enriched_count} enriched)")
+
+            # End summary
+            print("\n" + "="*80)
+            print("CIN7 CONTACT SYNC COMPLETED")
+            print(f"Total fetched: {len(all_contacts)} | Valid: {len(valid_contacts)} | Saved: {created_count}")
+            if enriched_count > 0:
+                print(f"Enriched: {enriched_count} contacts with full API data")
+            print("="*80 + "\n")
+
+            return JsonResponse({
+                'success': True,
+                'count': created_count,
+                'enriched_count': enriched_count,
+                'message': f'Successfully fetched and saved {created_count} CIN7 contacts ({enriched_count} enriched with full data)'
+            })
+
+        except Exception as e:
+            # On errors
+            print(f"\n❌ ERROR: {str(e)}")
+            print("="*80 + "\n")
+            logger.error(f"Error fetching CIN7 contacts: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+
+
+class SaveCIN7MappingView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
+    """
+    Save CIN7 contact mapping for a specific entity.
+
+    Updates the entity's cin7_id, cin7_company_name, and cin7_email fields.
+    """
+
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+
+            entity_type = data.get('entity_type')
+            entity_id = data.get('entity_id')
+            cin7_id = data.get('cin7_id')
+
+            if not all([entity_type, entity_id, cin7_id]):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Missing required parameters'
+                })
+
+            # Import models
+            from .models import WholesaleSchool, CIN7Contact
+            from .models_tus import TUSSchool
+            from clubs.models_lotto import LottoClub
+            from clubs.models_sas import SASClub
+
+            # Get CIN7 contact
+            try:
+                contact = CIN7Contact.objects.get(cin7_id=int(cin7_id))
+            except CIN7Contact.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'CIN7 contact with ID {cin7_id} not found'
+                })
+
+            # Update entity based on type
+            if entity_type == 'tus':
+                obj = get_object_or_404(TUSSchool, id=entity_id)
+                obj.cin7_id = str(cin7_id)
+                obj.cin7_company_name = contact.company
+                obj.cin7_email = contact.email
+                obj.cin7_first_name = contact.first_name
+                obj.cin7_last_name = contact.last_name
+                obj.cin7_phone = contact.phone
+                obj.cin7_delivery_address1 = contact.delivery_address1
+                obj.cin7_delivery_address2 = contact.delivery_address2
+                obj.cin7_delivery_city = contact.delivery_city
+                obj.cin7_delivery_state = contact.delivery_state
+                obj.cin7_delivery_postcode = contact.delivery_postcode
+                obj.cin7_billing_address1 = contact.billing_address1
+                obj.cin7_billing_address2 = contact.billing_address2
+                obj.cin7_billing_city = contact.billing_city
+                obj.cin7_billing_state = contact.billing_state
+                obj.cin7_billing_postcode = contact.billing_postcode
+
+            elif entity_type == 'wholesale':
+                obj = get_object_or_404(WholesaleSchool, id=entity_id)
+                obj.cin7_contact_id = str(cin7_id)
+                obj.cin7_company_name = contact.company
+                obj.cin7_email = contact.email
+                obj.cin7_first_name = contact.first_name
+                obj.cin7_last_name = contact.last_name
+                obj.cin7_phone = contact.phone
+                obj.cin7_delivery_address1 = contact.delivery_address1
+                obj.cin7_delivery_address2 = contact.delivery_address2
+                obj.cin7_delivery_city = contact.delivery_city
+                obj.cin7_delivery_state = contact.delivery_state
+                obj.cin7_delivery_postcode = contact.delivery_postcode
+                obj.cin7_billing_address1 = contact.billing_address1
+                obj.cin7_billing_address2 = contact.billing_address2
+                obj.cin7_billing_city = contact.billing_city
+                obj.cin7_billing_state = contact.billing_state
+                obj.cin7_billing_postcode = contact.billing_postcode
+
+            elif entity_type == 'lotto':
+                obj = get_object_or_404(LottoClub, id=entity_id)
+                obj.cin7_id = str(cin7_id)
+                obj.cin7_company_name = contact.company
+                obj.cin7_email = contact.email
+                obj.cin7_first_name = contact.first_name
+                obj.cin7_last_name = contact.last_name
+                obj.cin7_phone = contact.phone
+                obj.cin7_delivery_address1 = contact.delivery_address1
+                obj.cin7_delivery_address2 = contact.delivery_address2
+                obj.cin7_delivery_city = contact.delivery_city
+                obj.cin7_delivery_state = contact.delivery_state
+                obj.cin7_delivery_postcode = contact.delivery_postcode
+                obj.cin7_billing_address1 = contact.billing_address1
+                obj.cin7_billing_address2 = contact.billing_address2
+                obj.cin7_billing_city = contact.billing_city
+                obj.cin7_billing_state = contact.billing_state
+                obj.cin7_billing_postcode = contact.billing_postcode
+
+            elif entity_type == 'sas':
+                obj = get_object_or_404(SASClub, id=entity_id)
+                obj.cin7_id = str(cin7_id)
+                obj.cin7_company_name = contact.company
+                obj.cin7_email = contact.email
+                obj.cin7_first_name = contact.first_name
+                obj.cin7_last_name = contact.last_name
+                obj.cin7_phone = contact.phone
+                obj.cin7_delivery_address1 = contact.delivery_address1
+                obj.cin7_delivery_address2 = contact.delivery_address2
+                obj.cin7_delivery_city = contact.delivery_city
+                obj.cin7_delivery_state = contact.delivery_state
+                obj.cin7_delivery_postcode = contact.delivery_postcode
+                obj.cin7_billing_address1 = contact.billing_address1
+                obj.cin7_billing_address2 = contact.billing_address2
+                obj.cin7_billing_city = contact.billing_city
+                obj.cin7_billing_state = contact.billing_state
+                obj.cin7_billing_postcode = contact.billing_postcode
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Invalid entity type: {entity_type}'
+                })
+
+            obj.save()
+
+            logger.info(f"Mapped {entity_type} entity {entity_id} to CIN7 contact {cin7_id} ({contact.company})")
+
+            return JsonResponse({
+                'success': True,
+                'message': f'Successfully mapped to {contact.company}',
+                'contact': {
+                    'id': contact.cin7_id,
+                    'company': contact.company,
+                    'email': contact.email
+                }
+            })
+
+        except Exception as e:
+            logger.error(f"Error saving CIN7 mapping: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+
+
+class CIN7ContactSearchView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, View):
+    """
+    AJAX endpoint for searching CIN7 contacts with Select2.
+
+    Supports pagination and search by company name or email.
+    Returns results in Select2-compatible format.
+    """
+
+    def get(self, request):
+        try:
+            from .models import CIN7Contact
+
+            search_term = request.GET.get('q', '').strip()
+            page = int(request.GET.get('page', 1))
+            page_size = 20
+
+            # Build query - only non-empty company names
+            contacts = CIN7Contact.objects.filter(
+                company__isnull=False
+            ).exclude(company='')
+
+            # Apply search filter if provided
+            if search_term:
+                contacts = contacts.filter(
+                    Q(company__icontains=search_term) |
+                    Q(email__icontains=search_term)
+                )
+
+            # Order by company name
+            contacts = contacts.order_by('company')
+
+            # Paginate results
+            start = (page - 1) * page_size
+            end = start + page_size
+            total_count = contacts.count()
+            contacts_page = contacts[start:end]
+
+            # Format results for Select2
+            results = [
+                {
+                    'id': contact.cin7_id,
+                    'text': f"{contact.company} - {contact.email}",
+                    'company': contact.company,
+                    'email': contact.email or ''
+                }
+                for contact in contacts_page
+            ]
+
+            logger.info(f"CIN7 contact search: '{search_term}' returned {len(results)} results (page {page})")
+
+            return JsonResponse({
+                'results': results,
+                'has_more': end < total_count,
+                'total_count': total_count
+            })
+
+        except Exception as e:
+            logger.error(f"Error searching CIN7 contacts: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'results': [],
+                'has_more': False,
+                'total_count': 0,
+                'error': str(e)
+            }, status=500)

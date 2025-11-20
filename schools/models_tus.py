@@ -146,6 +146,28 @@ class TUSSchool(models.Model):
     # Status
     is_active = models.BooleanField(default=True, help_text="Whether the school is active")
 
+    # CIN7 Contact mapping fields
+    cin7_id = models.CharField(max_length=50, blank=True, db_index=True, help_text="CIN7 Contact ID for sales orders")
+    cin7_company_name = models.CharField(max_length=255, blank=True, help_text="CIN7 Contact company name")
+    cin7_email = models.EmailField(blank=True, help_text="CIN7 Contact email address")
+    cin7_first_name = models.CharField(max_length=100, blank=True, help_text="CIN7 Contact first name")
+    cin7_last_name = models.CharField(max_length=100, blank=True, help_text="CIN7 Contact last name")
+    cin7_phone = models.CharField(max_length=50, blank=True, help_text="CIN7 Contact phone number")
+
+    # CIN7 Delivery address
+    cin7_delivery_address1 = models.CharField(max_length=255, blank=True, help_text="CIN7 Delivery address line 1")
+    cin7_delivery_address2 = models.CharField(max_length=255, blank=True, help_text="CIN7 Delivery address line 2")
+    cin7_delivery_city = models.CharField(max_length=100, blank=True, help_text="CIN7 Delivery city")
+    cin7_delivery_state = models.CharField(max_length=100, blank=True, help_text="CIN7 Delivery state")
+    cin7_delivery_postcode = models.CharField(max_length=20, blank=True, help_text="CIN7 Delivery postcode")
+
+    # CIN7 Billing address
+    cin7_billing_address1 = models.CharField(max_length=255, blank=True, help_text="CIN7 Billing address line 1")
+    cin7_billing_address2 = models.CharField(max_length=255, blank=True, help_text="CIN7 Billing address line 2")
+    cin7_billing_city = models.CharField(max_length=100, blank=True, help_text="CIN7 Billing city")
+    cin7_billing_state = models.CharField(max_length=100, blank=True, help_text="CIN7 Billing state")
+    cin7_billing_postcode = models.CharField(max_length=20, blank=True, help_text="CIN7 Billing postcode")
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

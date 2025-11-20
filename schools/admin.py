@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import School
+from .models import School, CIN7Contact
 
 
 @admin.register(School)
@@ -48,6 +48,31 @@ class SchoolAdmin(admin.ModelAdmin):
         }),
         ('Metadata', {
             'fields': ('created_at', 'updated_at', 'last_synced'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(CIN7Contact)
+class CIN7ContactAdmin(admin.ModelAdmin):
+    list_display = ['cin7_id', 'company', 'email', 'phone', 'delivery_city', 'delivery_state', 'last_synced_at']
+    list_filter = ['last_synced_at', 'delivery_state', 'billing_state']
+    search_fields = ['cin7_id', 'company', 'email', 'first_name', 'last_name', 'phone', 'delivery_city', 'billing_city']
+    ordering = ['company']
+    readonly_fields = ['created_at', 'updated_at', 'last_synced_at']
+
+    fieldsets = (
+        ('Contact Information', {
+            'fields': ('cin7_id', 'company', 'email', 'first_name', 'last_name', 'phone')
+        }),
+        ('Delivery Address', {
+            'fields': ('delivery_address1', 'delivery_address2', 'delivery_city', 'delivery_state', 'delivery_postcode')
+        }),
+        ('Billing Address', {
+            'fields': ('billing_address1', 'billing_address2', 'billing_city', 'billing_state', 'billing_postcode')
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at', 'last_synced_at'),
             'classes': ('collapse',)
         }),
     )

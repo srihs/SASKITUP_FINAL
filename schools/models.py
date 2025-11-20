@@ -194,6 +194,28 @@ class WholesaleSchool(models.Model):
     cin7_supplier = models.CharField(max_length=100, blank=True, help_text="CIN7 Supplier")
     cin7_category_path = models.TextField(blank=True, help_text="Full category path from CIN7")
 
+    # CIN7 Contact mapping fields
+    cin7_contact_id = models.CharField(max_length=50, blank=True, db_index=True, help_text="CIN7 Contact ID for sales orders")
+    cin7_company_name = models.CharField(max_length=255, blank=True, help_text="CIN7 Contact company name")
+    cin7_email = models.EmailField(blank=True, help_text="CIN7 Contact email address")
+    cin7_first_name = models.CharField(max_length=100, blank=True, help_text="CIN7 Contact first name")
+    cin7_last_name = models.CharField(max_length=100, blank=True, help_text="CIN7 Contact last name")
+    cin7_phone = models.CharField(max_length=50, blank=True, help_text="CIN7 Contact phone number")
+
+    # CIN7 Delivery address
+    cin7_delivery_address1 = models.CharField(max_length=255, blank=True, help_text="CIN7 Delivery address line 1")
+    cin7_delivery_address2 = models.CharField(max_length=255, blank=True, help_text="CIN7 Delivery address line 2")
+    cin7_delivery_city = models.CharField(max_length=100, blank=True, help_text="CIN7 Delivery city")
+    cin7_delivery_state = models.CharField(max_length=100, blank=True, help_text="CIN7 Delivery state")
+    cin7_delivery_postcode = models.CharField(max_length=20, blank=True, help_text="CIN7 Delivery postcode")
+
+    # CIN7 Billing address
+    cin7_billing_address1 = models.CharField(max_length=255, blank=True, help_text="CIN7 Billing address line 1")
+    cin7_billing_address2 = models.CharField(max_length=255, blank=True, help_text="CIN7 Billing address line 2")
+    cin7_billing_city = models.CharField(max_length=100, blank=True, help_text="CIN7 Billing city")
+    cin7_billing_state = models.CharField(max_length=100, blank=True, help_text="CIN7 Billing state")
+    cin7_billing_postcode = models.CharField(max_length=20, blank=True, help_text="CIN7 Billing postcode")
+
     # Images
     logo = models.URLField(max_length=500, blank=True, null=True, help_text="School logo image URL")
 
@@ -734,3 +756,59 @@ class Cin7Product(models.Model):
     def is_ready_for_update(self):
         """Check if product is ready for price update"""
         return self.matched and self.has_pricing_data and not self.processed
+
+
+class CIN7Contact(models.Model):
+    """
+    Cached CIN7 contacts for mapping to schools and clubs.
+
+    This model stores CIN7 contact data to enable mapping of internal
+    entities (TUSSchool, WholesaleSchool, LottoClub, SASClub) to their
+    corresponding CIN7 contacts for sales order processing.
+    """
+    cin7_id = models.IntegerField(unique=True, db_index=True, help_text="CIN7 Contact ID")
+    company = models.CharField(max_length=255, db_index=True, help_text="Company name")
+    email = models.EmailField(blank=True, help_text="Contact email address")
+    first_name = models.CharField(max_length=100, blank=True, help_text="Contact first name")
+    last_name = models.CharField(max_length=100, blank=True, help_text="Contact last name")
+
+    # Contact information
+    phone = models.CharField(max_length=50, blank=True, help_text="Contact phone number")
+
+    # Delivery address
+    delivery_address1 = models.CharField(max_length=255, blank=True, help_text="Delivery address line 1")
+    delivery_address2 = models.CharField(max_length=255, blank=True, help_text="Delivery address line 2")
+    delivery_city = models.CharField(max_length=100, blank=True, help_text="Delivery city")
+    delivery_state = models.CharField(max_length=100, blank=True, help_text="Delivery state")
+    delivery_postcode = models.CharField(max_length=20, blank=True, help_text="Delivery postcode")
+
+    # Billing address (postal)
+    billing_address1 = models.CharField(max_length=255, blank=True, help_text="Billing address line 1")
+    billing_address2 = models.CharField(max_length=255, blank=True, help_text="Billing address line 2")
+    billing_city = models.CharField(max_length=100, blank=True, help_text="Billing city")
+    billing_state = models.CharField(max_length=100, blank=True, help_text="Billing state")
+    billing_postcode = models.CharField(max_length=20, blank=True, help_text="Billing postcode")
+
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True, help_text="Last sync from CIN7 API")
+
+    class Meta:
+        db_table = 'cin7_contacts_mapping'
+        ordering = ['company']
+        verbose_name = 'CIN7 Contact'
+        verbose_name_plural = 'CIN7 Contacts'
+        indexes = [
+            models.Index(fields=['company']),
+            models.Index(fields=['cin7_id']),
+        ]
+
+    def __str__(self):
+        return f"{self.company} (ID: {self.cin7_id})"
+
+    @property
+    def full_name(self):
+        """Return full name if available"""
+        parts = [self.first_name, self.last_name]
+        return ' '.join([p for p in parts if p])
