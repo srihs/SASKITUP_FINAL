@@ -331,6 +331,11 @@ class Quotation(models.Model):
         blank=True,
         help_text="Name of the quotation recipient"
     )
+    recipient_phone = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Phone number of the quotation recipient"
+    )
     recipient_address = models.TextField(
         blank=True,
         help_text="Address of the quotation recipient"

@@ -1656,6 +1656,7 @@ class SaveQuotationView(LoginRequiredMixin, View):
 
                     # Update recipient information if provided
                     recipient_name = request.POST.get('recipient_name', '').strip()
+                    recipient_phone = request.POST.get('recipient_phone', '').strip()
                     recipient_address = request.POST.get('recipient_address', '').strip()
                     additional_emails = request.POST.get('additional_emails', '').strip()
 
@@ -1669,6 +1670,8 @@ class SaveQuotationView(LoginRequiredMixin, View):
 
                     if recipient_name:
                         quotation.recipient_name = recipient_name
+                    if recipient_phone:
+                        quotation.recipient_phone = recipient_phone
                     if recipient_address:
                         quotation.recipient_address = recipient_address
                     quotation.additional_emails = additional_emails
@@ -1791,6 +1794,7 @@ class SaveQuotationView(LoginRequiredMixin, View):
 
                 # Get recipient information from POST data
                 recipient_name = request.POST.get('recipient_name', '').strip()
+                recipient_phone = request.POST.get('recipient_phone', '').strip()
                 recipient_address = request.POST.get('recipient_address', '').strip()
                 additional_emails = request.POST.get('additional_emails', '').strip()
 
@@ -1860,6 +1864,7 @@ class SaveQuotationView(LoginRequiredMixin, View):
                     institution_object_id=institution.id if institution else None,
                     status='pending',  # Changed from 'draft' to 'pending' for approval workflow
                     recipient_name=recipient_name,
+                    recipient_phone=recipient_phone,
                     recipient_address=recipient_address,
                     additional_emails=additional_emails,
                     assigned_sales_rep=assigned_sales_rep,
@@ -6120,3 +6125,129 @@ class ShippingSettingsView(LoginRequiredMixin, UserPassesTestMixin, View):
             messages.error(request, f'Error updating settings: {str(e)}')
 
         return redirect('quotations:shipping-settings')
+
+
+class GetInstituteDetailsView(LoginRequiredMixin, View):
+    """
+    AJAX endpoint to fetch institute contact and address details for auto-populating quotation recipient information.
+    Supports all institute types: TUSSchool, WholesaleSchool, LottoClub, SASClub.
+    """
+
+    def get(self, request):
+        """
+        Fetch institute details including contact info and delivery address.
+
+        Query Parameters:
+            institution_id: Format "institutiontype_id" (e.g., "tusschool_123")
+
+        Returns:
+            JSON with:
+                - recipient_name: Combined first_name + last_name
+                - phone: Contact phone number
+                - delivery_address: Complete delivery address string
+                - delivery_city: City
+                - delivery_state: State/Region
+                - delivery_postcode: Postcode
+        """
+        try:
+            institution_id_param = request.GET.get('institution_id', '').strip()
+
+            if not institution_id_param:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Institution ID is required'
+                }, status=400)
+
+            # Parse institution_id parameter (format: "institutiontype_id")
+            try:
+                institution_type, institution_id = institution_id_param.split('_', 1)
+                institution_id = int(institution_id)
+            except (ValueError, AttributeError):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid institution ID format. Expected: institutiontype_id'
+                }, status=400)
+
+            # Get institution object based on type
+            from schools.models import WholesaleSchool
+            from schools.models_tus import TUSSchool
+            from clubs.models_lotto import LottoClub
+            from clubs.models_sas import SASClub
+
+            institution = None
+
+            if institution_type == 'tusschool':
+                try:
+                    institution = TUSSchool.objects.get(pk=institution_id)
+                except TUSSchool.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'TUS School not found'
+                    }, status=404)
+
+            elif institution_type == 'wholesaleschool':
+                try:
+                    institution = WholesaleSchool.objects.get(pk=institution_id)
+                except WholesaleSchool.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Wholesale School not found'
+                    }, status=404)
+
+            elif institution_type == 'lottoclub':
+                try:
+                    institution = LottoClub.objects.get(pk=institution_id)
+                except LottoClub.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'LOTTO Club not found'
+                    }, status=404)
+
+            elif institution_type == 'sasclub':
+                try:
+                    institution = SASClub.objects.get(pk=institution_id)
+                except SASClub.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'SAS Club not found'
+                    }, status=404)
+
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Unknown institution type: {institution_type}'
+                }, status=400)
+
+            # Extract contact and address information
+            first_name = getattr(institution, 'cin7_first_name', '') or ''
+            last_name = getattr(institution, 'cin7_last_name', '') or ''
+            recipient_name = f"{first_name} {last_name}".strip()
+
+            phone = getattr(institution, 'cin7_phone', '') or ''
+
+            # Build delivery address
+            address1 = getattr(institution, 'cin7_delivery_address1', '') or ''
+            address2 = getattr(institution, 'cin7_delivery_address2', '') or ''
+            city = getattr(institution, 'cin7_delivery_city', '') or ''
+            state = getattr(institution, 'cin7_delivery_state', '') or ''
+            postcode = getattr(institution, 'cin7_delivery_postcode', '') or ''
+
+            return JsonResponse({
+                'success': True,
+                'data': {
+                    'recipient_name': recipient_name,
+                    'phone': phone,
+                    'delivery_address1': address1,
+                    'delivery_address2': address2,
+                    'delivery_city': city,
+                    'delivery_state': state,
+                    'delivery_postcode': postcode,
+                }
+            })
+
+        except Exception as e:
+            logger.error(f'Error fetching institute details: {e}', exc_info=True)
+            return JsonResponse({
+                'success': False,
+                'error': 'An error occurred while fetching institute details'
+            }, status=500)

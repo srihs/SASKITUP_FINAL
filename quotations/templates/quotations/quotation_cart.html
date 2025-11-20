@@ -1260,7 +1260,11 @@
                     <div class="card-body p-4">
                         <div class="mb-3">
                             <label for="recipient_name" class="form-label">Recipient Name</label>
-                            <input type="text" class="form-control" id="recipient_name" placeholder="Enter recipient name" value="{% if is_customer %}{{ user_full_name }}{% endif %}">
+                            <input type="text" class="form-control" id="recipient_name" placeholder="Enter recipient name" value="{% if is_customer %}{{ user_full_name }}{% elif editing_quotation.recipient_name %}{{ editing_quotation.recipient_name }}{% endif %}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="recipient_phone" class="form-label">Phone Number</label>
+                            <input type="text" class="form-control" id="recipient_phone" placeholder="Enter phone number" value="{% if editing_quotation.recipient_phone %}{{ editing_quotation.recipient_phone }}{% endif %}">
                         </div>
                         <div class="mb-3">
                             <label for="recipient_street_address" class="form-label">
@@ -1522,6 +1526,64 @@ $(document).ready(function() {
         if (currentInstitutionId) {
             institutionSelectElement.val(currentInstitutionId).trigger('change');
         }
+
+        // Auto-populate recipient information when institution is selected
+        institutionSelectElement.on('change', function() {
+            const selectedInstitutionId = $(this).val();
+
+            // Only auto-populate if an institution is selected
+            if (selectedInstitutionId && selectedInstitutionId !== '') {
+                // Fetch institute details via AJAX
+                $.ajax({
+                    url: '{% url "quotations:get-institute-details" %}',
+                    method: 'GET',
+                    data: {
+                        institution_id: selectedInstitutionId
+                    },
+                    success: function(response) {
+                        if (response.success && response.data) {
+                            const data = response.data;
+
+                            // Auto-fill recipient name if not already filled
+                            if (data.recipient_name && !$('#recipient_name').val()) {
+                                $('#recipient_name').val(data.recipient_name);
+                            }
+
+                            // Auto-fill phone if not already filled
+                            if (data.phone && !$('#recipient_phone').val()) {
+                                $('#recipient_phone').val(data.phone);
+                            }
+
+                            // Auto-fill address fields if not already filled
+                            if (data.delivery_address1 && !$('#recipient_street_address').val()) {
+                                // Combine address1 and address2 if address2 exists
+                                let fullAddress = data.delivery_address1;
+                                if (data.delivery_address2) {
+                                    fullAddress += ', ' + data.delivery_address2;
+                                }
+                                $('#recipient_street_address').val(fullAddress);
+                            }
+
+                            if (data.delivery_city && !$('#recipient_city').val()) {
+                                $('#recipient_city').val(data.delivery_city);
+                            }
+
+                            if (data.delivery_state && !$('#recipient_suburb').val()) {
+                                $('#recipient_suburb').val(data.delivery_state);
+                            }
+
+                            if (data.delivery_postcode && !$('#recipient_postcode').val()) {
+                                $('#recipient_postcode').val(data.delivery_postcode);
+                            }
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error fetching institute details:', error);
+                        // Silently fail - don't disrupt user experience
+                    }
+                });
+            }
+        });
     }
 
     // Sales rep and account manager are now auto-assigned based on products
@@ -1873,6 +1935,7 @@ function saveQuotationWithNote(changeNote) {
 
     // Get recipient information from the form
     const recipientName = document.getElementById('recipient_name').value;
+    const recipientPhone = document.getElementById('recipient_phone').value;
     const recipientStreetAddress = document.getElementById('recipient_street_address').value;
     const recipientSuburb = document.getElementById('recipient_suburb').value;
     const recipientCity = document.getElementById('recipient_city').value;
@@ -1893,6 +1956,7 @@ function saveQuotationWithNote(changeNote) {
     // Prepare form data
     const formData = new URLSearchParams();
     formData.append('recipient_name', recipientName);
+    formData.append('recipient_phone', recipientPhone);
     formData.append('recipient_address', recipientAddress);
     formData.append('additional_emails', additionalEmails);
 

@@ -99,4 +99,7 @@ urlpatterns = [
     # DEPRECATED: Request changes functionality replaced by direct editing via edit-quotation
     # Account Managers can now edit pending quotations directly instead of requesting changes
     # path('<uuid:pk>/request-changes/', views.QuotationRequestChangesView.as_view(), name='quotation-request-changes'),
+
+    # AJAX - Get Institute Details for Auto-Population
+    path('api/get-institute-details/', views.GetInstituteDetailsView.as_view(), name='get-institute-details'),
 ]
