@@ -6251,3 +6251,264 @@ class GetInstituteDetailsView(LoginRequiredMixin, View):
                 'success': False,
                 'error': 'An error occurred while fetching institute details'
             }, status=500)
+
+
+class CalculateShippingView(LoginRequiredMixin, View):
+    """
+    AJAX endpoint to calculate shipping cost based on delivery address and cart items.
+
+    Calculates shipping based on:
+    - Region (derived from city using get_region_from_city())
+    - Number of boxes (from cart items using product capacities)
+    - Rural delivery status (from suburb/postcode)
+    """
+
+    def post(self, request):
+        """
+        Calculate shipping cost for the current cart and address.
+
+        POST Parameters:
+            city: Delivery city (required)
+            suburb: Delivery suburb/state (optional)
+            postcode: Delivery postcode (optional)
+
+        Returns:
+            JSON with:
+                - shipping_cost: Dollar amount
+                - boxes: Number of boxes calculated
+                - region: Region name (e.g., "Auckland", "Wellington")
+                - is_rural: Boolean for rural delivery surcharge
+                - breakdown: Details of calculation
+        """
+        try:
+            print("=" * 80)
+            print("SHIPPING CALCULATION REQUEST RECEIVED")
+            print("=" * 80)
+
+            # Get address components from POST data
+            city = request.POST.get('city', '').strip()
+            suburb = request.POST.get('suburb', '').strip()
+            postcode = request.POST.get('postcode', '').strip()
+
+            print(f"Address: city={city}, suburb={suburb}, postcode={postcode}")
+
+            # If city is empty but postcode exists, try geocoding
+            geocoded_city = None
+            if not city and postcode:
+                from .utils_geocoding import get_city_from_postcode
+                geocode_result = get_city_from_postcode(postcode)
+                if geocode_result and geocode_result.get('city'):
+                    city = geocode_result['city']
+                    geocoded_city = city
+                    print(f"DEBUG: Geocoded city from postcode {postcode}: {city}")
+
+            # Validate required parameters
+            if not city:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'City is required for shipping calculation. Please provide a city or valid postcode.'
+                }, status=400)
+
+            # Get cart items from session - check multiple possible locations
+            print(f"Session keys: {list(request.session.keys())}")
+
+            quotation_data = request.session.get('quotation', {})
+            items = quotation_data.get('items', [])
+
+            # Also check if cart is stored differently
+            cart_items = request.session.get('cart', [])
+            print(f"Quotation items: {len(items)}")
+            print(f"Cart items: {len(cart_items)}")
+
+            # Use cart if quotation items is empty
+            if not items and cart_items:
+                items = cart_items
+                print("Using cart items instead of quotation items")
+
+            # Debug logging
+            logger.info(f"DEBUG: Cart items from session: {len(items)} items")
+            for idx, item in enumerate(items):
+                logger.info(f"DEBUG: Item {idx}: type={item.get('product_type')}, id={item.get('product_id')}, name={item.get('product_name')}, qty={item.get('quantity')}")
+
+            if not items:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Cart is empty'
+                }, status=400)
+
+            # Get region from address
+            from .utils_shipping import get_region_from_address
+            region = get_region_from_address(
+                street_address=None,
+                suburb=suburb,
+                city=city,
+                postcode=postcode
+            )
+
+            if not region:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Could not determine shipping region for city: {city}'
+                }, status=400)
+
+            # Get shipping settings
+            shipping_settings = ShippingSettings.get_settings()
+
+            # Calculate total boxes needed using aggregate capacity
+            import math
+            total_capacity_fraction = 0.0
+            box_breakdown = []
+
+            for item in items:
+                # Get product based on type
+                product = None
+                product_type = item.get('product_type', '')
+                product_id = item.get('product_id')
+
+                # Normalize product type to lowercase for comparison
+                product_type_lower = product_type.lower()
+
+                print(f"DEBUG: Processing item - product_type='{product_type}' (normalized: '{product_type_lower}'), product_id={product_id}")
+
+                # Match using lowercase comparison to handle both 'TUSProduct' and 'tusproduct'
+                if product_type_lower == 'wholesaleproduct':
+                    from schools.models import WholesaleProduct
+                    try:
+                        product = WholesaleProduct.objects.get(pk=product_id)
+                        print(f"DEBUG: Found WholesaleProduct: {product.name}")
+                    except WholesaleProduct.DoesNotExist:
+                        print(f"DEBUG: WholesaleProduct {product_id} not found")
+                        continue
+
+                elif product_type_lower == 'tusproduct':
+                    from schools.models_tus import TUSProduct
+                    try:
+                        # Cart stores parent product ID, not variation ID
+                        product = TUSProduct.objects.get(pk=product_id)
+                        print(f"DEBUG: Found TUSProduct {product_id}: {product.name}")
+                    except TUSProduct.DoesNotExist:
+                        print(f"DEBUG: TUSProduct {product_id} not found in database - skipping")
+                        continue
+                    except Exception as e:
+                        print(f"DEBUG: Error getting TUSProduct {product_id}: {e}")
+                        continue
+
+                elif product_type_lower == 'lottoproduct':
+                    from clubs.models_lotto import LottoProduct
+                    try:
+                        product = LottoProduct.objects.get(pk=product_id)
+                        print(f"DEBUG: Found LottoProduct: {product.name}")
+                    except LottoProduct.DoesNotExist:
+                        print(f"DEBUG: LottoProduct {product_id} not found")
+                        continue
+
+                elif product_type_lower == 'sasproduct':
+                    from clubs.models_sas import SASProduct
+                    try:
+                        product = SASProduct.objects.get(pk=product_id)
+                        print(f"DEBUG: Found SASProduct: {product.name}")
+                    except SASProduct.DoesNotExist:
+                        print(f"DEBUG: SASProduct {product_id} not found")
+                        continue
+                else:
+                    print(f"DEBUG: Unknown product_type: '{product_type}' (normalized: '{product_type_lower}')")
+
+                if not product:
+                    logger.warning(f"DEBUG: No product found for item {product_id}")
+                    continue
+
+                # Get capacity key for this product
+                from .utils_shipping import get_capacity_key_for_product
+                capacity_key = get_capacity_key_for_product(product)
+                print(f"DEBUG: Capacity key for {product.name}: {capacity_key}")
+
+                # Get capacity (units per box)
+                capacity = shipping_settings.get_product_capacity(capacity_key)
+                print(f"DEBUG: Capacity for {capacity_key}: {capacity}")
+
+                if not capacity:
+                    # Use conservative default if capacity not found
+                    capacity = 8  # sideline_jackets capacity
+                    print(f"DEBUG: No capacity found for {capacity_key}, using default: {capacity}")
+
+                # Get quantity from item level (not from variations)
+                quantity = item.get('quantity', 1)
+                print(f"DEBUG: Quantity from item: {quantity}")
+
+                # Variations dict contains details but not quantity
+                variations = item.get('variations')
+                if variations:
+                    print(f"DEBUG: Item has variations: {variations}")
+
+                # Add to aggregate capacity fraction
+                capacity_fraction = quantity / capacity
+                total_capacity_fraction += capacity_fraction
+                print(f"DEBUG: Item capacity fraction: {capacity_fraction:.2f} (qty={quantity}, capacity={capacity})")
+                print(f"DEBUG: Running total capacity fraction: {total_capacity_fraction:.2f}")
+
+                box_breakdown.append({
+                    'product_name': getattr(product, 'name', 'Unknown'),
+                    'quantity': quantity,
+                    'capacity_per_box': capacity,
+                    'capacity_fraction': capacity_fraction
+                })
+
+            # Calculate total boxes from aggregate capacity
+            total_boxes = math.ceil(total_capacity_fraction)
+            print(f"DEBUG: FINAL - Total capacity fraction: {total_capacity_fraction:.2f}, Total boxes: {total_boxes}")
+
+            # Check for rural delivery
+            is_rural = False
+            if postcode:
+                # Check if postcode contains 'RD' pattern
+                import re
+                # Match "RD 1", "RD1", "1234 RD", "RD", etc.
+                # Use word boundary at start, optional space/number at end
+                rd_pattern = r'\bRD\s*\d*'
+                is_rural = bool(re.search(rd_pattern, postcode.upper()))
+            print(f"DEBUG: Rural delivery: {is_rural}")
+
+            # Get shipping rate for region
+            rate_cost = shipping_settings.get_rate_for_region(region)
+            print(f"DEBUG: Rate for {region}: ${rate_cost}")
+
+            if not rate_cost:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'No shipping rate configured for region: {region}'
+                }, status=400)
+
+            # Calculate total shipping cost
+            base_cost = Decimal(rate_cost) * total_boxes
+            rd_surcharge = Decimal('0.00')
+
+            if is_rural:
+                rd_surcharge = shipping_settings.rd_delivery_surcharge * total_boxes
+
+            total_shipping_cost = base_cost + rd_surcharge
+            print(f"DEBUG: Shipping calculation - base: ${base_cost}, RD: ${rd_surcharge}, total: ${total_shipping_cost}")
+            print("=" * 80)
+
+            return JsonResponse({
+                'success': True,
+                'shipping_cost': str(total_shipping_cost),
+                'boxes': total_boxes,
+                'region': region,
+                'is_rural': is_rural,
+                'geocoded_city': geocoded_city,  # Include geocoded city if it was auto-filled
+                'breakdown': {
+                    'base_cost_per_box': str(rate_cost),
+                    'base_cost': str(base_cost),
+                    'rd_surcharge_per_box': str(shipping_settings.rd_delivery_surcharge) if is_rural else '0.00',
+                    'rd_surcharge': str(rd_surcharge),
+                    'total_cost': str(total_shipping_cost),
+                    'items': box_breakdown
+                }
+            })
+
+        except Exception as e:
+            logger.error(f'Error calculating shipping: {e}', exc_info=True)
+            return JsonResponse({
+                'success': False,
+                'error': 'An error occurred while calculating shipping'
+            }, status=500)

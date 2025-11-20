@@ -102,4 +102,7 @@ urlpatterns = [
 
     # AJAX - Get Institute Details for Auto-Population
     path('api/get-institute-details/', views.GetInstituteDetailsView.as_view(), name='get-institute-details'),
+
+    # AJAX - Calculate Shipping Cost
+    path('api/calculate-shipping/', views.CalculateShippingView.as_view(), name='calculate-shipping'),
 ]

@@ -1187,14 +1187,14 @@
                                         <td class="text-end" id="subtotal">$ {{ subtotal|floatformat:2|intcomma|default:"0.00" }}</td>
                                     </tr>
                                     {% if shipping_cost %}
-                                    <tr>
+                                    <tr id="shipping-row">
                                         <td>
                                             <i class="uil uil-truck me-1"></i> Shipping
                                             {% if shipping_region %}
-                                                <br><small class="text-muted">{{ shipping_region }}{% if is_rural_delivery %} (RD){% endif %}</small>
+                                                <br><small class="text-muted" id="shipping-details">{{ shipping_region }}{% if is_rural_delivery %} (RD){% endif %}</small>
                                             {% endif %}
                                         </td>
-                                        <td class="text-end" id="shipping">$ {{ shipping_cost|floatformat:2|intcomma }}</td>
+                                        <td class="text-end" id="shipping-cost">$ {{ shipping_cost|floatformat:2|intcomma }}</td>
                                     </tr>
                                     {% endif %}
                                     <tr>
@@ -1530,6 +1530,7 @@ $(document).ready(function() {
         // Auto-populate recipient information when institution is selected
         institutionSelectElement.on('change', function() {
             const selectedInstitutionId = $(this).val();
+            console.log('Institution changed, ID:', selectedInstitutionId);
 
             // Only auto-populate if an institution is selected
             if (selectedInstitutionId && selectedInstitutionId !== '') {
@@ -1544,37 +1545,60 @@ $(document).ready(function() {
                         if (response.success && response.data) {
                             const data = response.data;
 
-                            // Auto-fill recipient name if not already filled
-                            if (data.recipient_name && !$('#recipient_name').val()) {
-                                $('#recipient_name').val(data.recipient_name);
-                            }
+                            // Check if institute has any CIN7 data
+                            const hasData = data.recipient_name || data.phone ||
+                                          data.delivery_address1 || data.delivery_city ||
+                                          data.delivery_state || data.delivery_postcode;
 
-                            // Auto-fill phone if not already filled
-                            if (data.phone && !$('#recipient_phone').val()) {
-                                $('#recipient_phone').val(data.phone);
-                            }
-
-                            // Auto-fill address fields if not already filled
-                            if (data.delivery_address1 && !$('#recipient_street_address').val()) {
-                                // Combine address1 and address2 if address2 exists
-                                let fullAddress = data.delivery_address1;
-                                if (data.delivery_address2) {
-                                    fullAddress += ', ' + data.delivery_address2;
+                            if (!hasData) {
+                                // Clear all fields if institute has no CIN7 data
+                                $('#recipient_name').val('');
+                                $('#recipient_phone').val('');
+                                $('#recipient_street_address').val('');
+                                $('#recipient_city').val('');
+                                $('#recipient_suburb').val('');
+                                $('#recipient_postcode').val('');
+                            } else {
+                                // Auto-fill recipient name - always update when institution changes
+                                if (data.recipient_name) {
+                                    $('#recipient_name').val(data.recipient_name);
                                 }
-                                $('#recipient_street_address').val(fullAddress);
+
+                                // Auto-fill phone - always update when institution changes
+                                if (data.phone) {
+                                    $('#recipient_phone').val(data.phone);
+                                }
+
+                                // Auto-fill address fields - always update when institution changes
+                                if (data.delivery_address1) {
+                                    // Combine address1 and address2 if address2 exists
+                                    let fullAddress = data.delivery_address1;
+                                    if (data.delivery_address2) {
+                                        fullAddress += ', ' + data.delivery_address2;
+                                    }
+                                    $('#recipient_street_address').val(fullAddress);
+                                }
+
+                                if (data.delivery_city) {
+                                    $('#recipient_city').val(data.delivery_city);
+                                }
+
+                                if (data.delivery_state) {
+                                    $('#recipient_suburb').val(data.delivery_state);
+                                }
+
+                                if (data.delivery_postcode) {
+                                    $('#recipient_postcode').val(data.delivery_postcode);
+                                }
                             }
 
-                            if (data.delivery_city && !$('#recipient_city').val()) {
-                                $('#recipient_city').val(data.delivery_city);
-                            }
-
-                            if (data.delivery_state && !$('#recipient_suburb').val()) {
-                                $('#recipient_suburb').val(data.delivery_state);
-                            }
-
-                            if (data.delivery_postcode && !$('#recipient_postcode').val()) {
-                                $('#recipient_postcode').val(data.delivery_postcode);
-                            }
+                            // Calculate shipping after address is populated
+                            // Use setTimeout to ensure fields are updated
+                            console.log('Scheduling shipping calculation after address auto-fill');
+                            setTimeout(function() {
+                                console.log('Calling calculateShipping after institution selection');
+                                calculateShipping();
+                            }, 100);
                         }
                     },
                     error: function(xhr, status, error) {
@@ -1582,6 +1606,9 @@ $(document).ready(function() {
                         // Silently fail - don't disrupt user experience
                     }
                 });
+            } else {
+                // Institution deselected - clear shipping
+                clearShippingDisplay();
             }
         });
     }
@@ -1666,6 +1693,24 @@ $(document).ready(function() {
     const confirmClearBtn = document.getElementById('confirmClearBtn');
     if (confirmClearBtn) {
         confirmClearBtn.addEventListener('click', confirmClearQuotation);
+    }
+
+    // Add event listeners for address field changes to recalculate shipping
+    $('#recipient_city').on('blur', function() {
+        calculateShipping();
+    });
+
+    $('#recipient_suburb').on('blur', function() {
+        calculateShipping();
+    });
+
+    $('#recipient_postcode').on('blur', function() {
+        calculateShipping();
+    });
+
+    // Calculate initial shipping if address fields are populated
+    if ($('#recipient_city').val()?.trim()) {
+        calculateShipping();
     }
 });
 
@@ -1791,6 +1836,11 @@ function updateCartQuantityValue(itemIndex, newQty) {
             // Update summary
             updateSummary(data);
 
+            // Recalculate shipping since cart quantities changed
+            if ($('#recipient_city').val()?.trim()) {
+                calculateShipping();
+            }
+
             // Show success message
             toastr.success('Quantity updated successfully');
         } else {
@@ -1864,6 +1914,181 @@ function updateSummary(data) {
     if (data.discount !== undefined && document.getElementById('discount')) {
         document.getElementById('discount').textContent = '- $ ' + data.discount;
     }
+}
+
+// Calculate Shipping Cost Based on Address
+function calculateShipping() {
+    console.log('calculateShipping() called');
+
+    // Get address fields
+    const city = $('#recipient_city').val()?.trim();
+    const suburb = $('#recipient_suburb').val()?.trim();
+    const postcode = $('#recipient_postcode').val()?.trim();
+
+    console.log('Address fields:', { city, suburb, postcode });
+
+    // Check if we have minimum required data (city)
+    if (!city) {
+        console.log('No city provided, clearing shipping display');
+        // Clear shipping display if no city
+        clearShippingDisplay();
+        return;
+    }
+
+    console.log('Making shipping calculation request...');
+    // Show loading indicator in shipping row
+    showShippingLoading();
+
+    // Make AJAX call to calculate shipping
+    fetch('{% url "quotations:calculate-shipping" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrftoken
+        },
+        body: new URLSearchParams({
+            city: city,
+            suburb: suburb || '',
+            postcode: postcode || ''
+        })
+    })
+    .then(response => {
+        console.log('Shipping calculation response status:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('Shipping calculation response data:', data);
+        if (data.success) {
+            console.log('Shipping calculated successfully:', data);
+
+            // If city was geocoded from postcode, auto-fill the city field
+            if (data.geocoded_city) {
+                $('#recipient_city').val(data.geocoded_city);
+                console.log('Auto-filled city from postcode:', data.geocoded_city);
+                toastr.success('City auto-filled from postcode: ' + data.geocoded_city, 'Address Auto-Complete', {
+                    timeOut: 3000,
+                    progressBar: true
+                });
+            }
+
+            // Update shipping display
+            updateShippingDisplay(data);
+            // Recalculate totals with shipping
+            recalculateTotalsWithShipping(data.shipping_cost);
+        } else {
+            // Handle error - show message but don't break page
+            console.warn('Shipping calculation error:', data.error);
+            clearShippingDisplay();
+
+            // Show user-friendly message for common errors
+            if (data.error.includes('Cart is empty')) {
+                // Don't show error for empty cart
+                return;
+            } else if (data.error.includes('Could not determine')) {
+                // Show info toast for unknown city
+                toastr.info('Shipping region not found for: ' + city, 'Shipping Calculation', {
+                    timeOut: 3000,
+                    progressBar: true
+                });
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error calculating shipping:', error);
+        clearShippingDisplay();
+    });
+}
+
+// Show loading indicator in shipping row
+function showShippingLoading() {
+    const shippingRow = document.getElementById('shipping-row');
+    if (!shippingRow) {
+        // Create shipping row if it doesn't exist - find subtotal row by ID
+        const subtotalElement = document.getElementById('subtotal');
+        if (!subtotalElement) {
+            console.error('Could not find subtotal element');
+            return;
+        }
+        const subtotalRow = subtotalElement.closest('tr');
+        const newRow = document.createElement('tr');
+        newRow.id = 'shipping-row';
+        newRow.innerHTML = `
+            <td>
+                <i class="uil uil-truck me-1"></i> Shipping
+                <br><small class="text-muted" id="shipping-details"></small>
+            </td>
+            <td class="text-end" id="shipping-cost">
+                <span class="spinner-border spinner-border-sm" role="status"></span>
+            </td>
+        `;
+        subtotalRow.insertAdjacentElement('afterend', newRow);
+    } else {
+        document.getElementById('shipping-cost').innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+    }
+}
+
+// Update shipping display with calculated data
+function updateShippingDisplay(data) {
+    // Ensure shipping row exists
+    let shippingRow = document.getElementById('shipping-row');
+    if (!shippingRow) {
+        const subtotalRow = document.querySelector('#subtotal').closest('tr');
+        shippingRow = document.createElement('tr');
+        shippingRow.id = 'shipping-row';
+        shippingRow.innerHTML = `
+            <td>
+                <i class="uil uil-truck me-1"></i> Shipping
+                <br><small class="text-muted" id="shipping-details"></small>
+            </td>
+            <td class="text-end" id="shipping-cost"></td>
+        `;
+        subtotalRow.insertAdjacentElement('afterend', shippingRow);
+    }
+
+    // Update shipping cost
+    const formattedCost = parseFloat(data.shipping_cost).toFixed(2);
+    document.getElementById('shipping-cost').textContent = '$ ' + formattedCost;
+
+    // Update shipping details
+    let detailsText = data.boxes + ' box' + (data.boxes > 1 ? 'es' : '') + ' to ' + data.region;
+    if (data.is_rural) {
+        detailsText += ' (RD)';
+    }
+    document.getElementById('shipping-details').textContent = detailsText;
+
+    // Store shipping cost for later use
+    shippingRow.dataset.shippingCost = data.shipping_cost;
+}
+
+// Clear shipping display
+function clearShippingDisplay() {
+    const shippingRow = document.getElementById('shipping-row');
+    if (shippingRow) {
+        shippingRow.remove();
+    }
+    // Recalculate totals without shipping
+    recalculateTotalsWithShipping('0.00');
+}
+
+// Recalculate totals including shipping
+function recalculateTotalsWithShipping(shippingCost) {
+    // Get current subtotal
+    const subtotalText = document.getElementById('subtotal').textContent.replace(/[$,\s]/g, '');
+    const subtotal = parseFloat(subtotalText) || 0;
+
+    // Add shipping
+    const shipping = parseFloat(shippingCost) || 0;
+    const subtotalWithShipping = subtotal + shipping;
+
+    // Calculate tax (15% GST)
+    const tax = subtotalWithShipping * 0.15;
+
+    // Calculate total
+    const total = subtotalWithShipping + tax;
+
+    // Update display
+    document.getElementById('tax').textContent = '$ ' + tax.toFixed(2);
+    document.getElementById('total').textContent = '$ ' + total.toFixed(2);
 }
 
 // Confirm Generate Quotation (called from modal)

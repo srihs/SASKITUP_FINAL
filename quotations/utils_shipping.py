@@ -281,26 +281,43 @@ CATEGORY_TO_CAPACITY_KEY = {
     'skort': 'skorts',
     'skirt': 'skorts',
 
-    'polos': 'polos',
-    'polo': 'polos',
-    'polo shirt': 'polos',
+    'polos': 'polos_tees_singlets_dresses',
+    'polo': 'polos_tees_singlets_dresses',
+    'polo shirt': 'polos_tees_singlets_dresses',
 
-    'tees': 'tees',
-    'tee': 'tees',
-    't-shirt': 'tees',
-    't-shirts': 'tees',
-    'tshirt': 'tees',
+    'tees': 'polos_tees_singlets_dresses',
+    'tee': 'polos_tees_singlets_dresses',
+    't-shirt': 'polos_tees_singlets_dresses',
+    't-shirts': 'polos_tees_singlets_dresses',
+    'tshirt': 'polos_tees_singlets_dresses',
+    'singlet': 'polos_tees_singlets_dresses',
+    'singlets': 'polos_tees_singlets_dresses',
+    'dress': 'polos_tees_singlets_dresses',
+    'dresses': 'polos_tees_singlets_dresses',
 
-    'shorts': 'shorts',
-    'short': 'shorts',
+    'shorts': 'netball_touch_tag_league_skirts_shorts',
+    'short': 'netball_touch_tag_league_skirts_shorts',
+    'netball': 'netball_touch_tag_league_skirts_shorts',
+    'touch': 'netball_touch_tag_league_skirts_shorts',
+    'tag': 'netball_touch_tag_league_skirts_shorts',
+    'league': 'netball_touch_tag_league_skirts_shorts',
 
-    'bags': 'bags',
-    'bag': 'bags',
-    'backpack': 'bags',
-    'rucksack': 'bags',
+    'bags': 'sideline_jackets',  # Use conservative capacity for bags
+    'bag': 'sideline_jackets',
+    'backpack': 'sideline_jackets',
+    'rucksack': 'sideline_jackets',
 
-    'socks': 'socks',
-    'sock': 'socks',
+    'socks': 'tights_socks_caps_bucket_hats_max',
+    'sock': 'tights_socks_caps_bucket_hats_max',
+    'tights': 'tights_socks_caps_bucket_hats_max',
+    'caps': 'tights_socks_caps_bucket_hats_max',
+    'cap': 'tights_socks_caps_bucket_hats_max',
+    'bucket hat': 'tights_socks_caps_bucket_hats_max',
+    'hat': 'tights_socks_caps_bucket_hats_max',
+
+    'jersey': 'jerseys_softball_tops_pants',
+    'jerseys': 'jerseys_softball_tops_pants',
+    'softball': 'jerseys_softball_tops_pants',
 }
 
 # Mapping of product keywords in names to capacity keys
@@ -323,20 +340,32 @@ PRODUCT_NAME_TO_CAPACITY_KEY = {
     'skort': 'skorts',
     'skirt': 'skorts',
 
-    'polo': 'polos',
+    'polo': 'polos_tees_singlets_dresses',
 
-    'tee': 'tees',
-    't-shirt': 'tees',
-    'tshirt': 'tees',
+    'tee': 'polos_tees_singlets_dresses',
+    't-shirt': 'polos_tees_singlets_dresses',
+    'tshirt': 'polos_tees_singlets_dresses',
+    'singlet': 'polos_tees_singlets_dresses',
+    'dress': 'polos_tees_singlets_dresses',
 
-    'shorts': 'shorts',
-    'short': 'shorts',
+    'shorts': 'netball_touch_tag_league_skirts_shorts',
+    'short': 'netball_touch_tag_league_skirts_shorts',
+    'netball': 'netball_touch_tag_league_skirts_shorts',
+    'touch': 'netball_touch_tag_league_skirts_shorts',
+    'tag': 'netball_touch_tag_league_skirts_shorts',
+    'league': 'netball_touch_tag_league_skirts_shorts',
 
-    'bag': 'bags',
-    'backpack': 'bags',
-    'rucksack': 'bags',
+    'bag': 'sideline_jackets',  # Conservative capacity for bags
+    'backpack': 'sideline_jackets',
+    'rucksack': 'sideline_jackets',
 
-    'sock': 'socks',
+    'sock': 'tights_socks_caps_bucket_hats_max',
+    'tight': 'tights_socks_caps_bucket_hats_max',
+    'cap': 'tights_socks_caps_bucket_hats_max',
+    'hat': 'tights_socks_caps_bucket_hats_max',
+
+    'jersey': 'jerseys_softball_tops_pants',
+    'softball': 'jerseys_softball_tops_pants',
 }
 
 
