@@ -1,0 +1,44 @@
+{% if is_update %}QUOTATION UPDATED{% else %}NEW QUOTATION{% endif %} - {{ quotation.quotation_number }}
+
+Dear {{ institute_name }},
+
+{% if is_update %}We have updated the quotation for your organization. Please find the updated quotation details below and attached as a PDF.{% else %}We are pleased to provide you with a quotation for your recent inquiry. Please find the quotation details below and attached as a PDF.{% endif %}
+
+QUOTATION DETAILS:
+------------------
+Quotation Number: {{ quotation.quotation_number }}
+Organization: {{ institute_name }}
+{% if quotation.recipient_name %}Delivery To: {{ quotation.recipient_name }}
+{% endif %}{% if quotation.delivery_street_address or quotation.delivery_city %}Delivery Address:
+{% if quotation.delivery_street_address %}{{ quotation.delivery_street_address }}
+{% endif %}{% if quotation.delivery_suburb %}{{ quotation.delivery_suburb }}
+{% endif %}{% if quotation.delivery_city %}{{ quotation.delivery_city }}{% endif %}{% if quotation.delivery_postcode %} {{ quotation.delivery_postcode }}{% endif %}
+{% if quotation.delivery_state %}{{ quotation.delivery_state }}{% endif %}
+{% endif %}
+Subtotal: ${{ quotation.subtotal|floatformat:2 }}
+{% if quotation.shipping_cost and quotation.shipping_cost > 0 %}Shipping: ${{ quotation.shipping_cost|floatformat:2 }}
+{% endif %}{% if discount_amount and discount_amount > 0 %}Discount: -${{ discount_amount|floatformat:2 }}
+{% endif %}Total Amount: ${{ quotation.total|floatformat:2 }}
+{% if quotation.expires_at %}Valid Until: {{ quotation.expires_at|date:"F j, Y" }}
+{% endif %}
+
+Please review the attached PDF quotation for complete details including item descriptions, quantities, and pricing.
+
+If you have any questions or would like to proceed with this order, please contact your sales representative:
+
+CONTACT PERSON:
+---------------
+Name: {{ sales_rep_name }}
+Email: {{ sales_rep_email }}
+
+Thank you for your business!
+
+Best regards,
+SAS Team
+SAS Sports (Pvt) Ltd
+
+------------------
+Phone: 09 2998412
+Email: {{ EMAIL_HOST_USER }}
+
+This is an automated email notification. For inquiries, please contact your sales representative.

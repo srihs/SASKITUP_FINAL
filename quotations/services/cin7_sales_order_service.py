@@ -213,23 +213,58 @@ class Cin7SalesOrderService:
         """
         creator = quotation.created_by
 
-        # Parse delivery address
-        delivery_info = self._parse_delivery_address(
-            quotation.recipient_name,
-            quotation.recipient_address
-        )
+        # Parse delivery address using structured fields (preferred) or legacy recipient_address
+        delivery_info = self._parse_delivery_address(quotation)
 
         # Calculate discount
         discount_total = self._calculate_discount(quotation)
 
+        # Get shipping cost from quotation
+        freight_total = str(quotation.shipping_cost) if quotation.shipping_cost else '0.00'
+
+        # Priority-based contact information extraction:
+        # Priority 1: Use quotation's captured CIN7 contact fields (from institution)
+        # Priority 2: Fall back to creator user fields if CIN7 fields are empty
+        # Priority 3: Use defaults if all else fails
+
+        first_name = (
+            quotation.cin7_first_name or
+            creator.first_name or
+            'Customer'
+        )
+        last_name = (
+            quotation.cin7_last_name or
+            creator.last_name or
+            'Order'
+        )
+        email = (
+            quotation.cin7_email or
+            creator.email or
+            ''
+        )
+        phone = quotation.cin7_phone or getattr(creator, 'phone', '') or ''
+
+        # Log contact information source for debugging
+        contact_source = 'defaults'
+        if quotation.cin7_first_name or quotation.cin7_last_name or quotation.cin7_email:
+            contact_source = 'quotation CIN7 fields (from institution)'
+        elif creator.first_name or creator.last_name:
+            contact_source = 'creator user'
+
+        logger.info(
+            f"Using contact info for CIN7 order from {contact_source}: "
+            f"firstName='{first_name}', lastName='{last_name}', email='{email}', phone='{phone}' "
+            f"(quotation: {quotation.quotation_number})"
+        )
+
         # Build payload
         payload = {
-            # Contact information
-            'firstName': creator.first_name or '',
-            'lastName': creator.last_name or '',
+            # Contact information - with priority-based selection
+            'firstName': first_name,
+            'lastName': last_name,
             'company': quotation.institution_name if quotation.institution else (quotation.recipient_name or ''),
-            'email': creator.email,
-            'phone': getattr(creator, 'phone', '') or '',
+            'email': email,
+            'phone': phone,
 
             # Delivery address
             **delivery_info,
@@ -247,7 +282,7 @@ class Cin7SalesOrderService:
 
             # Financial fields
             'productTotal': str(quotation.subtotal),
-            'freightTotal': '0.00',
+            'freightTotal': freight_total,
             'surcharge': '0.00',
             'discountTotal': str(discount_total),
             'total': str(quotation.total),
@@ -277,6 +312,14 @@ class Cin7SalesOrderService:
             # Line items (excluding Bespoke products)
             'lineItems': self._build_line_items(quotation)
         }
+
+        # Log address and shipping details for debugging
+        logger.info(
+            f"CIN7 payload for {quotation.quotation_number}: "
+            f"Shipping ${freight_total} ({quotation.shipping_boxes} boxes) to "
+            f"{delivery_info['deliveryCity']}, {delivery_info['deliveryState']} "
+            f"{delivery_info['deliveryPostalCode']} (RD: {quotation.is_rural_delivery})"
+        )
 
         return payload
 
@@ -319,24 +362,62 @@ class Cin7SalesOrderService:
         logger.info(f"Built {len(line_items)} line items for quotation {quotation.quotation_number}")
         return line_items
 
-    def _parse_delivery_address(self, recipient_name: str, recipient_address: str) -> Dict:
+    def _parse_delivery_address(self, quotation: Quotation) -> Dict:
         """
-        Parse recipient name and address into CIN7 delivery address fields.
+        Parse delivery address from quotation into CIN7 delivery address fields.
+
+        Uses structured delivery address fields if available, falls back to legacy recipient_address.
 
         Args:
-            recipient_name: Recipient name (may be empty)
-            recipient_address: Full address (may be multi-line)
+            quotation: Quotation instance with delivery address fields
 
         Returns:
             dict: Delivery address fields for CIN7
         """
-        # Parse name
-        name_parts = (recipient_name or '').strip().split(' ', 1)
+        # Parse recipient name for first/last name
+        recipient_name = quotation.recipient_name or ''
+        name_parts = recipient_name.strip().split(' ', 1)
         first_name = name_parts[0] if len(name_parts) > 0 else ''
         last_name = name_parts[1] if len(name_parts) > 1 else ''
 
+        # Prefer structured delivery address fields over legacy recipient_address
+        if quotation.delivery_street_address or quotation.delivery_city:
+            # Use structured address fields
+            street_address = (quotation.delivery_street_address or '').strip()
+            suburb = (quotation.delivery_suburb or '').strip()
+            city = (quotation.delivery_city or '').strip()
+            postcode = (quotation.delivery_postcode or '').strip()
+            state = (quotation.delivery_state or '').strip()
+            country = 'New Zealand'  # Default for NZ-based system
+
+            # Log structured address usage
+            logger.info(
+                f"Using structured delivery address for {quotation.quotation_number}: "
+                f"{street_address}, {suburb}, {city} {postcode}, {state}"
+            )
+
+            return {
+                'deliveryFirstName': first_name[:250],
+                'deliveryLastName': last_name[:250],
+                'deliveryCompany': quotation.institution_name if quotation.institution else '',
+                'deliveryAddress1': street_address[:250],
+                'deliveryAddress2': suburb[:250],
+                'deliveryCity': city[:250],
+                'deliveryState': state[:250],
+                'deliveryPostalCode': postcode[:250],
+                'deliveryCountry': country[:250]
+            }
+
+        # Fallback: Parse legacy recipient_address field
+        logger.warning(
+            f"Structured delivery address missing for {quotation.quotation_number}, "
+            f"falling back to legacy recipient_address parsing"
+        )
+
+        recipient_address = quotation.recipient_address or ''
+        lines = recipient_address.strip().split('\n')
+
         # Parse address lines
-        lines = (recipient_address or '').strip().split('\n')
         address1 = lines[0].strip() if len(lines) > 0 else ''
         address2 = lines[1].strip() if len(lines) > 2 else ''
 
@@ -359,11 +440,11 @@ class Cin7SalesOrderService:
         return {
             'deliveryFirstName': first_name[:250],
             'deliveryLastName': last_name[:250],
-            'deliveryCompany': '',
+            'deliveryCompany': quotation.institution_name if quotation.institution else '',
             'deliveryAddress1': address1[:250],
             'deliveryAddress2': address2[:250],
             'deliveryCity': city[:250],
-            'deliveryState': '',  # Not extracted from address
+            'deliveryState': '',  # Not extracted from legacy address
             'deliveryPostalCode': postal_code[:250],
             'deliveryCountry': country[:250]
         }
@@ -388,6 +469,12 @@ class Cin7SalesOrderService:
         """
         Map quotation status to CIN7 order stage.
 
+        CIN7 Stage Options:
+        - 'New': Initial state for unprocessed orders
+        - 'Open': Approved orders ready for processing
+        - 'Processing': Orders being fulfilled
+        - 'Complete': Completed orders
+
         Args:
             status: Quotation status
 
@@ -397,11 +484,11 @@ class Cin7SalesOrderService:
         mapping = {
             'draft': 'New',
             'pending': 'Awaiting Payment',
-            'approved': 'Processing',
-            'confirmed': 'Processing',
-            'rejected': 'New',  # Shouldn't sync rejected
-            'expired': 'New',   # Shouldn't sync expired
-            'cancelled': 'New'  # Handle with isVoid
+            'approved': 'Open',      # Account manager approved → Open for processing
+            'confirmed': 'Open',     # Confirmed orders → Open for processing
+            'rejected': 'New',       # Shouldn't sync rejected
+            'expired': 'New',        # Shouldn't sync expired
+            'cancelled': 'New'       # Handle with isVoid
         }
         return mapping.get(status, 'New')
 
@@ -513,6 +600,34 @@ class Cin7SalesOrderService:
         logger.info(json.dumps(order_data, indent=2))
         logger.info("=" * 80)
 
+        # ==========================================================================
+        # CRITICAL: Check API success field BEFORE extracting data
+        # ==========================================================================
+        # CIN7 API returns success=false when validation fails, even with 200 status code
+        # When success=false, the 'code' field is null, causing database errors
+        if not order_data.get('success', False):
+            errors = order_data.get('errors', ['Unknown error'])
+            error_msg = f"CIN7 API rejected order: {'; '.join(errors)}"
+            logger.error(f"CIN7 order creation failed for {quotation.quotation_number}: {error_msg}")
+
+            # Update quotation sync status
+            quotation.cin7_sync_status = 'failed'
+            quotation.cin7_sync_error = error_msg
+            quotation.save(update_fields=['cin7_sync_status', 'cin7_sync_error', 'updated_at'])
+
+            # Update or create mapping with failed status
+            mapping, _ = CIN7OrderMapping.objects.get_or_create(
+                quotation=quotation,
+                defaults={'cin7_order_id': 0, 'cin7_reference': '', 'sync_status': 'failed'}
+            )
+            mapping.mark_sync_failed(error_msg)
+
+            # Raise exception to stop processing
+            raise ValueError(error_msg)
+
+        # ==========================================================================
+        # SUCCESS: Extract order data from successful response
+        # ==========================================================================
         cin7_order_id = order_data['id']
         # Use 'code' from response (CIN7 sales order code like "SALE4-28"), fallback to quotation number
         cin7_reference = order_data.get('code', quotation.quotation_number)

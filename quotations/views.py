@@ -1660,6 +1660,13 @@ class SaveQuotationView(LoginRequiredMixin, View):
                     recipient_address = request.POST.get('recipient_address', '').strip()
                     additional_emails = request.POST.get('additional_emails', '').strip()
 
+                    # Capture structured delivery address fields
+                    delivery_street_address = request.POST.get('delivery_street_address', '').strip()
+                    delivery_suburb = request.POST.get('delivery_suburb', '').strip()
+                    delivery_city = request.POST.get('delivery_city', '').strip()
+                    delivery_postcode = request.POST.get('delivery_postcode', '').strip()
+                    delivery_state = request.POST.get('delivery_state', '').strip()
+
                     # Validate additional emails
                     is_valid, error_message = validate_additional_emails(additional_emails)
                     if not is_valid:
@@ -1675,6 +1682,28 @@ class SaveQuotationView(LoginRequiredMixin, View):
                     if recipient_address:
                         quotation.recipient_address = recipient_address
                     quotation.additional_emails = additional_emails
+
+                    # Update structured delivery address fields
+                    quotation.delivery_street_address = delivery_street_address
+                    quotation.delivery_suburb = delivery_suburb
+                    quotation.delivery_city = delivery_city
+                    quotation.delivery_postcode = delivery_postcode
+                    quotation.delivery_state = delivery_state
+
+                    # Update CIN7 contact fields from institution if institution is linked
+                    if quotation.institution:
+                        quotation.cin7_email = getattr(quotation.institution, 'cin7_email', '') or ''
+                        quotation.cin7_first_name = getattr(quotation.institution, 'cin7_first_name', '') or ''
+                        quotation.cin7_last_name = getattr(quotation.institution, 'cin7_last_name', '') or ''
+                        quotation.cin7_phone = getattr(quotation.institution, 'cin7_phone', '') or ''
+
+                        # Log CIN7 contact update for debugging
+                        if quotation.cin7_email or quotation.cin7_first_name or quotation.cin7_last_name or quotation.cin7_phone:
+                            logger.info(
+                                f"Updated CIN7 contact from institution during edit: "
+                                f"email={quotation.cin7_email}, name={quotation.cin7_first_name} {quotation.cin7_last_name}, "
+                                f"phone={quotation.cin7_phone}"
+                            )
 
                     # Update assigned sales rep and account manager if provided
                     from authentication.models import User
@@ -1792,11 +1821,37 @@ class SaveQuotationView(LoginRequiredMixin, View):
                             'error': 'Invalid institution ID format'
                         }, status=400)
 
+                # Capture CIN7 contact details from institution (if available)
+                cin7_email = ''
+                cin7_first_name = ''
+                cin7_last_name = ''
+                cin7_phone = ''
+
+                if institution:
+                    cin7_email = getattr(institution, 'cin7_email', '') or ''
+                    cin7_first_name = getattr(institution, 'cin7_first_name', '') or ''
+                    cin7_last_name = getattr(institution, 'cin7_last_name', '') or ''
+                    cin7_phone = getattr(institution, 'cin7_phone', '') or ''
+
+                    # Log CIN7 contact capture for debugging
+                    if cin7_email or cin7_first_name or cin7_last_name or cin7_phone:
+                        logger.info(
+                            f"Captured CIN7 contact from {institution_type}: "
+                            f"email={cin7_email}, name={cin7_first_name} {cin7_last_name}, phone={cin7_phone}"
+                        )
+
                 # Get recipient information from POST data
                 recipient_name = request.POST.get('recipient_name', '').strip()
                 recipient_phone = request.POST.get('recipient_phone', '').strip()
                 recipient_address = request.POST.get('recipient_address', '').strip()
                 additional_emails = request.POST.get('additional_emails', '').strip()
+
+                # Capture structured delivery address fields
+                delivery_street_address = request.POST.get('delivery_street_address', '').strip()
+                delivery_suburb = request.POST.get('delivery_suburb', '').strip()
+                delivery_city = request.POST.get('delivery_city', '').strip()
+                delivery_postcode = request.POST.get('delivery_postcode', '').strip()
+                delivery_state = request.POST.get('delivery_state', '').strip()
 
                 # Validate additional emails
                 is_valid, error_message = validate_additional_emails(additional_emails)
@@ -1869,6 +1924,17 @@ class SaveQuotationView(LoginRequiredMixin, View):
                     additional_emails=additional_emails,
                     assigned_sales_rep=assigned_sales_rep,
                     account_manager=account_manager,
+                    # Structured delivery address fields
+                    delivery_street_address=delivery_street_address,
+                    delivery_suburb=delivery_suburb,
+                    delivery_city=delivery_city,
+                    delivery_postcode=delivery_postcode,
+                    delivery_state=delivery_state,
+                    # CIN7 contact fields (captured from institution)
+                    cin7_email=cin7_email,
+                    cin7_first_name=cin7_first_name,
+                    cin7_last_name=cin7_last_name,
+                    cin7_phone=cin7_phone,
                 )
 
             # Create QuotationItems (for both new and edited quotations)

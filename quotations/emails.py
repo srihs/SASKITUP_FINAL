@@ -109,6 +109,45 @@ def generate_quotation_pdf(quotation: Quotation) -> Optional[bytes]:
         return None
 
 
+def _get_institute_email(quotation: Quotation) -> Optional[str]:
+    """
+    Get institute email address based on institute type.
+
+    Args:
+        quotation: Quotation instance with institution
+
+    Returns:
+        Email address string if found, None otherwise
+    """
+    if not quotation.institution:
+        return None
+
+    # Determine institute type from content type model name
+    institute_type = quotation.institution_content_type.model if quotation.institution_content_type else None
+
+    if not institute_type:
+        return None
+
+    institute = quotation.institution
+
+    # Priority: CIN7 email > primary email > fallback email field
+    if institute_type == 'tusschool':
+        # TUSSchool: cin7_email > email
+        return institute.cin7_email or institute.email or None
+    elif institute_type == 'wholesaleschool':
+        # WholesaleSchool: cin7_email > email
+        return institute.cin7_email or institute.email or None
+    elif institute_type == 'lottoclub':
+        # LottoClub: cin7_email > email
+        return institute.cin7_email or institute.email or None
+    elif institute_type == 'sasclub':
+        # SASClub: cin7_email > email
+        return institute.cin7_email or institute.email or None
+    else:
+        logger.warning(f"Unknown institute type: {institute_type} for quotation {quotation.quotation_number}")
+        return None
+
+
 def send_quotation_email(
     quotation: Quotation,
     is_update: bool = False,
@@ -117,6 +156,7 @@ def send_quotation_email(
     """
     Send quotation email to all recipients with CC to sales rep and account manager.
     Also sends separate internal notification emails to sales rep and account manager.
+    When created by staff, also sends notification to the selected institute.
 
     Args:
         quotation: Quotation instance to send
@@ -297,6 +337,35 @@ def send_quotation_email(
                     f"Failed to send account manager notifications for quotation {quotation.quotation_number}: {str(am_error)}",
                     exc_info=True
                 )
+
+        # Send notification to institute when staff creates/updates quotation
+        # Only send if created by staff (sales rep or account manager) and institute is selected
+        if quotation.created_by and (quotation.created_by.is_staff or quotation.created_by.is_account_manager or quotation.created_by.is_sales_rep):
+            if quotation.institution:
+                try:
+                    institute_email = _get_institute_email(quotation)
+                    if institute_email:
+                        # Generate PDF once for institute email (reuse from customer email)
+                        pdf_bytes = generate_quotation_pdf(quotation)
+
+                        _send_institute_notification(
+                            quotation=quotation,
+                            institute_email=institute_email,
+                            is_update=is_update,
+                            pdf_bytes=pdf_bytes,
+                            request=request
+                        )
+                    else:
+                        logger.warning(
+                            f"No email address found for institute {quotation.institution_name} "
+                            f"(Type: {quotation.institution_content_type.model}) for quotation {quotation.quotation_number}"
+                        )
+                except Exception as inst_error:
+                    # Don't fail the entire operation if institute notification fails
+                    logger.error(
+                        f"Failed to send institute notification for quotation {quotation.quotation_number}: {str(inst_error)}",
+                        exc_info=True
+                    )
 
         return True, None
 
@@ -491,6 +560,124 @@ def _send_internal_notifications(
             # Continue to next recipient even if one fails
 
 
+def _send_institute_notification(
+    quotation: Quotation,
+    institute_email: str,
+    is_update: bool = False,
+    pdf_bytes: Optional[bytes] = None,
+    request=None
+) -> None:
+    """
+    Send quotation notification email to the selected institute.
+
+    Args:
+        quotation: Quotation instance
+        institute_email: Email address of the institute
+        is_update: True if this is an update notification
+        pdf_bytes: Pre-generated PDF bytes (optional, will generate if not provided)
+        request: HTTP request object for audit logging (optional)
+    """
+    try:
+        # Prepare subject
+        action_text = "Updated" if is_update else "New"
+        subject = f"{action_text} Quotation {quotation.quotation_number} from {quotation.created_by.get_full_name() if quotation.created_by else 'SAS KITUP'}"
+
+        # Get quotation items for email display
+        items = quotation.items.filter(is_addon=False).select_related(
+            'product_content_type'
+        ).prefetch_related('addons').all()
+
+        # Calculate discount amount for email display
+        from decimal import Decimal
+        discount_amount = Decimal('0.00')
+        if quotation.discount_percentage:
+            discount_amount = (quotation.subtotal * quotation.discount_percentage / Decimal('100')).quantize(Decimal('0.01'))
+        elif quotation.discount_amount:
+            discount_amount = quotation.discount_amount
+
+        # Get company logo path
+        logo_path = os.path.join(settings.BASE_DIR, 'static', 'assets', 'images', 'sas-logo.png')
+
+        # Generate PDF if not provided
+        if pdf_bytes is None:
+            pdf_bytes = generate_quotation_pdf(quotation)
+
+        # Context for institute notification template
+        institute_context = {
+            'quotation': quotation,
+            'items': items,
+            'discount_amount': discount_amount,
+            'institute_name': quotation.institution_name,
+            'is_update': is_update,
+            'sales_rep_name': quotation.created_by.get_full_name() if quotation.created_by else 'Sales Representative',
+            'sales_rep_email': quotation.created_by.email if quotation.created_by else settings.EMAIL_HOST_USER,
+            'quotation_url': _get_quotation_url(quotation),
+            'EMAIL_HOST_USER': settings.EMAIL_HOST_USER,
+        }
+
+        # Render institute notification templates
+        html_content = render_to_string(
+            'quotations/emails/quotation_institute_notification.html',
+            institute_context
+        )
+
+        text_content = render_to_string(
+            'quotations/emails/quotation_institute_notification.txt',
+            institute_context
+        )
+
+        # Create email
+        institute_email_obj = EmailMultiAlternatives(
+            subject=subject,
+            body=text_content,
+            from_email=_get_from_email(),
+            to=[institute_email],
+        )
+
+        # Attach HTML version
+        institute_email_obj.attach_alternative(html_content, "text/html")
+
+        # Embed company logo
+        if os.path.exists(logo_path):
+            with open(logo_path, 'rb') as logo_file:
+                logo_image = MIMEImage(logo_file.read())
+                logo_image.add_header('Content-ID', '<company_logo>')
+                logo_image.add_header('Content-Disposition', 'inline', filename='sas-logo.png')
+                institute_email_obj.attach(logo_image)
+
+        # Attach PDF quotation if available
+        if pdf_bytes:
+            institute_email_obj.attach(
+                f'Quotation_{quotation.quotation_number}.pdf',
+                pdf_bytes,
+                'application/pdf'
+            )
+
+        # Send email
+        institute_email_obj.send(fail_silently=False)
+
+        # Log successful institute notification
+        _log_institute_notification_sent(
+            quotation=quotation,
+            institute_email=institute_email,
+            is_update=is_update,
+            request=request
+        )
+
+        logger.info(
+            f"Institute notification for quotation {quotation.quotation_number} "
+            f"sent to {quotation.institution_name} ({institute_email})"
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Failed to send institute notification to {institute_email} "
+            f"for quotation {quotation.quotation_number}: {str(e)}",
+            exc_info=True
+        )
+        raise  # Re-raise to be caught by the caller
+
+
 def _get_from_email() -> str:
     """
     Get the FROM email address for quotation emails.
@@ -630,6 +817,44 @@ def _log_internal_notification_sent(
         notification_recipient=recipient.email,
         recipient_name=recipient.get_full_name(),
         recipient_type='sales_rep' if recipient.is_sales_rep else 'account_manager'
+    )
+
+
+def _log_institute_notification_sent(
+    quotation: Quotation,
+    institute_email: str,
+    is_update: bool = False,
+    request=None
+) -> None:
+    """
+    Log successful institute notification email to audit trail.
+
+    Args:
+        quotation: Quotation instance
+        institute_email: Email address of the institute
+        is_update: True if this was an update notification
+        request: HTTP request object (optional)
+    """
+    action_type = 'quotation_institute_notification_sent'
+    description = (
+        f'Institute {"update" if is_update else "new quotation"} notification sent for '
+        f'quotation {quotation.quotation_number} to {quotation.institution_name} ({institute_email})'
+    )
+
+    AuditLog.log_action(
+        user=quotation.created_by,
+        action_type=action_type,
+        description=description,
+        request=request,
+        affected_model='Quotation',
+        affected_object_id=str(quotation.id),
+        quotation_id=str(quotation.id),
+        quotation_number=quotation.quotation_number,
+        notification_recipient=institute_email,
+        recipient_name=quotation.institution_name,
+        recipient_type='institute',
+        institution_id=quotation.institution_object_id if quotation.institution else None,
+        institution_type=quotation.institution_content_type.model if quotation.institution_content_type else None
     )
 
 

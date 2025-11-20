@@ -2185,6 +2185,13 @@ function saveQuotationWithNote(changeNote) {
     formData.append('recipient_address', recipientAddress);
     formData.append('additional_emails', additionalEmails);
 
+    // Add structured delivery address fields
+    formData.append('delivery_street_address', recipientStreetAddress);
+    formData.append('delivery_suburb', recipientSuburb);
+    formData.append('delivery_city', recipientCity);
+    formData.append('delivery_postcode', recipientPostcode);
+    formData.append('delivery_state', recipientSuburb); // Using suburb as state for NZ addresses
+
     // Add change note (for edited quotations)
     if (changeNote) {
         formData.append('change_note', changeNote);

@@ -338,11 +338,38 @@ class Quotation(models.Model):
     )
     recipient_address = models.TextField(
         blank=True,
-        help_text="Address of the quotation recipient"
+        help_text="Address of the quotation recipient (combined/legacy field)"
     )
     additional_emails = models.TextField(
         blank=True,
         help_text="Additional email addresses to send quotation copies to (separated by semicolons)"
+    )
+
+    # Delivery Address Fields (structured for shipping calculation)
+    delivery_street_address = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Delivery street address"
+    )
+    delivery_suburb = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Delivery suburb"
+    )
+    delivery_city = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Delivery city"
+    )
+    delivery_postcode = models.CharField(
+        max_length=20,
+        blank=True,
+        help_text="Delivery postcode"
+    )
+    delivery_state = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Delivery state/region"
     )
 
     # Version tracking
@@ -399,6 +426,32 @@ class Quotation(models.Model):
         blank=True,
         verbose_name="CIN7 Synced At",
         help_text="Timestamp when quotation was synced to CIN7"
+    )
+
+    # CIN7 Contact Fields (captured from institution at quotation creation)
+    cin7_email = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="CIN7 Contact Email",
+        help_text="CIN7 contact email from institution (captured at quotation creation)"
+    )
+    cin7_first_name = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="CIN7 Contact First Name",
+        help_text="CIN7 contact first name from institution (captured at quotation creation)"
+    )
+    cin7_last_name = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="CIN7 Contact Last Name",
+        help_text="CIN7 contact last name from institution (captured at quotation creation)"
+    )
+    cin7_phone = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="CIN7 Contact Phone",
+        help_text="CIN7 contact phone from institution (captured at quotation creation)"
     )
 
     # Account Manager Approval Fields
@@ -657,26 +710,30 @@ class Quotation(models.Model):
 
         logger = logging.getLogger(__name__)
 
-        # Get customer address
-        customer = self.created_by
-        if not customer:
-            logger.warning(f"Quotation {self.id} has no customer, cannot calculate shipping")
+        # Get delivery address - prefer quotation delivery address over customer profile address
+        delivery_city = self.delivery_city or (self.created_by.city if self.created_by else None)
+        delivery_suburb = self.delivery_suburb or (self.created_by.suburb if self.created_by else None)
+        delivery_postcode = self.delivery_postcode or (self.created_by.postcode if self.created_by else None)
+        delivery_street_address = self.delivery_street_address or (self.created_by.street_address if self.created_by else None)
+
+        if not delivery_city:
+            logger.warning(f"Quotation {self.id} has no delivery city, cannot calculate shipping")
             self.shipping_cost = Decimal('0.00')
             self.shipping_boxes = 0
             self.shipping_region = ''
             self.is_rural_delivery = False
             return Decimal('0.00')
 
-        # Get region from address
+        # Get region from delivery address
         region = get_region_from_address(
-            street_address=customer.street_address,
-            suburb=customer.suburb,
-            city=customer.city,
-            postcode=customer.postcode
+            street_address=delivery_street_address,
+            suburb=delivery_suburb,
+            city=delivery_city,
+            postcode=delivery_postcode
         )
 
         if not region:
-            logger.warning(f"Could not determine region for customer {customer.id} ({customer.city}), defaulting to Wellington")
+            logger.warning(f"Could not determine region for delivery city {delivery_city}, defaulting to Wellington")
             region = 'Wellington'  # Default fallback
 
         self.shipping_region = region
