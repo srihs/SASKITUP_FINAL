@@ -375,6 +375,10 @@
             </div>
         </div>
     </div>
+
+    <!-- Sync Log Viewer -->
+    {% include 'schools/includes/sync_log_viewer.html' with entity_type='wholesale_price_update' initial_collapsed=true %}
+
 </div>
 {% endblock %}
 
@@ -404,6 +408,14 @@ $(document).ready(function() {
     $('#fetchPricesBtn').click(function() {
         const priceType = $('#priceType').val();
 
+        // Generate session ID before making request
+        sessionId = 'fetch-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+
+        // Start sync log polling immediately
+        if (typeof startSyncLogPolling === 'function') {
+            startSyncLogPolling(sessionId);
+        }
+
         // Show progress card
         $('#settingsCard').hide();
         $('#progressCard').show();
@@ -424,11 +436,12 @@ $(document).ready(function() {
                 'X-CSRFToken': csrfToken
             },
             data: JSON.stringify({
-                price_type: priceType
+                price_type: priceType,
+                session_id: sessionId  // Pass session_id to backend
             }),
             success: function(response) {
                 if (response.success) {
-                    sessionId = response.session_id;
+                    // Session ID already set above
 
                     // Hide progress, show fetch results card
                     $('#progressCard').hide();
@@ -440,6 +453,11 @@ $(document).ready(function() {
                     $('#fetchDuration').text(response.summary.duration_seconds.toFixed(2) + 's');
                     $('#fetchSummaryText').text(`${response.summary.saved_to_db.toLocaleString()} product variants fetched and saved`);
 
+                    // Stop sync log polling after fetch completes
+                    if (typeof stopSyncLogPolling === 'function') {
+                        setTimeout(stopSyncLogPolling, 2000); // Wait 2 seconds to get final logs
+                    }
+
                     Swal.fire({
                         icon: 'success',
                         title: 'Fetch Complete!',
@@ -448,6 +466,11 @@ $(document).ready(function() {
                         showConfirmButton: false
                     });
                 } else {
+                    // Stop polling on error
+                    if (typeof stopSyncLogPolling === 'function') {
+                        stopSyncLogPolling();
+                    }
+
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',

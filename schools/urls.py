@@ -93,4 +93,7 @@ urlpatterns = [
     path('cin7/fetch-contacts/', views.FetchCIN7ContactsView.as_view(), name='cin7-fetch-contacts'),
     path('cin7/save-mapping/', views.SaveCIN7MappingView.as_view(), name='cin7-save-mapping'),
     path('cin7/search-contacts/', views.CIN7ContactSearchView.as_view(), name='cin7-search-contacts'),
+
+    # Sync Logs API
+    path('api/sync-logs/<str:session_id>/', views.get_sync_logs, name='sync-logs'),
 ]

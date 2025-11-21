@@ -1,0 +1,503 @@
+{% comment %}
+Reusable Sync Log Viewer Component
+Shows real-time sync logs with auto-scroll, color-coding, and filtering
+
+Usage:
+    {% include 'schools/includes/sync_log_viewer.html' with entity_type='wholesale_price_update' %}
+
+Parameters:
+    - entity_type: Type of sync operation (cin7_contact_mapping, wholesale_price_update, etc.)
+    - initial_collapsed: Whether to start collapsed (default: true)
+{% endcomment %}
+
+<style>
+    .sync-log-viewer {
+        margin-top: 20px;
+    }
+
+    .sync-log-header {
+        cursor: pointer;
+        user-select: none;
+        transition: background-color 0.2s;
+    }
+
+    .sync-log-header:hover {
+        background-color: #f8f9fa;
+    }
+
+    .sync-log-container {
+        max-height: 400px;
+        overflow-y: auto;
+        background-color: #1e1e1e;
+        color: #d4d4d4;
+        font-family: 'Courier New', Consolas, monospace;
+        font-size: 13px;
+        padding: 15px;
+        border-radius: 0 0 6px 6px;
+    }
+
+    .sync-log-entry {
+        padding: 6px 0;
+        border-bottom: 1px solid #2d2d2d;
+        animation: fadeIn 0.3s ease-in;
+    }
+
+    .sync-log-entry:last-child {
+        border-bottom: none;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .sync-log-timestamp {
+        color: #858585;
+        font-size: 11px;
+        margin-right: 10px;
+    }
+
+    .sync-log-level {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: 10px;
+        font-weight: bold;
+        text-transform: uppercase;
+        margin-right: 10px;
+        min-width: 60px;
+        text-align: center;
+    }
+
+    .sync-log-level-debug {
+        background-color: #569cd6;
+        color: #fff;
+    }
+
+    .sync-log-level-info {
+        background-color: #4ec9b0;
+        color: #1e1e1e;
+    }
+
+    .sync-log-level-warning {
+        background-color: #dcdcaa;
+        color: #1e1e1e;
+    }
+
+    .sync-log-level-error {
+        background-color: #f48771;
+        color: #fff;
+    }
+
+    .sync-log-level-success {
+        background-color: #4caf50;
+        color: #fff;
+    }
+
+    .sync-log-message {
+        color: #d4d4d4;
+        word-break: break-word;
+    }
+
+    .sync-log-details {
+        color: #858585;
+        font-size: 11px;
+        margin-top: 4px;
+        padding-left: 90px;
+    }
+
+    .sync-log-empty {
+        color: #858585;
+        text-align: center;
+        padding: 30px;
+        font-style: italic;
+    }
+
+    .sync-log-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 15px;
+        background-color: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .sync-log-filters {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .sync-log-filter-btn {
+        padding: 4px 12px;
+        font-size: 12px;
+        border: 1px solid #dee2e6;
+        background-color: #fff;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: all 0.2s;
+    }
+
+    .sync-log-filter-btn.active {
+        background-color: #007bff;
+        color: #fff;
+        border-color: #007bff;
+    }
+
+    .sync-log-filter-btn:hover:not(.active) {
+        background-color: #e9ecef;
+    }
+
+    .sync-log-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .sync-log-action-btn {
+        padding: 4px 12px;
+        font-size: 12px;
+        cursor: pointer;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+        background-color: #fff;
+        transition: all 0.2s;
+    }
+
+    .sync-log-action-btn:hover {
+        background-color: #e9ecef;
+    }
+
+    .sync-log-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 600;
+        margin-left: 8px;
+    }
+
+    .sync-log-badge-live {
+        background-color: #28a745;
+        color: #fff;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+
+    .sync-log-badge-paused {
+        background-color: #ffc107;
+        color: #1e1e1e;
+    }
+</style>
+
+<div class="card sync-log-viewer">
+    <div class="card-header sync-log-header" data-bs-toggle="collapse" data-bs-target="#syncLogCollapse" aria-expanded="{% if initial_collapsed|default:true %}false{% else %}true{% endif %}">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="uil uil-clipboard-notes me-2"></i>
+                Sync Logs
+                <span class="sync-log-badge sync-log-badge-paused" id="syncLogStatus">Waiting</span>
+                <span class="badge bg-secondary" id="syncLogCount">0</span>
+            </h5>
+            <i class="uil uil-angle-down"></i>
+        </div>
+    </div>
+
+    <div class="collapse {% if not initial_collapsed|default:true %}show{% endif %}" id="syncLogCollapse">
+        <div class="sync-log-container" id="syncLogContainer">
+            <div class="sync-log-empty" id="syncLogEmpty">
+                <i class="uil uil-info-circle" style="font-size: 24px; margin-bottom: 10px;"></i>
+                <div>No logs yet. Sync logs will appear here when you start a sync operation.</div>
+            </div>
+        </div>
+
+        <div class="sync-log-controls">
+            <div class="sync-log-filters">
+                <button class="sync-log-filter-btn active" data-level="all" onclick="filterSyncLogs('all')">
+                    <i class="uil uil-list-ul"></i> All
+                </button>
+                <button class="sync-log-filter-btn" data-level="info" onclick="filterSyncLogs('info')">
+                    <i class="uil uil-info-circle"></i> Info
+                </button>
+                <button class="sync-log-filter-btn" data-level="success" onclick="filterSyncLogs('success')">
+                    <i class="uil uil-check-circle"></i> Success
+                </button>
+                <button class="sync-log-filter-btn" data-level="warning" onclick="filterSyncLogs('warning')">
+                    <i class="uil uil-exclamation-triangle"></i> Warnings
+                </button>
+                <button class="sync-log-filter-btn" data-level="error" onclick="filterSyncLogs('error')">
+                    <i class="uil uil-times-circle"></i> Errors
+                </button>
+            </div>
+
+            <div class="sync-log-actions">
+                <button class="sync-log-action-btn" onclick="toggleAutoScroll()" id="autoScrollBtn">
+                    <i class="uil uil-arrow-down"></i> Auto-scroll: ON
+                </button>
+                <button class="sync-log-action-btn" onclick="clearSyncLogs()">
+                    <i class="uil uil-trash-alt"></i> Clear
+                </button>
+                <button class="sync-log-action-btn" onclick="downloadSyncLogs()">
+                    <i class="uil uil-download-alt"></i> Download
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Sync Log Viewer JavaScript
+(function() {
+    // State management
+    let syncLogState = {
+        sessionId: null,
+        entityType: '{{ entity_type|default:"unknown" }}',
+        isPolling: false,
+        pollInterval: null,
+        lastLogId: 0,
+        autoScroll: true,
+        currentFilter: 'all',
+        logs: []
+    };
+
+    // Start polling for logs
+    window.startSyncLogPolling = function(sessionId) {
+        console.log('Starting sync log polling for session:', sessionId);
+
+        syncLogState.sessionId = sessionId;
+        syncLogState.isPolling = true;
+        syncLogState.lastLogId = 0;
+        syncLogState.logs = [];
+
+        // Update status badge
+        const statusBadge = document.getElementById('syncLogStatus');
+        if (statusBadge) {
+            statusBadge.textContent = 'Live';
+            statusBadge.className = 'sync-log-badge sync-log-badge-live';
+        }
+
+        // Clear existing logs
+        const container = document.getElementById('syncLogContainer');
+        const emptyMessage = document.getElementById('syncLogEmpty');
+        if (container && emptyMessage) {
+            container.innerHTML = '';
+            emptyMessage.style.display = 'none';
+        }
+
+        // Expand the log viewer
+        const collapseElement = document.getElementById('syncLogCollapse');
+        if (collapseElement && !collapseElement.classList.contains('show')) {
+            const collapse = new bootstrap.Collapse(collapseElement, { toggle: true });
+        }
+
+        // Start polling every 1 second
+        syncLogState.pollInterval = setInterval(fetchSyncLogs, 1000);
+
+        // Fetch immediately
+        fetchSyncLogs();
+    };
+
+    // Stop polling
+    window.stopSyncLogPolling = function() {
+        console.log('Stopping sync log polling');
+
+        syncLogState.isPolling = false;
+
+        if (syncLogState.pollInterval) {
+            clearInterval(syncLogState.pollInterval);
+            syncLogState.pollInterval = null;
+        }
+
+        // Update status badge
+        const statusBadge = document.getElementById('syncLogStatus');
+        if (statusBadge) {
+            statusBadge.textContent = 'Paused';
+            statusBadge.className = 'sync-log-badge sync-log-badge-paused';
+        }
+    };
+
+    // Fetch logs from API
+    function fetchSyncLogs() {
+        if (!syncLogState.sessionId) return;
+
+        const url = `/schools/api/sync-logs/${syncLogState.sessionId}/?since=${syncLogState.lastLogId}`;
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.logs && data.logs.length > 0) {
+                    // Add new logs
+                    data.logs.forEach(log => {
+                        addLogEntry(log);
+                        if (log.id > syncLogState.lastLogId) {
+                            syncLogState.lastLogId = log.id;
+                        }
+                    });
+
+                    // Update count
+                    updateLogCount();
+
+                    // Auto-scroll if enabled
+                    if (syncLogState.autoScroll) {
+                        scrollToBottom();
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching sync logs:', error);
+            });
+    }
+
+    // Add a log entry to the display
+    function addLogEntry(log) {
+        const container = document.getElementById('syncLogContainer');
+        const emptyMessage = document.getElementById('syncLogEmpty');
+
+        if (!container) return;
+
+        // Hide empty message
+        if (emptyMessage) {
+            emptyMessage.style.display = 'none';
+        }
+
+        // Create log entry element
+        const entry = document.createElement('div');
+        entry.className = `sync-log-entry sync-log-level-filter-${log.level}`;
+        entry.dataset.level = log.level;
+
+        // Format timestamp
+        const timestamp = new Date(log.timestamp).toLocaleTimeString('en-NZ', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        });
+
+        // Build HTML
+        let html = `
+            <span class="sync-log-timestamp">${timestamp}</span>
+            <span class="sync-log-level sync-log-level-${log.level}">${log.level}</span>
+            <span class="sync-log-message">${escapeHtml(log.message)}</span>
+        `;
+
+        // Add details if present
+        if (log.details && Object.keys(log.details).length > 0) {
+            html += `<div class="sync-log-details">${JSON.stringify(log.details)}</div>`;
+        }
+
+        entry.innerHTML = html;
+
+        // Apply current filter
+        if (syncLogState.currentFilter !== 'all' && log.level !== syncLogState.currentFilter) {
+            entry.style.display = 'none';
+        }
+
+        container.appendChild(entry);
+        syncLogState.logs.push(log);
+    }
+
+    // Filter logs by level
+    window.filterSyncLogs = function(level) {
+        syncLogState.currentFilter = level;
+
+        // Update filter button states
+        document.querySelectorAll('.sync-log-filter-btn').forEach(btn => {
+            if (btn.dataset.level === level) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        // Show/hide log entries
+        document.querySelectorAll('.sync-log-entry').forEach(entry => {
+            if (level === 'all' || entry.dataset.level === level) {
+                entry.style.display = 'block';
+            } else {
+                entry.style.display = 'none';
+            }
+        });
+    };
+
+    // Toggle auto-scroll
+    window.toggleAutoScroll = function() {
+        syncLogState.autoScroll = !syncLogState.autoScroll;
+
+        const btn = document.getElementById('autoScrollBtn');
+        if (btn) {
+            btn.innerHTML = `<i class="uil uil-arrow-down"></i> Auto-scroll: ${syncLogState.autoScroll ? 'ON' : 'OFF'}`;
+        }
+
+        if (syncLogState.autoScroll) {
+            scrollToBottom();
+        }
+    };
+
+    // Clear all logs
+    window.clearSyncLogs = function() {
+        const container = document.getElementById('syncLogContainer');
+        const emptyMessage = document.getElementById('syncLogEmpty');
+
+        if (container) {
+            container.innerHTML = '';
+            if (emptyMessage) {
+                emptyMessage.style.display = 'block';
+                container.appendChild(emptyMessage);
+            }
+        }
+
+        syncLogState.logs = [];
+        syncLogState.lastLogId = 0;
+        updateLogCount();
+    };
+
+    // Download logs as JSON
+    window.downloadSyncLogs = function() {
+        if (syncLogState.logs.length === 0) {
+            alert('No logs to download');
+            return;
+        }
+
+        const dataStr = JSON.stringify(syncLogState.logs, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(dataBlob);
+        link.download = `sync-logs-${syncLogState.sessionId}-${Date.now()}.json`;
+        link.click();
+    };
+
+    // Scroll to bottom of log container
+    function scrollToBottom() {
+        const container = document.getElementById('syncLogContainer');
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+
+    // Update log count badge
+    function updateLogCount() {
+        const countBadge = document.getElementById('syncLogCount');
+        if (countBadge) {
+            countBadge.textContent = syncLogState.logs.length;
+        }
+    }
+
+    // Escape HTML to prevent XSS
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Clean up on page unload
+    window.addEventListener('beforeunload', function() {
+        if (syncLogState.pollInterval) {
+            clearInterval(syncLogState.pollInterval);
+        }
+    });
+})();
+</script>

@@ -8,6 +8,7 @@ from django.views.decorators.http import require_http_methods
 from django.core.management import call_command
 from django.utils import timezone
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.decorators import login_required
 from decimal import Decimal
 import logging
 import subprocess
@@ -3636,28 +3637,48 @@ def cin7_price_fetch(request):
         # Parse request
         data = json.loads(request.body)
         price_type = data.get('price_type', 'Wholesale')
-        session_id = str(uuid.uuid4())
+        session_id = data.get('session_id') or str(uuid.uuid4())  # Use provided session_id or generate new one
 
         logger.info(f"=== CIN7 PRICE FETCH STARTED (Stage 1) ===")
         logger.info(f"Price type: {price_type}")
         logger.info(f"Session ID: {session_id}")
 
+        # Log sync start
+        log_sync(session_id, 'wholesale_price_update', 'info',
+                f'🚀 Starting CIN7 price fetch for {price_type} products',
+                details={'price_type': price_type}, user=request.user)
+
         # Clear old Cin7Product records to ensure fresh data
         old_count = Cin7Product.objects.count()
         if old_count > 0:
             logger.info(f"Clearing {old_count} old Cin7Product records...")
+            log_sync(session_id, 'wholesale_price_update', 'info',
+                    f'Clearing {old_count} old product records from database',
+                    details={'old_count': old_count}, user=request.user)
             Cin7Product.objects.all().delete()
             logger.info(f"✓ Cleared {old_count} old records")
+            log_sync(session_id, 'wholesale_price_update', 'success',
+                    f'✓ Cleared {old_count} old records', user=request.user)
 
         # Initialize Cin7 API service
+        log_sync(session_id, 'wholesale_price_update', 'info',
+                'Initializing CIN7 API connection...', user=request.user)
         cin7_service = Cin7ApiService()
 
         # Test connection
+        log_sync(session_id, 'wholesale_price_update', 'info',
+                'Testing CIN7 API connection...', user=request.user)
         if not cin7_service.test_connection():
+            log_sync(session_id, 'wholesale_price_update', 'error',
+                    '❌ Failed to connect to CIN7 API. Check credentials in .env file.',
+                    user=request.user)
             return JsonResponse({
                 'success': False,
                 'error': 'Failed to connect to Cin7 API. Check credentials in .env file.'
             }, status=500)
+
+        log_sync(session_id, 'wholesale_price_update', 'success',
+                '✓ CIN7 API connection successful', user=request.user)
 
         # Progress callback
         def update_progress(current, total, message):
@@ -3673,6 +3694,10 @@ def cin7_price_fetch(request):
 
         # Fetch all products from Cin7
         update_progress(0, 100, "Initializing Cin7 connection...")
+        log_sync(session_id, 'wholesale_price_update', 'info',
+                f'📡 Fetching {price_type} products from CIN7 API...',
+                user=request.user)
+
         products, fetched, total = cin7_service.fetch_all_products(
             price_type=price_type,
             where_clause=None,
@@ -3680,9 +3705,15 @@ def cin7_price_fetch(request):
         )
 
         logger.info(f"Fetched {fetched} products from Cin7")
+        log_sync(session_id, 'wholesale_price_update', 'success',
+                f'✓ Fetched {fetched} products from CIN7',
+                details={'fetched': fetched, 'total': total}, user=request.user)
 
         # Save to database in bulk
         update_progress(0, len(products), "Saving to database...")
+        log_sync(session_id, 'wholesale_price_update', 'info',
+                f'💾 Processing and saving {len(products)} products to database...',
+                details={'product_count': len(products)}, user=request.user)
 
         cin7_products = []
         skipped_no_id = 0
@@ -3757,6 +3788,10 @@ def cin7_price_fetch(request):
 
         # Bulk create (much faster than individual saves)
         logger.info(f"Bulk creating {len(cin7_products)} Cin7Product records...")
+        log_sync(session_id, 'wholesale_price_update', 'info',
+                f'💾 Saving {len(cin7_products)} product variants to database...',
+                details={'variant_count': len(cin7_products)}, user=request.user)
+
         Cin7Product.objects.bulk_create(cin7_products, batch_size=500)
 
         elapsed = (timezone.now() - start_time).total_seconds()
@@ -3769,6 +3804,33 @@ def cin7_price_fetch(request):
         logger.info(f"Skipped (starts with BS): {skipped_bs_products}")
         logger.info(f"Skipped (no ID): {skipped_no_id}")
         logger.info(f"Duration: {elapsed:.2f}s")
+
+        # Log completion summary
+        log_sync(session_id, 'wholesale_price_update', 'success',
+                f'✅ Stage 1 Complete: Saved {len(cin7_products)} product variants',
+                details={
+                    'total_products': len(products),
+                    'total_variants': total_options,
+                    'saved': len(cin7_products),
+                    'skipped_no_options': skipped_no_options,
+                    'skipped_bs': skipped_bs_products,
+                    'skipped_no_id': skipped_no_id,
+                    'duration_seconds': round(elapsed, 2)
+                }, user=request.user)
+
+        # Log warnings if any products were skipped
+        if skipped_bs_products > 0:
+            log_sync(session_id, 'wholesale_price_update', 'warning',
+                    f'⚠️ Skipped {skipped_bs_products} BallStore/Bespoke products',
+                    details={'skipped_count': skipped_bs_products}, user=request.user)
+        if skipped_no_options > 0:
+            log_sync(session_id, 'wholesale_price_update', 'warning',
+                    f'⚠️ Skipped {skipped_no_options} products without variants',
+                    details={'skipped_count': skipped_no_options}, user=request.user)
+        if skipped_no_id > 0:
+            log_sync(session_id, 'wholesale_price_update', 'warning',
+                    f'⚠️ Skipped {skipped_no_id} variants without CIN7 ID',
+                    details={'skipped_count': skipped_no_id}, user=request.user)
 
         # Audit log
         try:
@@ -3800,6 +3862,12 @@ def cin7_price_fetch(request):
 
     except Exception as e:
         logger.error(f"Cin7 price fetch failed: {str(e)}", exc_info=True)
+        # Log error to sync logs
+        if 'session_id' in locals():
+            log_sync(session_id, 'wholesale_price_update', 'error',
+                    f'❌ Stage 1 Failed: {str(e)}',
+                    details={'error': str(e), 'error_type': type(e).__name__},
+                    user=request.user if hasattr(request, 'user') and request.user.is_authenticated else None)
         return JsonResponse({
             'success': False,
             'error': f'Price fetch failed: {str(e)}'
@@ -4726,11 +4794,25 @@ class FetchCIN7ContactsView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, V
     """
 
     def post(self, request):
+        import json
+        import uuid
+
         try:
             from .services.cin7_api_service import Cin7ApiService
             from .models import CIN7Contact
 
+            # Generate session ID for sync logging
+            data = json.loads(request.body) if request.body else {}
+            session_id = data.get('session_id') or str(uuid.uuid4())
+
+            # Log sync start
+            log_sync(session_id, 'cin7_contact_mapping', 'info',
+                    '🚀 Starting CIN7 contact fetch from API',
+                    user=request.user)
+
             # Initialize CIN7 API service
+            log_sync(session_id, 'cin7_contact_mapping', 'info',
+                    'Initializing CIN7 API connection...', user=request.user)
             api = Cin7ApiService()
 
             # Start of fetch operation
@@ -4740,6 +4822,10 @@ class FetchCIN7ContactsView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, V
 
             # Fetch contacts from CIN7 API with pagination
             logger.info("Fetching CIN7 contacts from API with pagination...")
+            log_sync(session_id, 'cin7_contact_mapping', 'info',
+                    '📡 Fetching contacts from CIN7 API with pagination...',
+                    user=request.user)
+
             page = 1
             all_contacts = []
 
@@ -4747,17 +4833,27 @@ class FetchCIN7ContactsView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, V
                 # Before each API request
                 print(f"\n🔄 Fetching page {page} from CIN7 API (250 rows per page)...")
                 logger.info(f"Fetching page {page} (250 rows per page)...")
+                log_sync(session_id, 'cin7_contact_mapping', 'info',
+                        f'Fetching page {page} (250 contacts per page)...',
+                        details={'page': page}, user=request.user)
+
                 batch = api._make_request('Contacts', params={'rows': 250, 'page': page})
 
                 if not batch or len(batch) == 0:
                     # When no more contacts found
                     print(f"⚠️  No more contacts found on page {page}")
                     logger.info(f"No more contacts found on page {page}")
+                    log_sync(session_id, 'cin7_contact_mapping', 'info',
+                            f'No more contacts on page {page} - pagination complete',
+                            details={'final_page': page - 1}, user=request.user)
                     break
 
                 # After successful page fetch
                 print(f"✅ Page {page} fetched: {len(batch)} contacts received")
                 logger.info(f"Fetched page {page}: {len(batch)} contacts")
+                log_sync(session_id, 'cin7_contact_mapping', 'success',
+                        f'✓ Page {page} fetched: {len(batch)} contacts',
+                        details={'page': page, 'count': len(batch)}, user=request.user)
                 all_contacts.extend(batch)
 
                 # If we got fewer than 250 contacts, this is the last page
@@ -4866,6 +4962,21 @@ class FetchCIN7ContactsView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, V
                 print(f"📞 Enriched {enriched_count} contacts with full data (phone/address)")
             logger.info(f"Successfully saved {created_count} CIN7 contacts ({enriched_count} enriched)")
 
+            # Log completion
+            log_sync(session_id, 'cin7_contact_mapping', 'success',
+                    f'✅ Contact fetch complete: Saved {created_count} contacts',
+                    details={
+                        'total_fetched': len(all_contacts),
+                        'valid_contacts': len(valid_contacts),
+                        'saved': created_count,
+                        'enriched': enriched_count
+                    }, user=request.user)
+
+            if enriched_count > 0:
+                log_sync(session_id, 'cin7_contact_mapping', 'info',
+                        f'📞 Enriched {enriched_count} contacts with full API data',
+                        details={'enriched_count': enriched_count}, user=request.user)
+
             # End summary
             print("\n" + "="*80)
             print("CIN7 CONTACT SYNC COMPLETED")
@@ -4878,6 +4989,7 @@ class FetchCIN7ContactsView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, V
                 'success': True,
                 'count': created_count,
                 'enriched_count': enriched_count,
+                'session_id': session_id,
                 'message': f'Successfully fetched and saved {created_count} CIN7 contacts ({enriched_count} enriched with full data)'
             })
 
@@ -4886,6 +4998,14 @@ class FetchCIN7ContactsView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, V
             print(f"\n❌ ERROR: {str(e)}")
             print("="*80 + "\n")
             logger.error(f"Error fetching CIN7 contacts: {str(e)}", exc_info=True)
+
+            # Log error to sync logs
+            if 'session_id' in locals():
+                log_sync(session_id, 'cin7_contact_mapping', 'error',
+                        f'❌ Contact fetch failed: {str(e)}',
+                        details={'error': str(e), 'error_type': type(e).__name__},
+                        user=request.user if hasattr(request, 'user') and request.user.is_authenticated else None)
+
             return JsonResponse({
                 'success': False,
                 'error': str(e)
@@ -5096,3 +5216,109 @@ class CIN7ContactSearchView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, V
                 'total_count': 0,
                 'error': str(e)
             }, status=500)
+
+
+# ============================================================
+# SYNC LOG API ENDPOINTS
+# ============================================================
+
+@require_http_methods(["GET"])
+@login_required
+def get_sync_logs(request, session_id):
+    """
+    API endpoint to retrieve sync logs for a specific session.
+    Supports real-time polling for live log updates.
+
+    Query Parameters:
+        - level: Filter by log level (debug, info, warning, error, success)
+        - since: Get logs after this ID (for incremental updates)
+        - limit: Maximum number of logs to return (default: 1000)
+
+    Returns:
+        JSON response with logs array
+    """
+    from schools.models import SyncLog
+
+    try:
+        # Get query parameters
+        level = request.GET.get('level')
+        since_id = request.GET.get('since')  # Get logs after this ID
+        limit = int(request.GET.get('limit', 1000))
+
+        # Get logs for session
+        logs = SyncLog.objects.filter(session_id=session_id).order_by('created_at')
+
+        # Filter by level if specified
+        if level:
+            logs = logs.filter(level=level)
+
+        # Get only new logs if since_id specified
+        if since_id:
+            logs = logs.filter(id__gt=since_id)
+
+        # Limit results
+        logs = logs[:limit]
+
+        # Format response
+        logs_data = []
+        for log in logs:
+            logs_data.append({
+                'id': log.id,
+                'level': log.level,
+                'message': log.message,
+                'details': log.details,
+                'timestamp': log.created_at.isoformat(),
+                'entity_type': log.entity_type
+            })
+
+        return JsonResponse({
+            'success': True,
+            'logs': logs_data,
+            'count': len(logs_data),
+            'session_id': session_id
+        })
+
+    except Exception as e:
+        logger.error(f"Error retrieving sync logs: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+def log_sync(session_id, entity_type, level, message, details=None, user=None):
+    """
+    Helper function to log sync operations to both Django logger and SyncLog model.
+    This provides dual logging: file-based (for debugging) and database (for UI display).
+
+    Args:
+        session_id (str): Unique session identifier
+        entity_type (str): Type of sync (cin7_contact_mapping, wholesale_price_update, etc.)
+        level (str): Log level (debug, info, warning, error, success)
+        message (str): Log message
+        details (dict, optional): Additional structured data
+        user (User, optional): User who initiated the operation
+
+    Returns:
+        SyncLog: Created log entry
+    """
+    from schools.models import SyncLog
+
+    # Log to Django logger (file-based)
+    logger_method = getattr(logger, level if level != 'success' else 'info')
+    log_prefix = f"[{entity_type}] [{session_id}]"
+    logger_method(f"{log_prefix} {message}")
+
+    # Log to database (for UI display)
+    try:
+        return SyncLog.log(
+            session_id=session_id,
+            entity_type=entity_type,
+            level=level,
+            message=message,
+            details=details,
+            user=user
+        )
+    except Exception as e:
+        logger.error(f"Failed to create SyncLog entry: {str(e)}")
+        return None

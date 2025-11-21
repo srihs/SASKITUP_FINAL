@@ -191,6 +191,13 @@
             </div>
         </div>
     </div>
+
+    <!-- Sync Log Viewer -->
+    <div class="row mt-3">
+        <div class="col-12">
+            {% include 'schools/includes/sync_log_viewer.html' with entity_type='cin7_contact_mapping' initial_collapsed=true %}
+        </div>
+    </div>
 </div>
 
 <!-- Toast Notification -->
@@ -338,23 +345,49 @@ $(document).ready(function() {
         const $btn = $(this);
         $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Fetching...');
 
+        // Generate session ID for sync logging
+        const sessionId = 'cin7-contacts-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+
+        // Start sync log polling immediately
+        if (typeof startSyncLogPolling === 'function') {
+            startSyncLogPolling(sessionId);
+        }
+
         $.ajax({
             url: '{% url "schools:cin7-fetch-contacts" %}',
             method: 'POST',
             headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
             },
+            data: JSON.stringify({
+                session_id: sessionId
+            }),
             success: function(response) {
                 if (response.success) {
                     showNotification('Success', response.message, 'success');
                     $('#contact-count').text(response.count);
+
+                    // Stop sync log polling after a delay to capture final logs
+                    if (typeof stopSyncLogPolling === 'function') {
+                        setTimeout(stopSyncLogPolling, 2000);
+                    }
+
                     // Reload page to show new contacts
-                    setTimeout(() => location.reload(), 1500);
+                    setTimeout(() => location.reload(), 3000);
                 } else {
+                    // Stop polling on error
+                    if (typeof stopSyncLogPolling === 'function') {
+                        stopSyncLogPolling();
+                    }
                     showNotification('Error', response.error, 'danger');
                 }
             },
             error: function(xhr) {
+                // Stop polling on error
+                if (typeof stopSyncLogPolling === 'function') {
+                    stopSyncLogPolling();
+                }
                 const error = xhr.responseJSON?.error || 'Failed to fetch contacts';
                 showNotification('Error', error, 'danger');
             },

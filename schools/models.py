@@ -812,3 +812,143 @@ class CIN7Contact(models.Model):
         """Return full name if available"""
         parts = [self.first_name, self.last_name]
         return ' '.join([p for p in parts if p])
+
+
+class SyncLog(models.Model):
+    """
+    Real-time sync operation logging for UI display.
+    Tracks all sync operations (CIN7 contact mapping, price updates, etc.)
+    """
+    LEVEL_CHOICES = [
+        ('debug', 'Debug'),
+        ('info', 'Info'),
+        ('warning', 'Warning'),
+        ('error', 'Error'),
+        ('success', 'Success'),
+    ]
+
+    ENTITY_TYPE_CHOICES = [
+        ('cin7_contact_mapping', 'CIN7 Contact Mapping'),
+        ('wholesale_price_update', 'Wholesale Price Update'),
+        ('tus_price_update', 'TUS Price Update'),
+        ('product_sync', 'Product Sync'),
+        ('other', 'Other'),
+    ]
+
+    session_id = models.CharField(
+        max_length=255,
+        db_index=True,
+        help_text="Unique session identifier for grouping related logs"
+    )
+    entity_type = models.CharField(
+        max_length=50,
+        choices=ENTITY_TYPE_CHOICES,
+        db_index=True,
+        help_text="Type of sync operation"
+    )
+    level = models.CharField(
+        max_length=20,
+        choices=LEVEL_CHOICES,
+        default='info',
+        db_index=True,
+        help_text="Log level (debug, info, warning, error, success)"
+    )
+    message = models.TextField(
+        help_text="Log message content"
+    )
+    details = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Additional structured data (e.g., counts, IDs, errors)"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+        help_text="Timestamp when log was created"
+    )
+    user = models.ForeignKey(
+        'authentication.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="User who initiated the sync operation"
+    )
+
+    class Meta:
+        db_table = 'sync_logs'
+        ordering = ['created_at']
+        verbose_name = 'Sync Log'
+        verbose_name_plural = 'Sync Logs'
+        indexes = [
+            models.Index(fields=['session_id', 'created_at']),
+            models.Index(fields=['entity_type', 'created_at']),
+            models.Index(fields=['level', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"[{self.level.upper()}] {self.entity_type} - {self.message[:50]}"
+
+    @classmethod
+    def log(cls, session_id, entity_type, level, message, details=None, user=None):
+        """
+        Convenience method to create a log entry.
+
+        Args:
+            session_id (str): Session identifier
+            entity_type (str): Type of sync operation
+            level (str): Log level (debug, info, warning, error, success)
+            message (str): Log message
+            details (dict, optional): Additional structured data
+            user (User, optional): User who initiated the operation
+
+        Returns:
+            SyncLog: Created log entry
+        """
+        return cls.objects.create(
+            session_id=session_id,
+            entity_type=entity_type,
+            level=level,
+            message=message,
+            details=details or {},
+            user=user
+        )
+
+    @classmethod
+    def get_session_logs(cls, session_id, level=None, limit=None):
+        """
+        Get all logs for a specific session.
+
+        Args:
+            session_id (str): Session identifier
+            level (str, optional): Filter by log level
+            limit (int, optional): Maximum number of logs to return
+
+        Returns:
+            QuerySet: Filtered log entries
+        """
+        queryset = cls.objects.filter(session_id=session_id).order_by('created_at')
+
+        if level:
+            queryset = queryset.filter(level=level)
+
+        if limit:
+            queryset = queryset[:limit]
+
+        return queryset
+
+    @classmethod
+    def clear_old_logs(cls, days=7):
+        """
+        Delete logs older than specified days.
+
+        Args:
+            days (int): Number of days to retain logs
+
+        Returns:
+            tuple: (number_deleted, dict_of_deletions)
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+
+        cutoff_date = timezone.now() - timedelta(days=days)
+        return cls.objects.filter(created_at__lt=cutoff_date).delete()
