@@ -4876,9 +4876,14 @@ class FetchCIN7ContactsView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, V
             # After pagination complete
             print(f"\n📊 Total contacts fetched: {len(all_contacts)} across {page} pages")
             logger.info(f"Total contacts fetched across {page} pages: {len(all_contacts)}")
+            log_sync(session_id, 'cin7_contact_mapping', 'success',
+                    f'📊 Total contacts fetched: {len(all_contacts)} across {page} pages',
+                    details={'total_fetched': len(all_contacts), 'pages': page}, user=request.user)
 
             # Filter to only contacts with company names
             print(f"🔍 Filtering contacts with company names...")
+            log_sync(session_id, 'cin7_contact_mapping', 'info',
+                    '🔍 Filtering contacts with company names...', user=request.user)
             valid_contacts = [c for c in all_contacts if c.get('company') and c.get('company').strip()]
 
             # After filtering
@@ -4886,12 +4891,34 @@ class FetchCIN7ContactsView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, V
             print(f"❌ Excluded contacts (no company name): {len(all_contacts) - len(valid_contacts)}")
             logger.info(f"Found {len(valid_contacts)} contacts with company names out of {len(all_contacts)} total")
 
+            excluded_count = len(all_contacts) - len(valid_contacts)
+            log_sync(session_id, 'cin7_contact_mapping', 'success',
+                    f'✓ Filtering complete: {len(valid_contacts)} valid contacts',
+                    details={'valid': len(valid_contacts), 'excluded': excluded_count}, user=request.user)
+
+            if excluded_count > 0:
+                log_sync(session_id, 'cin7_contact_mapping', 'warning',
+                        f'⚠️ Excluded {excluded_count} contacts without company names',
+                        details={'excluded_count': excluded_count}, user=request.user)
+
             # Before database operations
             print(f"\n💾 Clearing existing CIN7 contacts from database...")
+            log_sync(session_id, 'cin7_contact_mapping', 'info',
+                    '💾 Clearing existing CIN7 contacts from database...', user=request.user)
+
+            old_count = CIN7Contact.objects.count()
             CIN7Contact.objects.all().delete()
+
+            log_sync(session_id, 'cin7_contact_mapping', 'success',
+                    f'✓ Cleared {old_count} old contacts from database',
+                    details={'deleted_count': old_count}, user=request.user)
 
             created_count = 0
             enriched_count = 0
+
+            log_sync(session_id, 'cin7_contact_mapping', 'info',
+                    f'💾 Saving {len(valid_contacts)} contacts to database...',
+                    details={'contacts_to_save': len(valid_contacts)}, user=request.user)
 
             for contact_data in valid_contacts:
                 try:
@@ -4951,9 +4978,17 @@ class FetchCIN7ContactsView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, V
                     # During save loop (every 50 contacts)
                     if created_count % 50 == 0:
                         print(f"   Saved {created_count} contacts so far... ({enriched_count} enriched with full data)")
+                        log_sync(session_id, 'cin7_contact_mapping', 'info',
+                                f'Progress: Saved {created_count}/{len(valid_contacts)} contacts ({enriched_count} enriched)',
+                                details={'saved': created_count, 'total': len(valid_contacts), 'enriched': enriched_count},
+                                user=request.user)
                 except Exception as e:
                     print(f"⚠️  Failed to create contact {contact_data.get('id')}: {str(e)}")
                     logger.warning(f"Failed to create contact {contact_data.get('id')}: {str(e)}")
+                    log_sync(session_id, 'cin7_contact_mapping', 'warning',
+                            f'⚠️ Failed to save contact {contact_data.get("id")}: {str(e)}',
+                            details={'contact_id': contact_data.get('id'), 'error': str(e)},
+                            user=request.user)
                     continue
 
             # After save complete
