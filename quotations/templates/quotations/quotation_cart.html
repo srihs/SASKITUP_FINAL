@@ -878,6 +878,46 @@
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* Google Places Autocomplete Dropdown Styling */
+.pac-container {
+    font-family: 'Roboto', Arial, sans-serif;
+    z-index: 10000 !important;
+    border-radius: 4px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    border-top: 1px solid #d9d9d9;
+    margin-top: 2px;
+}
+
+.pac-item {
+    padding: 10px 12px;
+    border-top: 1px solid #e6e6e6;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.pac-item:first-child {
+    border-top: none;
+}
+
+.pac-item:hover {
+    background-color: #f5f6fa;
+}
+
+.pac-item-query {
+    color: #495057;
+    font-weight: 600;
+}
+
+.pac-matched {
+    font-weight: 700;
+    color: #556ee6;
+}
+
+.pac-icon {
+    margin-right: 8px;
+}
 </style>
 {% endblock %}
 
@@ -1273,7 +1313,11 @@
                                 <small class="text-muted">(From your profile)</small>
                                 {% endif %}
                             </label>
-                            <input type="text" class="form-control" id="recipient_street_address" placeholder="Enter street address" value="{% if is_customer %}{{ user_street_address }}{% endif %}">
+                            <input type="text" class="form-control" id="recipient_street_address" placeholder="Start typing your address..." value="{% if is_customer %}{{ user_street_address }}{% endif %}">
+                            <div class="form-text mt-1">
+                                <i class="uil uil-map-marker me-1"></i>
+                                Address autocomplete will suggest NZ addresses as you type
+                            </div>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
@@ -1302,7 +1346,11 @@
                                 <small class="text-muted">(From your profile)</small>
                                 {% endif %}
                             </label>
-                            <input type="text" class="form-control" id="recipient_postcode" placeholder="Enter postcode" value="{% if is_customer %}{{ user_postcode }}{% endif %}">
+                            <input type="text" class="form-control" id="recipient_postcode" placeholder="Enter postcode to calculate shipping" value="{% if is_customer %}{{ user_postcode }}{% endif %}">
+                            <div class="form-text mt-1">
+                                <i class="uil uil-truck me-1"></i>
+                                Shipping cost will be calculated automatically when you complete this field
+                            </div>
                         </div>
                         <div class="mb-0">
                             <label for="additional_emails" class="form-label">Additional Email Recipients <span class="text-muted">(Optional)</span></label>
@@ -1695,21 +1743,23 @@ $(document).ready(function() {
         confirmClearBtn.addEventListener('click', confirmClearQuotation);
     }
 
-    // Add event listeners for address field changes to recalculate shipping
-    $('#recipient_city').on('blur', function() {
-        calculateShipping();
-    });
-
-    $('#recipient_suburb').on('blur', function() {
-        calculateShipping();
-    });
-
+    // Add event listener for postcode field - PRIMARY TRIGGER for shipping calculation
+    // Removed city and suburb blur triggers to prevent premature calculations
     $('#recipient_postcode').on('blur', function() {
-        calculateShipping();
+        const postcode = $(this).val()?.trim();
+        if (postcode) {
+            calculateShipping();
+        } else {
+            // If postcode is empty but city exists, still calculate (with warning)
+            const city = $('#recipient_city').val()?.trim();
+            if (city) {
+                calculateShipping();
+            }
+        }
     });
 
-    // Calculate initial shipping if address fields are populated
-    if ($('#recipient_city').val()?.trim()) {
+    // Calculate initial shipping if both city and postcode are populated
+    if ($('#recipient_city').val()?.trim() && $('#recipient_postcode').val()?.trim()) {
         calculateShipping();
     }
 });
@@ -1927,12 +1977,35 @@ function calculateShipping() {
 
     console.log('Address fields:', { city, suburb, postcode });
 
-    // Check if we have minimum required data (city)
-    if (!city) {
-        console.log('No city provided, clearing shipping display');
-        // Clear shipping display if no city
+    // Check if we have minimum required data (city or postcode)
+    if (!city && !postcode) {
+        console.log('No city or postcode provided');
         clearShippingDisplay();
+        toastr.info('Please enter City and Postcode to calculate shipping', 'Address Required', {
+            timeOut: 4000,
+            progressBar: true,
+            closeButton: true
+        });
         return;
+    }
+
+    // Warn if city missing but postcode exists (will attempt geocoding)
+    if (!city && postcode) {
+        console.log('City missing, attempting to geocode from postcode');
+        toastr.info('Determining city from postcode...', 'Calculating Shipping', {
+            timeOut: 2000,
+            progressBar: true
+        });
+    }
+
+    // Warn if postcode missing (shipping may be less accurate)
+    if (city && !postcode) {
+        console.log('Postcode missing, calculating with city only');
+        toastr.warning('Postcode recommended for accurate shipping calculation', 'Shipping Calculation', {
+            timeOut: 3000,
+            progressBar: true,
+            closeButton: true
+        });
     }
 
     console.log('Making shipping calculation request...');
@@ -1982,13 +2055,37 @@ function calculateShipping() {
 
             // Show user-friendly message for common errors
             if (data.error.includes('Cart is empty')) {
-                // Don't show error for empty cart
+                // Show helpful message about empty cart
+                toastr.warning('Please add items to your cart before calculating shipping', 'Cart Empty', {
+                    timeOut: 4000,
+                    progressBar: true,
+                    closeButton: true
+                });
                 return;
             } else if (data.error.includes('Could not determine')) {
-                // Show info toast for unknown city
-                toastr.info('Shipping region not found for: ' + city, 'Shipping Calculation', {
-                    timeOut: 3000,
-                    progressBar: true
+                // Show helpful message for unknown city/region
+                toastr.warning(
+                    'We couldn\'t find "' + city + '" in our shipping database. Please check the spelling or try entering your postcode.',
+                    'Shipping Region Not Found',
+                    {
+                        timeOut: 5000,
+                        progressBar: true,
+                        closeButton: true
+                    }
+                );
+            } else if (data.error.includes('City is required')) {
+                // Show message about required fields
+                toastr.info('Please enter City and Postcode to calculate shipping', 'Address Required', {
+                    timeOut: 4000,
+                    progressBar: true,
+                    closeButton: true
+                });
+            } else {
+                // Generic error message
+                toastr.error('Unable to calculate shipping: ' + data.error, 'Calculation Error', {
+                    timeOut: 5000,
+                    progressBar: true,
+                    closeButton: true
                 });
             }
         }
@@ -2284,6 +2381,74 @@ function confirmClearQuotation() {
     });
 }
 </script>
+
+<!-- Google Maps Places API for Address Autocomplete -->
+{% if GOOGLE_MAPS_API_KEY %}
+<script>
+    // Callback function for Google Maps API initialization
+    function initGoogleMapsAPI() {
+        console.log('Google Maps API loaded successfully for quotation cart');
+    }
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAPS_API_KEY }}&libraries=places&callback=initGoogleMapsAPI" async defer></script>
+
+<!-- Address Autocomplete Module -->
+<script src="{% static 'assets/js/custom/address-autocomplete.js' %}"></script>
+
+<script>
+// Initialize Address Autocomplete for Quotation Cart
+function initQuotationAddressAutocomplete() {
+    if (typeof AddressAutocomplete !== 'undefined' && AddressAutocomplete.isApiReady()) {
+        // Initialize autocomplete on street address field
+        const autocomplete = AddressAutocomplete.init('recipient_street_address', {
+            streetField: 'recipient_street_address',
+            suburbField: 'recipient_suburb',
+            cityField: 'recipient_city',
+            postcodeField: 'recipient_postcode'
+        });
+
+        if (autocomplete) {
+            console.log('Address autocomplete initialized for quotation cart');
+
+            // Listen for address selection completion
+            document.getElementById('recipient_street_address').addEventListener('addressAutocompleted', function(e) {
+                console.log('Address autocompleted:', e.detail.addressData);
+
+                // Automatically trigger shipping calculation after address is populated
+                // Use a small delay to ensure all fields are updated
+                setTimeout(function() {
+                    const postcode = $('#recipient_postcode').val()?.trim();
+                    const city = $('#recipient_city').val()?.trim();
+
+                    if (postcode || city) {
+                        console.log('Auto-triggering shipping calculation after address selection');
+                        calculateShipping();
+                    }
+                }, 300);
+            });
+        }
+    } else {
+        // Retry if API not ready yet
+        if (typeof AddressAutocomplete !== 'undefined') {
+            console.log('Google Maps API not ready, retrying address autocomplete init...');
+            setTimeout(initQuotationAddressAutocomplete, 500);
+        }
+    }
+}
+
+// Initialize when page is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initQuotationAddressAutocomplete);
+} else {
+    initQuotationAddressAutocomplete();
+}
+</script>
+{% else %}
+<!-- Google Maps API key not configured -->
+<script>
+    console.warn('Google Maps API key not configured. Address autocomplete will not be available in quotation cart.');
+</script>
+{% endif %}
 
 <!-- Include Edit History Modals -->
 {% include 'quotations/components/edit_history_modals.html' %}
