@@ -414,22 +414,49 @@ docker-compose exec web ls -la /app/logs
 # Method 1: Interactive (recommended)
 docker-compose exec web python manage.py createsuperuser
 
-# When prompted:
+# When prompted, provide:
+# Username: srimal@sas.co.nz
 # Email address: srimal@sas.co.nz
 # Password: <enter secure password>
 # Password (again): <confirm password>
+# Postcode: 0000  (or your actual postcode)
 # Superuser created successfully.
 ```
 
 **Alternative: Non-Interactive Method**
 
 ```bash
-# Create superuser with single command
+# Create superuser with single command (Python shell)
 docker-compose exec web python manage.py shell -c "
 from django.contrib.auth import get_user_model;
 User = get_user_model();
-User.objects.create_superuser('srimal@sas.co.nz', 'srimal@sas.co.nz', 'your_secure_password')
+user = User.objects.create_superuser(
+    username='srimal@sas.co.nz',
+    email='srimal@sas.co.nz',
+    password='your_secure_password'
+);
+user.postcode = '0000';
+user.user_type = 'admin';
+user.save();
+print(f'Superuser created: {user.email}')
 "
+```
+
+**Note:** The User model requires a `postcode` field. Use `0000` as placeholder or provide a real postcode.
+
+**Method 3: Using Helper Script**
+
+```bash
+# Use the included helper script for easier superuser creation
+docker-compose exec -it web python manage.py shell < scripts/create_superuser.py
+
+# The script will prompt for:
+# - Email address (e.g., srimal@sas.co.nz)
+# - Password (hidden input)
+# - Password confirmation
+# - Postcode (defaults to 0000)
+# - First name (optional)
+# - Last name (optional)
 ```
 
 ### Verify Superuser
