@@ -918,6 +918,22 @@
 .pac-icon {
     margin-right: 8px;
 }
+
+/* Field Highlight Animation for Validation */
+@keyframes highlight-pulse {
+    0%, 100% {
+        border-color: #ced4da;
+        box-shadow: none;
+    }
+    50% {
+        border-color: #ffc107;
+        box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25);
+    }
+}
+
+.highlight-field {
+    animation: highlight-pulse 0.6s ease-in-out 3;
+}
 </style>
 {% endblock %}
 
@@ -2188,8 +2204,196 @@ function recalculateTotalsWithShipping(shippingCost) {
     document.getElementById('total').textContent = '$ ' + total.toFixed(2);
 }
 
+/**
+ * Validate shipping status before generating quotation
+ * Returns: { canProceed: boolean, warnings: string[], errors: string[], status: string }
+ */
+function validateShippingBeforeSave() {
+    const city = $('#recipient_city').val()?.trim();
+    const postcode = $('#recipient_postcode').val()?.trim();
+    const street = $('#recipient_street_address').val()?.trim();
+    const suburb = $('#recipient_suburb').val()?.trim();
+
+    const shippingRow = document.getElementById('shipping-row');
+    const hasShippingCalculated = shippingRow && shippingRow.style.display !== 'none';
+
+    const result = {
+        canProceed: true,
+        warnings: [],
+        errors: [],
+        status: 'unknown'
+    };
+
+    // Count filled address fields
+    const filledFields = [street, suburb, city, postcode].filter(Boolean).length;
+
+    // Case 1: No address entered - allowed
+    if (filledFields === 0) {
+        result.status = 'no_address';
+        result.warnings.push('Quotation will be saved without delivery address and shipping costs');
+        return result;
+    }
+
+    // Case 2: Partially complete address - BLOCK (data quality issue)
+    if (filledFields > 0 && (!city || !postcode)) {
+        result.status = 'incomplete_address';
+        result.errors.push('Please complete the delivery address (City and Postcode required) or clear all fields');
+        result.canProceed = false;
+        return result;
+    }
+
+    // Case 3: Address entered but no shipping calculated - WARN
+    if (filledFields >= 2 && !hasShippingCalculated) {
+        result.status = 'no_shipping';
+        result.warnings.push('Delivery address entered but shipping cost not calculated');
+        return result;
+    }
+
+    // Case 4: Address complete with shipping - ideal
+    if (filledFields >= 2 && hasShippingCalculated) {
+        result.status = 'complete';
+        return result;
+    }
+
+    return result;
+}
+
+/**
+ * Show shipping validation errors/warnings with helpful guidance
+ */
+function showShippingValidationFeedback(validationResult) {
+    // Handle blocking errors
+    if (validationResult.errors.length > 0) {
+        toastr.error(
+            validationResult.errors[0] + '<br><br>Please either:<br>• Complete both City and Postcode fields<br>• Or clear the delivery address section',
+            'Incomplete Delivery Address',
+            {
+                timeOut: 0,
+                extendedTimeOut: 0,
+                closeButton: true,
+                progressBar: false,
+                escapeHtml: false,
+                tapToDismiss: false,
+                onclick: function() {
+                    // Scroll to address section
+                    document.querySelector('.card:has(#recipient_name)')?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
+                    // Focus city field if empty
+                    if (!$('#recipient_city').val()) {
+                        $('#recipient_city').focus();
+                    } else if (!$('#recipient_postcode').val()) {
+                        $('#recipient_postcode').focus();
+                    }
+                }
+            }
+        );
+        return;
+    }
+
+    // Handle warnings (non-blocking)
+    if (validationResult.warnings.length > 0) {
+        if (validationResult.status === 'no_shipping') {
+            const toast = toastr.warning(
+                'You have entered a delivery address but shipping cost has not been calculated.<br><br>' +
+                '<button class="btn btn-sm btn-warning mt-2" onclick="scrollToAddressAndCalculate(this);">' +
+                '<i class="uil uil-truck me-1"></i>Calculate Shipping Now</button> ' +
+                '<button class="btn btn-sm btn-outline-light mt-2 ms-2" onclick="proceedWithoutShipping(this);">Continue Without Shipping</button>',
+                'Shipping Not Calculated',
+                {
+                    timeOut: 0,
+                    extendedTimeOut: 0,
+                    closeButton: true,
+                    progressBar: false,
+                    escapeHtml: false,
+                    tapToDismiss: false
+                }
+            );
+        } else if (validationResult.status === 'no_address') {
+            toastr.info(
+                validationResult.warnings[0],
+                'No Delivery Address',
+                {
+                    timeOut: 4000,
+                    progressBar: true,
+                    closeButton: true
+                }
+            );
+        }
+    }
+}
+
+/**
+ * Scroll to address section and trigger shipping calculation
+ */
+function scrollToAddressAndCalculate(buttonElement) {
+    // Close the toast
+    $(buttonElement).closest('.toast').fadeOut();
+    toastr.clear();
+
+    // Scroll to address section
+    document.querySelector('.card:has(#recipient_name)')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+    });
+
+    // Highlight postcode field
+    setTimeout(() => {
+        $('#recipient_postcode').focus().addClass('highlight-field');
+        setTimeout(() => $('#recipient_postcode').removeClass('highlight-field'), 2000);
+
+        // Auto-trigger calculation if fields are filled
+        const city = $('#recipient_city').val()?.trim();
+        const postcode = $('#recipient_postcode').val()?.trim();
+
+        if (city && postcode) {
+            calculateShipping();
+        } else {
+            toastr.info('Please complete City and Postcode to calculate shipping', 'Address Required', {
+                timeOut: 3000,
+                progressBar: true
+            });
+        }
+    }, 500);
+}
+
+/**
+ * Proceed with quotation save without shipping
+ */
+function proceedWithoutShipping(buttonElement) {
+    // Close the toast
+    $(buttonElement).closest('.toast').fadeOut();
+    toastr.clear();
+
+    // Show confirmation
+    toastr.info('Proceeding without shipping calculation', 'Quotation Save', {
+        timeOut: 2000,
+        progressBar: true
+    });
+
+    // Continue with save
+    {% if is_editing %}
+    const cartItems = {{ cart_items|length|default:0 }};
+    showEditNoteModal('{{ editing_quotation.quotation_number }}', '{{ editing_quotation.get_status_display }}', cartItems);
+    {% else %}
+    saveQuotation();
+    {% endif %}
+}
+
 // Confirm Generate Quotation (called from modal)
 function confirmGenerateQuotation() {
+    // Validate shipping before proceeding
+    const validationResult = validateShippingBeforeSave();
+
+    // Show validation feedback
+    showShippingValidationFeedback(validationResult);
+
+    // Block if there are errors
+    if (!validationResult.canProceed) {
+        return false;
+    }
+
     // Close the modal
     const modal = bootstrap.Modal.getInstance(document.getElementById('generateQuotationModal'));
     modal.hide();
