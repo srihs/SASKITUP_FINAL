@@ -2206,6 +2206,7 @@ function recalculateTotalsWithShipping(shippingCost) {
 
 /**
  * Validate shipping status before generating quotation
+ * BUSINESS RULE: Shipping is REQUIRED for all quotations (no pickup orders)
  * Returns: { canProceed: boolean, warnings: string[], errors: string[], status: string }
  */
 function validateShippingBeforeSave() {
@@ -2227,25 +2228,27 @@ function validateShippingBeforeSave() {
     // Count filled address fields
     const filledFields = [street, suburb, city, postcode].filter(Boolean).length;
 
-    // Case 1: No address entered - allowed
+    // Case 1: No address entered - BLOCK (shipping is mandatory)
     if (filledFields === 0) {
         result.status = 'no_address';
-        result.warnings.push('Quotation will be saved without delivery address and shipping costs');
+        result.errors.push('Delivery address is required to calculate shipping cost');
+        result.canProceed = false;
         return result;
     }
 
     // Case 2: Partially complete address - BLOCK (data quality issue)
     if (filledFields > 0 && (!city || !postcode)) {
         result.status = 'incomplete_address';
-        result.errors.push('Please complete the delivery address (City and Postcode required) or clear all fields');
+        result.errors.push('Please complete the delivery address - City and Postcode are required');
         result.canProceed = false;
         return result;
     }
 
-    // Case 3: Address entered but no shipping calculated - WARN
+    // Case 3: Address entered but no shipping calculated - BLOCK (shipping is mandatory)
     if (filledFields >= 2 && !hasShippingCalculated) {
         result.status = 'no_shipping';
-        result.warnings.push('Delivery address entered but shipping cost not calculated');
+        result.errors.push('Shipping cost must be calculated before generating quotation');
+        result.canProceed = false;
         return result;
     }
 
@@ -2259,14 +2262,39 @@ function validateShippingBeforeSave() {
 }
 
 /**
- * Show shipping validation errors/warnings with helpful guidance
+ * Show shipping validation errors with helpful guidance
+ * ALL cases are now blocking errors (shipping is mandatory)
  */
 function showShippingValidationFeedback(validationResult) {
-    // Handle blocking errors
+    // All validation failures are now blocking errors
     if (validationResult.errors.length > 0) {
+        let errorTitle = 'Delivery Address Required';
+        let errorMessage = validationResult.errors[0];
+        let actionButton = '';
+
+        // Customize message and actions based on validation status
+        if (validationResult.status === 'no_address') {
+            errorTitle = 'Delivery Address Required';
+            errorMessage += '<br><br><strong>All quotations require shipping calculation.</strong><br>' +
+                           'Please enter the delivery address (Street, City, and Postcode) to calculate shipping cost.';
+            actionButton = '<button class="btn btn-sm btn-danger mt-2" onclick="scrollToAddressAndCalculate(this);">' +
+                          '<i class="uil uil-map-marker me-1"></i>Enter Delivery Address</button>';
+        } else if (validationResult.status === 'incomplete_address') {
+            errorTitle = 'Incomplete Delivery Address';
+            errorMessage += '<br><br><strong>Required fields:</strong><br>• City<br>• Postcode';
+            actionButton = '<button class="btn btn-sm btn-danger mt-2" onclick="scrollToAddressAndCalculate(this);">' +
+                          '<i class="uil uil-edit me-1"></i>Complete Address</button>';
+        } else if (validationResult.status === 'no_shipping') {
+            errorTitle = 'Shipping Cost Required';
+            errorMessage += '<br><br><strong>Delivery address entered but shipping not calculated.</strong><br>' +
+                           'Click below to calculate shipping cost now.';
+            actionButton = '<button class="btn btn-sm btn-danger mt-2" onclick="scrollToAddressAndCalculate(this);">' +
+                          '<i class="uil uil-truck me-1"></i>Calculate Shipping Now</button>';
+        }
+
         toastr.error(
-            validationResult.errors[0] + '<br><br>Please either:<br>• Complete both City and Postcode fields<br>• Or clear the delivery address section',
-            'Incomplete Delivery Address',
+            errorMessage + '<br><br>' + actionButton,
+            errorTitle,
             {
                 timeOut: 0,
                 extendedTimeOut: 0,
@@ -2280,47 +2308,10 @@ function showShippingValidationFeedback(validationResult) {
                         behavior: 'smooth',
                         block: 'center'
                     });
-                    // Focus city field if empty
-                    if (!$('#recipient_city').val()) {
-                        $('#recipient_city').focus();
-                    } else if (!$('#recipient_postcode').val()) {
-                        $('#recipient_postcode').focus();
-                    }
                 }
             }
         );
         return;
-    }
-
-    // Handle warnings (non-blocking)
-    if (validationResult.warnings.length > 0) {
-        if (validationResult.status === 'no_shipping') {
-            const toast = toastr.warning(
-                'You have entered a delivery address but shipping cost has not been calculated.<br><br>' +
-                '<button class="btn btn-sm btn-warning mt-2" onclick="scrollToAddressAndCalculate(this);">' +
-                '<i class="uil uil-truck me-1"></i>Calculate Shipping Now</button> ' +
-                '<button class="btn btn-sm btn-outline-light mt-2 ms-2" onclick="proceedWithoutShipping(this);">Continue Without Shipping</button>',
-                'Shipping Not Calculated',
-                {
-                    timeOut: 0,
-                    extendedTimeOut: 0,
-                    closeButton: true,
-                    progressBar: false,
-                    escapeHtml: false,
-                    tapToDismiss: false
-                }
-            );
-        } else if (validationResult.status === 'no_address') {
-            toastr.info(
-                validationResult.warnings[0],
-                'No Delivery Address',
-                {
-                    timeOut: 4000,
-                    progressBar: true,
-                    closeButton: true
-                }
-            );
-        }
     }
 }
 
@@ -2356,29 +2347,6 @@ function scrollToAddressAndCalculate(buttonElement) {
             });
         }
     }, 500);
-}
-
-/**
- * Proceed with quotation save without shipping
- */
-function proceedWithoutShipping(buttonElement) {
-    // Close the toast
-    $(buttonElement).closest('.toast').fadeOut();
-    toastr.clear();
-
-    // Show confirmation
-    toastr.info('Proceeding without shipping calculation', 'Quotation Save', {
-        timeOut: 2000,
-        progressBar: true
-    });
-
-    // Continue with save
-    {% if is_editing %}
-    const cartItems = {{ cart_items|length|default:0 }};
-    showEditNoteModal('{{ editing_quotation.quotation_number }}', '{{ editing_quotation.get_status_display }}', cartItems);
-    {% else %}
-    saveQuotation();
-    {% endif %}
 }
 
 // Confirm Generate Quotation (called from modal)
