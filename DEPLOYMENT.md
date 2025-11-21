@@ -117,7 +117,14 @@ DB_PORT=3306
 # python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
 SECRET_KEY=<generate_new_secret_key_here>
 DEBUG=False
-ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com,your.server.ip
+
+# Allowed hosts (comma-separated, no spaces)
+# Add ALL domains and IPs that will access the application
+ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com,dev-saskitup.it.sas.co.nz,your.server.ip
+
+# CSRF Trusted Origins (comma-separated, include http:// or https://)
+# CRITICAL: Must include the full URL with protocol for CSRF protection
+CSRF_TRUSTED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com,https://dev-saskitup.it.sas.co.nz
 
 # ==========================================
 # EMAIL CONFIGURATION
