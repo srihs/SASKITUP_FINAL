@@ -2323,21 +2323,40 @@ function scrollToAddressAndCalculate(buttonElement) {
     $(buttonElement).closest('.toast').fadeOut();
     toastr.clear();
 
+    // Close the confirmation modal if it's open
+    const confirmModal = document.getElementById('generateQuotationModal');
+    if (confirmModal) {
+        const modalInstance = bootstrap.Modal.getInstance(confirmModal);
+        if (modalInstance) {
+            modalInstance.hide();
+        }
+    }
+
     // Scroll to address section
     document.querySelector('.card:has(#recipient_name)')?.scrollIntoView({
         behavior: 'smooth',
         block: 'center'
     });
 
-    // Highlight postcode field
+    // Highlight appropriate field and focus
     setTimeout(() => {
-        $('#recipient_postcode').focus().addClass('highlight-field');
-        setTimeout(() => $('#recipient_postcode').removeClass('highlight-field'), 2000);
-
-        // Auto-trigger calculation if fields are filled
         const city = $('#recipient_city').val()?.trim();
         const postcode = $('#recipient_postcode').val()?.trim();
+        const street = $('#recipient_street_address').val()?.trim();
 
+        // Focus the first empty required field
+        if (!street) {
+            $('#recipient_street_address').focus().addClass('highlight-field');
+            setTimeout(() => $('#recipient_street_address').removeClass('highlight-field'), 2000);
+        } else if (!city) {
+            $('#recipient_city').focus().addClass('highlight-field');
+            setTimeout(() => $('#recipient_city').removeClass('highlight-field'), 2000);
+        } else if (!postcode) {
+            $('#recipient_postcode').focus().addClass('highlight-field');
+            setTimeout(() => $('#recipient_postcode').removeClass('highlight-field'), 2000);
+        }
+
+        // Auto-trigger calculation if all required fields are filled
         if (city && postcode) {
             calculateShipping();
         } else {
