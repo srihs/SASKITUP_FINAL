@@ -40,10 +40,11 @@ class User(AbstractUser):
     address = models.TextField(blank=True, help_text="Physical address for deliveries")
 
     # Shipping/Delivery Address (structured fields)
+    # Note: These fields are primarily for customer users who need delivery addresses
     street_address = models.CharField(max_length=255, blank=True, help_text="Street number and name")
     suburb = models.CharField(max_length=100, blank=True, help_text="Suburb")
     city = models.CharField(max_length=100, blank=True, help_text="Town/City")
-    postcode = models.CharField(max_length=10, blank=False, help_text="Postcode")
+    postcode = models.CharField(max_length=10, blank=True, help_text="Postcode (required for customers)")
 
     department = models.CharField(max_length=100, blank=True, help_text="Department or team")
     hire_date = models.DateField(null=True, blank=True, help_text="Date hired")

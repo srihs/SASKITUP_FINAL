@@ -419,7 +419,6 @@ docker-compose exec web python manage.py createsuperuser
 # Email address: srimal@sas.co.nz
 # Password: <enter secure password>
 # Password (again): <confirm password>
-# Postcode: 0000  (or your actual postcode)
 # Superuser created successfully.
 ```
 
@@ -435,16 +434,13 @@ user = User.objects.create_superuser(
     email='srimal@sas.co.nz',
     password='your_secure_password'
 );
-user.postcode = '0000';
 user.user_type = 'admin';
 user.save();
 print(f'Superuser created: {user.email}')
 "
 ```
 
-**Note:** The User model requires a `postcode` field. Use `0000` as placeholder or provide a real postcode.
-
-**Method 3: Using Helper Script**
+**Method 3: Using Helper Script (Optional)**
 
 ```bash
 # Use the included helper script for easier superuser creation
@@ -454,10 +450,12 @@ docker-compose exec -it web python manage.py shell < scripts/create_superuser.py
 # - Email address (e.g., srimal@sas.co.nz)
 # - Password (hidden input)
 # - Password confirmation
-# - Postcode (defaults to 0000)
+# - Postcode (optional - press Enter to skip)
 # - First name (optional)
 # - Last name (optional)
 ```
+
+**Note:** Postcode is optional for admin users. It's only required for customer users who need delivery addresses.
 
 ### Verify Superuser
 
