@@ -23,9 +23,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Required for cryptography package
     libffi-dev \
     libssl-dev \
-    # Required for PDF generation (xhtml2pdf)
+    # Required for PDF generation (xhtml2pdf and reportlab)
     libxml2-dev \
     libxslt1-dev \
+    # Required for reportlab (FreeType for font rendering)
+    libfreetype6-dev \
+    liblcms2-dev \
+    # Required for WeasyPrint
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libgdk-pixbuf2.0-0 \
+    shared-mime-info \
     # Utilities
     curl \
     && rm -rf /var/lib/apt/lists/*
