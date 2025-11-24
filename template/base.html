@@ -284,55 +284,56 @@
                             </li>
 
                             {% if not user.is_customer %}
-                                {% if user.is_admin %}
-                                <li class="menu-title">CLIENTS</li>
-                                {% elif user.is_sales_rep or user.is_account_manager %}
-                                <li class="menu-title">MY CLIENTS</li>
-                                {% else %}
-                                <li class="menu-title">CLIENTS</li>
+                                {# Hide CLIENTS section from account managers and sales reps #}
+                                {% if not user.is_sales_rep and not user.is_account_manager %}
+                                    {% if user.is_admin %}
+                                    <li class="menu-title">CLIENTS</li>
+                                    {% else %}
+                                    <li class="menu-title">CLIENTS</li>
+                                    {% endif %}
+
+                                    <li>
+                                        <a href="javascript: void(0);" class="has-arrow waves-effect">
+                                            <i class="uil-calender"></i>
+                                            <span>Clubs</span>
+                                        </a>
+                                        <ul class="sub-menu" aria-expanded="false">
+                                            <li><a href="{% url 'clubs:lotto-clubs' %}">LOTTO Clubs</a></li>
+                                            <li><a href="{% url 'clubs:sas-clubs' %}">SAS Clubs</a></li>
+                                        </ul>
+                                    </li>
+
+                                    <li>
+                                        <a href="javascript: void(0);" class="has-arrow waves-effect">
+                                            <i class="uil-graduation-cap"></i>
+                                            <span>Schools</span>
+                                        </a>
+                                        <ul class="sub-menu" aria-expanded="false">
+                                            {% if user.is_admin %}
+                                            <li><a href="{% url 'schools:school_list' %}">School Database</a></li>
+                                            {% endif %}
+                                            <li><a href="{% url 'schools:retail_schools' %}">Retail Schools</a></li>
+                                            <li><a href="{% url 'schools:wholesale_schools' %}">Wholesale Schools</a></li>
+                                        </ul>
+                                    </li>
+
+                                    <li>
+                                        <a href="javascript: void(0);" class="has-arrow waves-effect">
+                                            <i class="uil-basketball"></i>
+                                            <span>Equipments</span>
+                                        </a>
+                                        <ul class="sub-menu" aria-expanded="false">
+                                            <li><a href="{% url 'ballstore:category-list' %}">Ball Store</a></li>
+                                        </ul>
+                                    </li>
+
+                                    <li>
+                                        <a href="{% url 'bespoke:category_list' %}">
+                                            <i class="uil-star"></i>
+                                            <span>Bespoke</span>
+                                        </a>
+                                    </li>
                                 {% endif %}
-
-                                <li>
-                                    <a href="javascript: void(0);" class="has-arrow waves-effect">
-                                        <i class="uil-calender"></i>
-                                        <span>Clubs</span>
-                                    </a>
-                                    <ul class="sub-menu" aria-expanded="false">
-                                        <li><a href="{% url 'clubs:lotto-clubs' %}">LOTTO Clubs</a></li>
-                                        <li><a href="{% url 'clubs:sas-clubs' %}">SAS Clubs</a></li>
-                                    </ul>
-                                </li>
-
-                                <li>
-                                    <a href="javascript: void(0);" class="has-arrow waves-effect">
-                                        <i class="uil-graduation-cap"></i>
-                                        <span>Schools</span>
-                                    </a>
-                                    <ul class="sub-menu" aria-expanded="false">
-                                        {% if user.is_admin %}
-                                        <li><a href="{% url 'schools:school_list' %}">School Database</a></li>
-                                        {% endif %}
-                                        <li><a href="{% url 'schools:retail_schools' %}">Retail Schools</a></li>
-                                        <li><a href="{% url 'schools:wholesale_schools' %}">Wholesale Schools</a></li>
-                                    </ul>
-                                </li>
-
-                                <li>
-                                    <a href="javascript: void(0);" class="has-arrow waves-effect">
-                                        <i class="uil-basketball"></i>
-                                        <span>Equipments</span>
-                                    </a>
-                                    <ul class="sub-menu" aria-expanded="false">
-                                        <li><a href="{% url 'ballstore:category-list' %}">Ball Store</a></li>
-                                    </ul>
-                                </li>
-
-                                <li>
-                                    <a href="{% url 'bespoke:category_list' %}">
-                                        <i class="uil-star"></i>
-                                        <span>Bespoke</span>
-                                    </a>
-                                </li>
                             {% endif %}
 
                             <li class="menu-title">QUOTATIONS</li>
