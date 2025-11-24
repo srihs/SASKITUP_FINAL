@@ -366,12 +366,27 @@ docker-compose logs -f web
 
 ## Post-Deployment Tasks
 
-### Step 1: Run Database Migrations
+### Step 1: Create and Run Database Migrations
 
 **CRITICAL:** Must be done before first use!
 
+**IMPORTANT:** All migrations have been cleared for fresh start. You must create new migrations first.
+
 ```bash
-# Execute migrations inside container
+# Step 1: Create fresh migrations from current models
+docker-compose exec web python manage.py makemigrations
+
+# Expected output:
+# Migrations for 'authentication':
+#   authentication/migrations/0001_initial.py
+#     - Create model User
+#     - Create model AuditLog
+# Migrations for 'clubs':
+#   clubs/migrations/0001_initial.py
+#     - Create model LottoClub
+#     ... (similar for all apps)
+
+# Step 2: Apply migrations to database
 docker-compose exec web python manage.py migrate
 
 # Expected output:
@@ -380,14 +395,37 @@ docker-compose exec web python manage.py migrate
 # Running migrations:
 #   Applying contenttypes.0001_initial... OK
 #   Applying auth.0001_initial... OK
-#   ... (multiple lines)
-#   Applying quotations.0013_quotation_cin7_contact_fields... OK
+#   Applying authentication.0001_initial... OK
+#   Applying clubs.0001_initial... OK
+#   Applying quotations.0001_initial... OK
+#   Applying schools.0001_initial... OK
+#   Applying ballstore.0001_initial... OK
+#   Applying bespoke.0001_initial... OK
 #   ... OK
 
-# Verify migrations
+# Step 3: Verify all migrations applied successfully
 docker-compose exec web python manage.py showmigrations
 
-# All should have [X] marks
+# All should have [X] marks showing they are applied
+```
+
+**Troubleshooting Migration Issues:**
+
+```bash
+# If migrations fail, check the error and try:
+
+# 1. Check database connection
+docker-compose exec web python manage.py dbshell
+# Type: SELECT 1;
+# Type: EXIT;
+
+# 2. If you need to start over:
+# Drop and recreate database (WARNING: deletes all data!)
+mysql -u root -p -e "DROP DATABASE cpq_kitup; CREATE DATABASE cpq_kitup CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+# Then retry migrations
+docker-compose exec web python manage.py makemigrations
+docker-compose exec web python manage.py migrate
 ```
 
 ### Step 2: Collect Static Files
