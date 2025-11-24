@@ -5560,11 +5560,15 @@ class QuotationCustomerApproveView(LoginRequiredMixin, View):
 
 class QuotationApproveView(LoginRequiredMixin, View):
     """
-    Approve a quotation and trigger CIN7 sync.
+    Approve a quotation and trigger CIN7/eWand sync.
     POST only view with CSRF protection.
 
-    CRITICAL: CIN7 sync must succeed before quotation is approved.
-    If sync fails, approval is rolled back and quotation remains in pending status.
+    CRITICAL: CIN7 and/or eWand sync must succeed before quotation is approved.
+    - Non-bespoke items (Wholesale, Lotto, SAS, TUS, BallStore) → Sync to CIN7
+    - Bespoke items → Sync to eWand
+    - Mixed quotations → Sync to both systems
+
+    If any sync fails, approval is rolled back and quotation remains in pending status.
     """
 
     @account_manager_required
@@ -5590,13 +5594,16 @@ class QuotationApproveView(LoginRequiredMixin, View):
                 logger.warning(f"Account manager {request.user.get_full_name()} overriding customer approval requirement for {quotation.quotation_number}")
 
             # Use database transaction to ensure atomicity
-            # If CIN7 sync fails, entire approval will be rolled back
+            # If CIN7 or eWand sync fails, entire approval will be rolled back
             try:
                 with transaction.atomic():
                     # Check if CIN7 sync is required
                     # Pass during_approval=True since we're in the approval flow
                     # This allows validation to pass even though account_manager_approved_at is not set yet
                     requires_cin7_sync = quotation.can_be_synced_to_cin7(during_approval=True)
+
+                    # Check if eWand sync is required (for bespoke products)
+                    requires_ewand_sync = quotation.has_bespoke_items()
 
                     # If CIN7 sync required, perform it BEFORE approval
                     if requires_cin7_sync:
@@ -5632,6 +5639,35 @@ class QuotationApproveView(LoginRequiredMixin, View):
                             cin7_reference=sync_result.get('cin7_reference')
                         )
 
+                    # If eWand sync required, perform it BEFORE approval
+                    if requires_ewand_sync:
+                        from quotations.services.ewand_quotation_service import EwandQuotationService
+
+                        # Perform eWand sync
+                        logger.info(f"Attempting eWand sync for quotation {quotation.quotation_number} before approval")
+                        ewand_service = EwandQuotationService()
+                        ewand_result = ewand_service.create_quotation(quotation)
+
+                        # Check sync result
+                        ewand_sync_success = ewand_result.get('success', False)
+                        ewand_sync_message = ewand_result.get('message', 'eWand sync completed')
+
+                        if not ewand_sync_success:
+                            # Sync failed - raise exception to trigger rollback
+                            raise Exception(f"eWand sync failed: {ewand_sync_message}")
+
+                        # Log successful eWand sync
+                        AuditLog.log_action(
+                            user=request.user,
+                            action_type='ewand_quotation_created',
+                            description=f'eWand sync for quotation {quotation.quotation_number}: {ewand_sync_message}',
+                            request=request,
+                            affected_model='Quotation',
+                            affected_object_id=str(quotation.id),
+                            quotation_id=str(quotation.id),
+                            ewand_data=ewand_result.get('ewand_data')
+                        )
+
                     # CIN7 sync succeeded (or not required) - proceed with approval
                     quotation.status = 'approved'
                     quotation.approved_by = request.user
@@ -5662,22 +5698,25 @@ class QuotationApproveView(LoginRequiredMixin, View):
                     # Transaction will commit here if no exceptions raised
 
             except Exception as sync_error:
-                # CIN7 sync or approval failed - transaction has been rolled back
-                logger.error(f"CIN7 sync failed for quotation {quotation.quotation_number}: {sync_error}")
+                # CIN7 or eWand sync or approval failed - transaction has been rolled back
+                error_type = 'CIN7' if 'CIN7' in str(sync_error) else 'eWand' if 'eWand' in str(sync_error) else 'Sync'
+                logger.error(f"{error_type} sync failed for quotation {quotation.quotation_number}: {sync_error}")
 
                 # Reload quotation to get fresh state after rollback
                 quotation.refresh_from_db()
 
-                # Update quotation with sync error
-                quotation.cin7_sync_status = 'failed'
-                quotation.cin7_sync_error = str(sync_error)
-                quotation.save(update_fields=['cin7_sync_status', 'cin7_sync_error', 'updated_at'])
+                # Update quotation with sync error (for CIN7 errors, keep existing field)
+                if 'CIN7' in str(sync_error):
+                    quotation.cin7_sync_status = 'failed'
+                    quotation.cin7_sync_error = str(sync_error)
+                    quotation.save(update_fields=['cin7_sync_status', 'cin7_sync_error', 'updated_at'])
 
                 # Log sync failure
+                action_type = 'cin7_sync_failed' if 'CIN7' in str(sync_error) else 'ewand_sync_failed'
                 AuditLog.log_action(
                     user=request.user,
-                    action_type='cin7_sync_failed',
-                    description=f'CIN7 sync failed for quotation {quotation.quotation_number}: {str(sync_error)}',
+                    action_type=action_type,
+                    description=f'{error_type} sync failed for quotation {quotation.quotation_number}: {str(sync_error)}',
                     request=request,
                     affected_model='Quotation',
                     affected_object_id=str(quotation.id),
@@ -5686,13 +5725,14 @@ class QuotationApproveView(LoginRequiredMixin, View):
                 )
 
                 # Return error response - quotation remains in pending status
-                error_message = f'Quotation approval failed: CIN7 sync error - {str(sync_error)}'
+                error_message = f'Quotation approval failed: {error_type} sync error - {str(sync_error)}'
                 messages.error(request, error_message)
 
                 return JsonResponse({
                     'success': False,
                     'message': error_message,
                     'cin7_sync': False,
+                    'ewand_sync': False,
                     'quotation_status': quotation.status  # Should still be 'pending'
                 }, status=400)
 
@@ -5705,8 +5745,14 @@ class QuotationApproveView(LoginRequiredMixin, View):
 
             # Success message
             success_message = f'Quotation {quotation.quotation_number} approved successfully'
+            sync_details = []
             if requires_cin7_sync:
-                success_message += ' and synced to CIN7'
+                sync_details.append('synced to CIN7')
+            if requires_ewand_sync:
+                sync_details.append('synced to eWand')
+
+            if sync_details:
+                success_message += f' and {" and ".join(sync_details)}'
 
             messages.success(request, success_message)
 
@@ -5714,6 +5760,7 @@ class QuotationApproveView(LoginRequiredMixin, View):
                 'success': True,
                 'message': success_message,
                 'cin7_sync': requires_cin7_sync,
+                'ewand_sync': requires_ewand_sync,
                 'redirect_url': reverse('quotations:quotation-detail', kwargs={'pk': quotation.id})
             })
 

@@ -309,7 +309,7 @@ temp_uploads/
 /*.gif
 /*.webp
 /*.svg
-
+/*.zip
 test-results/
 chrome/
 implementation_notes/
