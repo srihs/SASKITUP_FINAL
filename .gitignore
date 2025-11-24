@@ -298,6 +298,7 @@ run_*.py
 debug_*.py
 *_comparison.json
 *_validation_results.json
+/*.txt
 
 # Temporary uploads
 temp_uploads/

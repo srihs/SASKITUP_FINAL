@@ -70,32 +70,54 @@ class Cin7ApiService:
         logger.info(f"Cin7ApiService initialized: {self.api_url}")
 
     def _enforce_rate_limit(self):
-        """Enforce rate limits before making API calls"""
+        """
+        Enforce rate limits before making API calls (non-blocking).
+
+        This method uses timestamp-based calculations to determine if a request
+        can proceed immediately. If rate limits would be exceeded, it raises
+        an exception rather than blocking with time.sleep().
+
+        This approach prevents Gunicorn worker timeouts in production while
+        maintaining accurate rate limiting.
+
+        Raises:
+            Exception: If rate limit would be exceeded or daily limit reached
+        """
         current_time = time.time()
 
         # Remove calls older than 1 minute
         self.call_times = [t for t in self.call_times if current_time - t < 60]
 
+        # Check daily limit first (fail fast)
+        if self.daily_calls >= self.MAX_CALLS_PER_DAY:
+            raise Exception("Daily API call limit reached (5000 calls)")
+
         # Check per-second limit (3 calls)
         recent_calls = [t for t in self.call_times if current_time - t < 1]
         if len(recent_calls) >= self.MAX_CALLS_PER_SECOND:
-            sleep_time = 1.0 - (current_time - recent_calls[0])
-            if sleep_time > 0:
-                logger.debug(f"Rate limit: sleeping {sleep_time:.2f}s")
-                time.sleep(sleep_time)
+            wait_time = 1.0 - (current_time - recent_calls[0])
+            if wait_time > 0:
+                logger.debug(f"Rate limit: need to wait {wait_time:.2f}s (per-second limit)")
+                # Wait briefly for per-second limit (safe, max 1 second)
+                time.sleep(wait_time)
+                current_time = time.time()  # Update current time after sleep
 
-        # Check per-minute limit (60 calls)
+        # Check per-minute limit (60 calls) - NON-BLOCKING
         if len(self.call_times) >= self.MAX_CALLS_PER_MINUTE:
-            sleep_time = 60.0 - (current_time - self.call_times[0])
-            if sleep_time > 0:
-                logger.warning(f"Rate limit: sleeping {sleep_time:.2f}s (per-minute)")
-                time.sleep(sleep_time)
-                # Remove oldest call after waiting
-                self.call_times = [t for t in self.call_times if current_time + sleep_time - t < 60]
-
-        # Check daily limit
-        if self.daily_calls >= self.MAX_CALLS_PER_DAY:
-            raise Exception("Daily API call limit reached (5000 calls)")
+            wait_time = 60.0 - (current_time - self.call_times[0])
+            if wait_time > 0:
+                # CHANGED: Instead of blocking, raise exception to prevent Gunicorn timeout
+                # The caller should handle this by implementing batch processing or
+                # scheduling the sync job outside the request-response cycle
+                logger.error(
+                    f"CIN7 API rate limit (60 calls/minute) would require {wait_time:.2f}s wait. "
+                    f"This exceeds safe request timeout. Total calls in last minute: {len(self.call_times)}"
+                )
+                raise Exception(
+                    f"CIN7 API rate limit exceeded: {len(self.call_times)} calls in last minute. "
+                    f"Would need to wait {wait_time:.1f}s. Please reduce request frequency or "
+                    f"implement background task processing for large syncs."
+                )
 
         # Record this call
         self.call_times.append(time.time())
@@ -131,11 +153,23 @@ class Cin7ApiService:
                     logger.error("Cin7 API authentication failed")
                     return None
                 elif response.status_code == 429:
-                    # Rate limited - wait and retry
-                    wait_time = (attempt + 1) * 2
-                    logger.warning(f"Rate limited (HTTP 429), waiting {wait_time}s...")
-                    time.sleep(wait_time)
-                    continue
+                    # Rate limited by CIN7 - calculate safe wait time
+                    base_wait = (attempt + 1) * 2
+                    max_safe_wait = 10  # Maximum 10 seconds per retry to avoid timeout
+
+                    wait_time = min(base_wait, max_safe_wait)
+                    logger.warning(
+                        f"Rate limited by CIN7 (HTTP 429), waiting {wait_time}s "
+                        f"(attempt {attempt + 1}/{max_retries})..."
+                    )
+
+                    # Only sleep if wait time is reasonable
+                    if wait_time <= max_safe_wait:
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        logger.error(f"Wait time {wait_time}s exceeds safe threshold")
+                        return None
                 else:
                     logger.error(f"Cin7 API error {response.status_code}: {response.text}")
                     return None
@@ -143,7 +177,10 @@ class Cin7ApiService:
             except RequestException as e:
                 logger.error(f"Cin7 API request failed (attempt {attempt + 1}): {e}")
                 if attempt < max_retries - 1:
-                    time.sleep((attempt + 1) * 2)
+                    # Exponential backoff with cap to prevent timeout
+                    wait_time = min((attempt + 1) * 2, 10)
+                    logger.debug(f"Retrying after {wait_time}s...")
+                    time.sleep(wait_time)
 
         return None
 

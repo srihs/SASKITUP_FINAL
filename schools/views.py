@@ -4837,7 +4837,28 @@ class FetchCIN7ContactsView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, V
                         f'Fetching page {page} (250 contacts per page)...',
                         details={'page': page}, user=request.user)
 
-                batch = api._make_request('Contacts', params={'rows': 250, 'page': page})
+                try:
+                    batch = api._make_request('Contacts', params={'rows': 250, 'page': page})
+                except Exception as page_err:
+                    # Handle rate limit during pagination
+                    if "rate limit" in str(page_err).lower():
+                        logger.error(
+                            f"Rate limit reached during pagination at page {page}. "
+                            f"Already fetched {len(all_contacts)} contacts. Stopping pagination."
+                        )
+                        log_sync(session_id, 'cin7_contact_mapping', 'error',
+                                f'⚠️ Rate limit reached at page {page}. Stopping with {len(all_contacts)} contacts fetched.',
+                                details={
+                                    'page': page,
+                                    'contacts_fetched': len(all_contacts),
+                                    'error': str(page_err)
+                                },
+                                user=request.user)
+                        print(f"\n⚠️  Rate limit reached at page {page}. Processing {len(all_contacts)} contacts already fetched.")
+                        break
+                    else:
+                        # Re-raise non-rate-limit errors
+                        raise
 
                 if not batch or len(batch) == 0:
                     # When no more contacts found
@@ -4939,13 +4960,36 @@ class FetchCIN7ContactsView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, V
                     if needs_enrichment:
                         # Fetch complete contact data from individual endpoint
                         contact_id = contact_data['id']
-                        full_contact = api._make_request(f'Contacts/{contact_id}')
+                        try:
+                            full_contact = api._make_request(f'Contacts/{contact_id}')
 
-                        if full_contact:
-                            # Use full contact data instead of list data
-                            contact_data = full_contact
-                            enriched_count += 1
-                            logger.info(f"Enriched contact {contact_id} ({company}) with full API data")
+                            if full_contact:
+                                # Use full contact data instead of list data
+                                contact_data = full_contact
+                                enriched_count += 1
+                                logger.info(f"Enriched contact {contact_id} ({company}) with full API data")
+                        except Exception as rate_err:
+                            # Rate limit exception during enrichment - log and continue with basic data
+                            if "rate limit" in str(rate_err).lower():
+                                logger.warning(
+                                    f"Rate limit reached during contact enrichment for {contact_id}. "
+                                    f"Continuing with basic contact data. Total enriched so far: {enriched_count}"
+                                )
+                                log_sync(session_id, 'cin7_contact_mapping', 'warning',
+                                        f'⚠️ Rate limit reached during enrichment at contact {created_count + 1}. '
+                                        f'Continuing with basic data for remaining contacts.',
+                                        details={
+                                            'contact_id': contact_id,
+                                            'contacts_processed': created_count,
+                                            'enriched_count': enriched_count,
+                                            'error': str(rate_err)
+                                        },
+                                        user=request.user)
+                                # Continue with basic contact_data (don't raise, just skip enrichment)
+                            else:
+                                # Non-rate-limit error during enrichment
+                                logger.warning(f"Failed to enrich contact {contact_id}: {rate_err}")
+                                # Continue with basic contact_data
 
                     CIN7Contact.objects.create(
                         cin7_id=contact_data['id'],
