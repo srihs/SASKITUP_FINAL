@@ -20,6 +20,10 @@ build/
 .coverage
 htmlcov/
 
+# IMPORTANT: Keep migration files!
+!*/migrations/*.py
+!*/migrations/__init__.py
+
 # Virtual Environment
 env/
 venv/

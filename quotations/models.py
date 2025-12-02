@@ -311,6 +311,31 @@ class Quotation(models.Model):
         help_text="Rural Delivery (RD) surcharge applies"
     )
 
+    # Bespoke Order Fields
+    shipping_mode = models.CharField(
+        max_length=10,
+        choices=[('sea', 'Sea Freight'), ('air', 'Air Freight')],
+        default='sea',
+        help_text="Shipping method for bespoke items (Sea or Air freight)"
+    )
+    air_freight_surcharge = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text="6% surcharge applied when Air freight is selected"
+    )
+    order_label = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Custom label for order organization"
+    )
+    order_required_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Required delivery date (minimum 6 weeks for Air, 8 weeks for Sea from order date)"
+    )
+
     # Notes and comments
     notes = models.TextField(
         blank=True,

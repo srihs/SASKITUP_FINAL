@@ -1012,7 +1012,7 @@
                     <!-- Collapsible Variations -->
                     <div class="collapse show" id="product-group-{{ forloop.counter }}">
                         {% for item in group.list %}
-                        <div class="variation-item border-top{% if item.is_addon %} addon-variation-item{% endif %}">
+                        <div class="variation-item border-top{% if item.is_addon %} addon-variation-item{% endif %}" data-product-type="{{ item.product_type|default:'standardproduct' }}">
                             <div class="variation-row">
                                 <!-- Column 1: Size/Color Badges -->
                                 <div class="variation-col variation-col-badges">
@@ -1253,6 +1253,12 @@
                                         <td class="text-end" id="shipping-cost">$ {{ shipping_cost|floatformat:2|intcomma }}</td>
                                     </tr>
                                     {% endif %}
+                                    <tr id="air-surcharge-row" style="display: none;">
+                                        <td>
+                                            <i class="uil uil-plane-fly me-1 text-info"></i> Air Freight Surcharge (6%)
+                                        </td>
+                                        <td class="text-end" id="air-surcharge-cost">$ 0.00</td>
+                                    </tr>
                                     <tr>
                                         <td>GST :</td>
                                         <td class="text-end" id="tax">$ {{ tax|floatformat:2|intcomma|default:"0.00" }}</td>
@@ -1372,7 +1378,7 @@
                                 Shipping cost will be calculated automatically when you complete this field
                             </div>
                         </div>
-                        <div class="mb-0">
+                        <div class="mb-3">
                             <label for="additional_emails" class="form-label">Additional Email Recipients <span class="text-muted">(Optional)</span></label>
                             <input type="text" class="form-control" id="additional_emails" placeholder="email1@example.com; email2@example.com" value="{% if editing_quotation.additional_emails %}{{ editing_quotation.additional_emails }}{% endif %}">
                             <div class="form-text mt-2">
@@ -1383,6 +1389,64 @@
                                 Please enter valid email addresses.
                             </div>
                         </div>
+
+                        <!-- Bespoke Order Details Section (Only shown when cart contains bespoke items) -->
+                        <div id="bespoke-order-details" style="display: none;">
+                            <hr class="my-4">
+                            <h6 class="mb-3 text-primary">
+                                <i class="uil uil-package me-2"></i>Bespoke Order Details
+                            </h6>
+
+                            <!-- Shipping Mode Selector -->
+                            <div class="mb-3">
+                                <label class="form-label">Shipping Mode</label>
+                                <div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="shipping_mode" id="shipping_mode_sea" value="sea" checked onchange="updateShippingMode('sea')">
+                                        <label class="form-check-label" for="shipping_mode_sea">
+                                            <i class="uil uil-ship me-1 text-primary"></i>
+                                            <strong>Sea Freight</strong> <span class="text-muted">(8 weeks)</span>
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="shipping_mode" id="shipping_mode_air" value="air" onchange="updateShippingMode('air')">
+                                        <label class="form-check-label" for="shipping_mode_air">
+                                            <i class="uil uil-plane-fly me-1 text-info"></i>
+                                            <strong>Air Freight</strong> <span class="text-muted">(+6% surcharge, 6 weeks)</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Order Label Field -->
+                            <div class="mb-3">
+                                <label for="order_label" class="form-label">
+                                    Order Label <span class="text-muted">(Optional)</span>
+                                </label>
+                                <input type="text" class="form-control" id="order_label" placeholder="e.g., Spring Team Order 2024" maxlength="255">
+                                <div class="form-text mt-1">
+                                    <i class="uil uil-tag-alt me-1"></i>
+                                    Add a custom label to help identify this order
+                                </div>
+                            </div>
+
+                            <!-- Required Delivery Date Field -->
+                            <div class="mb-0">
+                                <label for="required_delivery_date" class="form-label">Required Delivery Date</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="uil uil-calendar-alt"></i></span>
+                                    <input type="date" class="form-control" id="required_delivery_date" required>
+                                </div>
+                                <div class="form-text mt-1">
+                                    <i class="uil uil-info-circle me-1"></i>
+                                    <span id="delivery_date_help">Minimum delivery time: 8 weeks from today</span>
+                                </div>
+                                <div id="delivery_date_error" class="invalid-feedback" style="display: none;">
+                                    Please select a date that meets the minimum delivery timeframe.
+                                </div>
+                            </div>
+                        </div>
+                        <!-- end Bespoke Order Details Section -->
                     </div>
                 </div>
                 <!-- end Recipient Information Section -->
@@ -1651,9 +1715,12 @@ $(document).ready(function() {
                                     $('#recipient_city').val(data.delivery_city);
                                 }
 
-                                if (data.delivery_state) {
-                                    $('#recipient_suburb').val(data.delivery_state);
-                                }
+                                // Note: CIN7 doesn't provide suburb data separately
+                                // Leave suburb field empty for manual entry or Google autocomplete
+                                // If suburb data becomes available in future, uncomment:
+                                // if (data.delivery_suburb) {
+                                //     $('#recipient_suburb').val(data.delivery_suburb);
+                                // }
 
                                 if (data.delivery_postcode) {
                                     $('#recipient_postcode').val(data.delivery_postcode);
@@ -1661,12 +1728,27 @@ $(document).ready(function() {
                             }
 
                             // Calculate shipping after address is populated
-                            // Use setTimeout to ensure fields are updated
+                            // Use setTimeout to ensure fields are updated and Select2 has released focus
                             console.log('Scheduling shipping calculation after address auto-fill');
                             setTimeout(function() {
-                                console.log('Calling calculateShipping after institution selection');
-                                calculateShipping();
-                            }, 100);
+                                // Log the actual field values to debug
+                                const debugCity = $('#recipient_city').val();
+                                const debugPostcode = $('#recipient_postcode').val();
+                                const debugSuburb = $('#recipient_suburb').val();
+                                console.log('DEBUG: Address fields before calculateShipping:', {
+                                    city: debugCity,
+                                    postcode: debugPostcode,
+                                    suburb: debugSuburb
+                                });
+
+                                // Only call if we have city or postcode
+                                if (debugCity || debugPostcode) {
+                                    console.log('Calling calculateShipping after institution selection');
+                                    calculateShipping();
+                                } else {
+                                    console.warn('Skipping calculateShipping - no city or postcode populated');
+                                }
+                            }, 250); // Increased from 100ms to 250ms for better reliability
                         }
                     },
                     error: function(xhr, status, error) {
@@ -1782,6 +1864,9 @@ $(document).ready(function() {
     if ($('#recipient_city').val()?.trim() && $('#recipient_postcode').val()?.trim()) {
         calculateShipping();
     }
+
+    // Check for bespoke items on page load
+    checkBespokeItems();
 });
 
 // Show/Hide Loading Overlay
@@ -1984,6 +2069,9 @@ function updateSummary(data) {
     if (data.discount !== undefined && document.getElementById('discount')) {
         document.getElementById('discount').textContent = '- $ ' + data.discount;
     }
+
+    // Recalculate air surcharge if applicable (in case subtotal changed)
+    recalculateTotalsWithAirSurcharge();
 }
 
 // Calculate Shipping Cost Based on Address
@@ -2053,6 +2141,10 @@ function calculateShipping() {
         console.log('Shipping calculation response data:', data);
         if (data.success) {
             console.log('Shipping calculated successfully:', data);
+            console.log('Shipping cost received:', data.shipping_cost);
+            console.log('Region:', data.region);
+            console.log('Boxes:', data.boxes);
+            console.log('Is rural:', data.is_rural);
 
             // If city was geocoded from postcode, auto-fill the city field
             if (data.geocoded_city) {
@@ -2195,17 +2287,182 @@ function recalculateTotalsWithShipping(shippingCost) {
 
     // Add shipping
     const shipping = parseFloat(shippingCost) || 0;
-    const subtotalWithShipping = subtotal + shipping;
+
+    // Check if air freight surcharge should be applied
+    const airSurchargeRow = document.getElementById('air-surcharge-row');
+    let airSurcharge = 0;
+    if (airSurchargeRow && airSurchargeRow.style.display !== 'none') {
+        const airSurchargeText = document.getElementById('air-surcharge-cost').textContent.replace(/[$,\s]/g, '');
+        airSurcharge = parseFloat(airSurchargeText) || 0;
+    }
+
+    const subtotalWithShippingAndSurcharge = subtotal + shipping + airSurcharge;
 
     // Calculate tax (15% GST)
-    const tax = subtotalWithShipping * 0.15;
+    const tax = subtotalWithShippingAndSurcharge * 0.15;
 
     // Calculate total
-    const total = subtotalWithShipping + tax;
+    const total = subtotalWithShippingAndSurcharge + tax;
 
     // Update display
     document.getElementById('tax').textContent = '$ ' + tax.toFixed(2);
     document.getElementById('total').textContent = '$ ' + total.toFixed(2);
+}
+
+/**
+ * Check if cart contains bespoke items and show/hide bespoke order details section
+ */
+function checkBespokeItems() {
+    // Check if any cart items have product_type containing 'bespoke' (case-insensitive)
+    const cartItems = document.querySelectorAll('[data-product-type]');
+    let hasBespokeItems = false;
+
+    cartItems.forEach(function(item) {
+        const productType = item.getAttribute('data-product-type');
+        if (productType && productType.toLowerCase().includes('bespoke')) {
+            hasBespokeItems = true;
+        }
+    });
+
+    // Show or hide the bespoke order details section
+    const bespokeSection = document.getElementById('bespoke-order-details');
+    if (bespokeSection) {
+        if (hasBespokeItems) {
+            bespokeSection.style.display = 'block';
+            // Initialize required delivery date
+            updateShippingMode('sea');
+        } else {
+            bespokeSection.style.display = 'none';
+            // Clear air surcharge if section is hidden
+            const airSurchargeRow = document.getElementById('air-surcharge-row');
+            if (airSurchargeRow) {
+                airSurchargeRow.style.display = 'none';
+            }
+        }
+    }
+}
+
+/**
+ * Update shipping mode and recalculate required delivery date and surcharges
+ * @param {string} mode - 'sea' or 'air'
+ */
+function updateShippingMode(mode) {
+    console.log('Updating shipping mode to:', mode);
+
+    // Calculate minimum delivery date
+    const today = new Date();
+    let weeksToAdd = mode === 'sea' ? 8 : 6;
+    const minDeliveryDate = new Date(today.getTime() + (weeksToAdd * 7 * 24 * 60 * 60 * 1000));
+
+    // Format date for HTML5 date input (YYYY-MM-DD)
+    const formatDateForInput = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const minDateString = formatDateForInput(minDeliveryDate);
+
+    // Update the required delivery date field
+    const dateField = document.getElementById('required_delivery_date');
+    if (dateField) {
+        // Set minimum date
+        dateField.min = minDateString;
+
+        // Set default value if empty or current value is before minimum
+        if (!dateField.value || new Date(dateField.value) < minDeliveryDate) {
+            dateField.value = minDateString;
+        }
+
+        // Add validation listener
+        dateField.addEventListener('change', validateDeliveryDate);
+    }
+
+    // Update help text
+    const helpText = document.getElementById('delivery_date_help');
+    if (helpText) {
+        helpText.textContent = `Minimum delivery time: ${weeksToAdd} weeks from today`;
+    }
+
+    // Trigger surcharge calculation
+    recalculateTotalsWithAirSurcharge();
+}
+
+/**
+ * Validate that selected delivery date meets minimum requirements
+ */
+function validateDeliveryDate() {
+    const dateField = document.getElementById('required_delivery_date');
+    const errorDiv = document.getElementById('delivery_date_error');
+
+    if (!dateField || !errorDiv) return;
+
+    const selectedDate = new Date(dateField.value);
+    const minDate = new Date(dateField.min);
+
+    if (selectedDate < minDate) {
+        // Show error
+        dateField.classList.add('is-invalid');
+        errorDiv.style.display = 'block';
+        return false;
+    } else {
+        // Clear error
+        dateField.classList.remove('is-invalid');
+        errorDiv.style.display = 'none';
+        return true;
+    }
+}
+
+/**
+ * Recalculate totals with air freight surcharge if applicable
+ */
+function recalculateTotalsWithAirSurcharge() {
+    // Get current subtotal
+    const subtotalText = document.getElementById('subtotal').textContent.replace(/[$,\s]/g, '');
+    const subtotal = parseFloat(subtotalText) || 0;
+
+    // Check if air freight is selected
+    const airRadio = document.getElementById('shipping_mode_air');
+    const bespokeSection = document.getElementById('bespoke-order-details');
+    const isBespokeVisible = bespokeSection && bespokeSection.style.display !== 'none';
+    const isAirSelected = airRadio && airRadio.checked && isBespokeVisible;
+
+    // Get air surcharge row
+    const airSurchargeRow = document.getElementById('air-surcharge-row');
+    const airSurchargeCost = document.getElementById('air-surcharge-cost');
+
+    if (isAirSelected && subtotal > 0) {
+        // Calculate 6% surcharge on subtotal
+        const surcharge = subtotal * 0.06;
+
+        // Update surcharge display
+        if (airSurchargeCost) {
+            airSurchargeCost.textContent = '$ ' + surcharge.toFixed(2);
+        }
+
+        // Show surcharge row
+        if (airSurchargeRow) {
+            airSurchargeRow.style.display = '';
+        }
+
+        console.log('Air freight surcharge calculated:', surcharge.toFixed(2));
+    } else {
+        // Hide surcharge row
+        if (airSurchargeRow) {
+            airSurchargeRow.style.display = 'none';
+        }
+        if (airSurchargeCost) {
+            airSurchargeCost.textContent = '$ 0.00';
+        }
+    }
+
+    // Recalculate totals with or without surcharge
+    const shippingRow = document.getElementById('shipping-row');
+    const shippingCost = shippingRow && shippingRow.dataset.shippingCost
+        ? shippingRow.dataset.shippingCost
+        : '0.00';
+    recalculateTotalsWithShipping(shippingCost);
 }
 
 /**
@@ -2256,7 +2513,35 @@ function validateShippingBeforeSave() {
         return result;
     }
 
-    // Case 4: Address complete with shipping - ideal
+    // Case 4: Check delivery date validation for bespoke orders
+    const bespokeSection = document.getElementById('bespoke-order-details');
+    const isBespokeVisible = bespokeSection && bespokeSection.style.display !== 'none';
+
+    if (isBespokeVisible) {
+        const dateField = document.getElementById('required_delivery_date');
+        if (dateField) {
+            // Check if date is filled
+            if (!dateField.value) {
+                result.status = 'no_delivery_date';
+                result.errors.push('Required delivery date must be specified for bespoke orders');
+                result.canProceed = false;
+                return result;
+            }
+
+            // Validate the date meets minimum requirements
+            const selectedDate = new Date(dateField.value);
+            const minDate = new Date(dateField.min);
+
+            if (selectedDate < minDate) {
+                result.status = 'invalid_delivery_date';
+                result.errors.push('Selected delivery date does not meet minimum delivery timeframe');
+                result.canProceed = false;
+                return result;
+            }
+        }
+    }
+
+    // Case 5: Address complete with shipping - ideal
     if (filledFields >= 2 && hasShippingCalculated) {
         result.status = 'complete';
         return result;
@@ -2470,6 +2755,20 @@ function saveQuotationWithNote(changeNote) {
     const assignedSalesRep = $('#assigned_sales_rep').val();
     const accountManager = $('#account_manager').val();
 
+    // Get bespoke order details if visible
+    const bespokeSection = document.getElementById('bespoke-order-details');
+    let shippingMode = '';
+    let orderLabel = '';
+    let requiredDeliveryDate = '';
+
+    if (bespokeSection && bespokeSection.style.display !== 'none') {
+        const seaRadio = document.getElementById('shipping_mode_sea');
+        const airRadio = document.getElementById('shipping_mode_air');
+        shippingMode = airRadio && airRadio.checked ? 'air' : 'sea';
+        orderLabel = document.getElementById('order_label').value.trim();
+        requiredDeliveryDate = document.getElementById('required_delivery_date').value;
+    }
+
     // Prepare form data
     const formData = new URLSearchParams();
     formData.append('recipient_name', recipientName);
@@ -2483,6 +2782,17 @@ function saveQuotationWithNote(changeNote) {
     formData.append('delivery_city', recipientCity);
     formData.append('delivery_postcode', recipientPostcode);
     formData.append('delivery_state', recipientSuburb); // Using suburb as state for NZ addresses
+
+    // Add bespoke order details if applicable
+    if (shippingMode) {
+        formData.append('shipping_mode', shippingMode);
+    }
+    if (orderLabel) {
+        formData.append('order_label', orderLabel);
+    }
+    if (requiredDeliveryDate) {
+        formData.append('required_delivery_date', requiredDeliveryDate);
+    }
 
     // Add change note (for edited quotations)
     if (changeNote) {

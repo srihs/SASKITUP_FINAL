@@ -1145,6 +1145,12 @@ class QuotationCartView(LoginRequiredMixin, View):
             user_city = getattr(request.user, 'city', '')
             user_postcode = getattr(request.user, 'postcode', '')
 
+        # Check if cart has bespoke items (for conditional section display)
+        has_bespoke_items = any(
+            'bespoke' in item.get('product_type', '').lower()
+            for item in quotation_data.get('items', [])
+        )
+
         # Prepare institutions_json for Select2
         import json
         institutions_json = json.dumps(institutions_list)
@@ -1216,6 +1222,7 @@ class QuotationCartView(LoginRequiredMixin, View):
             'assignment_institutions': ', '.join(assignment_info.get('institutions', [])),
             'is_editing': editing_quotation is not None,
             'editing_quotation': editing_quotation,
+            'has_bespoke_items': has_bespoke_items,  # Controls bespoke order details section visibility
         }
 
         return render(request, self.template_name, context)
@@ -1600,6 +1607,30 @@ class ClearQuotationView(LoginRequiredMixin, View):
 # STEP 4: SAVE QUOTATION
 # =====================================
 
+def parse_order_date(date_string):
+    """
+    Parse order_required_date from either HTML5 date format (YYYY-MM-DD) or display format (DD/MM/YYYY).
+    Returns a date object or None if parsing fails.
+    """
+    if not date_string:
+        return None
+
+    from datetime import datetime
+
+    # Try YYYY-MM-DD format first (HTML5 date input)
+    try:
+        return datetime.strptime(date_string, '%Y-%m-%d').date()
+    except ValueError:
+        pass
+
+    # Try DD/MM/YYYY format (formatted display)
+    try:
+        return datetime.strptime(date_string, '%d/%m/%Y').date()
+    except ValueError:
+        logger.warning(f"Could not parse order_required_date: {date_string}")
+        return None
+
+
 class SaveQuotationView(LoginRequiredMixin, View):
     """
     Step 4: Save quotation session to database.
@@ -1689,6 +1720,25 @@ class SaveQuotationView(LoginRequiredMixin, View):
                     quotation.delivery_city = delivery_city
                     quotation.delivery_postcode = delivery_postcode
                     quotation.delivery_state = delivery_state
+
+                    # Extract and update bespoke order fields
+                    shipping_mode = request.POST.get('shipping_mode', 'sea').strip()
+                    if shipping_mode not in ['sea', 'air']:
+                        shipping_mode = 'sea'  # Default to sea if invalid
+                    quotation.shipping_mode = shipping_mode
+
+                    order_label = request.POST.get('order_label', '').strip()
+                    if order_label:
+                        quotation.order_label = order_label[:255]  # Enforce max length
+
+                    order_required_date_str = request.POST.get('order_required_date', '').strip()
+                    if order_required_date_str:
+                        parsed_date = parse_order_date(order_required_date_str)
+                        if parsed_date:
+                            quotation.order_required_date = parsed_date
+                            logger.info(f"Updated order_required_date: {parsed_date}")
+
+                    logger.info(f"Updated bespoke fields - shipping_mode: {shipping_mode}, order_label: {order_label}")
 
                     # Update CIN7 contact fields from institution if institution is linked
                     if quotation.institution:
@@ -1912,6 +1962,24 @@ class SaveQuotationView(LoginRequiredMixin, View):
                         account_manager = assignment_info['account_manager']
                         logger.info(f"Auto-assigned account manager: {account_manager.get_full_name()}")
 
+                # Extract bespoke order fields (for new quotations)
+                shipping_mode = request.POST.get('shipping_mode', 'sea').strip()
+                if shipping_mode not in ['sea', 'air']:
+                    shipping_mode = 'sea'  # Default to sea if invalid
+
+                order_label = request.POST.get('order_label', '').strip()
+                if len(order_label) > 255:
+                    order_label = order_label[:255]  # Enforce max length
+
+                order_required_date = None
+                order_required_date_str = request.POST.get('order_required_date', '').strip()
+                if order_required_date_str:
+                    order_required_date = parse_order_date(order_required_date_str)
+                    if order_required_date:
+                        logger.info(f"Parsed order_required_date: {order_required_date}")
+
+                logger.info(f"Creating quotation with bespoke fields - shipping_mode: {shipping_mode}, order_label: {order_label}")
+
                 # Create Quotation (with or without institution)
                 quotation = Quotation.objects.create(
                     created_by=request.user,
@@ -1935,6 +2003,10 @@ class SaveQuotationView(LoginRequiredMixin, View):
                     cin7_first_name=cin7_first_name,
                     cin7_last_name=cin7_last_name,
                     cin7_phone=cin7_phone,
+                    # Bespoke order fields
+                    shipping_mode=shipping_mode,
+                    order_label=order_label,
+                    order_required_date=order_required_date,
                 )
 
             # Create QuotationItems (for both new and edited quotations)
@@ -2002,6 +2074,17 @@ class SaveQuotationView(LoginRequiredMixin, View):
 
             # Calculate quotation totals
             quotation.calculate_totals()
+
+            # Calculate air freight surcharge if applicable (6% of subtotal)
+            if quotation.shipping_mode == 'air':
+                air_surcharge = (quotation.subtotal * Decimal('0.06')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                quotation.air_freight_surcharge = air_surcharge
+                quotation.save(update_fields=['air_freight_surcharge'])
+                logger.info(f"Applied air freight surcharge: ${air_surcharge} (6% of ${quotation.subtotal})")
+            else:
+                # Ensure surcharge is zero for sea freight
+                quotation.air_freight_surcharge = Decimal('0.00')
+                quotation.save(update_fields=['air_freight_surcharge'])
 
             # Track account manager edits
             if is_editing:
@@ -6526,6 +6609,15 @@ class CalculateShippingView(LoginRequiredMixin, View):
                         print(f"DEBUG: Found SASProduct: {product.name}")
                     except SASProduct.DoesNotExist:
                         print(f"DEBUG: SASProduct {product_id} not found")
+                        continue
+
+                elif product_type_lower == 'bespokeproduct':
+                    from bespoke.models import BespokeProduct
+                    try:
+                        product = BespokeProduct.objects.get(pk=product_id)
+                        print(f"DEBUG: Found BespokeProduct: {product.name}")
+                    except BespokeProduct.DoesNotExist:
+                        print(f"DEBUG: BespokeProduct {product_id} not found")
                         continue
                 else:
                     print(f"DEBUG: Unknown product_type: '{product_type}' (normalized: '{product_type_lower}')")

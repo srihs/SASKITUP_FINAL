@@ -51,6 +51,8 @@ const AddressAutocomplete = (function() {
             street_number: '',
             route: '',
             sublocality_level_1: '',
+            neighborhood: '',
+            sublocality: '',
             locality: '',
             administrative_area_level_2: '',
             postal_code: '',
@@ -72,11 +74,37 @@ const AddressAutocomplete = (function() {
             ? streetParts.join(' ')
             : place.formatted_address.split(',')[0]; // Fallback to first part of formatted address
 
-        // Determine suburb (prefer sublocality_level_1, fallback to locality)
-        const suburb = components.sublocality_level_1 || components.locality;
-
-        // Determine city (prefer locality, fallback to administrative_area_level_2)
+        // Determine city first (prefer locality, fallback to administrative_area_level_2)
         const city = components.locality || components.administrative_area_level_2;
+
+        // Determine suburb with priority order, avoiding city duplication
+        // Priority: sublocality_level_1 > neighborhood > sublocality > locality (only if different from city)
+        let suburb = '';
+
+        // Try sublocality_level_1 first (most common for Auckland suburbs like Avondale)
+        if (components.sublocality_level_1) {
+            suburb = components.sublocality_level_1;
+        }
+        // Try neighborhood if sublocality_level_1 is not available
+        else if (components.neighborhood) {
+            suburb = components.neighborhood;
+        }
+        // Try sublocality as fallback
+        else if (components.sublocality) {
+            suburb = components.sublocality;
+        }
+        // Only use locality if it's different from city (prevents Auckland/Auckland duplication)
+        else if (components.locality && components.locality !== city) {
+            suburb = components.locality;
+        }
+        // Final fallback: try to extract from formatted_address
+        else if (place.formatted_address) {
+            const addressParts = place.formatted_address.split(',').map(part => part.trim());
+            // If we have at least 3 parts (street, suburb, city), use the second part as suburb
+            if (addressParts.length >= 3 && addressParts[1] !== city) {
+                suburb = addressParts[1];
+            }
+        }
 
         return {
             street_address: streetAddress,
