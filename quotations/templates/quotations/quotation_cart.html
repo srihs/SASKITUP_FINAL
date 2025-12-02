@@ -934,6 +934,238 @@
 .highlight-field {
     animation: highlight-pulse 0.6s ease-in-out 3;
 }
+
+/* Player Details Button */
+.player-details-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 12px;
+    padding: 0.25rem 0.5rem;
+    color: #556ee6;
+    background-color: #f0f3ff;
+    border: 1px solid #556ee6;
+    border-radius: 0.25rem;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    margin-top: 0.5rem;
+}
+
+.player-details-btn:hover {
+    background-color: #556ee6;
+    color: #fff;
+    text-decoration: none;
+}
+
+.player-details-btn i {
+    font-size: 14px;
+}
+
+.player-status-badge {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 0.25rem;
+    margin-left: 0.25rem;
+}
+
+.player-status-badge.complete {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.player-status-badge.incomplete {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+/* Player Details Modal */
+.player-details-modal .modal-dialog {
+    max-width: 900px;
+}
+
+.player-details-modal .modal-header {
+    background-color: #556ee6;
+    color: #fff;
+    border-bottom: none;
+}
+
+.player-details-modal .modal-header .btn-close {
+    filter: brightness(0) invert(1);
+}
+
+.player-details-modal .modal-body {
+    padding: 1.5rem;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.player-card {
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background-color: #fff;
+    transition: box-shadow 0.2s ease;
+}
+
+.player-card:hover {
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+}
+
+.player-card.incomplete {
+    border-left: 4px solid #ffc107;
+    background-color: #fffdf7;
+}
+
+.player-card.complete {
+    border-left: 4px solid #28a745;
+}
+
+.player-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.player-card-number {
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.player-card-body {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.75rem;
+}
+
+.player-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.player-field-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #74788d;
+    letter-spacing: 0.5px;
+}
+
+.player-field-value {
+    font-size: 14px;
+    color: #495057;
+    padding: 0.375rem 0.5rem;
+    background-color: #f8f9fa;
+    border-radius: 0.25rem;
+    border: 1px solid #e9ecef;
+}
+
+.player-field-value.empty {
+    color: #adb5bd;
+    font-style: italic;
+}
+
+.player-summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+    border: 1px solid #e9ecef;
+}
+
+.player-summary-stat {
+    text-align: center;
+}
+
+.player-summary-number {
+    font-size: 24px;
+    font-weight: 700;
+    color: #556ee6;
+    display: block;
+}
+
+.player-summary-label {
+    font-size: 12px;
+    color: #74788d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.no-players-message {
+    text-align: center;
+    padding: 2rem;
+    color: #74788d;
+}
+
+.no-players-message i {
+    font-size: 48px;
+    color: #e9ecef;
+    margin-bottom: 1rem;
+}
+
+/* Addon Remove Button */
+.addon-remove-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 11px;
+    color: #f46a6a;
+    background-color: #fff5f5;
+    border: 1px solid #f46a6a;
+    border-radius: 0.25rem;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.addon-remove-btn:hover {
+    background-color: #f46a6a;
+    color: #fff;
+    text-decoration: none;
+}
+
+.addon-remove-btn i {
+    font-size: 12px;
+}
+
+.addon-row {
+    position: relative;
+}
+
+.addon-col-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-left: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .player-details-modal .modal-dialog {
+        max-width: 95%;
+        margin: 0.5rem;
+    }
+
+    .player-card-body {
+        grid-template-columns: 1fr;
+    }
+
+    .player-summary-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+}
 </style>
 {% endblock %}
 
@@ -1105,6 +1337,26 @@
                                 </div>
                             </div>
 
+                            <!-- Player Details Button for Bespoke Products -->
+                            {% if item.product_type|lower == 'bespokeproduct' %}
+                            <div class="mt-2 ms-2">
+                                <a href="javascript:void(0);"
+                                   class="player-details-btn"
+                                   onclick="PlayerDetailsModal.open({{ item.index }})"
+                                   data-cart-index="{{ item.index }}">
+                                    <i class="uil uil-users-alt"></i>
+                                    <span>View Player Details</span>
+                                    {% if item.player_customizations %}
+                                        <span class="player-status-badge {% if item.all_players_complete %}complete{% else %}incomplete{% endif %}">
+                                            {{ item.player_customizations|length }} player{{ item.player_customizations|length|pluralize }}
+                                        </span>
+                                    {% else %}
+                                        <span class="player-status-badge incomplete">0 players</span>
+                                    {% endif %}
+                                </a>
+                            </div>
+                            {% endif %}
+
                             <!-- Display Addons for Bespoke Products -->
                             {% if item.product_type|lower == 'bespokeproduct' and item.addons %}
                                 {% for addon in item.addons %}
@@ -1189,6 +1441,17 @@
                                         <div class="addon-col addon-col-total">
                                             <div class="addon-label">Addon Total</div>
                                             <div class="addon-total">${{ addon.total_price|floatformat:2|intcomma }}</div>
+                                        </div>
+
+                                        <!-- Column 7: Remove Addon Button -->
+                                        <div class="addon-col addon-col-actions">
+                                            <a href="javascript:void(0);"
+                                               class="addon-remove-btn"
+                                               onclick="removeAddon({{ item.index }}, '{{ addon.addon_type }}')"
+                                               title="Remove this addon">
+                                                <i class="uil uil-trash-alt"></i>
+                                                <span>Remove</span>
+                                            </a>
                                         </div>
                                     </div>
                                 </div>
@@ -1539,6 +1802,51 @@
                 </button>
                 <button type="button" class="btn btn-danger" id="confirmClearBtn" onclick="confirmClearQuotation()">
                     <i class="mdi mdi-delete-outline me-1"></i> Clear Quotation
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Player Details Modal -->
+<div class="modal fade player-details-modal" id="playerDetailsModal" tabindex="-1" aria-labelledby="playerDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="playerDetailsModalLabel">
+                    <i class="uil uil-users-alt me-2"></i>
+                    Player Customization Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Player Summary Header -->
+                <div class="player-summary-header">
+                    <div class="player-summary-stat">
+                        <span class="player-summary-number" id="totalPlayersCount">0</span>
+                        <span class="player-summary-label">Total Players</span>
+                    </div>
+                    <div class="player-summary-stat">
+                        <span class="player-summary-number text-success" id="completePlayersCount">0</span>
+                        <span class="player-summary-label">Complete</span>
+                    </div>
+                    <div class="player-summary-stat">
+                        <span class="player-summary-number text-warning" id="incompletePlayersCount">0</span>
+                        <span class="player-summary-label">Incomplete</span>
+                    </div>
+                </div>
+
+                <!-- Players Container -->
+                <div id="playersContainer">
+                    <div class="no-players-message">
+                        <i class="uil uil-users-alt d-block"></i>
+                        <p class="mb-0">No player customizations added yet.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="uil uil-times me-1"></i> Close
                 </button>
             </div>
         </div>
@@ -2883,6 +3191,177 @@ function confirmClearQuotation() {
         hideLoading();
         console.error('Error:', error);
         toastr.error('An error occurred. Please try again.');
+    });
+}
+
+// Player Details Modal Handler
+const PlayerDetailsModal = {
+    modalElement: null,
+    currentCartIndex: null,
+
+    init() {
+        this.modalElement = new bootstrap.Modal(document.getElementById('playerDetailsModal'));
+    },
+
+    open(cartIndex) {
+        console.log('Opening player details modal for cart index:', cartIndex);
+        this.currentCartIndex = cartIndex;
+        this.loadPlayerDetails(cartIndex);
+        this.modalElement.show();
+    },
+
+    close() {
+        this.modalElement.hide();
+    },
+
+    loadPlayerDetails(cartIndex) {
+        // Show loading state
+        const container = document.getElementById('playersContainer');
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Loading player details...</p>
+            </div>
+        `;
+
+        // Fetch player details from server
+        fetch(`/quotations/get-player-customizations/${cartIndex}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.renderPlayers(data.players, data.stats);
+                } else {
+                    this.showError(data.error || 'Failed to load player details');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading player details:', error);
+                this.showError('An error occurred while loading player details');
+            });
+    },
+
+    renderPlayers(players, stats) {
+        // Update summary stats
+        document.getElementById('totalPlayersCount').textContent = stats.total || 0;
+        document.getElementById('completePlayersCount').textContent = stats.complete || 0;
+        document.getElementById('incompletePlayersCount').textContent = stats.incomplete || 0;
+
+        const container = document.getElementById('playersContainer');
+
+        if (!players || players.length === 0) {
+            container.innerHTML = `
+                <div class="no-players-message">
+                    <i class="uil uil-users-alt d-block"></i>
+                    <p class="mb-0">No player customizations added yet.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Render player cards
+        let html = '';
+        players.forEach((player, index) => {
+            const isComplete = player.is_complete;
+            const completeClass = isComplete ? 'complete' : 'incomplete';
+            const statusBadge = isComplete
+                ? '<span class="badge bg-success">Complete</span>'
+                : '<span class="badge bg-warning">Incomplete</span>';
+
+            html += `
+                <div class="player-card ${completeClass}">
+                    <div class="player-card-header">
+                        <div class="player-card-number">
+                            <i class="uil uil-user me-1"></i>
+                            Player ${index + 1}
+                        </div>
+                        ${statusBadge}
+                    </div>
+                    <div class="player-card-body">
+                        ${this.renderField('Player Name', player.player_name)}
+                        ${this.renderField('Number', player.number)}
+                        ${this.renderField('Size', player.size)}
+                        ${this.renderField('Position', player.position)}
+                        ${this.renderField('Notes', player.notes)}
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    },
+
+    renderField(label, value) {
+        const isEmpty = !value || value === '';
+        const displayValue = isEmpty ? 'Not specified' : value;
+        const emptyClass = isEmpty ? 'empty' : '';
+
+        return `
+            <div class="player-field">
+                <div class="player-field-label">${label}</div>
+                <div class="player-field-value ${emptyClass}">${displayValue}</div>
+            </div>
+        `;
+    },
+
+    showError(message) {
+        const container = document.getElementById('playersContainer');
+        container.innerHTML = `
+            <div class="alert alert-danger" role="alert">
+                <i class="uil uil-exclamation-triangle me-2"></i>
+                ${message}
+            </div>
+        `;
+    }
+};
+
+// Initialize Player Details Modal when document is ready
+$(document).ready(function() {
+    PlayerDetailsModal.init();
+});
+
+// Addon Removal Handler
+function removeAddon(cartIndex, addonType) {
+    // Show confirmation dialog
+    if (!confirm(`Are you sure you want to remove this ${addonType.replace('_', ' ')} addon?`)) {
+        return;
+    }
+
+    console.log('Removing addon:', { cartIndex, addonType });
+    showLoading();
+
+    // Send removal request
+    fetch('/quotations/remove-addon/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify({
+            cart_index: cartIndex,
+            addon_type: addonType
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+
+        if (data.success) {
+            toastr.success(data.message || 'Addon removed successfully');
+
+            // Reload the page to reflect the changes
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        } else {
+            toastr.error(data.error || 'Failed to remove addon');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        console.error('Error removing addon:', error);
+        toastr.error('An error occurred while removing the addon');
     });
 }
 </script>

@@ -1330,7 +1330,8 @@ class AddToQuotationView(LoginRequiredMixin, View):
                         'total_price': str(addon.get('total_price', 0)),
                     })
 
-                quotation_data['items'].append({
+                # Prepare cart item data
+                cart_item = {
                     'product_type': product_type,
                     'product_id': product_id,
                     'product_name': product_name,
@@ -1340,7 +1341,14 @@ class AddToQuotationView(LoginRequiredMixin, View):
                     'margin_75_price': margin_75_price,
                     'variations': variations,
                     'addons': formatted_addons,  # Store addons with the product
-                })
+                }
+
+                # Initialize player customizations fields for Bespoke products
+                if product_type and product_type.lower() == 'bespokeproduct':
+                    cart_item['player_customizations'] = []
+                    cart_item['player_customizations_complete'] = False
+
+                quotation_data['items'].append(cart_item)
 
             # Save session
             save_quotation_session(request, quotation_data)
@@ -1382,6 +1390,162 @@ class AddToQuotationView(LoginRequiredMixin, View):
 
 
 # REMOVED: AddAddonToQuotationView - Addons are now added together with the base product in AddToQuotationView
+
+
+class UpdatePlayerCustomizationsView(LoginRequiredMixin, View):
+    """AJAX endpoint to update player customization data for a cart item"""
+
+    def post(self, request):
+        try:
+            import json
+
+            item_index = int(request.POST.get('item_index'))
+            player_customizations_json = request.POST.get('player_customizations', '[]')
+
+            # Parse player customizations data
+            try:
+                player_customizations = json.loads(player_customizations_json)
+            except json.JSONDecodeError:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid player customizations data format'
+                }, status=400)
+
+            # Get quotation session
+            quotation_data = get_quotation_session(request)
+
+            # Validate item index
+            if item_index < 0 or item_index >= len(quotation_data['items']):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid item index'
+                }, status=400)
+
+            item = quotation_data['items'][item_index]
+
+            # Ensure this is a Bespoke product
+            product_type = item.get('product_type', '')
+            if not product_type or product_type.lower() != 'bespokeproduct':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Player customizations can only be added to Bespoke products'
+                }, status=400)
+
+            # Update player customizations
+            item['player_customizations'] = player_customizations
+            item['player_customizations_complete'] = len(player_customizations) > 0
+
+            # Save session
+            save_quotation_session(request, quotation_data)
+
+            # Calculate updated totals
+            totals = calculate_quotation_totals(quotation_data)
+
+            # Log action
+            product_name = item.get('product_name', 'Unknown Product')
+            player_count = len(player_customizations)
+            logger.info(
+                f"Updated player customizations for item {item_index} ({product_name}): "
+                f"{player_count} players"
+            )
+
+            AuditLog.log_action(
+                user=request.user,
+                action_type='quotation_updated',
+                description=f'Updated player customizations for "{product_name}": {player_count} players',
+                request=request,
+                affected_model='QuotationItem',
+                product_name=product_name,
+            )
+
+            return JsonResponse({
+                'success': True,
+                'item_count': totals['item_count'],
+                'subtotal': str(totals['subtotal']),
+                'total': str(totals['total']),
+                'player_count': player_count,
+            })
+
+        except Exception as e:
+            logger.error(f"Error updating player customizations: {e}", exc_info=True)
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
+
+
+class RemoveAddonView(LoginRequiredMixin, View):
+    """AJAX endpoint to remove individual addon from cart item"""
+
+    def post(self, request):
+        try:
+            item_index = int(request.POST.get('item_index'))
+            addon_index = int(request.POST.get('addon_index'))
+
+            # Get quotation session
+            quotation_data = get_quotation_session(request)
+
+            # Validate item index
+            if item_index < 0 or item_index >= len(quotation_data['items']):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid item index'
+                }, status=400)
+
+            item = quotation_data['items'][item_index]
+
+            # Validate addon index
+            addons = item.get('addons', [])
+            if addon_index < 0 or addon_index >= len(addons):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid addon index'
+                }, status=400)
+
+            # Get addon info before removal for logging
+            removed_addon = addons[addon_index]
+            addon_name = removed_addon.get('display_name', 'Unknown Addon')
+
+            # Remove addon
+            addons.pop(addon_index)
+            item['addons'] = addons
+
+            # Save session
+            save_quotation_session(request, quotation_data)
+
+            # Recalculate totals
+            totals = calculate_quotation_totals(quotation_data)
+
+            # Log action
+            product_name = item.get('product_name', 'Unknown Product')
+            logger.info(
+                f"Removed addon from item {item_index} ({product_name}): "
+                f"{addon_name}"
+            )
+
+            AuditLog.log_action(
+                user=request.user,
+                action_type='quotation_updated',
+                description=f'Removed addon "{addon_name}" from "{product_name}"',
+                request=request,
+                affected_model='QuotationItem',
+                product_name=product_name,
+            )
+
+            return JsonResponse({
+                'success': True,
+                'item_count': totals['item_count'],
+                'subtotal': str(totals['subtotal']),
+                'total': str(totals['total']),
+                'remaining_addons': len(addons),
+            })
+
+        except Exception as e:
+            logger.error(f"Error removing addon: {e}", exc_info=True)
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
 
 
 class UpdateQuotationItemView(LoginRequiredMixin, View):
@@ -2027,6 +2191,16 @@ class SaveQuotationView(LoginRequiredMixin, View):
                     product_image_url = str(product.image)
 
                 # Create base garment item
+                # Prepare variations data with player customizations for Bespoke products
+                variations_data = item_data.get('variations', {})
+                product_type = item_data.get('product_type', '')
+
+                # Store player customizations in variations JSONField for Bespoke products
+                if product_type and product_type.lower() == 'bespokeproduct':
+                    player_customizations = item_data.get('player_customizations', [])
+                    if player_customizations:
+                        variations_data['player_customizations'] = player_customizations
+
                 base_item = QuotationItem.objects.create(
                     quotation=quotation,
                     product_content_type=product_content_type,
@@ -2036,12 +2210,11 @@ class SaveQuotationView(LoginRequiredMixin, View):
                     product_image_url=product_image_url,
                     quantity=item_data['quantity'],
                     unit_price=Decimal(str(item_data['unit_price'])),
-                    variations=item_data.get('variations', {}),
+                    variations=variations_data,
                 )
                 items_created += 1
 
                 # Create addon items ONLY for Bespoke products
-                product_type = item_data.get('product_type', '')
                 if product_type and product_type.lower() == 'bespokeproduct':
                     for addon in item_data.get('addons', []):
                         QuotationItem.objects.create(
