@@ -122,6 +122,17 @@
                                         <i class="uil-cloud-download me-2"></i>Fetch Prices from Cin7
                                     </button>
                                 </div>
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="forceRefresh">
+                                        <label class="form-check-label" for="forceRefresh">
+                                            Force full refresh (bypass cache)
+                                        </label>
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="uil-info-circle"></i> By default, cached data (less than 24h old) is reused to minimize API calls. Check this to fetch fresh data from CIN7.
+                                    </small>
+                                </div>
                                 <div class="col-md-6">
                                     <button type="button" class="btn btn-success btn-lg w-100" id="standaloneMatchBtn">
                                         <i class="uil-sync me-2"></i>Match Existing Products
@@ -179,6 +190,27 @@
                             </div>
                         </div>
                     </div>
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h6 class="fw-semibold mb-2"><i class="uil-lightning me-2 text-warning"></i>Intelligent Sync Modes:</h6>
+                            <div class="alert alert-info mb-3">
+                                <small>
+                                    <i class="uil-database me-1"></i> <strong>Initial Sync:</strong> First-time fetch or forced refresh - saves ALL products to database<br>
+                                    <i class="uil-sync me-1"></i> <strong>Incremental Sync:</strong> Smart update - only modifies changed records (efficient DB operations)<br>
+                                    <i class="uil-bolt-alt me-1"></i> <strong>Auto-Detection:</strong> System automatically chooses the best sync mode based on database state
+                                </small>
+                            </div>
+                            <h6 class="fw-semibold mb-2"><i class="uil-tachometer-fast me-2 text-primary"></i>Performance Features:</h6>
+                            <div class="alert alert-success mb-0">
+                                <small>
+                                    <i class="uil-check-circle me-1"></i> <strong>Smart Caching:</strong> Data less than 24 hours old is reused (avoiding 60+ API calls)<br>
+                                    <i class="uil-check-circle me-1"></i> <strong>Rate Limit Compliant:</strong> Respects CIN7 limits (3/sec, 60/min, 5000/day)<br>
+                                    <i class="uil-check-circle me-1"></i> <strong>Fast Response:</strong> Instant response when using cached data<br>
+                                    <i class="uil-check-circle me-1"></i> <strong>Incremental Updates:</strong> Only updates changed records (reduces database load)
+                                </small>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -225,10 +257,14 @@
                     <div class="alert alert-success mb-4">
                         <i class="uil-check-circle me-2"></i>
                         <strong>Fetch Complete!</strong>
-                        <span id="fetchSummaryText">Products successfully fetched from Cin7</span>
+                        <span id="fetchSyncMode" class="badge bg-primary ms-2">Loading...</span>
+                        <span id="fetchCacheBadge" class="badge bg-success ms-2" style="display:none;">Cached</span>
+                        <br>
+                        <span id="fetchSummaryText" class="mt-2 d-block">Products successfully fetched from Cin7</span>
                     </div>
 
-                    <div class="row mb-4">
+                    <!-- Initial Sync Stats (shown for initial sync) -->
+                    <div id="initialSyncStats" class="row mb-4" style="display:none;">
                         <div class="col-md-4">
                             <div class="text-center">
                                 <h2 class="text-primary mb-1" id="fetchTotalVariants">0</h2>
@@ -245,6 +281,34 @@
                             <div class="text-center">
                                 <h2 class="text-info mb-1" id="fetchDuration">0s</h2>
                                 <p class="text-muted mb-0">Duration</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Incremental Sync Stats (shown for incremental sync) -->
+                    <div id="incrementalSyncStats" class="row mb-4" style="display:none;">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h2 class="text-success mb-1" id="fetchNewProducts">0</h2>
+                                <p class="text-muted mb-0"><i class="uil-plus-circle"></i> New Products</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h2 class="text-primary mb-1" id="fetchUpdatedProducts">0</h2>
+                                <p class="text-muted mb-0"><i class="uil-sync"></i> Updated</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h2 class="text-secondary mb-1" id="fetchUnchangedProducts">0</h2>
+                                <p class="text-muted mb-0"><i class="uil-check"></i> Unchanged</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h2 class="text-info mb-1" id="fetchIncrementalDuration">0s</h2>
+                                <p class="text-muted mb-0"><i class="uil-clock"></i> Duration</p>
                             </div>
                         </div>
                     </div>
@@ -407,6 +471,7 @@ $(document).ready(function() {
     // Fetch prices from Cin7
     $('#fetchPricesBtn').click(function() {
         const priceType = $('#priceType').val();
+        const forceRefresh = $('#forceRefresh').is(':checked');
 
         // Generate session ID before making request
         sessionId = 'fetch-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
@@ -421,8 +486,8 @@ $(document).ready(function() {
         $('#progressCard').show();
         $('#previewCard').hide();
         $('#resultsCard').hide();
-        $('#progressTitle').text('Fetching Prices from Cin7...');
-        updateProgressBar(0, 'Initializing connection...');
+        $('#progressTitle').text(forceRefresh ? 'Fetching Fresh Prices from Cin7...' : 'Fetching Prices from Cin7...');
+        updateProgressBar(0, 'Checking cache...');
 
         // Disable button
         $(this).prop('disabled', true);
@@ -437,7 +502,8 @@ $(document).ready(function() {
             },
             data: JSON.stringify({
                 price_type: priceType,
-                session_id: sessionId  // Pass session_id to backend
+                session_id: sessionId,  // Pass session_id to backend
+                force_refresh: forceRefresh  // Pass force_refresh flag
             }),
             success: function(response) {
                 if (response.success) {
@@ -447,21 +513,82 @@ $(document).ready(function() {
                     $('#progressCard').hide();
                     $('#fetchResultsCard').show();
 
-                    // Update fetch results display
-                    $('#fetchTotalVariants').text(response.summary.saved_to_db.toLocaleString());
-                    $('#fetchSkippedBS').text(response.summary.skipped_bs_products.toLocaleString());
-                    $('#fetchDuration').text(response.summary.duration_seconds.toFixed(2) + 's');
-                    $('#fetchSummaryText').text(`${response.summary.saved_to_db.toLocaleString()} product variants fetched and saved`);
+                    const summary = response.summary;
+                    const syncMode = summary.sync_mode || 'unknown';
+                    const fromCache = summary.from_cache || false;
+
+                    // Update sync mode badge
+                    if (syncMode === 'initial') {
+                        $('#fetchSyncMode').removeClass('bg-primary bg-info bg-success bg-secondary').addClass('bg-primary').text('Initial Sync');
+                    } else if (syncMode === 'incremental') {
+                        $('#fetchSyncMode').removeClass('bg-primary bg-info bg-success bg-secondary').addClass('bg-info').text('Incremental Sync');
+                    } else if (syncMode === 'cached') {
+                        $('#fetchSyncMode').removeClass('bg-primary bg-info bg-success bg-secondary').addClass('bg-success').text('Cached Data');
+                    } else {
+                        $('#fetchSyncMode').removeClass('bg-primary bg-info bg-success bg-secondary').addClass('bg-secondary').text('Unknown Mode');
+                    }
+
+                    // Show cache badge if applicable
+                    if (fromCache) {
+                        $('#fetchCacheBadge').show();
+                    } else {
+                        $('#fetchCacheBadge').hide();
+                    }
+
+                    // Display stats based on sync mode
+                    if (syncMode === 'initial' || syncMode === 'cached') {
+                        // Show initial sync stats
+                        $('#initialSyncStats').show();
+                        $('#incrementalSyncStats').hide();
+
+                        $('#fetchTotalVariants').text((summary.saved_to_db || summary.total_products || 0).toLocaleString());
+                        $('#fetchSkippedBS').text((summary.skipped_bs_products || 0).toLocaleString());
+                        $('#fetchDuration').text((summary.duration_seconds || 0).toFixed(2) + 's');
+
+                        if (syncMode === 'cached') {
+                            $('#fetchSummaryText').text(`${(summary.saved_to_db || summary.total_products || 0).toLocaleString()} product variants loaded from cache (less than ${summary.cache_age_hours || 24}h old)`);
+                        } else {
+                            $('#fetchSummaryText').text(`${(summary.saved_to_db || 0).toLocaleString()} product variants fetched and saved (initial sync)`);
+                        }
+                    } else if (syncMode === 'incremental') {
+                        // Show incremental sync stats
+                        $('#initialSyncStats').hide();
+                        $('#incrementalSyncStats').show();
+
+                        $('#fetchNewProducts').text((summary.new_products || 0).toLocaleString());
+                        $('#fetchUpdatedProducts').text((summary.updated_products || 0).toLocaleString());
+                        $('#fetchUnchangedProducts').text((summary.unchanged_products || 0).toLocaleString());
+                        $('#fetchIncrementalDuration').text((summary.duration_seconds || 0).toFixed(2) + 's');
+
+                        const totalProcessed = (summary.new_products || 0) + (summary.updated_products || 0) + (summary.unchanged_products || 0);
+                        $('#fetchSummaryText').text(`Processed ${totalProcessed.toLocaleString()} products: ${summary.new_products || 0} new, ${summary.updated_products || 0} updated, ${summary.unchanged_products || 0} unchanged`);
+                    }
 
                     // Stop sync log polling after fetch completes
                     if (typeof stopSyncLogPolling === 'function') {
                         setTimeout(stopSyncLogPolling, 2000); // Wait 2 seconds to get final logs
                     }
 
+                    // Update success message based on sync mode
+                    let successTitle = 'Fetch Complete!';
+                    let successText = '';
+                    if (syncMode === 'initial') {
+                        successTitle = 'Initial Sync Complete!';
+                        successText = `Saved ${summary.saved_to_db || 0} products to database`;
+                    } else if (syncMode === 'incremental') {
+                        successTitle = 'Incremental Sync Complete!';
+                        successText = `${summary.new_products || 0} new, ${summary.updated_products || 0} updated, ${summary.unchanged_products || 0} unchanged`;
+                    } else if (syncMode === 'cached') {
+                        successTitle = 'Using Cached Data';
+                        successText = `Loaded ${summary.total_products || summary.saved_to_db || 0} products from cache (instant response)`;
+                    } else {
+                        successText = `Processed ${summary.total_products || summary.saved_to_db || 0} products`;
+                    }
+
                     Swal.fire({
                         icon: 'success',
-                        title: 'Fetch Complete!',
-                        text: `Fetched ${response.summary.saved_to_db.toLocaleString()} product variants from Cin7`,
+                        title: successTitle,
+                        text: successText,
                         timer: 3000,
                         showConfirmButton: false
                     });

@@ -726,6 +726,12 @@ class Cin7Product(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Sync tracking fields
+    last_api_fetch = models.DateTimeField(null=True, blank=True, db_index=True, help_text="Last time data was fetched from CIN7 API")
+    cin7_modified_date = models.DateTimeField(null=True, blank=True, db_index=True, help_text="CIN7 product modification date if available")
+    data_hash = models.CharField(max_length=64, blank=True, db_index=True, help_text="Hash of pricing data for change detection")
+    is_initial_sync = models.BooleanField(default=False, db_index=True, help_text="Whether this record is from initial sync")
+
     # Raw JSON data (for debugging/future use)
     raw_data = models.JSONField(null=True, blank=True, help_text="Raw Cin7 API response")
 
@@ -738,6 +744,10 @@ class Cin7Product(models.Model):
             models.Index(fields=['fetch_session_id', 'matched']),
             models.Index(fields=['price_type', 'processed']),
             models.Index(fields=['created_at', 'fetch_session_id']),
+            models.Index(fields=['price_type', 'last_api_fetch']),
+            models.Index(fields=['price_type', 'is_initial_sync']),
+            models.Index(fields=['cin7_id', 'price_type']),
+            models.Index(fields=['data_hash']),
         ]
 
     def __str__(self):
@@ -756,6 +766,48 @@ class Cin7Product(models.Model):
     def is_ready_for_update(self):
         """Check if product is ready for price update"""
         return self.matched and self.has_pricing_data and not self.processed
+
+    def calculate_data_hash(self):
+        """
+        Calculate hash of pricing data for change detection.
+
+        Hash includes: cost_nzd, retail_price, stock_available
+        This allows us to detect if product data has changed without CIN7 modification dates.
+        """
+        import hashlib
+
+        # Create string of all pricing-related data
+        data_string = f"{self.cost_nzd}|{self.retail_price}|{self.stock_available}"
+
+        # Return SHA-256 hash
+        return hashlib.sha256(data_string.encode()).hexdigest()
+
+    @classmethod
+    def is_initial_sync_complete(cls, price_type):
+        """
+        Check if initial sync has been completed for a given price_type.
+
+        Returns True if:
+        - Database has records for this price_type
+        - At least one record is marked as is_initial_sync=True
+        """
+        return cls.objects.filter(
+            price_type=price_type,
+            is_initial_sync=True
+        ).exists()
+
+    @classmethod
+    def get_last_sync_time(cls, price_type):
+        """
+        Get the timestamp of the last successful sync for a given price_type.
+
+        Returns the most recent last_api_fetch timestamp or None if no syncs.
+        """
+        last_record = cls.objects.filter(
+            price_type=price_type
+        ).order_by('-last_api_fetch').first()
+
+        return last_record.last_api_fetch if last_record else None
 
 
 class CIN7Contact(models.Model):

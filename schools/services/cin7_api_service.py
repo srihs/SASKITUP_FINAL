@@ -69,16 +69,17 @@ class Cin7ApiService:
 
         logger.info(f"Cin7ApiService initialized: {self.api_url}")
 
-    def _enforce_rate_limit(self):
+    def _enforce_rate_limit(self, allow_wait: bool = False, max_wait: float = 10.0):
         """
-        Enforce rate limits before making API calls (non-blocking).
+        Enforce rate limits before making API calls.
 
         This method uses timestamp-based calculations to determine if a request
-        can proceed immediately. If rate limits would be exceeded, it raises
-        an exception rather than blocking with time.sleep().
+        can proceed immediately. For the per-minute limit, it can either wait
+        (if allow_wait=True and wait time is within max_wait) or raise an exception.
 
-        This approach prevents Gunicorn worker timeouts in production while
-        maintaining accurate rate limiting.
+        Args:
+            allow_wait: If True, will sleep for per-minute limit if wait time <= max_wait
+            max_wait: Maximum time (seconds) willing to wait for rate limit (default 10s)
 
         Raises:
             Exception: If rate limit would be exceeded or daily limit reached
@@ -102,28 +103,36 @@ class Cin7ApiService:
                 time.sleep(wait_time)
                 current_time = time.time()  # Update current time after sleep
 
-        # Check per-minute limit (60 calls) - NON-BLOCKING
+        # Check per-minute limit (60 calls) - CONFIGURABLE BLOCKING
         if len(self.call_times) >= self.MAX_CALLS_PER_MINUTE:
             wait_time = 60.0 - (current_time - self.call_times[0])
             if wait_time > 0:
-                # CHANGED: Instead of blocking, raise exception to prevent Gunicorn timeout
-                # The caller should handle this by implementing batch processing or
-                # scheduling the sync job outside the request-response cycle
-                logger.error(
-                    f"CIN7 API rate limit (60 calls/minute) would require {wait_time:.2f}s wait. "
-                    f"This exceeds safe request timeout. Total calls in last minute: {len(self.call_times)}"
-                )
-                raise Exception(
-                    f"CIN7 API rate limit exceeded: {len(self.call_times)} calls in last minute. "
-                    f"Would need to wait {wait_time:.1f}s. Please reduce request frequency or "
-                    f"implement background task processing for large syncs."
-                )
+                if allow_wait and wait_time <= max_wait:
+                    # Safe to wait within request timeout
+                    logger.info(
+                        f"Rate limit: waiting {wait_time:.2f}s for per-minute limit "
+                        f"({len(self.call_times)} calls in last minute)"
+                    )
+                    time.sleep(wait_time)
+                    # Clear old call times after waiting
+                    current_time = time.time()
+                    self.call_times = [t for t in self.call_times if current_time - t < 60]
+                else:
+                    # Wait time too long or waiting not allowed - raise exception
+                    logger.error(
+                        f"CIN7 API rate limit (60 calls/minute) would require {wait_time:.2f}s wait. "
+                        f"Total calls in last minute: {len(self.call_times)}"
+                    )
+                    raise Exception(
+                        f"CIN7 API rate limit exceeded: {len(self.call_times)} calls in last minute. "
+                        f"Would need to wait {wait_time:.1f}s. Please reduce request frequency."
+                    )
 
         # Record this call
         self.call_times.append(time.time())
         self.daily_calls += 1
 
-    def _make_request(self, endpoint: str, params: Dict = None, max_retries: int = 3) -> Optional[Dict]:
+    def _make_request(self, endpoint: str, params: Dict = None, max_retries: int = 3, allow_wait: bool = False, max_wait: float = 10.0) -> Optional[Dict]:
         """
         Make authenticated API request with retry logic
 
@@ -131,6 +140,8 @@ class Cin7ApiService:
             endpoint: API endpoint (e.g., 'Products' or 'Products/123')
             params: Query parameters
             max_retries: Maximum number of retry attempts
+            allow_wait: If True, will wait for rate limit if wait time <= max_wait
+            max_wait: Maximum time (seconds) to wait for rate limit
 
         Returns:
             JSON response or None on failure
@@ -142,7 +153,7 @@ class Cin7ApiService:
 
         for attempt in range(max_retries):
             try:
-                self._enforce_rate_limit()
+                self._enforce_rate_limit(allow_wait=allow_wait, max_wait=max_wait)
 
                 logger.debug(f"Cin7 API request: {url} (params: {params})")
                 response = requests.get(url, headers=self.headers, params=params, timeout=30)
@@ -473,6 +484,77 @@ class Cin7ApiService:
         except Exception as e:
             logger.error(f"Error looking up product option by code {code}: {e}")
             return None
+
+    def enrich_contacts_batch(self, contact_ids: List[int], max_enrichments: int = 50) -> Tuple[Dict[int, Dict], int]:
+        """
+        Enrich multiple contacts with full API data, respecting rate limits.
+
+        Fetches detailed contact information for contacts that need enrichment.
+        Stops enrichment if rate limit is approaching to prevent timeout.
+
+        Args:
+            contact_ids: List of CIN7 contact IDs to enrich
+            max_enrichments: Maximum number of contacts to enrich (default 50, leaves 10 calls for other operations)
+
+        Returns:
+            Tuple of (enriched_data_dict, enriched_count)
+            enriched_data_dict: {contact_id: full_contact_data}
+            enriched_count: Number of successfully enriched contacts
+        """
+        enriched_data = {}
+        enriched_count = 0
+
+        logger.info(f"Starting batch enrichment for {len(contact_ids)} contacts (max: {max_enrichments})")
+
+        for idx, contact_id in enumerate(contact_ids):
+            # Stop enrichment if we've hit the max enrichments limit
+            if enriched_count >= max_enrichments:
+                logger.warning(
+                    f"Reached maximum enrichment limit ({max_enrichments}). "
+                    f"Stopping enrichment to preserve rate limit. "
+                    f"Enriched {enriched_count} out of {len(contact_ids)} requested."
+                )
+                break
+
+            # Check if we're approaching rate limit (leave buffer of 10 calls)
+            if len(self.call_times) >= 50:
+                logger.warning(
+                    f"Approaching rate limit ({len(self.call_times)} calls in last minute). "
+                    f"Stopping enrichment to prevent timeout. "
+                    f"Enriched {enriched_count} out of {len(contact_ids)} requested."
+                )
+                break
+
+            try:
+                # Allow short waits for rate limiting (max 5 seconds per request)
+                full_contact = self._make_request(
+                    f'Contacts/{contact_id}',
+                    allow_wait=True,
+                    max_wait=5.0
+                )
+
+                if full_contact:
+                    enriched_data[contact_id] = full_contact
+                    enriched_count += 1
+
+                    if (enriched_count % 10) == 0:
+                        logger.info(f"Enriched {enriched_count}/{len(contact_ids)} contacts...")
+
+            except Exception as e:
+                # Rate limit or other error - stop enrichment
+                if "rate limit" in str(e).lower():
+                    logger.warning(
+                        f"Rate limit reached during enrichment at contact {idx + 1}. "
+                        f"Stopping enrichment. Enriched {enriched_count} contacts."
+                    )
+                    break
+                else:
+                    logger.warning(f"Failed to enrich contact {contact_id}: {e}")
+                    # Continue with next contact for non-rate-limit errors
+                    continue
+
+        logger.info(f"Batch enrichment complete: {enriched_count} contacts enriched")
+        return enriched_data, enriched_count
 
     def test_connection(self) -> bool:
         """Test connection to Cin7 API"""

@@ -3621,13 +3621,20 @@ def cin7_price_fetch(request):
     """
     Stage 1: Fetch products from Cin7 API and save to database
 
-    This endpoint fetches products from Cin7 and stores them in the Cin7Product table.
-    No matching or price updates happen at this stage.
+    This endpoint implements intelligent sync with two modes:
+    1. Initial Sync: Fetch ALL products from CIN7 (first-time sync or forced refresh)
+    2. Incremental Sync: Fetch all but only update changed records (efficient DB operations)
+
+    Since CIN7 API doesn't support incremental queries, we use application-level
+    change detection via data hashing to minimize database write operations.
+
+    Cache TTL: 24 hours
     """
     import json
     import uuid
+    from datetime import timedelta
     from django.core.cache import cache
-    from schools.services.cin7_api_service import Cin7ApiService
+    from schools.services.cin7_sync_service import Cin7SyncService
     from schools.models import Cin7Product
 
     logger = logging.getLogger(__name__)
@@ -3637,38 +3644,70 @@ def cin7_price_fetch(request):
         # Parse request
         data = json.loads(request.body)
         price_type = data.get('price_type', 'Wholesale')
-        session_id = data.get('session_id') or str(uuid.uuid4())  # Use provided session_id or generate new one
+        session_id = data.get('session_id') or str(uuid.uuid4())
+        force_refresh = data.get('force_refresh', False)  # Force initial sync mode
+        force_initial = data.get('force_initial', False) or force_refresh  # Legacy compatibility
+
+        # Cache settings (24 hours)
+        CACHE_TTL_HOURS = 24
+        cache_threshold = timezone.now() - timedelta(hours=CACHE_TTL_HOURS)
 
         logger.info(f"=== CIN7 PRICE FETCH STARTED (Stage 1) ===")
         logger.info(f"Price type: {price_type}")
         logger.info(f"Session ID: {session_id}")
+        logger.info(f"Force initial: {force_initial}")
 
         # Log sync start
         log_sync(session_id, 'wholesale_price_update', 'info',
                 f'🚀 Starting CIN7 price fetch for {price_type} products',
-                details={'price_type': price_type}, user=request.user)
+                details={'price_type': price_type, 'force_initial': force_initial}, user=request.user)
 
-        # Clear old Cin7Product records to ensure fresh data
-        old_count = Cin7Product.objects.count()
-        if old_count > 0:
-            logger.info(f"Clearing {old_count} old Cin7Product records...")
-            log_sync(session_id, 'wholesale_price_update', 'info',
-                    f'Clearing {old_count} old product records from database',
-                    details={'old_count': old_count}, user=request.user)
-            Cin7Product.objects.all().delete()
-            logger.info(f"✓ Cleared {old_count} old records")
+        # Check for cached data (skip sync if cache is fresh and not forcing)
+        cached_count = Cin7Product.objects.filter(
+            price_type=price_type,
+            last_api_fetch__gte=cache_threshold
+        ).count()
+
+        if cached_count > 0 and not force_initial:
+            logger.info(f"✓ Found {cached_count} cached products (less than {CACHE_TTL_HOURS}h old)")
             log_sync(session_id, 'wholesale_price_update', 'success',
-                    f'✓ Cleared {old_count} old records', user=request.user)
+                    f'✓ Using {cached_count} cached products (fetched within last {CACHE_TTL_HOURS}h)',
+                    details={
+                        'cached_count': cached_count,
+                        'cache_ttl_hours': CACHE_TTL_HOURS,
+                        'skipped_api_calls': 'Avoided 60+ API calls via caching'
+                    }, user=request.user)
 
-        # Initialize Cin7 API service
-        log_sync(session_id, 'wholesale_price_update', 'info',
-                'Initializing CIN7 API connection...', user=request.user)
-        cin7_service = Cin7ApiService()
+            # Update session_id for cached products so they can be matched
+            Cin7Product.objects.filter(
+                price_type=price_type,
+                last_api_fetch__gte=cache_threshold
+            ).update(fetch_session_id=session_id)
 
-        # Test connection
+            elapsed = (timezone.now() - start_time).total_seconds()
+
+            return JsonResponse({
+                'success': True,
+                'session_id': session_id,
+                'summary': {
+                    'sync_mode': 'cached',  # Indicate cache reuse
+                    'total_products': cached_count,
+                    'saved_to_db': cached_count,
+                    'from_cache': True,
+                    'cache_age_hours': CACHE_TTL_HOURS,
+                    'skipped_bs_products': 0,
+                    'duration_seconds': elapsed
+                }
+            })
+
+        # Initialize sync service
+        sync_service = Cin7SyncService()
+
+        # Test CIN7 API connection
         log_sync(session_id, 'wholesale_price_update', 'info',
                 'Testing CIN7 API connection...', user=request.user)
-        if not cin7_service.test_connection():
+
+        if not sync_service.cin7_api.test_connection():
             log_sync(session_id, 'wholesale_price_update', 'error',
                     '❌ Failed to connect to CIN7 API. Check credentials in .env file.',
                     user=request.user)
@@ -3692,172 +3731,44 @@ def cin7_price_fetch(request):
                 'timestamp': timezone.now().isoformat()
             }, timeout=300)
 
-        # Fetch all products from Cin7
-        update_progress(0, 100, "Initializing Cin7 connection...")
-        log_sync(session_id, 'wholesale_price_update', 'info',
-                f'📡 Fetching {price_type} products from CIN7 API...',
-                user=request.user)
+        # Log callback
+        def log_callback(level, message, details=None):
+            log_sync(session_id, 'wholesale_price_update', level, message,
+                    details=details, user=request.user)
 
-        products, fetched, total = cin7_service.fetch_all_products(
+        # Perform smart sync (auto-detects initial vs incremental)
+        results = sync_service.sync(
             price_type=price_type,
-            where_clause=None,
-            progress_callback=update_progress
+            session_id=session_id,
+            force_initial=force_initial,
+            progress_callback=update_progress,
+            log_callback=log_callback
         )
-
-        logger.info(f"Fetched {fetched} products from Cin7")
-        log_sync(session_id, 'wholesale_price_update', 'success',
-                f'✓ Fetched {fetched} products from CIN7',
-                details={'fetched': fetched, 'total': total}, user=request.user)
-
-        # Save to database in bulk
-        update_progress(0, len(products), "Saving to database...")
-        log_sync(session_id, 'wholesale_price_update', 'info',
-                f'💾 Processing and saving {len(products)} products to database...',
-                details={'product_count': len(products)}, user=request.user)
-
-        cin7_products = []
-        skipped_no_id = 0
-        skipped_no_options = 0
-        skipped_bs_products = 0
-        total_options = 0
-
-        for index, cin7_product in enumerate(products, 1):
-            if index % 500 == 0:
-                update_progress(index, len(products), f"Saving {index}/{len(products)}...")
-
-            # Extract all product options (variants)
-            product_options = cin7_service.extract_product_options(cin7_product)
-
-            if not product_options:
-                skipped_no_options += 1
-                continue
-
-            # Create a Cin7Product record for each variant
-            for option_data in product_options:
-                # Skip options without cin7_id (required field)
-                if not option_data.get('cin7_id'):
-                    logger.warning(f"Skipping option without cin7_id: {option_data.get('sku', 'unknown')}")
-                    skipped_no_id += 1
-                    continue
-
-                # Skip products where code or style_code starts with 'BS' (BallStore)
-                # EXCEPT when price_type is "Bespoke" (which also uses BS prefix)
-                sku = option_data.get('sku') or ''
-                style_code = option_data.get('style_code') or ''
-                if price_type != 'Bespoke' and (sku.upper().startswith('BS') or style_code.upper().startswith('BS')):
-                    logger.info(f"BS Filter: Skipping {option_data.get('product_name')} (SKU: {sku}, Style: {style_code})")
-                    skipped_bs_products += 1
-                    continue
-
-                # Skip BESPOKE ADDON products (managed via custom pricing UI)
-                category_path = option_data.get('category', '').upper()
-                product_name = option_data.get('product_name', '').upper()
-                sku_upper = sku.upper()
-
-                is_bespoke_addon = 'QUOTATION BASE LIBRARY' in category_path and any([
-                    'SCREEN PRINT' in product_name or 'SCREEN PRINT' in sku_upper,
-                    'HEAT TRANSFER' in product_name or 'HEAT TRANSFER' in sku_upper,
-                    ('EMB' in sku_upper and ('EMBROIDERY' in product_name or 'APPLIQUE' in product_name)),
-                ])
-
-                if is_bespoke_addon:
-                    skipped_bs_products += 1  # Use same counter for simplicity
-                    logger.info(f"Addon Filter: Skipping {product_name} (SKU: {sku}, Category: {category_path})")
-                    continue
-
-                # Get pricing data from Cin7
-                cost = option_data.get('cost')
-                rrp = option_data.get('current_retail_nzd_incl')
-
-                cin7_products.append(Cin7Product(
-                    cin7_id=option_data.get('cin7_id'),
-                    code=option_data.get('sku') or '',
-                    style_code=option_data.get('style_code') or '',
-                    barcode=option_data.get('barcode') or '',
-                    name=option_data.get('product_name') or '',
-                    category=option_data.get('category') or '',
-                    brand=option_data.get('brand') or '',
-                    cost_nzd=cost,
-                    retail_price=rrp,
-                    stock_available=option_data.get('stock_available'),
-                    price_type=price_type,
-                    fetch_session_id=session_id,
-                    raw_data=cin7_product  # Store parent product JSON
-                ))
-                total_options += 1
-
-        # Bulk create (much faster than individual saves)
-        logger.info(f"Bulk creating {len(cin7_products)} Cin7Product records...")
-        log_sync(session_id, 'wholesale_price_update', 'info',
-                f'💾 Saving {len(cin7_products)} product variants to database...',
-                details={'variant_count': len(cin7_products)}, user=request.user)
-
-        Cin7Product.objects.bulk_create(cin7_products, batch_size=500)
-
-        elapsed = (timezone.now() - start_time).total_seconds()
-
-        logger.info(f"=== CIN7 PRICE FETCH COMPLETE (Stage 1) ===")
-        logger.info(f"Total parent products: {len(products)}")
-        logger.info(f"Total product variants: {total_options}")
-        logger.info(f"Saved to database: {len(cin7_products)}")
-        logger.info(f"Skipped (no options): {skipped_no_options}")
-        logger.info(f"Skipped (starts with BS): {skipped_bs_products}")
-        logger.info(f"Skipped (no ID): {skipped_no_id}")
-        logger.info(f"Duration: {elapsed:.2f}s")
-
-        # Log completion summary
-        log_sync(session_id, 'wholesale_price_update', 'success',
-                f'✅ Stage 1 Complete: Saved {len(cin7_products)} product variants',
-                details={
-                    'total_products': len(products),
-                    'total_variants': total_options,
-                    'saved': len(cin7_products),
-                    'skipped_no_options': skipped_no_options,
-                    'skipped_bs': skipped_bs_products,
-                    'skipped_no_id': skipped_no_id,
-                    'duration_seconds': round(elapsed, 2)
-                }, user=request.user)
-
-        # Log warnings if any products were skipped
-        if skipped_bs_products > 0:
-            log_sync(session_id, 'wholesale_price_update', 'warning',
-                    f'⚠️ Skipped {skipped_bs_products} BallStore/Bespoke products',
-                    details={'skipped_count': skipped_bs_products}, user=request.user)
-        if skipped_no_options > 0:
-            log_sync(session_id, 'wholesale_price_update', 'warning',
-                    f'⚠️ Skipped {skipped_no_options} products without variants',
-                    details={'skipped_count': skipped_no_options}, user=request.user)
-        if skipped_no_id > 0:
-            log_sync(session_id, 'wholesale_price_update', 'warning',
-                    f'⚠️ Skipped {skipped_no_id} variants without CIN7 ID',
-                    details={'skipped_count': skipped_no_id}, user=request.user)
 
         # Audit log
         try:
             from authentication.models import AuditLog
             user = request.user if hasattr(request, 'user') and request.user.is_authenticated else None
+
+            sync_mode = results.get('sync_mode', 'unknown')
+            if sync_mode == 'initial':
+                description = f"Initial sync: Fetched {results.get('saved_to_db', 0)} products from CIN7 for {price_type}"
+            else:
+                description = f"Incremental sync: {results.get('new_products', 0)} new, {results.get('updated_products', 0)} updated for {price_type}"
+
             AuditLog.log_action(
                 user=user,
-                action_type='cin7_data_fetched',
-                description=f"Fetched {len(products)} products from Cin7 for {price_type} (session: {session_id})",
+                action_type='cin7_data_synced',
+                description=description,
                 request=request
             )
         except Exception as e:
-            logger.error(f"Failed to audit fetch: {str(e)}")
+            logger.error(f"Failed to audit sync: {str(e)}")
 
         return JsonResponse({
             'success': True,
             'session_id': session_id,
-            'summary': {
-                'total_fetched': len(products),
-                'total_variants': total_options,
-                'saved_to_db': len(cin7_products),
-                'skipped_no_options': skipped_no_options,
-                'skipped_bs_products': skipped_bs_products,
-                'skipped_no_id': skipped_no_id,
-                'duration_seconds': elapsed,
-                'price_type': price_type
-            }
+            'summary': results
         })
 
     except Exception as e:
@@ -4796,6 +4707,7 @@ class FetchCIN7ContactsView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, V
     def post(self, request):
         import json
         import uuid
+        from datetime import timedelta
 
         try:
             from .services.cin7_api_service import Cin7ApiService
@@ -4804,11 +4716,45 @@ class FetchCIN7ContactsView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, V
             # Generate session ID for sync logging
             data = json.loads(request.body) if request.body else {}
             session_id = data.get('session_id') or str(uuid.uuid4())
+            force_refresh = data.get('force_refresh', False)
 
             # Log sync start
             log_sync(session_id, 'cin7_contact_mapping', 'info',
                     '🚀 Starting CIN7 contact fetch from API',
                     user=request.user)
+
+            # Check if we have recent cached contacts (within last 24 hours)
+            if not force_refresh:
+                cache_threshold = timezone.now() - timedelta(hours=24)
+                recent_contacts = CIN7Contact.objects.filter(
+                    last_synced_at__gte=cache_threshold
+                )
+
+                if recent_contacts.exists():
+                    contact_count = recent_contacts.count()
+                    last_sync = recent_contacts.latest('last_synced_at').last_synced_at
+                    hours_ago = (timezone.now() - last_sync).total_seconds() / 3600
+
+                    print(f"\n✅ Using cached contacts from {hours_ago:.1f} hours ago")
+                    print(f"   {contact_count} contacts available in cache")
+
+                    log_sync(session_id, 'cin7_contact_mapping', 'success',
+                            f'✅ Using cached contacts from {hours_ago:.1f} hours ago',
+                            details={
+                                'cached_count': contact_count,
+                                'hours_ago': round(hours_ago, 1),
+                                'last_sync': last_sync.isoformat()
+                            }, user=request.user)
+
+                    return JsonResponse({
+                        'success': True,
+                        'count': contact_count,
+                        'enriched_count': 0,
+                        'session_id': session_id,
+                        'cached': True,
+                        'hours_ago': round(hours_ago, 1),
+                        'message': f'Using cached contacts from {hours_ago:.1f} hours ago. {contact_count} contacts available.'
+                    })
 
             # Initialize CIN7 API service
             log_sync(session_id, 'cin7_contact_mapping', 'info',
@@ -4938,58 +4884,70 @@ class FetchCIN7ContactsView(LoginRequiredMixin, SalesRepOrAccountManagerMixin, V
             enriched_count = 0
 
             log_sync(session_id, 'cin7_contact_mapping', 'info',
+                    f'💾 Analyzing {len(valid_contacts)} contacts for enrichment needs...',
+                    details={'contacts_to_save': len(valid_contacts)}, user=request.user)
+
+            # PHASE 1: Identify contacts that need enrichment
+            contacts_to_enrich = []
+            for contact_data in valid_contacts:
+                phone = (contact_data.get('phone', '') or '').strip()
+                address1 = (contact_data.get('address1', '') or '').strip()
+                postal_address1 = (contact_data.get('postalAddress1', '') or '').strip()
+
+                needs_enrichment = not phone and not address1 and not postal_address1
+                if needs_enrichment:
+                    contacts_to_enrich.append(contact_data['id'])
+
+            # PHASE 2: Batch enrich contacts (max 50 to leave buffer for other operations)
+            enriched_data = {}
+            if contacts_to_enrich:
+                print(f"\n🔍 Found {len(contacts_to_enrich)} contacts needing enrichment")
+                print(f"📞 Batch enriching contacts (max 50 to preserve rate limit)...")
+                log_sync(session_id, 'cin7_contact_mapping', 'info',
+                        f'🔍 Found {len(contacts_to_enrich)} contacts needing enrichment. Starting batch enrichment...',
+                        details={'needs_enrichment': len(contacts_to_enrich)}, user=request.user)
+
+                try:
+                    enriched_data, enriched_count = api.enrich_contacts_batch(
+                        contact_ids=contacts_to_enrich,
+                        max_enrichments=50
+                    )
+                    print(f"✅ Batch enrichment complete: {enriched_count} contacts enriched")
+                    log_sync(session_id, 'cin7_contact_mapping', 'success',
+                            f'✅ Batch enrichment complete: {enriched_count}/{len(contacts_to_enrich)} contacts enriched',
+                            details={'enriched': enriched_count, 'requested': len(contacts_to_enrich)}, user=request.user)
+
+                    if enriched_count < len(contacts_to_enrich):
+                        remaining = len(contacts_to_enrich) - enriched_count
+                        print(f"ℹ️  {remaining} contacts will use basic data (rate limit protection)")
+                        log_sync(session_id, 'cin7_contact_mapping', 'info',
+                                f'ℹ️ {remaining} contacts will use basic data to prevent rate limit timeout',
+                                details={'remaining': remaining}, user=request.user)
+                except Exception as enrich_err:
+                    print(f"⚠️  Batch enrichment failed: {enrich_err}")
+                    log_sync(session_id, 'cin7_contact_mapping', 'warning',
+                            f'⚠️ Batch enrichment failed: {enrich_err}. Continuing with basic contact data.',
+                            details={'error': str(enrich_err)}, user=request.user)
+
+            # PHASE 3: Save all contacts to database
+            print(f"\n💾 Saving {len(valid_contacts)} contacts to database...")
+            log_sync(session_id, 'cin7_contact_mapping', 'info',
                     f'💾 Saving {len(valid_contacts)} contacts to database...',
                     details={'contacts_to_save': len(valid_contacts)}, user=request.user)
 
             for contact_data in valid_contacts:
                 try:
+                    contact_id = contact_data['id']
+
+                    # Use enriched data if available
+                    if contact_id in enriched_data:
+                        contact_data = enriched_data[contact_id]
+
                     # Safely extract and clean field values, handling None
                     company = contact_data.get('company', '') or ''
                     email = contact_data.get('email', '') or ''
                     first_name = contact_data.get('firstName', '') or ''
                     last_name = contact_data.get('lastName', '') or ''
-
-                    # Check if critical contact fields are missing (CIN7 list API sometimes returns incomplete data)
-                    # If phone AND all address fields are empty, fetch full contact details
-                    phone = (contact_data.get('phone', '') or '').strip()
-                    address1 = (contact_data.get('address1', '') or '').strip()
-                    postal_address1 = (contact_data.get('postalAddress1', '') or '').strip()
-
-                    needs_enrichment = not phone and not address1 and not postal_address1
-
-                    if needs_enrichment:
-                        # Fetch complete contact data from individual endpoint
-                        contact_id = contact_data['id']
-                        try:
-                            full_contact = api._make_request(f'Contacts/{contact_id}')
-
-                            if full_contact:
-                                # Use full contact data instead of list data
-                                contact_data = full_contact
-                                enriched_count += 1
-                                logger.info(f"Enriched contact {contact_id} ({company}) with full API data")
-                        except Exception as rate_err:
-                            # Rate limit exception during enrichment - log and continue with basic data
-                            if "rate limit" in str(rate_err).lower():
-                                logger.warning(
-                                    f"Rate limit reached during contact enrichment for {contact_id}. "
-                                    f"Continuing with basic contact data. Total enriched so far: {enriched_count}"
-                                )
-                                log_sync(session_id, 'cin7_contact_mapping', 'warning',
-                                        f'⚠️ Rate limit reached during enrichment at contact {created_count + 1}. '
-                                        f'Continuing with basic data for remaining contacts.',
-                                        details={
-                                            'contact_id': contact_id,
-                                            'contacts_processed': created_count,
-                                            'enriched_count': enriched_count,
-                                            'error': str(rate_err)
-                                        },
-                                        user=request.user)
-                                # Continue with basic contact_data (don't raise, just skip enrichment)
-                            else:
-                                # Non-rate-limit error during enrichment
-                                logger.warning(f"Failed to enrich contact {contact_id}: {rate_err}")
-                                # Continue with basic contact_data
 
                     CIN7Contact.objects.create(
                         cin7_id=contact_data['id'],

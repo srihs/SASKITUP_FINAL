@@ -21,6 +21,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional
 from decouple import config
 from django.contrib.contenttypes.models import ContentType
+from urllib.parse import unquote
 
 logger = logging.getLogger(__name__)
 
@@ -35,14 +36,203 @@ class EwandQuotationService:
 
     def __init__(self):
         """Initialize eWand quotation service with credentials from environment"""
-        self.api_url = config('EWAND_API_URL', default='')
-        self.username = config('EWAND_API_USERNAME', default='')
-        self.password = config('EWAND_API_PASSWORD', default='')
+        # Extract base URL from the full API URL (remove endpoint path)
+        full_api_url = config('EWAND_API_URL', default='')
+        if full_api_url:
+            # Extract base URL (e.g., https://dev-ewand.it.sas.co.nz)
+            parts = full_api_url.split('/quotation')
+            self.base_url = parts[0] if parts else full_api_url
+            self.api_url = full_api_url
+        else:
+            self.base_url = ''
+            self.api_url = ''
 
-        if not all([self.api_url, self.username, self.password]):
+        self.email = config('EWAND_API_USERNAME', default='')  # Changed from username to email
+        self.password = config('EWAND_API_PASSWORD', default='')
+        self.session = None
+        self.authenticated = False
+
+        if not all([self.api_url, self.email, self.password]):
             logger.warning("eWand API credentials not fully configured in .env file")
 
-        logger.info("EwandQuotationService initialized")
+        logger.info(f"EwandQuotationService initialized - Base URL: {self.base_url}")
+
+    def get_csrf_token(self):
+        """
+        Step 1: Get CSRF token from Laravel Sanctum.
+        Endpoint: /sanctum/csrf-cookie
+
+        Returns:
+            str: XSRF-TOKEN value from cookies
+
+        Raises:
+            Exception: If CSRF token retrieval fails
+        """
+        csrf_url = f"{self.base_url}/sanctum/csrf-cookie"
+
+        # Create session to maintain cookies
+        self.session = requests.Session()
+
+        try:
+            logger.info(f"🔐 Requesting CSRF token from: {csrf_url}")
+            response = self.session.get(csrf_url, timeout=30)
+            response.raise_for_status()
+
+            # Extract XSRF-TOKEN from cookies
+            xsrf_token = self.session.cookies.get('XSRF-TOKEN')
+
+            if not xsrf_token:
+                logger.error("XSRF-TOKEN not found in cookies")
+                logger.error(f"Available cookies: {list(self.session.cookies.keys())}")
+                raise Exception("XSRF-TOKEN not found in response cookies")
+
+            # Decode the URL-encoded token (Laravel encodes it)
+            decoded_token = unquote(xsrf_token)
+
+            logger.info(f"✅ CSRF token retrieved successfully")
+            logger.debug(f"Encoded token: {xsrf_token[:30]}...")
+            logger.debug(f"Decoded token: {decoded_token[:30]}...")
+
+            return decoded_token
+
+        except Exception as e:
+            logger.error(f"❌ Failed to get CSRF token: {e}")
+            raise
+
+    def login(self, xsrf_token):
+        """
+        Step 2: Login to eWand with CSRF token.
+        Endpoint: /login
+        Headers: X-XSRF-TOKEN
+
+        Args:
+            xsrf_token: CSRF token from get_csrf_token()
+
+        Raises:
+            Exception: If login fails
+        """
+        login_url = f"{self.base_url}/login"
+
+        payload = {
+            "email": self.email,
+            "password": self.password,
+            "remember": True
+        }
+
+        headers = {
+            "X-XSRF-TOKEN": xsrf_token,
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Referer": self.base_url,
+            "Origin": self.base_url
+        }
+
+        try:
+            logger.info(f"🔐 Logging in to eWand: {login_url}")
+            logger.info(f"Email: {self.email}")
+            logger.info(f"Cookies being sent: {self.session.cookies.get_dict()}")
+            logger.debug(f"Request headers: {headers}")
+            logger.debug(f"Request payload: {json.dumps(payload, indent=2)}")
+
+            response = self.session.post(
+                login_url,
+                json=payload,
+                headers=headers,
+                timeout=30
+            )
+
+            # Log response details immediately (before raising exception)
+            logger.info(f"Response status: {response.status_code}")
+            logger.info(f"Response headers: {dict(response.headers)}")
+
+            # Check for 422 validation error - log full details
+            if response.status_code == 422:
+                logger.error("="*80)
+                logger.error("❌ 422 Unprocessable Content - Laravel Validation Error")
+                logger.error("="*80)
+                logger.error(f"Login URL: {login_url}")
+                logger.error(f"Request Headers: {json.dumps(headers, indent=2)}")
+                logger.error(f"Request Payload: {json.dumps(payload, indent=2)}")
+                logger.error(f"Response Status: {response.status_code}")
+                logger.error(f"Response Headers: {json.dumps(dict(response.headers), indent=2)}")
+                logger.error(f"Response Body: {response.text}")
+
+                # Try to parse validation errors
+                try:
+                    error_data = response.json()
+                    logger.error(f"Parsed Validation Errors: {json.dumps(error_data, indent=2)}")
+
+                    # Extract specific error messages
+                    if 'errors' in error_data:
+                        logger.error("\nField-specific validation errors:")
+                        for field, messages in error_data['errors'].items():
+                            logger.error(f"  - {field}: {messages}")
+
+                    if 'message' in error_data:
+                        logger.error(f"\nError message: {error_data['message']}")
+
+                except ValueError:
+                    logger.error("Could not parse response as JSON")
+                except Exception as parse_error:
+                    logger.error(f"Error parsing validation response: {parse_error}")
+
+                logger.error("="*80)
+                raise Exception(f"eWand login validation failed (422): {response.text}")
+
+            # Check if HTML response (login failed)
+            content_type = response.headers.get('Content-Type', '').lower()
+            if 'text/html' in content_type:
+                logger.error("❌ Login failed - received HTML response (likely redirected to login page)")
+                logger.error(f"Status Code: {response.status_code}")
+                logger.error(f"Response preview: {response.text[:500]}")
+                raise Exception("eWand login failed - received HTML instead of JSON")
+
+            response.raise_for_status()
+
+            logger.info(f"✅ Login successful - Status: {response.status_code}")
+            logger.info(f"Session cookies: {list(self.session.cookies.keys())}")
+
+            self.authenticated = True
+
+            return response
+
+        except requests.HTTPError as e:
+            logger.error(f"❌ HTTP Error during login: {e}")
+            logger.error(f"Response status: {e.response.status_code if e.response else 'N/A'}")
+            logger.error(f"Response body: {e.response.text if e.response else 'N/A'}")
+            raise
+        except Exception as e:
+            logger.error(f"❌ Login failed: {e}")
+            raise
+
+    def authenticate(self):
+        """
+        Complete eWand authentication flow using Laravel Sanctum:
+        1. Get CSRF token from /sanctum/csrf-cookie
+        2. Login with CSRF token via /login
+
+        This must be called before making any API requests.
+        """
+        logger.info("="*80)
+        logger.info("🔐 Starting eWand Sanctum authentication...")
+        logger.info("="*80)
+
+        try:
+            # Step 1: Get CSRF token
+            xsrf_token = self.get_csrf_token()
+
+            # Step 2: Login with CSRF token
+            self.login(xsrf_token)
+
+            logger.info("="*80)
+            logger.info("✅ eWand authentication complete - Ready to make API calls")
+            logger.info("="*80)
+
+        except Exception as e:
+            logger.error("="*80)
+            logger.error(f"❌ eWand authentication failed: {e}")
+            logger.error("="*80)
+            raise
 
     def create_quotation(self, quotation) -> Dict:
         """
@@ -72,7 +262,11 @@ class EwandQuotationService:
             # Build API payload
             payload = self._build_quotation_payload(quotation)
 
-            # Make API request
+            # Authenticate first if not already authenticated
+            if not self.authenticated:
+                self.authenticate()
+
+            # Make API request using authenticated session
             logger.info(f"Creating eWand quotation for quotation {quotation.quotation_number}")
             logger.debug(f"eWand API Request - Full payload: {json.dumps(payload, indent=2)}")
 
@@ -81,16 +275,42 @@ class EwandQuotationService:
             print(f"eWand API REQUEST - Quotation: {quotation.quotation_number}")
             print("="*80)
             print(f"API URL: {self.api_url}")
-            print(f"Username: {self.username}")
+            print(f"Email: {self.email}")
+            print(f"Authenticated: {self.authenticated}")
             print("\nPayload:")
             print(json.dumps(payload, indent=2))
             print("="*80 + "\n")
 
-            response = requests.post(
+            # Get current XSRF token from session cookies (URL-encoded)
+            xsrf_token_cookie = self.session.cookies.get('XSRF-TOKEN')
+
+            if not xsrf_token_cookie:
+                logger.warning("XSRF-TOKEN not found in session - re-authenticating")
+                self.authenticate()
+                xsrf_token_cookie = self.session.cookies.get('XSRF-TOKEN')
+
+            # CRITICAL: Decode the URL-encoded token (same as in get_csrf_token)
+            # Laravel returns a new CSRF token after login in the response cookies
+            # This fresh token must be decoded before use in API requests
+            xsrf_token = unquote(xsrf_token_cookie)
+
+            logger.info("Making eWand API request with fresh CSRF token")
+            logger.debug(f"CSRF token (encoded): {xsrf_token_cookie[:30]}...")
+            logger.debug(f"CSRF token (decoded): {xsrf_token[:30]}...")
+            logger.debug(f"Session cookies available: {list(self.session.cookies.keys())}")
+
+            # Set proper headers for Laravel Sanctum API
+            headers = {
+                'X-XSRF-TOKEN': xsrf_token,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',  # Critical for Laravel to return JSON instead of HTML
+            }
+
+            # Use authenticated session instead of Basic Auth
+            response = self.session.post(
                 self.api_url,
                 json=payload,
-                auth=(self.username, self.password),
-                headers={'Content-Type': 'application/json'},
+                headers=headers,
                 timeout=30
             )
 
@@ -98,6 +318,9 @@ class EwandQuotationService:
             logger.info(f"eWand API Response - Status Code: {response.status_code}")
             logger.debug(f"eWand API Response - Headers: {dict(response.headers)}")
             logger.debug(f"eWand API Response - Body (first 500 chars): {response.text[:500]}")
+
+            # Validate response is JSON (not HTML)
+            self._validate_json_response(response)
 
             # Print response to console for debugging
             print("\n" + "="*80)
@@ -140,6 +363,49 @@ class EwandQuotationService:
                 'error_type': 'unexpected_error'
             }
 
+    def _validate_json_response(self, response):
+        """
+        Validate that the response is JSON and not HTML.
+
+        Args:
+            response: Requests response object
+
+        Raises:
+            Exception: If response is HTML (indicates authentication failure or redirect)
+        """
+        content_type = response.headers.get('Content-Type', '').lower()
+
+        # Check if response is HTML (authentication failure)
+        if 'text/html' in content_type:
+            logger.error(
+                f"eWand API returned HTML instead of JSON - Authentication failed or redirected to login page\n"
+                f"URL: {response.url}\n"
+                f"Status Code: {response.status_code}\n"
+                f"Content-Type: {content_type}\n"
+                f"Response preview: {response.text[:500]}"
+            )
+            raise Exception(
+                "eWand API authentication failed - received HTML login page instead of JSON response. "
+                "Please verify API credentials and endpoint URL."
+            )
+
+        # Check for JSON content type
+        if 'application/json' not in content_type and response.text.strip():
+            logger.warning(
+                f"Unexpected Content-Type: {content_type}. "
+                f"Expected 'application/json'. Response may not be valid JSON."
+            )
+
+        # Try to parse JSON to ensure it's valid
+        if response.text.strip():
+            try:
+                response.json()
+            except ValueError as e:
+                logger.error(f"Response is not valid JSON: {e}\nResponse: {response.text[:500]}")
+                raise Exception(f"eWand API returned invalid JSON: {str(e)}")
+
+        logger.debug("Response validation passed - JSON content confirmed")
+
     def _validate_quotation(self, quotation):
         """
         Validate quotation before sending to eWand.
@@ -162,6 +428,7 @@ class EwandQuotationService:
         if not quotation.created_by:
             raise ValueError("Quotation must have a creator (sales agent)")
 
+        # Note: Category validation removed - using default category_id=23 for items without categories
         logger.info(f"eWand validation passed for quotation {quotation.quotation_number}")
 
     def _build_quotation_payload(self, quotation) -> Dict:
@@ -226,6 +493,32 @@ class EwandQuotationService:
             # Get bespoke product
             bespoke_product = item.product
 
+            # Get category_id from BespokeProduct's category assignments
+            # Default to 23 if no category assigned or cin7_id is not a valid integer
+            category_id = 23  # Default category_id for eWand
+            if bespoke_product and hasattr(bespoke_product, 'category_assignments'):
+                first_assignment = bespoke_product.category_assignments.first()
+                if first_assignment and first_assignment.category:
+                    if first_assignment.category.cin7_id:
+                        # Try to convert cin7_id to integer, fall back to default if not numeric
+                        try:
+                            category_id = int(first_assignment.category.cin7_id)
+                            logger.debug(
+                                f"Item '{item.product_name}' category: {first_assignment.category.name} "
+                                f"(cin7_id: {category_id})"
+                            )
+                        except ValueError:
+                            logger.info(
+                                f"Item '{item.product_name}' category cin7_id '{first_assignment.category.cin7_id}' "
+                                f"is not a valid integer, using default: {category_id}"
+                            )
+                    else:
+                        logger.info(f"Item '{item.product_name}' category has no cin7_id, using default: {category_id}")
+                else:
+                    logger.info(f"Item '{item.product_name}' has no category assigned, using default: {category_id}")
+            else:
+                logger.info(f"Item '{item.product_name}' has no category_assignments attribute, using default: {category_id}")
+
             # Determine if this is cut & sew or external item based on product type
             # For now, treat all bespoke as cut & sew (can be refined based on product attributes)
 
@@ -236,6 +529,7 @@ class EwandQuotationService:
                     'name': item.product_name,
                     'belongs_to': 'internal'  # Bespoke products are internal
                 },
+                'category_id': category_id,  # REQUIRED: Category ID from BespokeProduct
                 'quantity': item.quantity,
                 'price_type': 'custom',
                 'unit_price': str(item.unit_price),
@@ -286,7 +580,8 @@ class EwandQuotationService:
             logger.info(
                 f"  - Added bespoke item: {item.product_name} "
                 f"(SKU: {item.product_sku}, Qty: {item.quantity}, "
-                f"Price: ${item.unit_price}, Embellishments: {len(item_data['embellishments'])})"
+                f"Price: ${item.unit_price}, Category ID: {category_id}, "
+                f"Embellishments: {len(item_data['embellishments'])})"
             )
 
         # Calculate totals
@@ -311,6 +606,13 @@ class EwandQuotationService:
             'created_at': quotation.created_at.isoformat() if quotation.created_at else None,
             'updated_at': quotation.updated_at.isoformat() if quotation.updated_at else None
         }
+
+        # Get account_manager_id from environment or use fallback
+        # Priority: ENV variable → sales_agent_id → 1 (safe default)
+        # eWand's database requires a valid user ID for foreign key constraint
+        default_account_manager = sales_agent_id if sales_agent_id else 1
+        account_manager_id = config('EWAND_DEFAULT_ACCOUNT_MANAGER_ID', default=default_account_manager, cast=int)
+        logger.info(f"Using account_manager_id: {account_manager_id} for quotation {quotation.quotation_number} (fallback: {default_account_manager})")
 
         # Build payload - CRITICAL: Only contains bespoke items
         payload = {
@@ -341,9 +643,13 @@ class EwandQuotationService:
             'payment_term_20': False,
             'attachments': [],
             'attachmentsForRemove': [],
-            'account_manager_id': quotation.approved_by.id if quotation.approved_by else None,
             'status': 'DRAFT'  # eWand will manage status transitions
         }
+
+        # Include account_manager_id in payload with valid user ID
+        # eWand's database foreign key constraint requires a valid user ID
+        payload['account_manager_id'] = account_manager_id
+        logger.info(f"Including account_manager_id in payload: {account_manager_id}")
 
         # Final validation log
         logger.info(

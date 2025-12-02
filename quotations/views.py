@@ -5602,8 +5602,10 @@ class QuotationApproveView(LoginRequiredMixin, View):
                     # This allows validation to pass even though account_manager_approved_at is not set yet
                     requires_cin7_sync = quotation.can_be_synced_to_cin7(during_approval=True)
 
+                    # TEMPORARILY DISABLED: eWand integration (fixing style_id foreign key issue)
                     # Check if eWand sync is required (for bespoke products)
-                    requires_ewand_sync = quotation.has_bespoke_items()
+                    # requires_ewand_sync = quotation.has_bespoke_items()
+                    requires_ewand_sync = False  # Disabled temporarily
 
                     # If CIN7 sync required, perform it BEFORE approval
                     if requires_cin7_sync:
@@ -5639,34 +5641,35 @@ class QuotationApproveView(LoginRequiredMixin, View):
                             cin7_reference=sync_result.get('cin7_reference')
                         )
 
+                    # TEMPORARILY DISABLED: eWand integration (fixing style_id foreign key issue)
                     # If eWand sync required, perform it BEFORE approval
-                    if requires_ewand_sync:
-                        from quotations.services.ewand_quotation_service import EwandQuotationService
-
-                        # Perform eWand sync
-                        logger.info(f"Attempting eWand sync for quotation {quotation.quotation_number} before approval")
-                        ewand_service = EwandQuotationService()
-                        ewand_result = ewand_service.create_quotation(quotation)
-
-                        # Check sync result
-                        ewand_sync_success = ewand_result.get('success', False)
-                        ewand_sync_message = ewand_result.get('message', 'eWand sync completed')
-
-                        if not ewand_sync_success:
-                            # Sync failed - raise exception to trigger rollback
-                            raise Exception(f"eWand sync failed: {ewand_sync_message}")
-
-                        # Log successful eWand sync
-                        AuditLog.log_action(
-                            user=request.user,
-                            action_type='ewand_quotation_created',
-                            description=f'eWand sync for quotation {quotation.quotation_number}: {ewand_sync_message}',
-                            request=request,
-                            affected_model='Quotation',
-                            affected_object_id=str(quotation.id),
-                            quotation_id=str(quotation.id),
-                            ewand_data=ewand_result.get('ewand_data')
-                        )
+                    # if requires_ewand_sync:
+                    #     from quotations.services.ewand_quotation_service import EwandQuotationService
+                    #
+                    #     # Perform eWand sync
+                    #     logger.info(f"Attempting eWand sync for quotation {quotation.quotation_number} before approval")
+                    #     ewand_service = EwandQuotationService()
+                    #     ewand_result = ewand_service.create_quotation(quotation)
+                    #
+                    #     # Check sync result
+                    #     ewand_sync_success = ewand_result.get('success', False)
+                    #     ewand_sync_message = ewand_result.get('message', 'eWand sync completed')
+                    #
+                    #     if not ewand_sync_success:
+                    #         # Sync failed - raise exception to trigger rollback
+                    #         raise Exception(f"eWand sync failed: {ewand_sync_message}")
+                    #
+                    #     # Log successful eWand sync
+                    #     AuditLog.log_action(
+                    #         user=request.user,
+                    #         action_type='ewand_quotation_created',
+                    #         description=f'eWand sync for quotation {quotation.quotation_number}: {ewand_sync_message}',
+                    #         request=request,
+                    #         affected_model='Quotation',
+                    #         affected_object_id=str(quotation.id),
+                    #         quotation_id=str(quotation.id),
+                    #         ewand_data=ewand_result.get('ewand_data')
+                    #     )
 
                     # CIN7 sync succeeded (or not required) - proceed with approval
                     quotation.status = 'approved'
@@ -5748,8 +5751,9 @@ class QuotationApproveView(LoginRequiredMixin, View):
             sync_details = []
             if requires_cin7_sync:
                 sync_details.append('synced to CIN7')
-            if requires_ewand_sync:
-                sync_details.append('synced to eWand')
+            # TEMPORARILY DISABLED: eWand integration
+            # if requires_ewand_sync:
+            #     sync_details.append('synced to eWand')
 
             if sync_details:
                 success_message += f' and {" and ".join(sync_details)}'
