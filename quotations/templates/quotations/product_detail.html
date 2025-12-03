@@ -1683,7 +1683,7 @@
                                             <thead class="table-light">
                                                 <tr>
                                                     <th style="width: 50px;">Row</th>
-                                                    <th>Player Name (max 12 chars)</th>
+                                                    <th style="width: 150px;">Player Name (max 12 chars)</th>
                                                     <th style="width: 100px;">Number (max 3)</th>
                                                     <th style="width: 100px;">Initial (max 2)</th>
                                                 </tr>
@@ -2824,38 +2824,73 @@ const UnifiedPlayerCustomization = (function() {
                 <td class="text-center">${i}</td>
                 <td>
                     <input type="text"
-                           class="form-control form-control-sm"
+                           class="form-control form-control-sm player-name-input"
                            maxlength="12"
                            placeholder="Player ${i}"
                            value="${savedRow.name || ''}"
                            data-field="name"
-                           data-row="${i}">
+                           data-row="${i}"
+                           style="text-transform: uppercase;">
                 </td>
                 <td>
                     <input type="text"
-                           class="form-control form-control-sm text-center"
+                           class="form-control form-control-sm text-center player-number-input"
                            maxlength="3"
                            placeholder="###"
                            value="${savedRow.number || ''}"
                            data-field="number"
-                           data-row="${i}">
+                           data-row="${i}"
+                           pattern="[0-9]*"
+                           inputmode="numeric">
                 </td>
                 <td>
                     <input type="text"
-                           class="form-control form-control-sm text-center"
+                           class="form-control form-control-sm text-center player-initial-input"
                            maxlength="2"
                            placeholder="AB"
                            value="${savedRow.initial || ''}"
                            data-field="initial"
-                           data-row="${i}">
+                           data-row="${i}"
+                           style="text-transform: uppercase;">
                 </td>
             `;
 
             tbody.appendChild(row);
 
-            // Add input listeners for auto-save
+            // Add input listeners for auto-save and field-specific validation
             row.querySelectorAll('input').forEach(input => {
+                // Auto-save on input
                 input.addEventListener('input', () => saveCurrentData());
+
+                // Convert player name to uppercase
+                if (input.classList.contains('player-name-input')) {
+                    input.addEventListener('input', function(e) {
+                        this.value = this.value.toUpperCase();
+                    });
+                }
+
+                // Convert player initial to uppercase
+                if (input.classList.contains('player-initial-input')) {
+                    input.addEventListener('input', function(e) {
+                        this.value = this.value.toUpperCase();
+                    });
+                }
+
+                // Numeric-only validation for number field
+                if (input.classList.contains('player-number-input')) {
+                    input.addEventListener('input', function(e) {
+                        // Remove any non-numeric characters
+                        this.value = this.value.replace(/[^0-9]/g, '');
+                    });
+                    // Also prevent paste of non-numeric content
+                    input.addEventListener('paste', function(e) {
+                        e.preventDefault();
+                        const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+                        const numericOnly = pastedText.replace(/[^0-9]/g, '');
+                        this.value = numericOnly.slice(0, 3); // Respect maxlength
+                        saveCurrentData();
+                    });
+                }
             });
         }
 

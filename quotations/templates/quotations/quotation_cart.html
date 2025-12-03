@@ -3335,27 +3335,31 @@ const PlayerDetailsModal = {
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label small fw-bold">Player Name <span class="text-muted">(max 12 chars)</span></label>
-                                <input type="text" class="form-control player-input"
+                                <input type="text" class="form-control player-input player-name-input"
                                        data-index="${index}" data-field="player_name"
                                        maxlength="12"
                                        value="${player.player_name || ''}"
-                                       placeholder="Enter player name">
+                                       placeholder="Enter player name"
+                                       style="text-transform: uppercase;">
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label small fw-bold">Number <span class="text-muted">(max 3)</span></label>
-                                <input type="text" class="form-control player-input"
+                                <input type="text" class="form-control player-input player-number-input"
                                        data-index="${index}" data-field="player_number"
                                        maxlength="3"
                                        value="${player.player_number || ''}"
-                                       placeholder="###">
+                                       placeholder="###"
+                                       pattern="[0-9]*"
+                                       inputmode="numeric">
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label small fw-bold">Initial <span class="text-muted">(max 2)</span></label>
-                                <input type="text" class="form-control player-input"
+                                <input type="text" class="form-control player-input player-initial-input"
                                        data-index="${index}" data-field="player_initial"
                                        maxlength="2"
                                        value="${player.player_initial || ''}"
-                                       placeholder="AB">
+                                       placeholder="AB"
+                                       style="text-transform: uppercase;">
                             </div>
                         </div>
                     </div>
@@ -3374,6 +3378,40 @@ const PlayerDetailsModal = {
 
         // Store current players data for saving
         this.currentPlayers = players;
+
+        // Add event listeners for field validation
+        this.attachInputValidation();
+    },
+
+    attachInputValidation() {
+        // Convert player name to uppercase
+        document.querySelectorAll('.player-name-input').forEach(input => {
+            input.addEventListener('input', function(e) {
+                this.value = this.value.toUpperCase();
+            });
+        });
+
+        // Convert player initial to uppercase
+        document.querySelectorAll('.player-initial-input').forEach(input => {
+            input.addEventListener('input', function(e) {
+                this.value = this.value.toUpperCase();
+            });
+        });
+
+        // Numeric-only validation for number field
+        document.querySelectorAll('.player-number-input').forEach(input => {
+            input.addEventListener('input', function(e) {
+                // Remove any non-numeric characters
+                this.value = this.value.replace(/[^0-9]/g, '');
+            });
+            // Also prevent paste of non-numeric content
+            input.addEventListener('paste', function(e) {
+                e.preventDefault();
+                const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+                const numericOnly = pastedText.replace(/[^0-9]/g, '');
+                this.value = numericOnly.slice(0, 3); // Respect maxlength
+            });
+        });
     },
 
     renderField(label, value) {
