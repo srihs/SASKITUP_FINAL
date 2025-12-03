@@ -6942,6 +6942,16 @@ class CalculateShippingView(LoginRequiredMixin, View):
                     except BespokeProduct.DoesNotExist:
                         print(f"DEBUG: BespokeProduct {product_id} not found")
                         continue
+
+                elif product_type_lower == 'ballstoreproduct':
+                    from ballstore.models import BallStoreProduct
+                    try:
+                        product = BallStoreProduct.objects.get(pk=product_id)
+                        print(f"DEBUG: Found BallStoreProduct: {product.name}")
+                    except BallStoreProduct.DoesNotExist:
+                        print(f"DEBUG: BallStoreProduct {product_id} not found")
+                        continue
+
                 else:
                     print(f"DEBUG: Unknown product_type: '{product_type}' (normalized: '{product_type_lower}')")
 
