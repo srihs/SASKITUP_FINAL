@@ -1198,6 +1198,16 @@ class QuotationCartView(LoginRequiredMixin, View):
             if auto_assigned_account_manager:
                 current_account_manager_id = str(auto_assigned_account_manager.id)
 
+        # Get shipping details from session if available (for editing quotations)
+        shipping_details = quotation_data.get('shipping_details', {})
+
+        # Override user address fields with shipping details if present (editing quotation)
+        if shipping_details:
+            user_street_address = shipping_details.get('delivery_street_address', user_street_address)
+            user_suburb = shipping_details.get('delivery_suburb', user_suburb)
+            user_city = shipping_details.get('delivery_city', user_city)
+            user_postcode = shipping_details.get('delivery_postcode', user_postcode)
+
         context = {
             'cart_items': enriched_items,  # Changed from 'items' to match template
             'subtotal': totals['subtotal'],
@@ -2606,7 +2616,9 @@ class EditQuotationView(LoginRequiredMixin, View):
                 quotation_data['institution_id'] = quotation.institution_object_id
 
             # Load shipping details from quotation
-            if quotation.delivery_street_address or quotation.delivery_city:
+            # Check if any delivery address field has data
+            if any([quotation.delivery_street_address, quotation.delivery_suburb,
+                   quotation.delivery_city, quotation.delivery_postcode, quotation.delivery_state]):
                 quotation_data['shipping_details'] = {
                     'delivery_street_address': quotation.delivery_street_address or '',
                     'delivery_suburb': quotation.delivery_suburb or '',

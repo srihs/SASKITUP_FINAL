@@ -1602,7 +1602,7 @@
                                 <small class="text-muted">(From your profile)</small>
                                 {% endif %}
                             </label>
-                            <input type="text" class="form-control" id="recipient_street_address" placeholder="Start typing your address..." value="{% if is_customer %}{{ user_street_address }}{% endif %}">
+                            <input type="text" class="form-control" id="recipient_street_address" placeholder="Start typing your address..." value="{{ user_street_address }}">
                             <div class="form-text mt-1">
                                 <i class="uil uil-map-marker me-1"></i>
                                 Address autocomplete will suggest NZ addresses as you type
@@ -1616,7 +1616,7 @@
                                     <small class="text-muted">(From your profile)</small>
                                     {% endif %}
                                 </label>
-                                <input type="text" class="form-control" id="recipient_suburb" placeholder="Enter suburb" value="{% if is_customer %}{{ user_suburb }}{% endif %}">
+                                <input type="text" class="form-control" id="recipient_suburb" placeholder="Enter suburb" value="{{ user_suburb }}">
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="recipient_city" class="form-label">
@@ -1625,7 +1625,7 @@
                                     <small class="text-muted">(From your profile)</small>
                                     {% endif %}
                                 </label>
-                                <input type="text" class="form-control" id="recipient_city" placeholder="Enter city" value="{% if is_customer %}{{ user_city }}{% endif %}">
+                                <input type="text" class="form-control" id="recipient_city" placeholder="Enter city" value="{{ user_city }}">
                             </div>
                         </div>
                         <div class="mb-3">
@@ -1635,7 +1635,7 @@
                                 <small class="text-muted">(From your profile)</small>
                                 {% endif %}
                             </label>
-                            <input type="text" class="form-control" id="recipient_postcode" placeholder="Enter postcode to calculate shipping" value="{% if is_customer %}{{ user_postcode }}{% endif %}">
+                            <input type="text" class="form-control" id="recipient_postcode" placeholder="Enter postcode to calculate shipping" value="{{ user_postcode }}">
                             <div class="form-text mt-1">
                                 <i class="uil uil-truck me-1"></i>
                                 Shipping cost will be calculated automatically when you complete this field
