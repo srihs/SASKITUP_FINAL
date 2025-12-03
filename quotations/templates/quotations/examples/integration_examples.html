@@ -193,11 +193,6 @@ Modify the table body to include history button:
                 <i class="uil uil-pen font-size-18"></i>
             </a>
             {% endif %}
-            {% if quotation.status in 'approved,confirmed,rejected' %}
-            <a href="javascript:void(0);" onclick="downloadPDF('{{ quotation.id }}')" class="text-success px-3" title="Download PDF">
-                <i class="uil uil-download-alt font-size-18"></i>
-            </a>
-            {% endif %}
         </td>
     </tr>
     {% endfor %}
@@ -242,7 +237,6 @@ Find the action buttons section and modify it:
         <a href="javascript:window.print()" class="btn btn-success waves-effect waves-light me-1">
             <i class="fa fa-print"></i>
         </a>
-        <a href="javascript:window.print()" class="btn btn-primary w-md waves-effect waves-light">Download PDF</a>
         <a href="{% url 'quotations:my-quotations' %}" class="btn btn-secondary waves-effect waves-light">
             <i class="fa fa-arrow-left"></i> Back to Quotations
         </a>

@@ -70,9 +70,6 @@ urlpatterns = [
     # Quotation Preview
     path('preview/<uuid:pk>/', views.QuotationPreviewView.as_view(), name='quotation-preview'),
 
-    # Quotation PDF Download
-    path('<uuid:pk>/pdf/', views.QuotationPDFView.as_view(), name='quotation-pdf'),
-
     # Site Settings
     path('settings/', views.SiteSettingsView.as_view(), name='site-settings'),
     path('settings/shipping/', views.ShippingSettingsView.as_view(), name='shipping-settings'),
