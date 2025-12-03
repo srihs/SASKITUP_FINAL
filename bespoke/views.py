@@ -732,29 +732,37 @@ def calculate_addon_price(request):
     }
     """
     import json
+    import logging
     from decimal import Decimal
     from .models import AddonPrice, AddonSizeDefinition, AddonPricingTier
 
+    logger = logging.getLogger(__name__)
+
     try:
         data = json.loads(request.body)
+        logger.info(f"Addon price calculation request: {data}")
+
         addon_type = data.get('addon_type')
         quantity = int(data.get('quantity', 1))
         size = data.get('size')  # small, medium, large
 
         # Validate inputs
         if not addon_type or addon_type not in ['heat_transfer', 'screen_print', 'emb_applique']:
+            logger.warning(f"Invalid addon type: {addon_type}")
             return JsonResponse({
                 'success': False,
                 'error': 'Invalid addon type'
             }, status=400)
 
         if quantity < 1:
+            logger.warning(f"Invalid quantity: {quantity}")
             return JsonResponse({
                 'success': False,
                 'error': 'Quantity must be at least 1'
             }, status=400)
 
         if not size or size not in ['small', 'medium', 'large']:
+            logger.warning(f"Invalid size selection: {size}")
             return JsonResponse({
                 'success': False,
                 'error': 'Invalid size selection'
@@ -772,7 +780,10 @@ def calculate_addon_price(request):
             stitch_complexity = data.get('stitch_complexity')
             emb_or_applique = data.get('emb_or_applique', 'emb')
 
+            logger.info(f"EMB/APPLIQUE request: size={size}, stitch={stitch_complexity}, type={emb_or_applique}")
+
             if not stitch_complexity or stitch_complexity not in ['low', 'avg', 'lrg']:
+                logger.warning(f"Invalid stitch complexity: {stitch_complexity}")
                 return JsonResponse({
                     'success': False,
                     'error': 'Invalid stitch complexity for EMB/Applique'
@@ -780,6 +791,9 @@ def calculate_addon_price(request):
 
             size_filters['stitch_complexity'] = stitch_complexity
             size_definition = AddonSizeDefinition.objects.filter(**size_filters).first()
+
+            if not size_definition:
+                logger.warning(f"No size definition found for filters: {size_filters}")
 
         # For Heat Transfer and Screen Print, filter by color_range
         elif addon_type in ['heat_transfer', 'screen_print']:
@@ -801,10 +815,13 @@ def calculate_addon_price(request):
             size_definition = AddonSizeDefinition.objects.filter(**size_filters).first()
 
         if not size_definition:
+            logger.error(f"No size definition found for filters: {size_filters}")
             return JsonResponse({
                 'success': False,
                 'error': 'No size definition found for the selected options'
             }, status=400)
+
+        logger.info(f"Found size definition: {size_definition.display_label}")
 
         # Find matching tier
         from django.db.models import Q
@@ -817,10 +834,13 @@ def calculate_addon_price(request):
         ).first()
 
         if not tier:
+            logger.error(f"No pricing tier found for addon_type={addon_type}, quantity={quantity}")
             return JsonResponse({
                 'success': False,
                 'error': f'No pricing tier found for quantity {quantity}'
             }, status=400)
+
+        logger.info(f"Found pricing tier: {tier.display_label}")
 
         # Find price
         from django.utils import timezone
@@ -836,11 +856,14 @@ def calculate_addon_price(request):
         ).first()
 
         if not price_obj:
+            logger.error(f"No price found for tier={tier.display_label}, size={size_definition.display_label}")
             return JsonResponse({
                 'success': False,
                 'error': 'No price configured for this combination',
                 'message': 'Price not available for the selected options'
             }, status=404)
+
+        logger.info(f"Found price: ${price_obj.price_per_unit}")
 
         # Calculate total
         price_per_unit = price_obj.price_per_unit
@@ -860,18 +883,20 @@ def calculate_addon_price(request):
             }
         })
 
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decode error: {str(e)}")
         return JsonResponse({
             'success': False,
             'error': 'Invalid JSON data'
         }, status=400)
     except ValueError as e:
+        logger.error(f"Value error: {str(e)}")
         return JsonResponse({
             'success': False,
             'error': f'Invalid value: {str(e)}'
         }, status=400)
     except Exception as e:
-        logger.error(f"Error calculating addon price: {str(e)}")
+        logger.error(f"Error calculating addon price: {str(e)}", exc_info=True)
         return JsonResponse({
             'success': False,
             'error': f'Server error: {str(e)}'

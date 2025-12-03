@@ -2670,6 +2670,43 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Store the Low Stitch option so we can add/remove it
+    let lowStitchOption = null;
+    const lowStitchHTML = '<option value="low">Low Stitch (1-12,000)</option>';
+
+    // Function to update stitch dropdown based on EMB/APPLIQUE selection
+    function updateStitchDropdown() {
+        const embType = document.querySelector('input[name="emb_type"]:checked')?.value || 'emb';
+        const currentValue = embStitch.value;
+        const existingLowOption = embStitch.querySelector('option[value="low"]');
+
+        if (embType === 'applique') {
+            // Remove Low Stitch option for APPLIQUE (no pricing available)
+            if (existingLowOption) {
+                lowStitchOption = existingLowOption; // Store it for later
+                existingLowOption.remove();
+            }
+
+            // If Low Stitch was selected, auto-select Avg Stitch
+            if (currentValue === 'low') {
+                embStitch.value = 'avg';
+                calculateEmbPrice();
+            }
+        } else {
+            // Add back Low Stitch option for EMB
+            if (!existingLowOption) {
+                const emptyOption = embStitch.querySelector('option[value=""]');
+                if (lowStitchOption) {
+                    emptyOption.insertAdjacentElement('afterend', lowStitchOption);
+                } else {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = lowStitchHTML;
+                    emptyOption.insertAdjacentElement('afterend', tempDiv.firstChild);
+                }
+            }
+        }
+    }
+
     async function calculateEmbPrice() {
         const stitch = embStitch.value;
         const quantity = parseInt(embQuantity.value) || 1;
@@ -2679,9 +2716,16 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Note: EMB/Applique pricing uses 'small' size as default since size isn't a user selection for this addon
+        // Map stitch complexity to size_code based on database structure
+        // Database has: (small, low), (medium, avg), (large, lrg)
+        const stitchToSizeMap = {
+            'low': 'small',
+            'avg': 'medium',
+            'lrg': 'large'
+        };
+
         const result = await calculatePrice('emb_applique', {
-            size: 'small',  // Default size for EMB
+            size: stitchToSizeMap[stitch] || 'small',
             stitch_complexity: stitch,
             emb_or_applique: embType,
             quantity: quantity
@@ -2696,7 +2740,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             selectedAddons.emb_applique = {
                 addon_type: 'emb_applique',
-                size: 'small',
+                size: stitchToSizeMap[stitch] || 'small',
                 stitch_complexity: stitch,
                 emb_or_applique: embType,
                 quantity: quantity,
@@ -2716,8 +2760,14 @@ document.addEventListener('DOMContentLoaded', function() {
         embStitch.addEventListener('change', calculateEmbPrice);
         embQuantity.addEventListener('input', calculateEmbPrice);
         embTypeRadios.forEach(radio => {
-            radio.addEventListener('change', calculateEmbPrice);
+            radio.addEventListener('change', function() {
+                updateStitchDropdown();
+                calculateEmbPrice();
+            });
         });
+
+        // Initialize dropdown state on page load
+        updateStitchDropdown();
     }
 
 })();

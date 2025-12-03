@@ -714,6 +714,12 @@
         const totalPrice = document.getElementById(`${prefix}_total_price`);
         const unitPrice = document.getElementById(`${prefix}_unit_price`);
 
+        // Safety check for null elements
+        if (!priceDisplay || !errorDisplay || !errorMsg || !totalPrice || !unitPrice) {
+            console.error('Missing display elements for prefix:', prefix);
+            return;
+        }
+
         if (result.success) {
             // Show price
             totalPrice.textContent = formatCurrency(result.total_price);
@@ -833,34 +839,57 @@
     // ========================================
     // EMB/APPLIQUE
     // ========================================
+    console.log('EMB/APPLIQUE JavaScript loaded - Version 2024-12-03-FIX');
     const embStitch = document.getElementById('emb_stitch');
     const embQuantity = document.getElementById('emb_quantity');
     const embTypeRadios = document.querySelectorAll('input[name="emb_type"]');
     const embAddBtn = document.getElementById('emb_add_btn');
 
+    // Store the Low Stitch option so we can add/remove it
+    let lowStitchOption = null;
+    const lowStitchHTML = '<option value="low">Low Stitch (1-12,000)</option>';
+
     // Function to update stitch dropdown based on EMB/APPLIQUE selection
     function updateStitchDropdown() {
         const embType = document.querySelector('input[name="emb_type"]:checked')?.value || 'emb';
-        const lowStitchOption = embStitch.querySelector('option[value="low"]');
         const currentValue = embStitch.value;
+        const existingLowOption = embStitch.querySelector('option[value="low"]');
+
+        console.log('updateStitchDropdown called:', { embType, currentValue, hasLowOption: !!existingLowOption });
 
         if (embType === 'applique') {
-            // Hide Low Stitch option for APPLIQUE (no pricing available)
-            if (lowStitchOption) {
-                lowStitchOption.style.display = 'none';
-                lowStitchOption.disabled = true;
+            // Remove Low Stitch option for APPLIQUE (no pricing available)
+            if (existingLowOption) {
+                console.log('Removing Low Stitch option for APPLIQUE');
+                lowStitchOption = existingLowOption; // Store it for later
+                existingLowOption.remove();
+            } else {
+                console.log('Low Stitch option already removed');
             }
 
-            // If Low Stitch is currently selected, auto-select Avg Stitch
+            // If Low Stitch was selected, auto-select Avg Stitch
             if (currentValue === 'low') {
+                console.log('Auto-selecting Avg Stitch');
                 embStitch.value = 'avg';
                 calculateEmbPrice();
             }
         } else {
-            // Show all options for EMB
-            if (lowStitchOption) {
-                lowStitchOption.style.display = 'block';
-                lowStitchOption.disabled = false;
+            console.log('EMB mode - ensuring Low Stitch is available');
+            // Add back Low Stitch option for EMB
+            if (!existingLowOption) {
+                console.log('Re-adding Low Stitch option');
+                // Insert Low Stitch as the second option (after "Select complexity...")
+                const emptyOption = embStitch.querySelector('option[value=""]');
+                if (lowStitchOption) {
+                    emptyOption.insertAdjacentElement('afterend', lowStitchOption);
+                } else {
+                    // Create new option if we don't have the stored one
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = lowStitchHTML;
+                    emptyOption.insertAdjacentElement('afterend', tempDiv.firstChild);
+                }
+            } else {
+                console.log('Low Stitch option already present');
             }
         }
     }
@@ -881,6 +910,7 @@
         const embType = document.querySelector('input[name="emb_type"]:checked')?.value || 'emb';
 
         if (!stitch || !quantity) {
+            console.log('calculateEmbPrice: Missing stitch or quantity', { stitch, quantity });
             return;
         }
 
@@ -892,12 +922,28 @@
             'lrg': 'large'
         };
 
-        const result = await calculatePrice('emb_applique', {
-            size: stitchToSizeMap[stitch] || 'small',
+        // Debug logging
+        console.log('DEBUG: stitch value =', stitch, ', type =', typeof stitch);
+        console.log('DEBUG: mapped size =', stitchToSizeMap[stitch]);
+        console.log('DEBUG: stitchToSizeMap =', stitchToSizeMap);
+
+        const mappedSize = stitchToSizeMap[stitch];
+        if (!mappedSize) {
+            console.error('ERROR: No size mapping found for stitch value:', stitch);
+        }
+
+        const params = {
+            size: mappedSize || 'small',
             stitch_complexity: stitch,
             emb_or_applique: embType,
             quantity: quantity
-        });
+        };
+
+        console.log('calculateEmbPrice params:', params);
+
+        const result = await calculatePrice('emb_applique', params);
+
+        console.log('calculateEmbPrice result:', result);
 
         displayResult('emb', result);
     }
