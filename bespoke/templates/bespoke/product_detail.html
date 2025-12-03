@@ -838,6 +838,33 @@
     const embTypeRadios = document.querySelectorAll('input[name="emb_type"]');
     const embAddBtn = document.getElementById('emb_add_btn');
 
+    // Function to update stitch dropdown based on EMB/APPLIQUE selection
+    function updateStitchDropdown() {
+        const embType = document.querySelector('input[name="emb_type"]:checked')?.value || 'emb';
+        const lowStitchOption = embStitch.querySelector('option[value="low"]');
+        const currentValue = embStitch.value;
+
+        if (embType === 'applique') {
+            // Hide Low Stitch option for APPLIQUE (no pricing available)
+            if (lowStitchOption) {
+                lowStitchOption.style.display = 'none';
+                lowStitchOption.disabled = true;
+            }
+
+            // If Low Stitch is currently selected, auto-select Avg Stitch
+            if (currentValue === 'low') {
+                embStitch.value = 'avg';
+                calculateEmbPrice();
+            }
+        } else {
+            // Show all options for EMB
+            if (lowStitchOption) {
+                lowStitchOption.style.display = 'block';
+                lowStitchOption.disabled = false;
+            }
+        }
+    }
+
     embStitch.addEventListener('change', function() {
         if (this.value) {
             embQuantity.disabled = false;
@@ -878,8 +905,14 @@
     embStitch.addEventListener('change', calculateEmbPrice);
     embQuantity.addEventListener('input', calculateEmbPrice);
     embTypeRadios.forEach(radio => {
-        radio.addEventListener('change', calculateEmbPrice);
+        radio.addEventListener('change', function() {
+            updateStitchDropdown();
+            calculateEmbPrice();
+        });
     });
+
+    // Initialize dropdown state on page load
+    updateStitchDropdown();
 
     embAddBtn.addEventListener('click', function() {
         const totalPrice = document.getElementById('emb_total_price').textContent;
