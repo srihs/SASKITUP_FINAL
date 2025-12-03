@@ -3509,13 +3509,14 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
         elif active_tab == 'clubs':
             # CUSTOMER CHECK: Customers cannot access clubs tab
             if request.user.is_customer:
-                # Redirect customers to schools tab
-                active_tab = 'schools'
-                # Recursively handle schools tab by continuing to schools logic
-                # This is handled by redirecting in the template, but for safety
-                # we'll set empty results here
-                page_obj = None
-                is_paginated = False
+                # Redirect customers to schools tab with a user-friendly message
+                messages.info(request, "Club products are not available for your account. Showing school products instead.")
+                redirect_url = reverse('quotations:new-quotation')
+                if search_query:
+                    redirect_url += f'?tab=schools&search={search_query}'
+                else:
+                    redirect_url += '?tab=schools'
+                return redirect(redirect_url)
             else:
                 # Proceed with clubs tab for admin/account manager/sales rep
                 from django.db.models import Exists, OuterRef, Q as QOuter
