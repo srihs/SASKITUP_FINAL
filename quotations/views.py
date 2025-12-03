@@ -178,6 +178,12 @@ def calculate_session_shipping(cart_items, customer):
     box_breakdown = {}
 
     for item in cart_items:
+        # Skip addon items - they don't require separate shipping boxes
+        # Addons (Heat Transfer, Screen Print, etc.) are applied to base garments
+        if item.get('is_addon', False):
+            logger.debug(f"Skipping addon item {item.get('product_name', 'Unknown')} for shipping calculation")
+            continue
+
         # Get product to determine capacity key
         product = get_product_by_type_and_id(item['product_type'], item['product_id'])
         if not product:

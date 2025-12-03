@@ -778,6 +778,12 @@ class Quotation(models.Model):
         items = self.items.select_related('product_content_type').all()
 
         for item in items:
+            # Skip addon items - they don't require separate shipping boxes
+            # Addons (Heat Transfer, Screen Print, etc.) are applied to base garments
+            if item.is_addon:
+                logger.debug(f"Skipping addon item {item.id} ({item.product_name}) for shipping calculation")
+                continue
+
             if not item.product:
                 logger.warning(f"QuotationItem {item.id} has no product, skipping")
                 continue
