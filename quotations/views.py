@@ -7096,7 +7096,7 @@ class QuotationPDFView(LoginRequiredMixin, View):
         can_access = (
             user.is_admin or
             user.is_account_manager or
-            quotation.user == user
+            quotation.created_by == user
         )
 
         if not can_access:
