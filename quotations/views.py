@@ -7067,3 +7067,70 @@ class CalculateShippingView(LoginRequiredMixin, View):
                 'error': 'An error occurred while calculating shipping'
             }, status=500)
 
+
+# =====================================
+# QUOTATION PDF DOWNLOAD VIEW
+# =====================================
+
+class QuotationPDFView(LoginRequiredMixin, View):
+    """
+    Generate and download quotation as PDF.
+
+    Accessible by:
+    - Quotation creator
+    - Admin users
+    - Account managers
+
+    Only approved, rejected, or confirmed quotations can be downloaded as PDF.
+    """
+
+    def get(self, request, pk):
+        """Handle PDF download request"""
+        from .emails import generate_quotation_pdf
+
+        # Get quotation
+        quotation = get_object_or_404(Quotation, pk=pk)
+
+        # Check permissions
+        user = request.user
+        can_access = (
+            user.is_admin or
+            user.is_account_manager or
+            quotation.created_by == user
+        )
+
+        if not can_access:
+            raise PermissionDenied("You don't have permission to download this quotation.")
+
+        # Only allow PDF download for approved/rejected/confirmed quotations
+        if quotation.status not in ['approved', 'rejected', 'confirmed']:
+            return HttpResponse(
+                "PDF download is only available for approved, rejected, or confirmed quotations.",
+                status=400
+            )
+
+        # Generate PDF
+        pdf_bytes = generate_quotation_pdf(quotation)
+
+        if not pdf_bytes:
+            logger.error(f"Failed to generate PDF for quotation {quotation.quotation_number}")
+            return HttpResponse(
+                "Failed to generate PDF. Please contact support.",
+                status=500
+            )
+
+        # Create response with PDF
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="quotation_{quotation.quotation_number}.pdf"'
+
+        # Log the download
+        AuditLog.objects.create(
+            user=user,
+            action='quotation_pdf_downloaded',
+            details=f'Downloaded PDF for quotation {quotation.quotation_number}',
+            ip_address=request.META.get('REMOTE_ADDR')
+        )
+
+        logger.info(f"User {user.email} downloaded PDF for quotation {quotation.quotation_number}")
+
+        return response
