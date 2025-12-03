@@ -2303,6 +2303,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const addToQuoteBtn = document.getElementById('addToQuoteBtn');
     if (addToQuoteBtn) {
         addToQuoteBtn.addEventListener('click', function() {
+            // Save player customization data before submitting (for Bespoke products)
+            if (productType.toLowerCase() === 'bespokeproduct' && typeof UnifiedPlayerCustomization !== 'undefined') {
+                const playerData = UnifiedPlayerCustomization.getData();
+                console.log('Player customization data before submit:', playerData);
+            }
+
             const quantity = parseInt(document.getElementById('productQuantity').value) || 1;
 
             // Validation: Check if quantity is valid
@@ -2346,6 +2352,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Add addons array if any selected
                 if (addons.length > 0) {
                     formData.append('addons', JSON.stringify(addons));
+                }
+
+                // Add player customization data
+                const playerDataInput = document.getElementById('player_customization_data');
+                if (playerDataInput && playerDataInput.value) {
+                    try {
+                        const unifiedData = JSON.parse(playerDataInput.value);
+                        if (unifiedData.players && unifiedData.players.length > 0) {
+                            formData.append('player_customizations', JSON.stringify(unifiedData.players));
+                        }
+                    } catch (e) {
+                        console.error('Error parsing player customization data:', e);
+                    }
                 }
             }
 

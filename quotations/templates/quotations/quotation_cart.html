@@ -1337,8 +1337,8 @@
                                 </div>
                             </div>
 
-                            <!-- Player Details Button for Bespoke Products -->
-                            {% if item.product_type|lower == 'bespokeproduct' %}
+                            <!-- Player Details Button for Bespoke Products (only for base products, not addons) -->
+                            {% if item.product_type|lower == 'bespokeproduct' and not item.is_addon %}
                             <div class="mt-2 ms-2">
                                 <a href="javascript:void(0);"
                                    class="player-details-btn"
@@ -1847,6 +1847,9 @@
             <div class="modal-footer border-top">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="uil uil-times me-1"></i> Close
+                </button>
+                <button type="button" class="btn btn-primary" id="savePlayerDetailsBtn" onclick="PlayerDetailsModal.savePlayerDetails()">
+                    <i class="uil uil-check me-1"></i> Save Changes
                 </button>
             </div>
         </div>
@@ -3231,7 +3234,7 @@ const PlayerDetailsModal = {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    this.renderPlayers(data.players, data.stats);
+                    this.renderPlayers(data.players, data.stats, data.product);
                 } else {
                     this.showError(data.error || 'Failed to load player details');
                 }
@@ -3242,7 +3245,54 @@ const PlayerDetailsModal = {
             });
     },
 
-    renderPlayers(players, stats) {
+    savePlayerDetails() {
+        // Collect player data from inputs
+        const players = [];
+        document.querySelectorAll('.player-input[data-field="player_name"]').forEach((input, index) => {
+            const playerName = input.value.trim();
+            const playerNumber = document.querySelector(`.player-input[data-index="${index}"][data-field="player_number"]`).value.trim();
+            const playerInitial = document.querySelector(`.player-input[data-index="${index}"][data-field="player_initial"]`).value.trim();
+
+            players.push({
+                player_name: playerName,
+                player_number: playerNumber,
+                player_initial: playerInitial,
+                size: this.currentPlayers[index]?.size || '',
+                is_complete: !!(playerName && playerNumber && playerInitial)
+            });
+        });
+
+        // Send update request
+        const formData = new URLSearchParams();
+        formData.append('item_index', this.currentCartIndex);
+        formData.append('player_customizations', JSON.stringify(players));
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+        fetch('/quotations/update-player-customizations/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                alert('Player details saved successfully!');
+                // Reload page to show updated data
+                window.location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Failed to save player details'));
+            }
+        })
+        .catch(error => {
+            console.error('Error saving player details:', error);
+            alert('An error occurred while saving player details');
+        });
+    },
+
+    renderPlayers(players, stats, productInfo) {
         // Update summary stats
         document.getElementById('totalPlayersCount').textContent = stats.total || 0;
         document.getElementById('completePlayersCount').textContent = stats.complete || 0;
@@ -3250,46 +3300,80 @@ const PlayerDetailsModal = {
 
         const container = document.getElementById('playersContainer');
 
+        // Get the product quantity to know how many player rows to show
+        const expectedPlayerCount = productInfo ? productInfo.quantity : (stats.total || 1);
+
+        // If no players exist, create empty rows based on product quantity
         if (!players || players.length === 0) {
-            container.innerHTML = `
-                <div class="no-players-message">
-                    <i class="uil uil-users-alt d-block"></i>
-                    <p class="mb-0">No player customizations added yet.</p>
-                </div>
-            `;
-            return;
+            players = [];
+            for (let i = 0; i < expectedPlayerCount; i++) {
+                players.push({
+                    player_name: '',
+                    player_number: '',
+                    player_initial: '',
+                    size: productInfo ? productInfo.size : '',
+                    is_complete: false
+                });
+            }
         }
 
-        // Render player cards
-        let html = '';
+        // Render editable player form
+        let html = '<div class="player-edit-form">';
         players.forEach((player, index) => {
             const isComplete = player.is_complete;
-            const completeClass = isComplete ? 'complete' : 'incomplete';
-            const statusBadge = isComplete
-                ? '<span class="badge bg-success">Complete</span>'
-                : '<span class="badge bg-warning">Incomplete</span>';
+            const statusClass = isComplete ? 'border-success' : 'border-warning';
 
             html += `
-                <div class="player-card ${completeClass}">
-                    <div class="player-card-header">
-                        <div class="player-card-number">
-                            <i class="uil uil-user me-1"></i>
-                            Player ${index + 1}
-                        </div>
-                        ${statusBadge}
+                <div class="card mb-3 ${statusClass}" style="border-width: 2px;">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <strong><i class="uil uil-user me-1"></i> Player ${index + 1}</strong>
+                        <span class="badge ${isComplete ? 'bg-success' : 'bg-warning'}">
+                            ${isComplete ? 'Complete' : 'Incomplete'}
+                        </span>
                     </div>
-                    <div class="player-card-body">
-                        ${this.renderField('Player Name', player.player_name)}
-                        ${this.renderField('Number', player.number)}
-                        ${this.renderField('Size', player.size)}
-                        ${this.renderField('Position', player.position)}
-                        ${this.renderField('Notes', player.notes)}
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Player Name <span class="text-muted">(max 12 chars)</span></label>
+                                <input type="text" class="form-control player-input"
+                                       data-index="${index}" data-field="player_name"
+                                       maxlength="12"
+                                       value="${player.player_name || ''}"
+                                       placeholder="Enter player name">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">Number <span class="text-muted">(max 3)</span></label>
+                                <input type="text" class="form-control player-input"
+                                       data-index="${index}" data-field="player_number"
+                                       maxlength="3"
+                                       value="${player.player_number || ''}"
+                                       placeholder="###">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">Initial <span class="text-muted">(max 2)</span></label>
+                                <input type="text" class="form-control player-input"
+                                       data-index="${index}" data-field="player_initial"
+                                       maxlength="2"
+                                       value="${player.player_initial || ''}"
+                                       placeholder="AB">
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
         });
+        html += '</div>';
+        html += `
+            <div class="alert alert-info mt-3">
+                <i class="uil uil-info-circle me-1"></i>
+                <small>Edit player details above and click <strong>Save Changes</strong> to update.</small>
+            </div>
+        `;
 
         container.innerHTML = html;
+
+        // Store current players data for saving
+        this.currentPlayers = players;
     },
 
     renderField(label, value) {

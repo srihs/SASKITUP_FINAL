@@ -1253,12 +1253,40 @@ class AddToQuotationView(LoginRequiredMixin, View):
             # Get addons array if provided (only process for Bespoke products)
             addons_json = request.POST.get('addons', '[]')
             addons = []
+            player_customizations = []
             if product_type and product_type.lower() == 'bespokeproduct':
                 try:
                     addons = json.loads(addons_json)
                 except json.JSONDecodeError:
                     addons = []
-            # For non-bespoke products, addons remain empty even if sent
+
+                # Get player customization data if provided
+                player_customizations_json = request.POST.get('player_customizations', '[]')
+                try:
+                    player_customizations_raw = json.loads(player_customizations_json)
+                    # Transform player data to match expected structure
+                    # Frontend sends: [{row: 1, name: "John", number: "10", initial: "JD"}, ...]
+                    # We need: [{player_name: "John", player_number: "10", player_initial: "JD", size: "", is_complete: true}, ...]
+                    for player in player_customizations_raw:
+                        player_obj = {
+                            'player_name': player.get('name', ''),
+                            'player_number': player.get('number', ''),
+                            'player_initial': player.get('initial', ''),
+                            'size': variations.get('size', '') if variations else '',  # Use product variation size
+                            'is_complete': bool(player.get('name', '').strip() and
+                                              player.get('number', '').strip() and
+                                              player.get('initial', '').strip())
+                        }
+                        player_customizations.append(player_obj)
+
+                    logger.info(f"Parsed {len(player_customizations)} player customizations from request")
+                except (json.JSONDecodeError, ValueError, KeyError) as e:
+                    logger.warning(f"Error parsing player customizations: {e}")
+                    player_customizations = []
+            # For non-bespoke products, addons and player_customizations remain empty even if sent
+
+            logger.info(f"AddToQuotation: product_type={product_type}, product_id={product_id}, "
+                       f"quantity={quantity}, addons={len(addons)}, player_customizations={len(player_customizations)}")
 
             # Get product
             product = get_product_by_type_and_id(product_type, product_id)
@@ -1281,6 +1309,19 @@ class AddToQuotationView(LoginRequiredMixin, View):
                 # Update quantity for existing variation
                 new_quantity = existing_item['quantity'] + quantity
                 existing_item['quantity'] = new_quantity
+
+                # For Bespoke products, merge or replace player customizations
+                if product_type and product_type.lower() == 'bespokeproduct' and player_customizations:
+                    # If there are new player customizations, add them to existing ones
+                    existing_players = existing_item.get('player_customizations', [])
+                    existing_players.extend(player_customizations)
+                    existing_item['player_customizations'] = existing_players
+
+                    # Update completion status
+                    existing_item['player_customizations_complete'] = (
+                        len(existing_players) > 0 and
+                        all(p.get('is_complete', False) for p in existing_players)
+                    )
             else:
                 # Add new item with variation
                 product_name = product.name
@@ -1345,8 +1386,12 @@ class AddToQuotationView(LoginRequiredMixin, View):
 
                 # Initialize player customizations fields for Bespoke products
                 if product_type and product_type.lower() == 'bespokeproduct':
-                    cart_item['player_customizations'] = []
-                    cart_item['player_customizations_complete'] = False
+                    cart_item['player_customizations'] = player_customizations
+                    # Check if all players have complete data
+                    cart_item['player_customizations_complete'] = (
+                        len(player_customizations) > 0 and
+                        all(p.get('is_complete', False) for p in player_customizations)
+                    )
 
                 quotation_data['items'].append(cart_item)
 
@@ -1468,6 +1513,81 @@ class UpdatePlayerCustomizationsView(LoginRequiredMixin, View):
 
         except Exception as e:
             logger.error(f"Error updating player customizations: {e}", exc_info=True)
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
+
+
+class GetPlayerCustomizationsView(LoginRequiredMixin, View):
+    """AJAX endpoint to retrieve player customization data for a cart item"""
+
+    def get(self, request, cart_index):
+        try:
+            # Get quotation session
+            quotation_data = get_quotation_session(request)
+
+            # Validate cart_index is within bounds
+            if cart_index < 0 or cart_index >= len(quotation_data['items']):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid cart index'
+                }, status=404)
+
+            item = quotation_data['items'][cart_index]
+
+            # Ensure this is a Bespoke product
+            product_type = item.get('product_type', '')
+            if not product_type or product_type.lower() != 'bespokeproduct':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Player customizations are only available for Bespoke products'
+                }, status=400)
+
+            # Get player customizations (return empty array if not found)
+            players = item.get('player_customizations', [])
+
+            # Calculate statistics
+            total_players = len(players)
+            complete_players = sum(1 for p in players if p.get('is_complete', False))
+            incomplete_players = total_players - complete_players
+
+            stats = {
+                'total': total_players,
+                'complete': complete_players,
+                'incomplete': incomplete_players
+            }
+
+            # Extract product information
+            product_info = {
+                'name': item.get('product_name', 'Unknown Product'),
+                'color': item.get('variations', {}).get('color', ''),
+                'size': item.get('variations', {}).get('size', ''),
+                'quantity': item.get('quantity', 1),
+                'image_url': item.get('product_image_url', '')
+            }
+
+            logger.info(
+                f"Retrieved player customizations for cart item {cart_index}: "
+                f"{total_players} players ({complete_players} complete, {incomplete_players} incomplete)"
+            )
+
+            return JsonResponse({
+                'success': True,
+                'players': players,
+                'stats': stats,
+                'product': product_info
+            })
+
+        except ValueError as e:
+            logger.error(f"ValueError in GetPlayerCustomizationsView: {e}", exc_info=True)
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid cart index format'
+            }, status=400)
+
+        except Exception as e:
+            logger.error(f"Error retrieving player customizations: {e}", exc_info=True)
             return JsonResponse({
                 'success': False,
                 'error': str(e)
@@ -2479,6 +2599,24 @@ class EditQuotationView(LoginRequiredMixin, View):
                 quotation_data['institution_type'] = quotation.institution_content_type.model
                 quotation_data['institution_id'] = quotation.institution_object_id
 
+            # Load shipping details from quotation
+            if quotation.delivery_street_address or quotation.delivery_city:
+                quotation_data['shipping_details'] = {
+                    'delivery_street_address': quotation.delivery_street_address or '',
+                    'delivery_suburb': quotation.delivery_suburb or '',
+                    'delivery_city': quotation.delivery_city or '',
+                    'delivery_postcode': quotation.delivery_postcode or '',
+                    'delivery_state': quotation.delivery_state or '',
+                }
+
+            # Load bespoke order details if present
+            if quotation.order_label or quotation.order_required_date:
+                quotation_data['bespoke_details'] = {
+                    'shipping_mode': quotation.shipping_mode,
+                    'order_label': quotation.order_label or '',
+                    'order_required_date': quotation.order_required_date.strftime('%Y-%m-%d') if quotation.order_required_date else '',
+                }
+
             # Load quotation items into session
             for item in quotation.items.all():
                 item_data = {
@@ -2491,6 +2629,12 @@ class EditQuotationView(LoginRequiredMixin, View):
                     'margin_75_price': '',  # Will be populated if available
                     'variations': item.variations,
                 }
+
+                # Extract player_customizations from variations for BespokeProduct
+                if item.product_content_type.model == 'bespokeproduct' and not item.is_addon:
+                    # Player customizations are stored in variations['player_customizations']
+                    if 'player_customizations' in item.variations:
+                        item_data['player_customizations'] = item.variations['player_customizations']
 
                 # Include addon fields for BespokeProduct addons
                 if item.is_addon:
