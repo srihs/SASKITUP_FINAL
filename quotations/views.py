@@ -3503,56 +3503,48 @@ class NewQuotationView(LoginRequiredMixin, SalesRepOrAccountManagerOrCustomerMix
 
         # ========================================
         # CLUBS TAB - Club-Specific Products (SAS Clubs + LOTTO Clubs)
-        # CUSTOMER RESTRICTION: This tab is NOT accessible to customers
-        # Only Admin, Account Manager, and Sales Rep can access
+        # All authenticated users can access clubs tab for creating quotations
         # ========================================
         elif active_tab == 'clubs':
-            # CUSTOMER CHECK: Customers cannot access clubs tab
-            if request.user.is_customer:
-                # Redirect customers to schools tab with a user-friendly message
-                messages.info(request, "Club products are not available for your account. Showing school products instead.")
-                redirect_url = reverse('quotations:new-quotation')
-                if search_query:
-                    redirect_url += f'?tab=schools&search={search_query}'
-                else:
-                    redirect_url += '?tab=schools'
-                return redirect(redirect_url)
+            from django.db.models import Exists, OuterRef, Q as QOuter
+            from clubs.models_sas import SASProductVariation
+            from clubs.models_lotto import LottoProductVariation
+
+            # Get assigned clubs based on user role
+            if request.user.is_admin or request.user.is_account_manager:
+                # Admin and account managers have access to all clubs
+                # EXCLUDE generic categories/shops to prevent duplication with accessories tab
+                sas_clubs = SASClub.objects.filter(is_active=True, is_generic_category=False)
+                lotto_clubs = LottoClub.objects.filter(is_active=True, is_generic_shop=False)
+            elif request.user.is_sales_rep:
+                # Get club assignments (GenericForeignKey)
+                club_assignments = SalesRepClubAssignment.objects.filter(
+                    sales_rep=request.user,
+                    is_active=True
+                ).select_related('club_content_type')
+
+                sas_club_ids = []
+                lotto_club_ids = []
+
+                for assignment in club_assignments:
+                    if assignment.club:
+                        if isinstance(assignment.club, SASClub):
+                            sas_club_ids.append(assignment.club.id)
+                        elif isinstance(assignment.club, LottoClub):
+                            lotto_club_ids.append(assignment.club.id)
+
+                # Exclude generic categories/shops for consistency
+                sas_clubs = SASClub.objects.filter(id__in=sas_club_ids, is_generic_category=False)
+                lotto_clubs = LottoClub.objects.filter(id__in=lotto_club_ids, is_generic_shop=False)
+            elif request.user.is_customer:
+                # Customers have access to all active clubs for creating quotations
+                # EXCLUDE generic categories/shops to prevent duplication with accessories tab
+                sas_clubs = SASClub.objects.filter(is_active=True, is_generic_category=False)
+                lotto_clubs = LottoClub.objects.filter(is_active=True, is_generic_shop=False)
             else:
-                # Proceed with clubs tab for admin/account manager/sales rep
-                from django.db.models import Exists, OuterRef, Q as QOuter
-                from clubs.models_sas import SASProductVariation
-                from clubs.models_lotto import LottoProductVariation
-
-                # Get assigned clubs based on user role
-                if request.user.is_admin or request.user.is_account_manager:
-                    # Admin and account managers have access to all clubs
-                    # EXCLUDE generic categories/shops to prevent duplication with accessories tab
-                    sas_clubs = SASClub.objects.filter(is_active=True, is_generic_category=False)
-                    lotto_clubs = LottoClub.objects.filter(is_active=True, is_generic_shop=False)
-                elif request.user.is_sales_rep:
-                    # Get club assignments (GenericForeignKey)
-                    club_assignments = SalesRepClubAssignment.objects.filter(
-                        sales_rep=request.user,
-                        is_active=True
-                    ).select_related('club_content_type')
-
-                    sas_club_ids = []
-                    lotto_club_ids = []
-
-                    for assignment in club_assignments:
-                        if assignment.club:
-                            if isinstance(assignment.club, SASClub):
-                                sas_club_ids.append(assignment.club.id)
-                            elif isinstance(assignment.club, LottoClub):
-                                lotto_club_ids.append(assignment.club.id)
-
-                    # Exclude generic categories/shops for consistency
-                    sas_clubs = SASClub.objects.filter(id__in=sas_club_ids, is_generic_category=False)
-                    lotto_clubs = LottoClub.objects.filter(id__in=lotto_club_ids, is_generic_shop=False)
-                else:
-                    # Fallback: no clubs for other user types
-                    sas_clubs = SASClub.objects.none()
-                    lotto_clubs = LottoClub.objects.none()
+                # Fallback: no clubs for other user types
+                sas_clubs = SASClub.objects.none()
+                lotto_clubs = LottoClub.objects.none()
 
                 # Stock filtering for SAS Products:
                 # - If product has variations: At least ONE variation must have stock_quantity > 0
