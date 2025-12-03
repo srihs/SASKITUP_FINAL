@@ -3289,7 +3289,6 @@ const PlayerDetailsModal = {
         const formData = new URLSearchParams();
         formData.append('item_index', this.currentCartIndex);
         formData.append('player_customizations', JSON.stringify(players));
-        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
 
         console.log('Sending update request...');
 
@@ -3297,6 +3296,7 @@ const PlayerDetailsModal = {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': csrftoken
             },
             body: formData
         })
