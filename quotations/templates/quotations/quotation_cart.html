@@ -1848,7 +1848,7 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="uil uil-times me-1"></i> Close
                 </button>
-                <button type="button" class="btn btn-primary" id="savePlayerDetailsBtn" onclick="PlayerDetailsModal.savePlayerDetails()">
+                <button type="button" class="btn btn-primary" id="savePlayerDetailsBtn" onclick="console.log('Save button clicked!'); PlayerDetailsModal.savePlayerDetails();">
                     <i class="uil uil-check me-1"></i> Save Changes
                 </button>
             </div>
@@ -3246,12 +3246,33 @@ const PlayerDetailsModal = {
     },
 
     savePlayerDetails() {
+        console.log('Save button clicked - collecting player data');
+
         // Collect player data from inputs
         const players = [];
-        document.querySelectorAll('.player-input[data-field="player_name"]').forEach((input, index) => {
+        const playerNameInputs = document.querySelectorAll('.player-input[data-field="player_name"]');
+
+        console.log(`Found ${playerNameInputs.length} player name inputs`);
+
+        playerNameInputs.forEach((input, index) => {
             const playerName = input.value.trim();
-            const playerNumber = document.querySelector(`.player-input[data-index="${index}"][data-field="player_number"]`).value.trim();
-            const playerInitial = document.querySelector(`.player-input[data-index="${index}"][data-field="player_initial"]`).value.trim();
+
+            // Find corresponding number and initial inputs with proper error handling
+            const numberInput = document.querySelector(`.player-input[data-index="${index}"][data-field="player_number"]`);
+            const initialInput = document.querySelector(`.player-input[data-index="${index}"][data-field="player_initial"]`);
+
+            // Check if inputs were found
+            if (!numberInput) {
+                console.error(`Player number input not found for index ${index}`);
+            }
+            if (!initialInput) {
+                console.error(`Player initial input not found for index ${index}`);
+            }
+
+            const playerNumber = numberInput ? numberInput.value.trim() : '';
+            const playerInitial = initialInput ? initialInput.value.trim() : '';
+
+            console.log(`Player ${index + 1}:`, { playerName, playerNumber, playerInitial });
 
             players.push({
                 player_name: playerName,
@@ -3262,11 +3283,15 @@ const PlayerDetailsModal = {
             });
         });
 
+        console.log('Collected player data:', players);
+
         // Send update request
         const formData = new URLSearchParams();
         formData.append('item_index', this.currentCartIndex);
         formData.append('player_customizations', JSON.stringify(players));
         formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+        console.log('Sending update request...');
 
         fetch('/quotations/update-player-customizations/', {
             method: 'POST',
@@ -3275,8 +3300,12 @@ const PlayerDetailsModal = {
             },
             body: formData
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('Response received:', response.status);
+            return response.json();
+        })
         .then(data => {
+            console.log('Response data:', data);
             if (data.success) {
                 // Show success message
                 alert('Player details saved successfully!');
@@ -3384,22 +3413,30 @@ const PlayerDetailsModal = {
     },
 
     attachInputValidation() {
+        console.log('Attaching input validation...');
+
         // Convert player name to uppercase
-        document.querySelectorAll('.player-name-input').forEach(input => {
+        const nameInputs = document.querySelectorAll('.player-name-input');
+        console.log(`Found ${nameInputs.length} name inputs`);
+        nameInputs.forEach(input => {
             input.addEventListener('input', function(e) {
                 this.value = this.value.toUpperCase();
             });
         });
 
         // Convert player initial to uppercase
-        document.querySelectorAll('.player-initial-input').forEach(input => {
+        const initialInputs = document.querySelectorAll('.player-initial-input');
+        console.log(`Found ${initialInputs.length} initial inputs`);
+        initialInputs.forEach(input => {
             input.addEventListener('input', function(e) {
                 this.value = this.value.toUpperCase();
             });
         });
 
         // Numeric-only validation for number field
-        document.querySelectorAll('.player-number-input').forEach(input => {
+        const numberInputs = document.querySelectorAll('.player-number-input');
+        console.log(`Found ${numberInputs.length} number inputs`);
+        numberInputs.forEach(input => {
             input.addEventListener('input', function(e) {
                 // Remove any non-numeric characters
                 this.value = this.value.replace(/[^0-9]/g, '');
@@ -3412,6 +3449,8 @@ const PlayerDetailsModal = {
                 this.value = numericOnly.slice(0, 3); // Respect maxlength
             });
         });
+
+        console.log('Input validation attached successfully');
     },
 
     renderField(label, value) {
