@@ -366,6 +366,28 @@ PRODUCT_NAME_TO_CAPACITY_KEY = {
 
     'jersey': 'jerseys_softball_tops_pants',
     'softball': 'jerseys_softball_tops_pants',
+
+    # BallStore specific keywords (sporting goods/equipment)
+    # Note: More specific matches should come before generic ones
+    'basketball': 'sideline_jackets',  # Basketballs are larger
+    'football': 'sideline_jackets',
+    'soccer ball': 'sideline_jackets',
+    'rugby ball': 'sideline_jackets',
+    'volleyball': 'sideline_jackets',
+    'table tennis': 'tights_socks_caps_bucket_hats_max',  # Table tennis balls are small
+    'ping pong': 'tights_socks_caps_bucket_hats_max',
+    'tennis ball': 'tights_socks_caps_bucket_hats_max',
+    'cricket ball': 'tights_socks_caps_bucket_hats_max',
+    'indoor': 'tights_socks_caps_bucket_hats_max',  # Indoor balls (table tennis, etc.) tend to be small
+    'ball': 'tights_socks_caps_bucket_hats_max',  # Generic balls are small items
+    'cone': 'tights_socks_caps_bucket_hats_max',  # Cones are stackable/small
+    'cones': 'tights_socks_caps_bucket_hats_max',
+    'marker': 'tights_socks_caps_bucket_hats_max',
+    'markers': 'tights_socks_caps_bucket_hats_max',
+    'whistle': 'tights_socks_caps_bucket_hats_max',
+    'pump': 'tights_socks_caps_bucket_hats_max',
+    'bibs': 'polos_tees_singlets_dresses',  # Training bibs similar to singlets
+    'bib': 'polos_tees_singlets_dresses',
 }
 
 
@@ -431,7 +453,7 @@ def get_capacity_key_for_product(product):
     3. Fallback to 'sideline_jackets' (most conservative - smallest capacity)
 
     Args:
-        product: Product instance (WholesaleProduct, LottoProduct, SASProduct, TUSProduct, or BespokeProduct)
+        product: Product instance (WholesaleProduct, LottoProduct, SASProduct, TUSProduct, BallStoreProduct, or BespokeProduct)
 
     Returns:
         str: Capacity key (always returns a valid key, never None)
@@ -443,6 +465,15 @@ def get_capacity_key_for_product(product):
         if capacity_key:
             logger.debug(f"Got capacity key '{capacity_key}' from category '{category_name}' for product {product.id}")
             return capacity_key
+
+    # Try categories for BallStoreProduct (many-to-many relationship)
+    if hasattr(product, 'categories') and hasattr(product.categories, 'all'):
+        for category in product.categories.all():
+            category_name = category.name
+            capacity_key = get_capacity_key_from_category(category_name)
+            if capacity_key:
+                logger.debug(f"Got capacity key '{capacity_key}' from BallStore category '{category_name}' for product {product.id}")
+                return capacity_key
 
     # Try product name keywords
     if hasattr(product, 'name') and product.name:
