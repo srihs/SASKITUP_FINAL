@@ -857,9 +857,16 @@
             return;
         }
 
-        // Note: EMB/Applique pricing uses 'small' size as default since size isn't a user selection for this addon
+        // Map stitch complexity to size_code based on database structure
+        // Database has: (small, low), (medium, avg), (large, lrg)
+        const stitchToSizeMap = {
+            'low': 'small',
+            'avg': 'medium',
+            'lrg': 'large'
+        };
+
         const result = await calculatePrice('emb_applique', {
-            size: 'small',  // Default size for EMB
+            size: stitchToSizeMap[stitch] || 'small',
             stitch_complexity: stitch,
             emb_or_applique: embType,
             quantity: quantity
