@@ -3307,17 +3307,26 @@ const PlayerDetailsModal = {
         .then(data => {
             console.log('Response data:', data);
             if (data.success) {
+                // Close the modal first
+                const modal = bootstrap.Modal.getInstance(document.getElementById('playerDetailsModal'));
+                if (modal) {
+                    modal.hide();
+                }
+
                 // Show success message
-                alert('Player details saved successfully!');
-                // Reload page to show updated data
-                window.location.reload();
+                toastr.success('Player details saved successfully!');
+
+                // Reload page after delay to allow toast to display
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
             } else {
-                alert('Error: ' + (data.error || 'Failed to save player details'));
+                toastr.error(data.error || 'Failed to save player details');
             }
         })
         .catch(error => {
             console.error('Error saving player details:', error);
-            alert('An error occurred while saving player details');
+            toastr.error('An error occurred while saving player details');
         });
     },
 
