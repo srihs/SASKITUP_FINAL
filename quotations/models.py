@@ -774,7 +774,8 @@ class Quotation(models.Model):
             return Decimal('0.00')
 
         # Calculate boxes needed for each product type
-        total_boxes = 0
+        # Group items by capacity_key and sum quantities before calculating boxes
+        capacity_groups = {}
         items = self.items.select_related('product_content_type').all()
 
         for item in items:
@@ -791,15 +792,37 @@ class Quotation(models.Model):
             # Get capacity key for this product
             capacity_key = get_capacity_key_for_product(item.product)
 
-            # Calculate boxes needed for this item
-            boxes = shipping_settings.calculate_boxes_needed(capacity_key, item.quantity)
+            # Group items by capacity_key and accumulate quantities
+            if capacity_key not in capacity_groups:
+                capacity_groups[capacity_key] = {
+                    'total_quantity': 0,
+                    'items': []
+                }
+
+            capacity_groups[capacity_key]['total_quantity'] += item.quantity
+            capacity_groups[capacity_key]['items'].append({
+                'id': item.id,
+                'name': item.product_name,
+                'quantity': item.quantity
+            })
+
+        # Calculate boxes needed for each capacity group
+        total_boxes = 0
+        for capacity_key, group_data in capacity_groups.items():
+            total_quantity = group_data['total_quantity']
+
+            # Calculate boxes needed for this capacity group's total quantity
+            boxes = shipping_settings.calculate_boxes_needed(capacity_key, total_quantity)
 
             if boxes is None:
-                logger.warning(f"Could not calculate boxes for item {item.id} (capacity_key: {capacity_key}), using 1 box per 8 items as fallback")
-                boxes = math.ceil(item.quantity / 8)  # Fallback
+                logger.warning(f"Could not calculate boxes for capacity_key '{capacity_key}', using 1 box per 8 items as fallback")
+                boxes = math.ceil(total_quantity / 8)  # Fallback
 
             total_boxes += boxes
-            logger.debug(f"Item {item.id} ({item.product_name}): {item.quantity} units = {boxes} boxes (capacity_key: {capacity_key})")
+
+            # Debug logging
+            items_summary = ', '.join([f"{item['name']} (qty: {item['quantity']})" for item in group_data['items']])
+            logger.debug(f"Capacity group '{capacity_key}': {total_quantity} total units = {boxes} boxes | Items: {items_summary}")
 
         self.shipping_boxes = total_boxes
 
