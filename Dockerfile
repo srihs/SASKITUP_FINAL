@@ -29,11 +29,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Required for reportlab (FreeType for font rendering)
     libfreetype6-dev \
     liblcms2-dev \
-    # Required for WeasyPrint
+    # Required for WeasyPrint (PDF generation)
+    libcairo2 \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
     libgdk-pixbuf2.0-0 \
     shared-mime-info \
+    fonts-dejavu-core \
     # Utilities
     curl \
     && rm -rf /var/lib/apt/lists/*

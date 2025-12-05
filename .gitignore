@@ -313,8 +313,10 @@ temp_uploads/
 /*.zip
 test-results/
 chrome/
-implementation_notes/
 .superdesign/
 
-docs/
 test-*/
+migration_backups
+
+# Implementation folder is tracked in git for team documentation
+# (deployment scripts will exclude it from production packages)
