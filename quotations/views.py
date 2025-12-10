@@ -1712,6 +1712,23 @@ class UpdateQuotationItemView(LoginRequiredMixin, View):
             # Update quantity
             quotation_data['items'][item_index]['quantity'] = quantity
 
+            # If this is a bespoke product with addons, sync addon quantities
+            if item.get('product_type', '').lower() == 'bespokeproduct' and item.get('addons'):
+                logger.info(f"Syncing addon quantities for bespoke product. Parent qty changed from {old_quantity} to {quantity}")
+
+                for addon in item['addons']:
+                    old_addon_qty = addon.get('quantity', 0)
+
+                    # Update addon quantity to match parent quantity
+                    addon['quantity'] = quantity
+
+                    # Recalculate addon total price based on new quantity
+                    price_per_unit = Decimal(str(addon.get('price_per_unit', 0)))
+                    new_total_price = price_per_unit * Decimal(str(quantity))
+                    addon['total_price'] = str(new_total_price)
+
+                    logger.info(f"Addon '{addon.get('addon_type')}' qty updated from {old_addon_qty} to {quantity}, new total: {new_total_price}")
+
             # Save session
             save_quotation_session(request, quotation_data)
 

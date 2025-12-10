@@ -2307,6 +2307,25 @@ function updateCartQuantityValue(itemIndex, newQty) {
                 calculateShipping();
             }
 
+            // Check if this is a bespoke product with addons - reload to sync addon quantities
+            const qtyInput = document.getElementById('qty-input-' + itemIndex);
+            if (qtyInput) {
+                const variationItem = qtyInput.closest('[data-product-type]');
+                const productType = variationItem?.getAttribute('data-product-type');
+
+                // Check if there are addon items as children of this parent item
+                const hasAddons = variationItem?.querySelector('.addon-item') !== null;
+
+                if (productType && productType.toLowerCase() === 'bespokeproduct' && hasAddons) {
+                    // For bespoke products with addons, reload page to show updated addon quantities
+                    toastr.success('Quantity updated successfully. Refreshing to sync addons...');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                    return;
+                }
+            }
+
             // Show success message
             toastr.success('Quantity updated successfully');
         } else {

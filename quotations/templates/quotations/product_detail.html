@@ -1537,8 +1537,8 @@
                                                         <div class="col-12">
                                                             <label class="form-label">Quantity</label>
                                                             <input type="number" class="form-control" id="ht_quantity"
-                                                                   min="1" value="1" disabled>
-                                                            <small class="text-muted">Select size first</small>
+                                                                   min="1" value="1" disabled readonly>
+                                                            <small class="text-muted">Automatically synced with garment quantity</small>
                                                         </div>
                                                     </div>
                                                     <!-- Price Display -->
@@ -1591,8 +1591,8 @@
                                                         <div class="col-12">
                                                             <label class="form-label">Quantity</label>
                                                             <input type="number" class="form-control" id="sp_quantity"
-                                                                   min="1" value="1" disabled>
-                                                            <small class="text-muted">Select size first</small>
+                                                                   min="1" value="1" disabled readonly>
+                                                            <small class="text-muted">Automatically synced with garment quantity</small>
                                                         </div>
                                                     </div>
                                                     <!-- Price Display -->
@@ -1648,8 +1648,8 @@
                                                         <div class="col-12">
                                                             <label class="form-label">Quantity</label>
                                                             <input type="number" class="form-control" id="emb_quantity"
-                                                                   min="1" value="1" disabled>
-                                                            <small class="text-muted">Select stitch first</small>
+                                                                   min="1" value="1" disabled readonly>
+                                                            <small class="text-muted">Automatically synced with garment quantity</small>
                                                         </div>
                                                     </div>
                                                     <!-- Price Display -->
@@ -1774,6 +1774,17 @@ const variationsData = {{ variations_json|safe }};
 document.addEventListener('DOMContentLoaded', function() {
     initializeProductVariations();
     initializeImageGallery();
+
+    // Add event listener to product quantity input to sync addon quantities
+    const productQuantityInput = document.getElementById('productQuantity');
+    if (productQuantityInput) {
+        productQuantityInput.addEventListener('input', function() {
+            syncAddonQuantities();
+        });
+        productQuantityInput.addEventListener('change', function() {
+            syncAddonQuantities();
+        });
+    }
 });
 
 // Initialize Product Variations
@@ -2102,6 +2113,9 @@ function enableAddonSection() {
         addonCard.style.pointerEvents = 'auto';
         validationMsg.style.display = 'none';
     }
+
+    // Sync addon quantities with product quantity when section is enabled
+    syncAddonQuantities();
 }
 
 // Disable addon section (called when base garment selection is cleared)
@@ -2529,6 +2543,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (this.value) {
                 htColors.disabled = false;
                 htQuantity.disabled = false;
+                // Sync quantity with product quantity
+                syncAddonQuantities();
             } else {
                 htColors.disabled = true;
                 htQuantity.disabled = true;
@@ -2580,7 +2596,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (htColors) {
         htColors.addEventListener('change', calculateHeatTransferPrice);
-        htQuantity.addEventListener('input', calculateHeatTransferPrice);
+        // Quantity sync is handled automatically via syncAddonQuantities()
     }
 
     // ========================================
@@ -2596,6 +2612,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (this.value) {
                 spColors.disabled = false;
                 spQuantity.disabled = false;
+                // Sync quantity with product quantity
+                syncAddonQuantities();
             } else {
                 spColors.disabled = true;
                 spQuantity.disabled = true;
@@ -2647,7 +2665,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (spColors) {
         spColors.addEventListener('change', calculateScreenPrintPrice);
-        spQuantity.addEventListener('input', calculateScreenPrintPrice);
+        // Quantity sync is handled automatically via syncAddonQuantities()
     }
 
     // ========================================
@@ -2662,6 +2680,8 @@ document.addEventListener('DOMContentLoaded', function() {
         embStitch.addEventListener('change', function() {
             if (this.value) {
                 embQuantity.disabled = false;
+                // Sync quantity with product quantity
+                syncAddonQuantities();
             } else {
                 embQuantity.disabled = true;
                 document.getElementById('emb_price_display').style.display = 'none';
@@ -2758,7 +2778,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (embStitch) {
         embStitch.addEventListener('change', calculateEmbPrice);
-        embQuantity.addEventListener('input', calculateEmbPrice);
+        // Quantity sync is handled automatically via syncAddonQuantities()
         embTypeRadios.forEach(radio => {
             radio.addEventListener('change', function() {
                 updateStitchDropdown();
@@ -2769,6 +2789,47 @@ document.addEventListener('DOMContentLoaded', function() {
         // Initialize dropdown state on page load
         updateStitchDropdown();
     }
+
+    // ========================================
+    // SYNC ADDON QUANTITIES WITH PRODUCT QUANTITY
+    // ========================================
+    // Expose this function globally so it can be called from outside this IIFE
+    window.syncAddonQuantities = function() {
+        const productQuantity = parseInt(document.getElementById('productQuantity')?.value) || 1;
+        const htQuantity = document.getElementById('ht_quantity');
+        const spQuantity = document.getElementById('sp_quantity');
+        const embQuantity = document.getElementById('emb_quantity');
+
+        // Update all addon quantity fields with product quantity
+        if (htQuantity) {
+            htQuantity.value = productQuantity;
+            // Trigger price recalculation if heat transfer is configured OR already selected
+            const htSize = document.getElementById('ht_size');
+            const htColors = document.getElementById('ht_colors');
+            if ((htSize?.value && htColors?.value) || selectedAddons?.heat_transfer) {
+                calculateHeatTransferPrice();
+            }
+        }
+
+        if (spQuantity) {
+            spQuantity.value = productQuantity;
+            // Trigger price recalculation if screen print is configured OR already selected
+            const spSize = document.getElementById('sp_size');
+            const spColors = document.getElementById('sp_colors');
+            if ((spSize?.value && spColors?.value) || selectedAddons?.screen_print) {
+                calculateScreenPrintPrice();
+            }
+        }
+
+        if (embQuantity) {
+            embQuantity.value = productQuantity;
+            // Trigger price recalculation if emb/applique is configured OR already selected
+            const embStitch = document.getElementById('emb_stitch');
+            if (embStitch?.value || selectedAddons?.emb_applique) {
+                calculateEmbPrice();
+            }
+        }
+    };
 
 })();
 {% endif %}
