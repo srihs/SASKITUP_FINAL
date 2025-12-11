@@ -46,6 +46,7 @@ urlpatterns = [
     path('add/', views.AddToQuotationView.as_view(), name='add-item'),
     # REMOVED: path('add-addon/') - Addons are now added together with the base product
     path('update/', views.UpdateQuotationItemView.as_view(), name='update-item'),
+    path('update-with-players/', views.UpdateQuotationItemWithPlayersView.as_view(), name='update-item-with-players'),
     path('update-player-customizations/', views.UpdatePlayerCustomizationsView.as_view(), name='update-player-customizations'),
     path('get-player-customizations/<int:cart_index>/', views.GetPlayerCustomizationsView.as_view(), name='get-player-customizations'),
     path('remove-addon/', views.RemoveAddonView.as_view(), name='remove-addon'),

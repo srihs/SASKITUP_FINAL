@@ -1855,6 +1855,35 @@
         </div>
     </div>
 </div>
+
+<!-- Player Selection Modal for Quantity Decrease -->
+<div class="modal fade" id="playerSelectionModal" tabindex="-1" aria-labelledby="playerSelectionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title" id="playerSelectionModalLabel">
+                    <i class="uil uil-users-alt me-1"></i> Select Players to Keep
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info mb-3">
+                    <i class="uil uil-info-circle me-1"></i>
+                    <span id="playerSelectionMessage"></span>
+                </div>
+                <div id="playerSelectionContainer"></div>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="uil uil-times me-1"></i> Cancel
+                </button>
+                <button type="button" class="btn btn-primary" onclick="confirmPlayerSelection()">
+                    <i class="uil uil-check me-1"></i> Confirm Selection
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -2234,6 +2263,21 @@ function updateCartQuantityValue(itemIndex, newQty) {
     .then(result => {
         hideLoading();
         const data = result.data;
+
+        // Handle player selection requirement
+        if (data.requires_player_selection) {
+            console.log('Player selection required:', data);
+            showPlayerSelectionModal(
+                data.item_index,
+                data.current_players,
+                data.new_quantity,
+                previousQty
+            );
+            // Revert quantity input to previous value
+            inputElement.val(previousQty);
+            toastr.info(data.message);
+            return;
+        }
 
         if (result.ok && data.success) {
             // Validate cart integrity
@@ -3509,6 +3553,164 @@ const PlayerDetailsModal = {
 $(document).ready(function() {
     PlayerDetailsModal.init();
 });
+
+// Player Selection Modal Object
+const PlayerSelectionModal = {
+    modalElement: null,
+    currentItemIndex: null,
+    currentPlayers: [],
+    newQuantity: 0,
+    previousQuantity: 0,
+
+    init() {
+        this.modalElement = new bootstrap.Modal(document.getElementById('playerSelectionModal'));
+    },
+
+    open(itemIndex, players, newQuantity, previousQuantity) {
+        this.currentItemIndex = itemIndex;
+        this.currentPlayers = players;
+        this.newQuantity = newQuantity;
+        this.previousQuantity = previousQuantity;
+        this.renderPlayerSelection();
+        this.modalElement.show();
+    },
+
+    renderPlayerSelection() {
+        const messageEl = document.getElementById('playerSelectionMessage');
+        const container = document.getElementById('playerSelectionContainer');
+
+        messageEl.textContent = `Select ${this.newQuantity} player(s) to keep from the current ${this.currentPlayers.length} players:`;
+
+        let html = '<div class="player-selection-list">';
+
+        this.currentPlayers.forEach((player, index) => {
+            const isComplete = player.is_complete;
+            const playerName = player.player_name || '(Empty)';
+            const playerNumber = player.player_number || '?';
+            const playerInitial = player.player_initial || '?';
+            const playerSize = player.size || '?';
+
+            // Auto-select first N complete players, then incomplete
+            const shouldCheck = index < this.newQuantity;
+
+            html += `
+                <div class="form-check mb-3 p-3 border rounded ${isComplete ? 'bg-light' : ''}">
+                    <input class="form-check-input player-checkbox" type="checkbox"
+                           id="player-${index}" value="${index}"
+                           ${shouldCheck ? 'checked' : ''}>
+                    <label class="form-check-label w-100" for="player-${index}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>${playerName}</strong>
+                                <div class="text-muted small mt-1">
+                                    Number: #${playerNumber} | Initial: ${playerInitial} | Size: ${playerSize}
+                                </div>
+                            </div>
+                            <div>
+                                ${isComplete
+                                    ? '<span class="badge bg-success">Complete</span>'
+                                    : '<span class="badge bg-warning text-dark">Incomplete</span>'}
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+        container.innerHTML = html;
+
+        // Attach checkbox limiter
+        this.attachCheckboxLimiter();
+    },
+
+    attachCheckboxLimiter() {
+        const checkboxes = document.querySelectorAll('.player-checkbox');
+        const maxSelection = this.newQuantity;
+
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const checkedCount = document.querySelectorAll('.player-checkbox:checked').length;
+                if (checkedCount > maxSelection) {
+                    this.checked = false;
+                    toastr.warning(`You can only select ${maxSelection} player(s)`);
+                }
+            });
+        });
+    },
+
+    getSelectedPlayers() {
+        const checkboxes = document.querySelectorAll('.player-checkbox:checked');
+        const selectedIndices = Array.from(checkboxes).map(cb => parseInt(cb.value));
+        return this.currentPlayers.filter((_, index) => selectedIndices.includes(index));
+    },
+
+    close() {
+        this.modalElement.hide();
+    }
+};
+
+// Initialize PlayerSelectionModal on page load
+document.addEventListener('DOMContentLoaded', function() {
+    PlayerSelectionModal.init();
+});
+
+// Show player selection modal
+function showPlayerSelectionModal(itemIndex, players, newQuantity, previousQuantity) {
+    PlayerSelectionModal.open(itemIndex, players, newQuantity, previousQuantity);
+}
+
+// Confirm player selection
+function confirmPlayerSelection() {
+    const selectedPlayers = PlayerSelectionModal.getSelectedPlayers();
+
+    if (selectedPlayers.length !== PlayerSelectionModal.newQuantity) {
+        toastr.error(`Please select exactly ${PlayerSelectionModal.newQuantity} player(s)`);
+        return;
+    }
+
+    // Update quantity with selected players
+    updateQuantityWithPlayers(
+        PlayerSelectionModal.currentItemIndex,
+        PlayerSelectionModal.newQuantity,
+        selectedPlayers
+    );
+
+    PlayerSelectionModal.close();
+}
+
+// Update quantity with player selection
+function updateQuantityWithPlayers(itemIndex, newQuantity, selectedPlayers) {
+    showLoading();
+
+    fetch('{% url "quotations:update-item-with-players" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrftoken
+        },
+        body: new URLSearchParams({
+            'item_index': itemIndex,
+            'quantity': newQuantity,
+            'player_customizations': JSON.stringify(selectedPlayers)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            toastr.success('Quantity and player details updated successfully');
+            location.reload(); // Reload to show updated cart
+        } else {
+            toastr.error(data.error || 'Failed to update quantity');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        console.error('Error:', error);
+        toastr.error('An error occurred while updating');
+    });
+}
 
 // Addon Removal Handler
 function removeAddon(cartIndex, addonType) {

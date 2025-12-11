@@ -1712,22 +1712,55 @@ class UpdateQuotationItemView(LoginRequiredMixin, View):
             # Update quantity
             quotation_data['items'][item_index]['quantity'] = quantity
 
-            # If this is a bespoke product with addons, sync addon quantities
-            if item.get('product_type', '').lower() == 'bespokeproduct' and item.get('addons'):
-                logger.info(f"Syncing addon quantities for bespoke product. Parent qty changed from {old_quantity} to {quantity}")
+            # If this is a bespoke product, sync addon quantities and player details
+            if item.get('product_type', '').lower() == 'bespokeproduct':
+                # Sync addon quantities
+                if item.get('addons'):
+                    logger.info(f"Syncing addon quantities for bespoke product. Parent qty changed from {old_quantity} to {quantity}")
 
-                for addon in item['addons']:
-                    old_addon_qty = addon.get('quantity', 0)
+                    for addon in item['addons']:
+                        old_addon_qty = addon.get('quantity', 0)
 
-                    # Update addon quantity to match parent quantity
-                    addon['quantity'] = quantity
+                        # Update addon quantity to match parent quantity
+                        addon['quantity'] = quantity
 
-                    # Recalculate addon total price based on new quantity
-                    price_per_unit = Decimal(str(addon.get('price_per_unit', 0)))
-                    new_total_price = price_per_unit * Decimal(str(quantity))
-                    addon['total_price'] = str(new_total_price)
+                        # Recalculate addon total price based on new quantity
+                        price_per_unit = Decimal(str(addon.get('price_per_unit', 0)))
+                        new_total_price = price_per_unit * Decimal(str(quantity))
+                        addon['total_price'] = str(new_total_price)
 
-                    logger.info(f"Addon '{addon.get('addon_type')}' qty updated from {old_addon_qty} to {quantity}, new total: {new_total_price}")
+                        logger.info(f"Addon '{addon.get('addon_type')}' qty updated from {old_addon_qty} to {quantity}, new total: {new_total_price}")
+
+                # Sync player customizations
+                player_customizations = item.get('player_customizations', [])
+                current_player_count = len(player_customizations)
+
+                if quantity > current_player_count:
+                    # INCREASE: Add empty player slots
+                    logger.info(f"Increasing player slots from {current_player_count} to {quantity}")
+                    for i in range(current_player_count, quantity):
+                        player_customizations.append({
+                            'player_name': '',
+                            'player_number': '',
+                            'player_initial': '',
+                            'size': item.get('variations', {}).get('size', ''),
+                            'is_complete': False
+                        })
+                    item['player_customizations'] = player_customizations
+                    item['player_customizations_complete'] = False
+                    logger.info(f"Added {quantity - current_player_count} empty player slots")
+
+                elif quantity < current_player_count:
+                    # DECREASE: Require user to select which players to keep
+                    logger.info(f"Quantity decrease detected: {current_player_count} players → {quantity} quantity. Requiring player selection.")
+                    return JsonResponse({
+                        'success': False,
+                        'requires_player_selection': True,
+                        'message': f'This item has {current_player_count} player details but you are decreasing quantity to {quantity}. Please select which players to keep.',
+                        'current_players': player_customizations,
+                        'new_quantity': quantity,
+                        'item_index': item_index
+                    })
 
             # Save session
             save_quotation_session(request, quotation_data)
@@ -1843,6 +1876,87 @@ class UpdateQuotationItemView(LoginRequiredMixin, View):
             return JsonResponse({'success': False, 'error': 'Invalid input values'}, status=400)
         except Exception as e:
             logger.error(f"Error updating quotation item: {e}")
+            return JsonResponse({'success': False, 'error': 'An error occurred while updating the item'}, status=500)
+
+
+class UpdateQuotationItemWithPlayersView(LoginRequiredMixin, View):
+    """AJAX endpoint to update quotation item quantity with player selection"""
+
+    def post(self, request):
+        try:
+            item_index = int(request.POST.get('item_index'))
+            quantity = int(request.POST.get('quantity'))
+            player_customizations_json = request.POST.get('player_customizations', '[]')
+
+            if quantity < 1:
+                return JsonResponse({'success': False, 'error': 'Quantity must be at least 1'}, status=400)
+
+            try:
+                player_customizations = json.loads(player_customizations_json)
+            except json.JSONDecodeError:
+                logger.error(f"Invalid JSON in player_customizations: {player_customizations_json}")
+                return JsonResponse({'success': False, 'error': 'Invalid player data format'}, status=400)
+
+            quotation_data = get_quotation_session(request)
+
+            if item_index < 0 or item_index >= len(quotation_data['items']):
+                return JsonResponse({'success': False, 'error': 'Invalid item index'}, status=400)
+
+            item = quotation_data['items'][item_index]
+            old_quantity = item.get('quantity', 0)
+
+            # Validate that player count matches new quantity
+            if len(player_customizations) != quantity:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Player count ({len(player_customizations)}) must match quantity ({quantity})'
+                }, status=400)
+
+            # Update quantity
+            item['quantity'] = quantity
+
+            # Update player customizations
+            item['player_customizations'] = player_customizations
+            item['player_customizations_complete'] = (
+                len(player_customizations) > 0 and
+                all(p.get('is_complete', False) for p in player_customizations)
+            )
+
+            # Sync addon quantities if this is a bespoke product with addons
+            if item.get('product_type', '').lower() == 'bespokeproduct' and item.get('addons'):
+                logger.info(f"Syncing addon quantities after player selection. Qty changed from {old_quantity} to {quantity}")
+                for addon in item['addons']:
+                    addon['quantity'] = quantity
+                    price_per_unit = Decimal(str(addon.get('price_per_unit', 0)))
+                    new_total_price = price_per_unit * Decimal(str(quantity))
+                    addon['total_price'] = str(new_total_price)
+
+            save_quotation_session(request, quotation_data)
+
+            logger.info(f"Updated item {item_index} quantity to {quantity} with {len(player_customizations)} selected players")
+
+            # Log action
+            AuditLog.log_action(
+                user=request.user,
+                action_type='quotation_updated',
+                description=f'Updated quotation: Changed "{item["product_name"]}" quantity from {old_quantity} to {quantity} with player selection',
+                request=request,
+                affected_model='QuotationItem',
+                product_name=item['product_name'],
+                product_type=item.get('product_type', 'unknown'),
+                item_index=item_index,
+                old_quantity=old_quantity,
+                new_quantity=quantity,
+                player_count=len(player_customizations)
+            )
+
+            return JsonResponse({'success': True})
+
+        except ValueError as e:
+            logger.error(f"Invalid input in update with players: {e}")
+            return JsonResponse({'success': False, 'error': 'Invalid input values'}, status=400)
+        except Exception as e:
+            logger.error(f"Error updating item with players: {e}", exc_info=True)
             return JsonResponse({'success': False, 'error': 'An error occurred while updating the item'}, status=500)
 
 
