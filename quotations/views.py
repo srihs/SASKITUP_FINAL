@@ -2653,34 +2653,54 @@ class EditQuotationView(LoginRequiredMixin, View):
                 }
 
             # Load quotation items into session
+            # Build a map of parent items and their addons
+            parent_items = {}
+            addon_items = {}
+
             for item in quotation.items.all():
-                item_data = {
-                    'product_type': item.product_content_type.model,
-                    'product_id': item.product_object_id,
-                    'product_name': item.product_name,
-                    'product_sku': item.product_sku,
-                    'quantity': item.quantity,
-                    'unit_price': str(item.unit_price),
-                    'margin_75_price': '',  # Will be populated if available
-                    'variations': item.variations,
-                }
-
-                # Extract player_customizations from variations for BespokeProduct
-                if item.product_content_type.model == 'bespokeproduct' and not item.is_addon:
-                    # Player customizations are stored in variations['player_customizations']
-                    if 'player_customizations' in item.variations:
-                        item_data['player_customizations'] = item.variations['player_customizations']
-
-                # Include addon fields for BespokeProduct addons
                 if item.is_addon:
-                    item_data['is_addon'] = True
-                    item_data['addon_type'] = item.addon_type
-                    # Addon details are stored in variations field
-                    item_data['addon_details'] = item.variations
-                    if item.parent_item_id:
-                        item_data['parent_item_id'] = str(item.parent_item_id)
+                    # Store addon items separately
+                    parent_id = str(item.parent_item_id) if item.parent_item_id else None
+                    if parent_id not in addon_items:
+                        addon_items[parent_id] = []
+
+                    addon_data = {
+                        'addon_type': item.addon_type,
+                        'display_name': item.product_name,
+                        'size': item.variations.get('size', ''),
+                        'colors': item.variations.get('colors', ''),
+                        'stitch_complexity': item.variations.get('stitch_complexity', ''),
+                        'emb_or_applique': item.variations.get('emb_or_applique', ''),
+                        'quantity': item.quantity,
+                        'price_per_unit': str(item.unit_price),
+                        'total_price': str(item.unit_price * item.quantity),
+                    }
+                    addon_items[parent_id].append(addon_data)
                 else:
-                    item_data['is_addon'] = False
+                    # Store parent items with their UUID as key
+                    item_id = str(item.id)
+                    parent_items[item_id] = {
+                        'product_type': item.product_content_type.model,
+                        'product_id': item.product_object_id,
+                        'product_name': item.product_name,
+                        'product_sku': item.product_sku,
+                        'quantity': item.quantity,
+                        'unit_price': str(item.unit_price),
+                        'margin_75_price': '',  # Will be populated if available
+                        'variations': item.variations,
+                        'is_addon': False,
+                    }
+
+                    # Extract player_customizations from variations for BespokeProduct
+                    if item.product_content_type.model == 'bespokeproduct':
+                        if 'player_customizations' in item.variations:
+                            parent_items[item_id]['player_customizations'] = item.variations['player_customizations']
+
+            # Reconstruct items array with nested addon structure
+            for item_id, item_data in parent_items.items():
+                # Attach addons to their parent
+                if item_id in addon_items:
+                    item_data['addons'] = addon_items[item_id]
 
                 quotation_data['items'].append(item_data)
 

@@ -1287,19 +1287,19 @@
                                     {% endif %}
                                 </div>
 
-                                <!-- Column 4: Discount (Per Unit) -->
+                                <!-- Column 4: Discount (Per Unit) - Hidden for addons -->
+                                {% if not item.is_addon %}
                                 <div class="variation-col variation-col-unit-discount">
                                     <div class="variation-label">Discount</div>
                                     <div id="unit-discount-{{ item.index }}">
-                                        {% if item.is_addon %}
-                                            <span class="variation-value text-muted">-</span>
-                                        {% elif item.discount_percentage and item.discount_percentage > 0 %}
+                                        {% if item.discount_percentage and item.discount_percentage > 0 %}
                                             <span class="variation-discount">{{ item.discount_percentage }}%</span>
                                         {% else %}
                                             <span class="variation-value text-muted">0%</span>
                                         {% endif %}
                                     </div>
                                 </div>
+                                {% endif %}
 
                                 <!-- Column 5: Price (After Discount) -->
                                 <div class="variation-col variation-col-price">
