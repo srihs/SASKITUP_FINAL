@@ -7364,3 +7364,70 @@ class QuotationExcelExportView(LoginRequiredMixin, View):
         logger.info(f"User {user.email} downloaded Excel for quotation {quotation.quotation_number}")
 
         return response
+
+
+class QuotationWordExportView(LoginRequiredMixin, View):
+    """
+    Generate and download quotation as Word document (ORDER DETAILS format) for bespoke products.
+
+    Accessible by:
+    - Quotation creator
+    - Admin users
+    - Account managers
+
+    Only quotations with bespoke items and player customizations can be exported.
+    """
+
+    def get(self, request, pk):
+        """Handle Word export request"""
+        from .word_export import generate_bespoke_quotation_word
+
+        # Get quotation
+        quotation = get_object_or_404(Quotation, pk=pk)
+
+        # Check permissions
+        user = request.user
+        can_access = (
+            user.is_admin or
+            user.is_account_manager or
+            quotation.created_by == user
+        )
+
+        if not can_access:
+            raise PermissionDenied("You don't have permission to export this quotation.")
+
+        # Generate Word document
+        try:
+            word_bytes = generate_bespoke_quotation_word(quotation)
+        except ValueError as e:
+            # No bespoke items with player customizations
+            logger.warning(f"Cannot generate Word for quotation {quotation.quotation_number}: {e}")
+            return HttpResponse(
+                f"Word export failed: {str(e)}",
+                status=400
+            )
+        except Exception as e:
+            logger.error(f"Failed to generate Word for quotation {quotation.quotation_number}: {e}")
+            return HttpResponse(
+                "Failed to generate Word document. Please contact support.",
+                status=500
+            )
+
+        # Create response with Word file
+        response = HttpResponse(
+            word_bytes,
+            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+        response['Content-Disposition'] = f'attachment; filename="Order_Details_{quotation.quotation_number}.docx"'
+
+        # Log the download
+        AuditLog.log_action(
+            user=user,
+            action_type='quotation_viewed',
+            description=f'Downloaded Word (ORDER DETAILS) for quotation {quotation.quotation_number}',
+            request=request
+        )
+
+        logger.info(f"User {user.email} downloaded Word for quotation {quotation.quotation_number}")
+
+        return response

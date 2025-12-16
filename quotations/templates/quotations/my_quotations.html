@@ -264,6 +264,11 @@
                                         <i class="uil uil-history font-size-18"></i>
                                     </a>
                                     {% endif %}
+                                    {% if quotation.has_bespoke_items_with_players and quotation.status in 'approved,rejected,confirmed' %}
+                                    <a href="{% url 'quotations:quotation-word' quotation.id %}" class="text-success px-2" title="Download Word">
+                                        <i class="fa fa-file-word font-size-18"></i>
+                                    </a>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}

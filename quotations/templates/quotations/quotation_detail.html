@@ -873,6 +873,9 @@
                             <a href="{% url 'quotations:quotation-excel' quotation.pk %}" class="btn btn-info w-md waves-effect waves-light ms-1">
                                 <i class="fa fa-file-excel"></i> Download Excel
                             </a>
+                            <a href="{% url 'quotations:quotation-word' quotation.pk %}" class="btn btn-success w-md waves-effect waves-light ms-1">
+                                <i class="fa fa-file-word"></i> Download Word
+                            </a>
                             {% endif %}
                             <a href="{% url 'quotations:my-quotations' %}" class="btn btn-secondary waves-effect waves-light">
                                 <i class="fa fa-arrow-left"></i> Back to Quotations

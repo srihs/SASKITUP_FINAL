@@ -77,6 +77,9 @@ urlpatterns = [
     # Quotation Excel Export (Bespoke Products)
     path('<uuid:pk>/excel/', views.QuotationExcelExportView.as_view(), name='quotation-excel'),
 
+    # Quotation Word Export (ORDER DETAILS - Bespoke Products)
+    path('<uuid:pk>/word/', views.QuotationWordExportView.as_view(), name='quotation-word'),
+
     # Site Settings
     path('settings/', views.SiteSettingsView.as_view(), name='site-settings'),
     path('settings/shipping/', views.ShippingSettingsView.as_view(), name='shipping-settings'),
