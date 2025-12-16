@@ -7293,7 +7293,6 @@ class QuotationExcelExportView(LoginRequiredMixin, View):
     - Admin users
     - Account managers
 
-    Only approved, rejected, or confirmed quotations can be exported to Excel.
     Only quotations with bespoke items and player customizations can be exported.
     """
 
@@ -7314,13 +7313,6 @@ class QuotationExcelExportView(LoginRequiredMixin, View):
 
         if not can_access:
             raise PermissionDenied("You don't have permission to export this quotation.")
-
-        # Only allow Excel export for approved/rejected/confirmed quotations
-        if quotation.status not in ['approved', 'rejected', 'confirmed']:
-            return HttpResponse(
-                "Excel export is only available for approved, rejected, or confirmed quotations.",
-                status=400
-            )
 
         # Generate Excel
         try:

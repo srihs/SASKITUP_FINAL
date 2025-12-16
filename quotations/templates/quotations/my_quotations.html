@@ -119,18 +119,6 @@
         <div class="card">
             <div class="card-body">
                 <div>
-                    <div class="float-end">
-                        <form class="d-inline-flex mb-3">
-                            <label class="form-check-label my-2 me-2" for="status-selectinput">Status</label>
-                            <select class="form-select" id="status-selectinput">
-                                <option value="all" selected>All</option>
-                                <option value="draft">Draft</option>
-                                <option value="pending">Pending</option>
-                                <option value="approved">Approved</option>
-                                <option value="rejected">Rejected</option>
-                            </select>
-                        </form>
-                    </div>
                     <a href="{% url 'quotations:new-quotation' %}" class="btn btn-success waves-effect waves-light mb-3">
                         <i class="mdi mdi-plus me-1"></i> Add New Quotation
                     </a>
@@ -149,12 +137,10 @@
                                 </th>
                                 <th>Quotation ID</th>
                                 <th>Date</th>
-                                <th>Items</th>
                                 <th>Edited</th>
-                                <th>Latest Change</th>
                                 <th>Total</th>
                                 <th>Approval Status</th>
-                                <th>Status</th>
+                                <th>Player Info</th>
                                 <th style="width: 160px;">Action</th>
                             </tr>
                         </thead>
@@ -174,29 +160,9 @@
                                 </td>
                                 <td>{{ quotation.created_at|date:"M d, Y" }}</td>
                                 <td>
-                                    <span class="badge bg-primary-subtle text-primary font-size-12">
-                                        {{ quotation.items.count }} item{{ quotation.items.count|pluralize }}
-                                    </span>
-                                </td>
-                                <td>
                                     {% if quotation.is_edited %}
                                         <span class="badge bg-pill bg-secondary-subtle text-secondary font-size-12">
                                             <i class="uil uil-pen me-1"></i>Edited
-                                        </span>
-                                    {% else %}
-                                        <span class="text-muted">-</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if quotation.latest_change_note %}
-                                        <span class="change-note-text"
-                                              data-bs-toggle="tooltip"
-                                              data-bs-placement="top"
-                                              title="{{ quotation.latest_change_note }}">
-                                            {{ quotation.latest_change_note|truncatechars:50 }}
-                                            {% if quotation.latest_change_note|length > 47 %}
-                                                <i class="uil uil-info-circle change-note-icon"></i>
-                                            {% endif %}
                                         </span>
                                     {% else %}
                                         <span class="text-muted">-</span>
@@ -233,16 +199,15 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if quotation.status == 'approved' %}
-                                    <span class="badge bg-pill bg-success-subtle text-success font-size-12">Approved</span>
-                                    {% elif quotation.status == 'pending' %}
-                                    <span class="badge bg-pill bg-warning-subtle text-warning font-size-12">Pending</span>
-                                    {% elif quotation.status == 'rejected' %}
-                                    <span class="badge bg-pill bg-danger-subtle text-danger font-size-12">Rejected</span>
-                                    {% elif quotation.status == 'draft' %}
-                                    <span class="badge bg-pill bg-info-subtle text-info font-size-12">Draft</span>
+                                    {% if quotation.has_bespoke_items_with_players %}
+                                    <a href="{% url 'quotations:quotation-excel' quotation.id %}" class="text-success px-2" title="Download Excel">
+                                        <i class="fa fa-file-excel font-size-18"></i>
+                                    </a>
+                                    <a href="{% url 'quotations:quotation-word' quotation.id %}" class="text-success px-2" title="Download Word">
+                                        <i class="fa fa-file-word font-size-18"></i>
+                                    </a>
                                     {% else %}
-                                    <span class="badge bg-pill bg-secondary font-size-12">{{ quotation.get_status_display }}</span>
+                                    <span class="text-muted">-</span>
                                     {% endif %}
                                 </td>
                                 <td>
@@ -262,11 +227,6 @@
                                     {% if quotation.is_edited %}
                                     <a href="javascript:void(0);" onclick="loadVersionHistory('{{ quotation.id }}')" class="text-info px-2" title="Version History">
                                         <i class="uil uil-history font-size-18"></i>
-                                    </a>
-                                    {% endif %}
-                                    {% if quotation.has_bespoke_items_with_players and quotation.status in 'approved,rejected,confirmed' %}
-                                    <a href="{% url 'quotations:quotation-word' quotation.id %}" class="text-success px-2" title="Download Word">
-                                        <i class="fa fa-file-word font-size-18"></i>
                                     </a>
                                     {% endif %}
                                 </td>
@@ -322,9 +282,8 @@ $(document).ready(function() {
                 }
             },
             columnDefs: [
-                { orderable: false, targets: [0, 5, 9] }, // Disable sorting for checkbox, latest change, and action columns
-                { orderable: true, targets: [1, 2, 3, 4, 6, 7, 8] }, // Enable sorting for other columns
-                { searchable: true, targets: [5] } // Make latest change column searchable
+                { orderable: false, targets: [0, 6, 7] }, // Disable sorting for checkbox, player info, and action columns
+                { orderable: true, targets: [1, 2, 3, 4, 5] } // Enable sorting for other columns
             ],
             dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
                  '<"row"<"col-sm-12"tr>>' +
@@ -337,15 +296,7 @@ $(document).ready(function() {
             return new bootstrap.Tooltip(tooltipTriggerEl);
         });
 
-        // Status filter dropdown
-        $('#status-selectinput').on('change', function() {
-            var status = $(this).val();
-            if (status === 'all') {
-                quotationsTable.column(8).search('').draw(); // Column 8 is now Status (was 7)
-            } else {
-                quotationsTable.column(8).search(status, true, false).draw();
-            }
-        });
+        // Status filter removed - Status column no longer exists
 
         // Master checkbox functionality
         $('#quotationcheck').on('click', function() {
