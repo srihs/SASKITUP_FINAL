@@ -72,11 +72,13 @@ class BespokeQuotationWordGenerator:
         # Group items by base product SKU
         product_groups = self._group_items_by_base_product(bespoke_items)
 
-        # Write all products
-        for base_sku, items in product_groups.items():
+        # Write all products with page breaks between them
+        product_items = list(product_groups.items())
+        for index, (base_sku, items) in enumerate(product_items):
             self._write_product_section(base_sku, items)
-            # Add spacing between products
-            self.document.add_paragraph()
+            # Add page break after each product except the last one
+            if index < len(product_items) - 1:
+                self.document.add_page_break()
 
         # Save to BytesIO
         output = BytesIO()
