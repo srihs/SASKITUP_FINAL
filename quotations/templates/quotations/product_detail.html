@@ -2312,6 +2312,89 @@ function initializeImageGallery() {
     });
 }
 
+// ========================================
+// RESET ADDON FORMS (after successful cart addition)
+// ========================================
+function resetAddonForms() {
+    // Reset Heat Transfer form
+    const htSize = document.getElementById('ht_size');
+    const htColors = document.getElementById('ht_colors');
+    const htQuantity = document.getElementById('ht_quantity');
+    const htPriceDisplay = document.getElementById('ht_price_display');
+    const htErrorDisplay = document.getElementById('ht_error_display');
+
+    if (htSize) {
+        htSize.value = '';
+        htColors.value = '';
+        htColors.disabled = true;
+        htQuantity.value = 1;
+        htQuantity.disabled = true;
+        if (htPriceDisplay) htPriceDisplay.style.display = 'none';
+        if (htErrorDisplay) htErrorDisplay.style.display = 'none';
+    }
+
+    // Reset Screen Print form
+    const spSize = document.getElementById('sp_size');
+    const spColors = document.getElementById('sp_colors');
+    const spQuantity = document.getElementById('sp_quantity');
+    const spPriceDisplay = document.getElementById('sp_price_display');
+    const spErrorDisplay = document.getElementById('sp_error_display');
+
+    if (spSize) {
+        spSize.value = '';
+        spColors.value = '';
+        spColors.disabled = true;
+        spQuantity.value = 1;
+        spQuantity.disabled = true;
+        if (spPriceDisplay) spPriceDisplay.style.display = 'none';
+        if (spErrorDisplay) spErrorDisplay.style.display = 'none';
+    }
+
+    // Reset EMB/Applique form
+    const embTypeEmb = document.getElementById('emb_type_emb');
+    const embStitch = document.getElementById('emb_stitch');
+    const embQuantity = document.getElementById('emb_quantity');
+    const embPriceDisplay = document.getElementById('emb_price_display');
+    const embErrorDisplay = document.getElementById('emb_error_display');
+
+    if (embTypeEmb) {
+        embTypeEmb.checked = true; // Reset to EMB (default)
+        embStitch.value = '';
+        embQuantity.value = 1;
+        embQuantity.disabled = true;
+        if (embPriceDisplay) embPriceDisplay.style.display = 'none';
+        if (embErrorDisplay) embErrorDisplay.style.display = 'none';
+    }
+
+    // Collapse all accordion items
+    const collapseHeatTransfer = document.getElementById('collapseHeatTransfer');
+    const collapseScreenPrint = document.getElementById('collapseScreenPrint');
+    const collapseEmbApplique = document.getElementById('collapseEmbApplique');
+
+    if (collapseHeatTransfer) {
+        const bsCollapse = bootstrap.Collapse.getInstance(collapseHeatTransfer);
+        if (bsCollapse) bsCollapse.hide();
+    }
+    if (collapseScreenPrint) {
+        const bsCollapse = bootstrap.Collapse.getInstance(collapseScreenPrint);
+        if (bsCollapse) bsCollapse.hide();
+    }
+    if (collapseEmbApplique) {
+        const bsCollapse = bootstrap.Collapse.getInstance(collapseEmbApplique);
+        if (bsCollapse) bsCollapse.hide();
+    }
+}
+
+// ========================================
+// RESET PLAYER CUSTOMIZATION (after successful cart addition)
+// ========================================
+function resetPlayerCustomization() {
+    // Check if UnifiedPlayerCustomization exists (only for Bespoke products)
+    if (typeof UnifiedPlayerCustomization !== 'undefined' && UnifiedPlayerCustomization.reset) {
+        UnifiedPlayerCustomization.reset();
+    }
+}
+
 // Add to quote button
 document.addEventListener('DOMContentLoaded', function() {
     const addToQuoteBtn = document.getElementById('addToQuoteBtn');
@@ -2435,6 +2518,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (htBadge) htBadge.style.display = 'none';
                         if (spBadge) spBadge.style.display = 'none';
                         if (embBadge) embBadge.style.display = 'none';
+
+                        // Reset addon form fields to initial state
+                        resetAddonForms();
+
+                        // Reset player customization table
+                        resetPlayerCustomization();
                     }
 
                     // Update floating quote summary if data provided
@@ -3054,6 +3143,33 @@ const UnifiedPlayerCustomization = (function() {
     }
 
     /**
+     * Reset player customization to initial empty state
+     */
+    function reset() {
+        // Clear player data array
+        playerData = [];
+
+        // Clear the table body and show empty state
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr class="player-table-empty-state">
+                    <td colspan="4" class="text-center text-muted">
+                        <i class="mdi mdi-information-outline"></i>
+                        <div>Set garment quantity to generate player rows</div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        // Clear hidden input
+        if (hiddenInput) {
+            hiddenInput.value = '';
+        }
+
+        console.log('Player customization reset to initial state');
+    }
+
+    /**
      * Initialize the unified player customization system
      */
     function init() {
@@ -3096,7 +3212,8 @@ const UnifiedPlayerCustomization = (function() {
     return {
         init: init,
         getData: getData,
-        regenerateRows: regenerateRows
+        regenerateRows: regenerateRows,
+        reset: reset
     };
 })();
 
