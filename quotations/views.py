@@ -7268,13 +7268,99 @@ class QuotationPDFView(LoginRequiredMixin, View):
         response['Content-Disposition'] = f'attachment; filename="quotation_{quotation.quotation_number}.pdf"'
 
         # Log the download
-        AuditLog.objects.create(
+        AuditLog.log_action(
             user=user,
-            action='quotation_pdf_downloaded',
-            details=f'Downloaded PDF for quotation {quotation.quotation_number}',
-            ip_address=request.META.get('REMOTE_ADDR')
+            action_type='quotation_viewed',
+            description=f'Downloaded PDF for quotation {quotation.quotation_number}',
+            request=request
         )
 
         logger.info(f"User {user.email} downloaded PDF for quotation {quotation.quotation_number}")
+
+        return response
+
+
+# =====================================
+# QUOTATION EXCEL EXPORT VIEW
+# =====================================
+
+class QuotationExcelExportView(LoginRequiredMixin, View):
+    """
+    Generate and download quotation as Excel file for bespoke products.
+
+    Accessible by:
+    - Quotation creator
+    - Admin users
+    - Account managers
+
+    Only approved, rejected, or confirmed quotations can be exported to Excel.
+    Only quotations with bespoke items and player customizations can be exported.
+    """
+
+    def get(self, request, pk):
+        """Handle Excel export request"""
+        from .excel_export import generate_bespoke_quotation_excel
+
+        # Get quotation
+        quotation = get_object_or_404(Quotation, pk=pk)
+
+        # Check permissions
+        user = request.user
+        can_access = (
+            user.is_admin or
+            user.is_account_manager or
+            quotation.created_by == user
+        )
+
+        if not can_access:
+            raise PermissionDenied("You don't have permission to export this quotation.")
+
+        # Only allow Excel export for approved/rejected/confirmed quotations
+        if quotation.status not in ['approved', 'rejected', 'confirmed']:
+            return HttpResponse(
+                "Excel export is only available for approved, rejected, or confirmed quotations.",
+                status=400
+            )
+
+        # Generate Excel
+        try:
+            excel_bytes = generate_bespoke_quotation_excel(quotation)
+        except ValueError as e:
+            # No bespoke items with player customizations
+            logger.warning(f"Cannot generate Excel for quotation {quotation.quotation_number}: {e}")
+            return HttpResponse(
+                f"Excel export failed: {str(e)}",
+                status=400
+            )
+        except FileNotFoundError as e:
+            # Template file not found
+            logger.error(f"Excel template not found: {e}")
+            return HttpResponse(
+                "Excel template file not found. Please contact support.",
+                status=500
+            )
+        except Exception as e:
+            logger.error(f"Failed to generate Excel for quotation {quotation.quotation_number}: {e}")
+            return HttpResponse(
+                "Failed to generate Excel file. Please contact support.",
+                status=500
+            )
+
+        # Create response with Excel file
+        response = HttpResponse(
+            excel_bytes,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="quotation_{quotation.quotation_number}.xlsx"'
+
+        # Log the download
+        AuditLog.log_action(
+            user=user,
+            action_type='quotation_viewed',
+            description=f'Downloaded Excel for quotation {quotation.quotation_number}',
+            request=request
+        )
+
+        logger.info(f"User {user.email} downloaded Excel for quotation {quotation.quotation_number}")
 
         return response

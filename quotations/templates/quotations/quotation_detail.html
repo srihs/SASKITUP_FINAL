@@ -869,6 +869,11 @@
                                 <i class="fa fa-print"></i>
                             </a>
                             <a href="javascript:window.print()" class="btn btn-primary w-md waves-effect waves-light">Download PDF</a>
+                            {% if quotation.has_bespoke_items_with_players and quotation.status in 'approved,rejected,confirmed' %}
+                            <a href="{% url 'quotations:quotation-excel' quotation.pk %}" class="btn btn-info w-md waves-effect waves-light ms-1">
+                                <i class="fa fa-file-excel"></i> Download Excel
+                            </a>
+                            {% endif %}
                             <a href="{% url 'quotations:my-quotations' %}" class="btn btn-secondary waves-effect waves-light">
                                 <i class="fa fa-arrow-left"></i> Back to Quotations
                             </a>

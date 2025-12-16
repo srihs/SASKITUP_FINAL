@@ -1228,6 +1228,37 @@ class Quotation(models.Model):
         # Returns True if at least one non-Bespoke item exists
         return self.items.exclude(product_content_type=bespoke_ct).exists()
 
+    def has_bespoke_items_with_players(self):
+        """
+        Check if quotation contains any Bespoke products with player customization data.
+
+        This is used to determine if Excel export is available, as Excel export requires
+        bespoke items to have player_customizations data populated.
+
+        Returns:
+            bool: True if quotation has at least one bespoke item with player data, False otherwise
+        """
+        from django.contrib.contenttypes.models import ContentType
+
+        # Get ContentType for BespokeProduct
+        try:
+            bespoke_ct = ContentType.objects.get(app_label='bespoke', model='bespokeproduct')
+        except ContentType.DoesNotExist:
+            return False
+
+        # Check if any bespoke items have player_customizations data
+        bespoke_items = self.items.filter(
+            product_content_type=bespoke_ct,
+            is_addon=False  # Exclude addon items
+        )
+
+        for item in bespoke_items:
+            player_customizations = item.variations.get('player_customizations', [])
+            if player_customizations:  # Non-empty list
+                return True
+
+        return False
+
     def can_be_edited_by_account_manager(self, user):
         """
         Check if quotation can be edited by account manager.

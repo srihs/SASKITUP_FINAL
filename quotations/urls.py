@@ -74,6 +74,9 @@ urlpatterns = [
     # Quotation PDF Download
     path('<uuid:pk>/pdf/', views.QuotationPDFView.as_view(), name='quotation-pdf'),
 
+    # Quotation Excel Export (Bespoke Products)
+    path('<uuid:pk>/excel/', views.QuotationExcelExportView.as_view(), name='quotation-excel'),
+
     # Site Settings
     path('settings/', views.SiteSettingsView.as_view(), name='site-settings'),
     path('settings/shipping/', views.ShippingSettingsView.as_view(), name='shipping-settings'),
