@@ -11,6 +11,8 @@ from datetime import datetime
 from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 
 import logging
 
@@ -91,6 +93,31 @@ class BespokeQuotationWordGenerator:
             section.bottom_margin = Inches(1)
             section.left_margin = Inches(1)
             section.right_margin = Inches(1)
+
+    def _set_table_borderless(self, table):
+        """
+        Remove all borders from a table.
+
+        Args:
+            table: python-docx Table object
+        """
+        tbl = table._element
+        tblPr = tbl.tblPr
+        if tblPr is None:
+            tblPr = OxmlElement('w:tblPr')
+            tbl.insert(0, tblPr)
+
+        # Create table borders element
+        tblBorders = OxmlElement('w:tblBorders')
+        for border_name in ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']:
+            border = OxmlElement(f'w:{border_name}')
+            border.set(qn('w:val'), 'none')
+            border.set(qn('w:sz'), '0')
+            border.set(qn('w:space'), '0')
+            border.set(qn('w:color'), 'auto')
+            tblBorders.append(border)
+
+        tblPr.append(tblBorders)
 
     def _add_title(self):
         """Add document title"""
@@ -183,9 +210,11 @@ class BespokeQuotationWordGenerator:
         Args:
             variation_data: Dict with variation_code, size, players, total_qty
         """
-        # Create variation info table (3 rows x 3 cols)
+        # Create variation info table (3 rows x 3 cols) - borderless
         var_table = self.document.add_table(rows=3, cols=3)
-        var_table.style = 'Table Grid'
+
+        # Remove all borders from variation table
+        self._set_table_borderless(var_table)
 
         # Row 1: Variation style code
         var_table.rows[0].cells[0].text = 'Variation style code'
