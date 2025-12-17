@@ -21,6 +21,7 @@ from decimal import Decimal, InvalidOperation
 from decouple import config
 from requests.exceptions import RequestException
 from django.utils import timezone
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -63,19 +64,27 @@ class Cin7ApiService:
             'Accept': 'application/json'
         }
 
-        # Rate limiting tracking
-        self.call_times = []
-        self.daily_calls = 0
+        # Rate limiting tracking (shared across all instances via Django cache)
+        self.rate_limit_key = 'cin7_api_call_times'
+        self.daily_calls_key = 'cin7_api_daily_calls'
+
+        # Initialize cache keys if they don't exist
+        if cache.get(self.rate_limit_key) is None:
+            cache.set(self.rate_limit_key, [], timeout=None)
+        if cache.get(self.daily_calls_key) is None:
+            cache.set(self.daily_calls_key, 0, timeout=86400)  # Reset daily after 24h
 
         logger.info(f"Cin7ApiService initialized: {self.api_url}")
 
     def _enforce_rate_limit(self, allow_wait: bool = False, max_wait: float = 10.0):
         """
-        Enforce rate limits before making API calls.
+        Enforce rate limits before making API calls using shared cache for multi-process safety.
 
         This method uses timestamp-based calculations to determine if a request
         can proceed immediately. For the per-minute limit, it can either wait
         (if allow_wait=True and wait time is within max_wait) or raise an exception.
+
+        Uses Django cache to track API calls across all processes/workers in production.
 
         Args:
             allow_wait: If True, will sleep for per-minute limit if wait time <= max_wait
@@ -86,15 +95,19 @@ class Cin7ApiService:
         """
         current_time = time.time()
 
+        # Get shared call times from cache (atomic operation)
+        call_times = cache.get(self.rate_limit_key, [])
+        daily_calls = cache.get(self.daily_calls_key, 0)
+
         # Remove calls older than 1 minute
-        self.call_times = [t for t in self.call_times if current_time - t < 60]
+        call_times = [t for t in call_times if current_time - t < 60]
 
         # Check daily limit first (fail fast)
-        if self.daily_calls >= self.MAX_CALLS_PER_DAY:
+        if daily_calls >= self.MAX_CALLS_PER_DAY:
             raise Exception("Daily API call limit reached (5000 calls)")
 
         # Check per-second limit (3 calls)
-        recent_calls = [t for t in self.call_times if current_time - t < 1]
+        recent_calls = [t for t in call_times if current_time - t < 1]
         if len(recent_calls) >= self.MAX_CALLS_PER_SECOND:
             wait_time = 1.0 - (current_time - recent_calls[0])
             if wait_time > 0:
@@ -102,35 +115,40 @@ class Cin7ApiService:
                 # Wait briefly for per-second limit (safe, max 1 second)
                 time.sleep(wait_time)
                 current_time = time.time()  # Update current time after sleep
+                # Re-fetch after sleep
+                call_times = cache.get(self.rate_limit_key, [])
+                call_times = [t for t in call_times if current_time - t < 60]
 
         # Check per-minute limit (60 calls) - CONFIGURABLE BLOCKING
-        if len(self.call_times) >= self.MAX_CALLS_PER_MINUTE:
-            wait_time = 60.0 - (current_time - self.call_times[0])
+        if len(call_times) >= self.MAX_CALLS_PER_MINUTE:
+            wait_time = 60.0 - (current_time - call_times[0])
             if wait_time > 0:
                 if allow_wait and wait_time <= max_wait:
                     # Safe to wait within request timeout
                     logger.info(
                         f"Rate limit: waiting {wait_time:.2f}s for per-minute limit "
-                        f"({len(self.call_times)} calls in last minute)"
+                        f"({len(call_times)} calls in last minute) [shared across all workers]"
                     )
                     time.sleep(wait_time)
                     # Clear old call times after waiting
                     current_time = time.time()
-                    self.call_times = [t for t in self.call_times if current_time - t < 60]
+                    call_times = cache.get(self.rate_limit_key, [])
+                    call_times = [t for t in call_times if current_time - t < 60]
                 else:
                     # Wait time too long or waiting not allowed - raise exception
                     logger.error(
                         f"CIN7 API rate limit (60 calls/minute) would require {wait_time:.2f}s wait. "
-                        f"Total calls in last minute: {len(self.call_times)}"
+                        f"Total calls in last minute: {len(call_times)} [shared across all workers]"
                     )
                     raise Exception(
-                        f"CIN7 API rate limit exceeded: {len(self.call_times)} calls in last minute. "
+                        f"CIN7 API rate limit exceeded: {len(call_times)} calls in last minute. "
                         f"Would need to wait {wait_time:.1f}s. Please reduce request frequency."
                     )
 
-        # Record this call
-        self.call_times.append(time.time())
-        self.daily_calls += 1
+        # Record this call in shared cache (atomic operation)
+        call_times.append(time.time())
+        cache.set(self.rate_limit_key, call_times, timeout=None)
+        cache.set(self.daily_calls_key, daily_calls + 1, timeout=86400)
 
     def _make_request(self, endpoint: str, params: Dict = None, max_retries: int = 3, allow_wait: bool = False, max_wait: float = 10.0) -> Optional[Dict]:
         """
