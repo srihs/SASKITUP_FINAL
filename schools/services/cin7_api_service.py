@@ -232,8 +232,8 @@ class Cin7ApiService:
             if where_clause:
                 params['where'] = where_clause
 
-            # Enable waiting for rate limits during pagination (max 30s per page)
-            response = self._make_request('Products', params, allow_wait=True, max_wait=30.0)
+            # Enable waiting for rate limits during pagination (max 60s per page to allow full rate limit window)
+            response = self._make_request('Products', params, allow_wait=True, max_wait=60.0)
 
             if not response:
                 logger.error(f"Failed to fetch page {page}")
