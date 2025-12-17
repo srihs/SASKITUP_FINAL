@@ -1353,8 +1353,24 @@ class AddToQuotationView(LoginRequiredMixin, View):
                     if variations.get('color'):
                         product_name = f"{product.name} - {variations.get('color')} - {variations.get('size')}"
 
-                # Use variation price if available, otherwise fall back to product price
-                unit_price = variations.get('price') or str(getattr(product, 'wholesale_price', None) or getattr(product, 'price', 0))
+                # Use variation price if available and > 0, otherwise fall back to product price
+                variation_price = variations.get('price')
+                # Convert to Decimal for comparison, handle string/None values
+                try:
+                    variation_price_decimal = Decimal(str(variation_price)) if variation_price else Decimal('0')
+                except (ValueError, InvalidOperation):
+                    variation_price_decimal = Decimal('0')
+
+                # Only use variation price if it's greater than 0
+                if variation_price_decimal > 0:
+                    unit_price = str(variation_price_decimal)
+                else:
+                    # Fall back to product's margin_75_price, wholesale_price, or price
+                    unit_price = str(
+                        getattr(product, 'margin_75_price', None) or
+                        getattr(product, 'wholesale_price', None) or
+                        getattr(product, 'price', 0)
+                    )
 
                 # Get margin_75_price from variations or product
                 margin_75_price = variations.get('margin_75_price') or str(getattr(product, 'margin_75_price', None) or '')

@@ -134,9 +134,14 @@ class BespokeProduct(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
-        """Calculate 75% margin price on save"""
+        """Calculate 75% margin price and set default price on save"""
         if self.cost_price and self.cost_price > 0:
             self.margin_75_price = (self.cost_price / Decimal('0.25')).quantize(Decimal('0.01'))
+
+            # If price is not set or is zero, use margin_75_price or retail_price
+            if not self.price or self.price == 0:
+                self.price = self.margin_75_price or self.retail_price
+
         super().save(*args, **kwargs)
 
     @property
@@ -324,9 +329,14 @@ class BespokeProductVariation(models.Model):
         return f"{self.parent_product.name} - {self.sku}"
 
     def save(self, *args, **kwargs):
-        """Calculate 75% margin price on save"""
+        """Calculate 75% margin price and set default price on save"""
         if self.cost_price and self.cost_price > 0:
             self.margin_75_price = (self.cost_price / Decimal('0.25')).quantize(Decimal('0.01'))
+
+            # If price is not set or is zero, use margin_75_price or retail_price
+            if not self.price or self.price == 0:
+                self.price = self.margin_75_price or self.retail_price
+
         super().save(*args, **kwargs)
 
     @property
