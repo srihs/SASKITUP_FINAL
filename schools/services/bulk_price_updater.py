@@ -35,21 +35,36 @@ logger = logging.getLogger(__name__)
 db_change_logger = logging.getLogger('price_update.db_changes')
 db_change_logger.setLevel(logging.INFO)
 
-# Create logs directory if it doesn't exist
-log_dir = os.path.join(settings.BASE_DIR, 'logs')
-os.makedirs(log_dir, exist_ok=True)
+# Try to set up file logging, fall back to console if permissions denied
+try:
+    # Create logs directory if it doesn't exist
+    log_dir = os.path.join(settings.BASE_DIR, 'logs')
+    os.makedirs(log_dir, exist_ok=True)
 
-# Add file handler for database changes
-db_log_file = os.path.join(log_dir, 'price_changes.log')
-db_handler = logging.FileHandler(db_log_file)
-db_handler.setLevel(logging.INFO)
-db_formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-db_handler.setFormatter(db_formatter)
+    # Add file handler for database changes
+    db_log_file = os.path.join(log_dir, 'price_changes.log')
+    db_handler = logging.FileHandler(db_log_file)
+    db_handler.setLevel(logging.INFO)
+    db_formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+    db_handler.setFormatter(db_formatter)
 
-# Only add handler if it hasn't been added yet (prevent duplicates)
-if not db_change_logger.handlers:
-    db_change_logger.addHandler(db_handler)
-    db_change_logger.propagate = False  # Don't propagate to root logger
+    # Only add handler if it hasn't been added yet (prevent duplicates)
+    if not db_change_logger.handlers:
+        db_change_logger.addHandler(db_handler)
+        db_change_logger.propagate = False  # Don't propagate to root logger
+        logger.info(f"Price change logging enabled: {db_log_file}")
+
+except (PermissionError, OSError) as e:
+    # Fall back to console logging in Docker/production if file logging fails
+    logger.warning(f"Could not create file logger for price changes ({e}), using console logging")
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_formatter = logging.Formatter('[%(asctime)s] PRICE_CHANGE: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+    console_handler.setFormatter(console_formatter)
+
+    if not db_change_logger.handlers:
+        db_change_logger.addHandler(console_handler)
+        db_change_logger.propagate = False
 
 
 class BulkPriceUpdater:
