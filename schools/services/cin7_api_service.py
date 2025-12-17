@@ -67,14 +67,22 @@ class Cin7ApiService:
         # Rate limiting tracking (shared across all instances via Django cache)
         self.rate_limit_key = 'cin7_api_call_times'
         self.daily_calls_key = 'cin7_api_daily_calls'
+        self.use_cache = True  # Flag to track if cache is working
 
-        # Initialize cache keys if they don't exist
-        if cache.get(self.rate_limit_key) is None:
-            cache.set(self.rate_limit_key, [], timeout=None)
-        if cache.get(self.daily_calls_key) is None:
-            cache.set(self.daily_calls_key, 0, timeout=86400)  # Reset daily after 24h
-
-        logger.info(f"Cin7ApiService initialized: {self.api_url}")
+        # Try to initialize cache keys, fall back to instance-based tracking if cache fails
+        try:
+            if cache.get(self.rate_limit_key) is None:
+                cache.set(self.rate_limit_key, [], timeout=None)
+            if cache.get(self.daily_calls_key) is None:
+                cache.set(self.daily_calls_key, 0, timeout=86400)  # Reset daily after 24h
+            logger.info(f"Cin7ApiService initialized with shared cache: {self.api_url}")
+        except Exception as e:
+            # Fall back to instance-based rate limiting if cache fails
+            logger.warning(f"Cache not available for rate limiting ({e}), using instance-based tracking")
+            self.use_cache = False
+            self.call_times = []
+            self.daily_calls = 0
+            logger.info(f"Cin7ApiService initialized: {self.api_url}")
 
     def _enforce_rate_limit(self, allow_wait: bool = False, max_wait: float = 10.0):
         """
@@ -95,9 +103,23 @@ class Cin7ApiService:
         """
         current_time = time.time()
 
-        # Get shared call times from cache (atomic operation)
-        call_times = cache.get(self.rate_limit_key, [])
-        daily_calls = cache.get(self.daily_calls_key, 0)
+        # Get call times from cache or instance based on availability
+        if self.use_cache:
+            try:
+                call_times = cache.get(self.rate_limit_key, [])
+                daily_calls = cache.get(self.daily_calls_key, 0)
+            except Exception as e:
+                # Cache failed, fall back to instance tracking
+                logger.warning(f"Cache read failed ({e}), falling back to instance tracking")
+                self.use_cache = False
+                self.call_times = []
+                self.daily_calls = 0
+                call_times = self.call_times
+                daily_calls = self.daily_calls
+        else:
+            # Use instance-based tracking
+            call_times = self.call_times
+            daily_calls = self.daily_calls
 
         # Remove calls older than 1 minute
         call_times = [t for t in call_times if current_time - t < 60]
@@ -116,7 +138,13 @@ class Cin7ApiService:
                 time.sleep(wait_time)
                 current_time = time.time()  # Update current time after sleep
                 # Re-fetch after sleep
-                call_times = cache.get(self.rate_limit_key, [])
+                if self.use_cache:
+                    try:
+                        call_times = cache.get(self.rate_limit_key, [])
+                    except Exception:
+                        call_times = self.call_times if not self.use_cache else []
+                else:
+                    call_times = self.call_times
                 call_times = [t for t in call_times if current_time - t < 60]
 
         # Check per-minute limit (60 calls) - CONFIGURABLE BLOCKING
@@ -132,7 +160,13 @@ class Cin7ApiService:
                     time.sleep(wait_time)
                     # Clear old call times after waiting
                     current_time = time.time()
-                    call_times = cache.get(self.rate_limit_key, [])
+                    if self.use_cache:
+                        try:
+                            call_times = cache.get(self.rate_limit_key, [])
+                        except Exception:
+                            call_times = self.call_times if not self.use_cache else []
+                    else:
+                        call_times = self.call_times
                     call_times = [t for t in call_times if current_time - t < 60]
                 else:
                     # Wait time too long or waiting not allowed - raise exception
@@ -145,10 +179,23 @@ class Cin7ApiService:
                         f"Would need to wait {wait_time:.1f}s. Please reduce request frequency."
                     )
 
-        # Record this call in shared cache (atomic operation)
+        # Record this call in cache or instance
         call_times.append(time.time())
-        cache.set(self.rate_limit_key, call_times, timeout=None)
-        cache.set(self.daily_calls_key, daily_calls + 1, timeout=86400)
+
+        if self.use_cache:
+            try:
+                cache.set(self.rate_limit_key, call_times, timeout=None)
+                cache.set(self.daily_calls_key, daily_calls + 1, timeout=86400)
+            except Exception as e:
+                # Cache write failed, fall back to instance tracking
+                logger.warning(f"Cache write failed ({e}), falling back to instance tracking")
+                self.use_cache = False
+                self.call_times = call_times
+                self.daily_calls = daily_calls + 1
+        else:
+            # Update instance variables
+            self.call_times = call_times
+            self.daily_calls = daily_calls + 1
 
     def _make_request(self, endpoint: str, params: Dict = None, max_retries: int = 3, allow_wait: bool = False, max_wait: float = 10.0) -> Optional[Dict]:
         """
