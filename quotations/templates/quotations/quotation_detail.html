@@ -966,6 +966,10 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- SweetAlert2 -->
+<script src="{% static 'assets/libs/sweetalert2/sweetalert2.min.js' %}"></script>
+<link href="{% static 'assets/libs/sweetalert2/sweetalert2.min.css' %}" rel="stylesheet" type="text/css" />
+
 <!-- Toastr for notifications -->
 <link href="{% static 'assets/libs/toastr/build/toastr.min.css' %}" rel="stylesheet" />
 <script src="{% static 'assets/libs/toastr/build/toastr.min.js' %}"></script>
@@ -1000,28 +1004,21 @@ window.onbeforeprint = function() {
 
 // Duplicate quotation function
 function duplicateQuotation(quotationId) {
-    // Show confirmation dialog using SweetAlert2 if available, otherwise use native confirm
-    if (typeof Swal !== 'undefined') {
-        Swal.fire({
-            title: 'Duplicate Quotation?',
-            text: "This will create a new draft quotation with all items and details from this quotation.",
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#34c38f',
-            cancelButtonColor: '#f46a6a',
-            confirmButtonText: 'Yes, duplicate it!',
-            cancelButtonText: 'Cancel'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = `/quotations/duplicate/${quotationId}/`;
-            }
-        });
-    } else {
-        // Fallback to native confirm
-        if (confirm('Are you sure you want to duplicate this quotation? This will create a new draft quotation with all items and details.')) {
+    // Show SweetAlert2 confirmation dialog
+    Swal.fire({
+        title: 'Duplicate Quotation?',
+        text: "This will create a new draft quotation with all items and details from this quotation.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#34c38f',
+        cancelButtonColor: '#f46a6a',
+        confirmButtonText: 'Yes, duplicate it!',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
             window.location.href = `/quotations/duplicate/${quotationId}/`;
         }
-    }
+    });
 }
 
 // Approve quotation function (Account Manager)
