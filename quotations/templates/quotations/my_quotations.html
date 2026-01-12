@@ -224,6 +224,9 @@
                                         <i class="uil uil-pen font-size-18"></i>
                                     </a>
                                     {% endif %}
+                                    <a href="javascript:void(0);" onclick="duplicateQuotation('{{ quotation.id }}')" class="text-secondary px-2" title="Duplicate Quotation">
+                                        <i class="uil uil-copy font-size-18"></i>
+                                    </a>
                                     {% if quotation.is_edited %}
                                     <a href="javascript:void(0);" onclick="loadVersionHistory('{{ quotation.id }}')" class="text-info px-2" title="Version History">
                                         <i class="uil uil-history font-size-18"></i>
@@ -317,6 +320,31 @@ $(document).ready(function() {
         });
     }
 });
+
+function duplicateQuotation(quotationId) {
+    // Show confirmation dialog using SweetAlert2 if available, otherwise use native confirm
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            title: 'Duplicate Quotation?',
+            text: "This will create a new draft quotation with all items and details from this quotation.",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#34c38f',
+            cancelButtonColor: '#f46a6a',
+            confirmButtonText: 'Yes, duplicate it!',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = `/quotations/duplicate/${quotationId}/`;
+            }
+        });
+    } else {
+        // Fallback to native confirm
+        if (confirm('Are you sure you want to duplicate this quotation? This will create a new draft quotation with all items and details.')) {
+            window.location.href = `/quotations/duplicate/${quotationId}/`;
+        }
+    }
+}
 
 function approveQuotationCustomer(quotationId) {
     // Show confirmation dialog
