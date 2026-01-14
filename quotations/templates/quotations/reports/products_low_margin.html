@@ -149,7 +149,7 @@
         <div class="report-header">
             <div class="row align-items-center">
                 <div class="col-md-6">
-                    <h3 class="mb-2">Products with Margin Below {{ target_margin }}%</h3>
+                    <h3 class="mb-2">Products with Markup Below {{ target_markup }}%</h3>
                     <p class="mb-0 opacity-75">Products and variations where current price is below target margin threshold</p>
                 </div>
                 <div class="col-md-6 text-md-end">
@@ -228,7 +228,7 @@
                         <th>Cost Price</th>
                         <th>Current Price</th>
                         <th>Target Price</th>
-                        <th>Margin</th>
+                        <th>Markup</th>
                         <th>Shortfall</th>
                     </tr>
                 </thead>
@@ -241,7 +241,7 @@
                         <td>${{ item.cost_price|floatformat:2 }}</td>
                         <td class="price-highlight">${{ item.current_price|floatformat:2 }}</td>
                         <td>${{ item.target_price|floatformat:2 }}</td>
-                        <td><span class="margin-badge">{{ item.actual_margin|floatformat:1 }}%</span></td>
+                        <td><span class="margin-badge">{{ item.actual_markup|floatformat:1 }}%</span></td>
                         <td class="price-highlight">${{ item.price_shortfall|floatformat:2 }}</td>
                     </tr>
                     {% endfor %}
@@ -273,7 +273,7 @@
                         <th>Cost Price</th>
                         <th>Current Price</th>
                         <th>Target Price</th>
-                        <th>Margin</th>
+                        <th>Markup</th>
                         <th>Shortfall</th>
                     </tr>
                 </thead>
@@ -286,7 +286,7 @@
                         <td>${{ item.cost_price|floatformat:2 }}</td>
                         <td class="price-highlight">${{ item.current_price|floatformat:2 }}</td>
                         <td>${{ item.target_price|floatformat:2 }}</td>
-                        <td><span class="margin-badge">{{ item.actual_margin|floatformat:1 }}%</span></td>
+                        <td><span class="margin-badge">{{ item.actual_markup|floatformat:1 }}%</span></td>
                         <td class="price-highlight">${{ item.price_shortfall|floatformat:2 }}</td>
                     </tr>
                     {% endfor %}
@@ -318,7 +318,7 @@
                         <th>Cost Price</th>
                         <th>Current Price</th>
                         <th>Target Price</th>
-                        <th>Margin</th>
+                        <th>Markup</th>
                         <th>Shortfall</th>
                     </tr>
                 </thead>
@@ -331,7 +331,7 @@
                         <td>${{ item.cost_price|floatformat:2 }}</td>
                         <td class="price-highlight">${{ item.current_price|floatformat:2 }}</td>
                         <td>${{ item.target_price|floatformat:2 }}</td>
-                        <td><span class="margin-badge">{{ item.actual_margin|floatformat:1 }}%</span></td>
+                        <td><span class="margin-badge">{{ item.actual_markup|floatformat:1 }}%</span></td>
                         <td class="price-highlight">${{ item.price_shortfall|floatformat:2 }}</td>
                     </tr>
                     {% endfor %}
@@ -364,7 +364,7 @@
                         <th>Cost Price</th>
                         <th>Current Price</th>
                         <th>Target Price</th>
-                        <th>Margin</th>
+                        <th>Markup</th>
                         <th>Shortfall</th>
                     </tr>
                 </thead>
@@ -378,7 +378,7 @@
                         <td>${{ item.cost_price|floatformat:2 }}</td>
                         <td class="price-highlight">${{ item.current_price|floatformat:2 }}</td>
                         <td>${{ item.target_price|floatformat:2 }}</td>
-                        <td><span class="margin-badge">{{ item.actual_margin|floatformat:1 }}%</span></td>
+                        <td><span class="margin-badge">{{ item.actual_markup|floatformat:1 }}%</span></td>
                         <td class="price-highlight">${{ item.price_shortfall|floatformat:2 }}</td>
                     </tr>
                     {% endfor %}
@@ -407,7 +407,7 @@
                     {% if search_query %}
                         No products or variations found matching "{{ search_query }}" with low margins.
                     {% else %}
-                        No products or variations found with margin below {{ target_margin }}%.
+                        No products or variations found with markup below {{ target_markup }}%.
                     {% endif %}
                 </p>
             </div>

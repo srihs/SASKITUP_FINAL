@@ -5645,8 +5645,8 @@ class ProductsPriceAnomalyView(LoginRequiredMixin, UserPassesTestMixin, View):
 # =====================================
 class ProductsLowMarginView(LoginRequiredMixin, UserPassesTestMixin, View):
     """
-    Report showing products with margin below 66% (price < cost_price / 0.34).
-    Products should have 66% margin of their cost price.
+    Report showing products with markup below 66% (price < cost_price * 1.66).
+    Products should have 66% markup of their cost price (cost + 66% of cost).
     Accessible to Admin, Account Managers, and Sales Reps only.
     Supports search by SKU, Barcode, Style Code (for wholesale), and Product Name.
     """
@@ -5676,9 +5676,9 @@ class ProductsLowMarginView(LoginRequiredMixin, UserPassesTestMixin, View):
             'wholesale': [],
         }
 
-        # Target margin is 66% (price should be cost / 0.34 = cost * 2.94117647)
-        TARGET_MARGIN = Decimal('0.66')
-        COST_MULTIPLIER = Decimal('1') / (Decimal('1') - TARGET_MARGIN)  # 1 / 0.34 = 2.94117647
+        # Target markup is 66% (price should be cost + 66% of cost = cost * 1.66)
+        TARGET_MARKUP = Decimal('0.66')
+        COST_MULTIPLIER = Decimal('1') + TARGET_MARKUP  # 1 + 0.66 = 1.66
 
         # Query TUS Products with low margin
         if product_type_filter in ['all', 'tus']:
@@ -5715,7 +5715,7 @@ class ProductsLowMarginView(LoginRequiredMixin, UserPassesTestMixin, View):
                         if variation.cost_price and variation.cost_price > 0 and variation.price and variation.price > 0:
                             target_price = variation.cost_price * COST_MULTIPLIER
                             if variation.price < target_price:
-                                actual_margin = ((variation.price - variation.cost_price) / variation.price * 100).quantize(Decimal('0.01'))
+                                actual_markup = ((variation.price - variation.cost_price) / variation.cost_price * 100).quantize(Decimal('0.01'))
                                 price_shortfall = target_price - variation.price
 
                                 products_by_type['tus'].append({
@@ -5727,7 +5727,7 @@ class ProductsLowMarginView(LoginRequiredMixin, UserPassesTestMixin, View):
                                     'cost_price': variation.cost_price,
                                     'current_price': variation.price,
                                     'target_price': target_price,
-                                    'actual_margin': actual_margin,
+                                    'actual_markup': actual_markup,
                                     'price_shortfall': price_shortfall,
                                     'status': variation.stock_status,
                                 })
@@ -5735,7 +5735,7 @@ class ProductsLowMarginView(LoginRequiredMixin, UserPassesTestMixin, View):
                     # Product without variations
                     target_price = product.cost_price * COST_MULTIPLIER
                     if product.price < target_price:
-                        actual_margin = ((product.price - product.cost_price) / product.price * 100).quantize(Decimal('0.01'))
+                        actual_markup = ((product.price - product.cost_price) / product.cost_price * 100).quantize(Decimal('0.01'))
                         price_shortfall = target_price - product.price
 
                         products_by_type['tus'].append({
@@ -5747,7 +5747,7 @@ class ProductsLowMarginView(LoginRequiredMixin, UserPassesTestMixin, View):
                             'cost_price': product.cost_price,
                             'current_price': product.price,
                             'target_price': target_price,
-                            'actual_margin': actual_margin,
+                            'actual_markup': actual_markup,
                             'price_shortfall': price_shortfall,
                             'status': product.stock_status,
                         })
@@ -5780,7 +5780,7 @@ class ProductsLowMarginView(LoginRequiredMixin, UserPassesTestMixin, View):
                         if variation.cost_price and variation.cost_price > 0 and variation.price and variation.price > 0:
                             target_price = variation.cost_price * COST_MULTIPLIER
                             if variation.price < target_price:
-                                actual_margin = ((variation.price - variation.cost_price) / variation.price * 100).quantize(Decimal('0.01'))
+                                actual_markup = ((variation.price - variation.cost_price) / variation.cost_price * 100).quantize(Decimal('0.01'))
                                 price_shortfall = target_price - variation.price
 
                                 products_by_type['lotto'].append({
@@ -5792,14 +5792,14 @@ class ProductsLowMarginView(LoginRequiredMixin, UserPassesTestMixin, View):
                                     'cost_price': variation.cost_price,
                                     'current_price': variation.price,
                                     'target_price': target_price,
-                                    'actual_margin': actual_margin,
+                                    'actual_markup': actual_markup,
                                     'price_shortfall': price_shortfall,
                                     'status': variation.stock_status,
                                 })
                 else:
                     target_price = product.cost_price * COST_MULTIPLIER
                     if product.price < target_price:
-                        actual_margin = ((product.price - product.cost_price) / product.price * 100).quantize(Decimal('0.01'))
+                        actual_markup = ((product.price - product.cost_price) / product.cost_price * 100).quantize(Decimal('0.01'))
                         price_shortfall = target_price - product.price
 
                         products_by_type['lotto'].append({
@@ -5811,7 +5811,7 @@ class ProductsLowMarginView(LoginRequiredMixin, UserPassesTestMixin, View):
                             'cost_price': product.cost_price,
                             'current_price': product.price,
                             'target_price': target_price,
-                            'actual_margin': actual_margin,
+                            'actual_markup': actual_markup,
                             'price_shortfall': price_shortfall,
                             'status': product.stock_status,
                         })
@@ -5844,7 +5844,7 @@ class ProductsLowMarginView(LoginRequiredMixin, UserPassesTestMixin, View):
                         if variation.cost_price and variation.cost_price > 0 and variation.price and variation.price > 0:
                             target_price = variation.cost_price * COST_MULTIPLIER
                             if variation.price < target_price:
-                                actual_margin = ((variation.price - variation.cost_price) / variation.price * 100).quantize(Decimal('0.01'))
+                                actual_markup = ((variation.price - variation.cost_price) / variation.cost_price * 100).quantize(Decimal('0.01'))
                                 price_shortfall = target_price - variation.price
 
                                 products_by_type['sas'].append({
@@ -5856,14 +5856,14 @@ class ProductsLowMarginView(LoginRequiredMixin, UserPassesTestMixin, View):
                                     'cost_price': variation.cost_price,
                                     'current_price': variation.price,
                                     'target_price': target_price,
-                                    'actual_margin': actual_margin,
+                                    'actual_markup': actual_markup,
                                     'price_shortfall': price_shortfall,
                                     'status': variation.stock_status,
                                 })
                 else:
                     target_price = product.cost_price * COST_MULTIPLIER
                     if product.price < target_price:
-                        actual_margin = ((product.price - product.cost_price) / product.price * 100).quantize(Decimal('0.01'))
+                        actual_markup = ((product.price - product.cost_price) / product.cost_price * 100).quantize(Decimal('0.01'))
                         price_shortfall = target_price - product.price
 
                         products_by_type['sas'].append({
@@ -5875,7 +5875,7 @@ class ProductsLowMarginView(LoginRequiredMixin, UserPassesTestMixin, View):
                             'cost_price': product.cost_price,
                             'current_price': product.price,
                             'target_price': target_price,
-                            'actual_margin': actual_margin,
+                            'actual_markup': actual_markup,
                             'price_shortfall': price_shortfall,
                             'status': product.stock_status,
                         })
@@ -5908,7 +5908,7 @@ class ProductsLowMarginView(LoginRequiredMixin, UserPassesTestMixin, View):
                         if variation.cost_price and variation.cost_price > 0 and variation.wholesale_price and variation.wholesale_price > 0:
                             target_price = variation.cost_price * COST_MULTIPLIER
                             if variation.wholesale_price < target_price:
-                                actual_margin = ((variation.wholesale_price - variation.cost_price) / variation.wholesale_price * 100).quantize(Decimal('0.01'))
+                                actual_markup = ((variation.wholesale_price - variation.cost_price) / variation.cost_price * 100).quantize(Decimal('0.01'))
                                 price_shortfall = target_price - variation.wholesale_price
 
                                 products_by_type['wholesale'].append({
@@ -5921,14 +5921,14 @@ class ProductsLowMarginView(LoginRequiredMixin, UserPassesTestMixin, View):
                                     'cost_price': variation.cost_price,
                                     'current_price': variation.wholesale_price,
                                     'target_price': target_price,
-                                    'actual_margin': actual_margin,
+                                    'actual_markup': actual_markup,
                                     'price_shortfall': price_shortfall,
                                     'status': 'in_stock' if variation.is_in_stock else 'out_of_stock',
                                 })
                 else:
                     target_price = product.cost_price * COST_MULTIPLIER
                     if product.wholesale_price < target_price:
-                        actual_margin = ((product.wholesale_price - product.cost_price) / product.wholesale_price * 100).quantize(Decimal('0.01'))
+                        actual_markup = ((product.wholesale_price - product.cost_price) / product.cost_price * 100).quantize(Decimal('0.01'))
                         price_shortfall = target_price - product.wholesale_price
 
                         products_by_type['wholesale'].append({
@@ -5941,7 +5941,7 @@ class ProductsLowMarginView(LoginRequiredMixin, UserPassesTestMixin, View):
                             'cost_price': product.cost_price,
                             'current_price': product.wholesale_price,
                             'target_price': target_price,
-                            'actual_margin': actual_margin,
+                            'actual_markup': actual_markup,
                             'price_shortfall': price_shortfall,
                             'status': product.stock_status,
                         })
@@ -5971,8 +5971,8 @@ class ProductsLowMarginView(LoginRequiredMixin, UserPassesTestMixin, View):
             'counts': counts,
             'product_type_filter': product_type_filter,
             'search_query': search_query,
-            'page_title': 'Low Margin Products (Below 66%)',
-            'target_margin': TARGET_MARGIN * 100,
+            'page_title': 'Low Markup Products (Below 66%)',
+            'target_markup': TARGET_MARKUP * 100,
         }
 
         return render(request, self.template_name, context)
