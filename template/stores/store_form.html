@@ -1,0 +1,346 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if is_edit %}Edit{% else %}Add New{% endif %} Store{% endblock %}
+
+{% block extra_css %}
+<!-- Select2 CSS -->
+<link href="{% static 'assets/libs/select2/css/select2.min.css' %}" rel="stylesheet" type="text/css" />
+<style>
+.formset-row {
+    background: #f8f9fa;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    border-left: 4px solid #556ee6;
+}
+.day-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 5px;
+}
+.required-label:after {
+    content: " *";
+    color: red;
+}
+/* Select2 custom styling to match Bootstrap theme */
+.select2-container--default .select2-selection--multiple {
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    min-height: 38px;
+}
+.select2-container--default.select2-container--focus .select2-selection--multiple {
+    border-color: #ced4da;
+    outline: none;
+    box-shadow: none;
+}
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background-color: #556ee6;
+    border-color: #556ee6;
+    color: #fff;
+    padding: 3px 8px;
+    margin-top: 5px;
+}
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+    color: #fff;
+    margin-right: 5px;
+}
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+    color: #fff;
+}
+
+/* Mobile responsiveness for opening hours */
+@media (max-width: 768px) {
+    .formset-row .row > div {
+        margin-bottom: 10px;
+    }
+    .formset-row .day-label {
+        font-size: 1.1em;
+        margin-bottom: 10px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">{% if is_edit %}Edit Store{% else %}Add New Store{% endif %}</h4>
+        </div>
+    </div>
+</div>
+
+<form method="post" id="store-form">
+    {% csrf_token %}
+
+    <div class="row">
+        <!-- Basic Information -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">Basic Information</h5>
+
+                    <div class="mb-3">
+                        <label for="{{ form.name.id_for_label }}" class="form-label required-label">Store Name</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                            <div class="invalid-feedback d-block">{{ form.name.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                            <div class="invalid-feedback d-block">{{ form.description.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.is_active.id_for_label }}" class="form-label">Status</label>
+                                <div class="form-check">
+                                    {{ form.is_active }}
+                                    <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                        Active (visible on website)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.display_order.id_for_label }}" class="form-label">Display Order</label>
+                                {{ form.display_order }}
+                                <small class="form-text text-muted">Lower numbers appear first</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact Information -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">Contact Information</h5>
+
+                    <div class="mb-3">
+                        <label for="{{ form.phone.id_for_label }}" class="form-label">Phone Number</label>
+                        {{ form.phone }}
+                        {% if form.phone.errors %}
+                            <div class="invalid-feedback d-block">{{ form.phone.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.email.id_for_label }}" class="form-label">Email Address</label>
+                        {{ form.email }}
+                        {% if form.email.errors %}
+                            <div class="invalid-feedback d-block">{{ form.email.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Address Information -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">Address</h5>
+
+                    <div class="mb-3">
+                        <label for="{{ form.address_line1.id_for_label }}" class="form-label required-label">Street Address</label>
+                        {{ form.address_line1 }}
+                        <small class="form-text text-muted">Address autocomplete will suggest NZ addresses as you type</small>
+                        {% if form.address_line1.errors %}
+                            <div class="invalid-feedback d-block">{{ form.address_line1.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.address_line2.id_for_label }}" class="form-label">Address Line 2</label>
+                        {{ form.address_line2 }}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.suburb.id_for_label }}" class="form-label required-label">Suburb</label>
+                                {{ form.suburb }}
+                                {% if form.suburb.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.suburb.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.city.id_for_label }}" class="form-label required-label">City</label>
+                                {{ form.city }}
+                                {% if form.city.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.city.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.postal_code.id_for_label }}" class="form-label">Postal Code</label>
+                        {{ form.postal_code }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GPS Coordinates -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">GPS Coordinates (Optional)</h5>
+                    <p class="text-muted small">
+                        <i class="uil-info-circle me-1"></i>
+                        Find coordinates on Google Maps: Right-click location → Click coordinates to copy
+                    </p>
+
+                    <div class="mb-3">
+                        <label for="{{ form.latitude.id_for_label }}" class="form-label">Latitude</label>
+                        {{ form.latitude }}
+                        {% if form.latitude.errors %}
+                            <div class="invalid-feedback d-block">{{ form.latitude.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.longitude.id_for_label }}" class="form-label">Longitude</label>
+                        {{ form.longitude }}
+                        {% if form.longitude.errors %}
+                            <div class="invalid-feedback d-block">{{ form.longitude.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Schools Serviced -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">Schools Serviced</h5>
+                    <p class="text-muted small mb-3">
+                        <i class="uil-info-circle me-1"></i>
+                        Search and select multiple schools from the list
+                    </p>
+
+                    <div class="mb-3">
+                        <label for="{{ form.schools.id_for_label }}" class="form-label">Select Schools</label>
+                        {{ form.schools }}
+                        <small class="form-text text-muted">Showing open schools only</small>
+                        {% if form.schools.errors %}
+                            <div class="invalid-feedback d-block">{{ form.schools.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form Actions -->
+    <div class="row">
+        <div class="col-12">
+            <div class="mb-3">
+                <button type="submit" class="btn btn-primary">
+                    <i class="uil-save me-1"></i> {% if is_edit %}Update Store{% else %}Create Store{% endif %}
+                </button>
+                <a href="{% url 'stores:store_list' %}" class="btn btn-secondary">
+                    <i class="uil-x me-1"></i> Cancel
+                </a>
+                {% if is_edit %}
+                <a href="{% url 'stores:store_delete' object.pk %}" class="btn btn-danger float-end">
+                    <i class="uil-trash me-1"></i> Delete Store
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Select2 JS -->
+<script src="{% static 'assets/libs/select2/js/select2.min.js' %}"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Select2 on schools field
+    $('#id_schools').select2({
+        placeholder: "Search and select schools...",
+        allowClear: true,
+        width: '100%'
+    });
+});
+</script>
+
+<!-- Google Maps Places API for Address Autocomplete -->
+{% if GOOGLE_MAPS_API_KEY %}
+<script>
+    // Callback function for Google Maps API initialization
+    function initGoogleMapsAPI() {
+        console.log('Google Maps API loaded successfully for store form');
+    }
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAPS_API_KEY }}&libraries=places&callback=initGoogleMapsAPI" async defer></script>
+
+<!-- Address Autocomplete Module -->
+<script src="{% static 'assets/js/custom/address-autocomplete.js' %}"></script>
+
+<script>
+// Initialize Address Autocomplete for Store Form
+function initStoreAddressAutocomplete() {
+    if (typeof AddressAutocomplete !== 'undefined' && AddressAutocomplete.isApiReady()) {
+        // Initialize autocomplete on street address field
+        const autocomplete = AddressAutocomplete.init('{{ form.address_line1.id_for_label }}', {
+            streetField: '{{ form.address_line1.id_for_label }}',
+            suburbField: '{{ form.suburb.id_for_label }}',
+            cityField: '{{ form.city.id_for_label }}',
+            postcodeField: '{{ form.postal_code.id_for_label }}'
+        });
+
+        if (autocomplete) {
+            console.log('Address autocomplete initialized for store form');
+
+            // Listen for address selection completion
+            document.getElementById('{{ form.address_line1.id_for_label }}').addEventListener('addressAutocompleted', function(e) {
+                console.log('Address autocompleted:', e.detail.addressData);
+            });
+        }
+    } else {
+        // Retry if API not ready yet
+        if (typeof AddressAutocomplete !== 'undefined') {
+            console.log('Google Maps API not ready, retrying address autocomplete init...');
+            setTimeout(initStoreAddressAutocomplete, 500);
+        }
+    }
+}
+
+// Initialize when page is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initStoreAddressAutocomplete);
+} else {
+    initStoreAddressAutocomplete();
+}
+</script>
+{% else %}
+<!-- Google Maps API key not configured -->
+<script>
+    console.warn('Google Maps API key not configured. Address autocomplete will not be available for store form.');
+</script>
+{% endif %}
+{% endblock %}

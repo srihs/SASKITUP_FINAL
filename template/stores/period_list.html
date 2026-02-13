@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Manage Periods - The Uniform Shoppe{% endblock %}
+
+{% block content %}
+<!-- Page Title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">Manage Periods</h4>
+            <div>
+                <a href="{% url 'stores:store_list' %}" class="btn btn-outline-secondary me-2">
+                    <i class="uil-arrow-left me-1"></i> Back to Stores
+                </a>
+                <a href="{% url 'stores:period_create' %}" class="btn btn-primary">
+                    <i class="uil-plus me-1"></i> Add New Period
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Active Periods -->
+{% if active_periods %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-3">
+                    <i class="uil-check-circle text-success me-1"></i> Active Periods
+                </h5>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Period Name</th>
+                                <th>Stores</th>
+                                <th>Type</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for period in active_periods %}
+                            <tr>
+                                <td><strong>{{ period.name }}</strong></td>
+                                <td>
+                                    {% for store in period.stores.all %}
+                                        <span class="badge bg-secondary">{{ store.name }}</span>{% if not forloop.last %} {% endif %}
+                                    {% empty %}
+                                        <span class="text-muted">No stores</span>
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ period.get_period_type_display }}</span>
+                                </td>
+                                <td>{{ period.start_date|date:"d M Y" }}</td>
+                                <td>{{ period.end_date|date:"d M Y" }}</td>
+                                <td>
+                                    <span class="badge bg-primary">{{ period.priority }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-success">● Active Now</span>
+                                </td>
+                                <td class="text-end">
+                                    <a href="{% url 'stores:period_edit' period.pk %}" class="btn btn-sm btn-outline-primary me-1">
+                                        <i class="uil-edit"></i> Edit
+                                    </a>
+                                    <a href="{% url 'stores:period_delete' period.pk %}" class="btn btn-sm btn-outline-danger">
+                                        <i class="uil-trash-alt"></i> Delete
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Upcoming Periods -->
+{% if upcoming_periods %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-3">
+                    <i class="uil-calender text-primary me-1"></i> Upcoming Periods
+                </h5>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Period Name</th>
+                                <th>Stores</th>
+                                <th>Type</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for period in upcoming_periods %}
+                            <tr>
+                                <td><strong>{{ period.name }}</strong></td>
+                                <td>
+                                    {% for store in period.stores.all %}
+                                        <span class="badge bg-secondary">{{ store.name }}</span>{% if not forloop.last %} {% endif %}
+                                    {% empty %}
+                                        <span class="text-muted">No stores</span>
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ period.get_period_type_display }}</span>
+                                </td>
+                                <td>{{ period.start_date|date:"d M Y" }}</td>
+                                <td>{{ period.end_date|date:"d M Y" }}</td>
+                                <td>
+                                    <span class="badge bg-primary">{{ period.priority }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-warning">● Upcoming</span>
+                                </td>
+                                <td class="text-end">
+                                    <a href="{% url 'stores:period_edit' period.pk %}" class="btn btn-sm btn-outline-primary me-1">
+                                        <i class="uil-edit"></i> Edit
+                                    </a>
+                                    <a href="{% url 'stores:period_delete' period.pk %}" class="btn btn-sm btn-outline-danger">
+                                        <i class="uil-trash-alt"></i> Delete
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Past Periods -->
+{% if past_periods %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-3">
+                    <i class="uil-history text-muted me-1"></i> Past Periods
+                </h5>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Period Name</th>
+                                <th>Stores</th>
+                                <th>Type</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for period in past_periods %}
+                            <tr class="text-muted">
+                                <td>{{ period.name }}</td>
+                                <td>
+                                    {% for store in period.stores.all %}
+                                        <span class="badge bg-secondary">{{ store.name }}</span>{% if not forloop.last %} {% endif %}
+                                    {% empty %}
+                                        <span class="text-muted">No stores</span>
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ period.get_period_type_display }}</span>
+                                </td>
+                                <td>{{ period.start_date|date:"d M Y" }}</td>
+                                <td>{{ period.end_date|date:"d M Y" }}</td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ period.priority }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">● Ended</span>
+                                </td>
+                                <td class="text-end">
+                                    <a href="{% url 'stores:period_delete' period.pk %}" class="btn btn-sm btn-outline-danger">
+                                        <i class="uil-trash-alt"></i> Delete
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- No Periods Message -->
+{% if not active_periods and not upcoming_periods and not past_periods %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="uil-calender font-size-48 text-muted mb-3"></i>
+                <h5>No Periods Defined</h5>
+                <p class="text-muted">Create periods to manage different opening hours for term time, holidays, and special events.</p>
+                <a href="{% url 'stores:period_create' %}" class="btn btn-primary mt-3">
+                    <i class="uil-plus me-1"></i> Create First Period
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Help Information -->
+<div class="row">
+    <div class="col-12">
+        <div class="card border-info">
+            <div class="card-body">
+                <h6 class="card-title text-info"><i class="uil-info-circle me-1"></i> About Periods</h6>
+                <p class="card-text mb-0">
+                    Periods allow you to define different opening hours for different times of the year.
+                    For example, you can have different hours during term time vs school holidays.
+                    When multiple periods overlap, the one with the highest priority is used.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

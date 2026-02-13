@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Store Locations - The Uniform Shoppe{% endblock %}
+
+{% block content %}
+<!-- Page Title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">Store Locations</h4>
+            {% if user.is_superuser %}
+            <div>
+                <a href="{% url 'stores:store_create' %}" class="btn btn-primary">
+                    <i class="uil-plus me-1"></i> Add New Store
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Store Cards -->
+<div class="row">
+            {% for store in stores %}
+            <div class="col-xl-4 col-sm-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">{{ store.name }}</h5>
+
+                        <!-- Address -->
+                        <div class="mb-3">
+                            <h6 class="font-size-14 mb-2"><i class="uil-map me-1"></i> Address</h6>
+                            <p class="text-muted mb-0">{{ store.full_address }}</p>
+                        </div>
+
+                        <!-- Contact Info -->
+                        {% if store.phone or store.email %}
+                        <div class="mb-3">
+                            <h6 class="font-size-14 mb-2"><i class="uil-phone me-1"></i> Contact</h6>
+                            {% if store.phone %}
+                            <p class="text-muted mb-1">
+                                <strong>Phone:</strong> <a href="tel:{{ store.phone }}">{{ store.phone }}</a>
+                            </p>
+                            {% endif %}
+                            {% if store.email %}
+                            <p class="text-muted mb-0">
+                                <strong>Email:</strong> <a href="mailto:{{ store.email }}">{{ store.email }}</a>
+                            </p>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Opening Hours Summary -->
+                        <div class="mb-3">
+                            <h6 class="font-size-14 mb-2"><i class="uil-time me-1"></i> Opening Hours</h6>
+                            {% with current_hours=store.get_current_opening_hours %}
+                            {% if current_hours %}
+                            <div class="text-muted small">
+                                {% for hours in current_hours|slice:":3" %}
+                                <div>
+                                    <strong>{{ hours.get_day_of_week_display }}:</strong>
+                                    {% if hours.is_closed %}
+                                        Closed
+                                    {% else %}
+                                        {{ hours.opening_time|time:"g:i A" }} - {{ hours.closing_time|time:"g:i A" }}
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                                {% if current_hours|length > 3 %}
+                                <small class="text-info">View all hours...</small>
+                                {% endif %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted mb-0 small">Contact store for hours</p>
+                            {% endif %}
+                            {% endwith %}
+                        </div>
+
+                        <!-- Schools Count -->
+                        <div class="mb-3">
+                            <h6 class="font-size-14 mb-2"><i class="uil-buildings me-1"></i> Schools Serviced</h6>
+                            <p class="text-muted mb-0">{{ store.schools.count }} school{{ store.schools.count|pluralize }}</p>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="mt-3">
+                            {% if user.is_superuser %}
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'stores:store_detail' store.pk %}" class="btn btn-primary btn-sm">
+                                    <i class="uil-eye me-1"></i> View Details
+                                </a>
+                                <a href="{% url 'stores:store_edit' store.pk %}" class="btn btn-outline-secondary btn-sm">
+                                    <i class="uil-edit me-1"></i> Edit Store
+                                </a>
+                            </div>
+                            {% else %}
+                            <a href="{% url 'stores:store_detail' store.pk %}" class="btn btn-primary btn-sm w-100">
+                                <i class="uil-eye me-1"></i> View Details
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <i class="uil-store font-size-48 text-muted mb-3"></i>
+                        <h5>No Stores Available</h5>
+                        <p class="text-muted">Store locations will be displayed here once they are added.</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+</div>
+{% endblock %}

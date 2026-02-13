@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Delete Period - {{ object.name }}{% endblock %}
+
+{% block content %}
+<!-- Page Title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">Delete Period</h4>
+            <div>
+                <a href="{% url 'stores:period_list' %}" class="btn btn-outline-secondary">
+                    <i class="uil-arrow-left me-1"></i> Back to Periods
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 offset-lg-2">
+        <div class="card border-danger">
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <i class="uil-error-circle text-danger" style="font-size: 72px;"></i>
+                    <h4 class="mt-3 text-danger">Confirm Period Deletion</h4>
+                </div>
+
+                <div class="alert alert-danger" role="alert">
+                    <h5 class="alert-heading">
+                        <i class="uil-error me-2"></i>Warning!
+                    </h5>
+                    <p class="mb-0">
+                        You are about to permanently delete the period: <strong>{{ object.name }}</strong>
+                    </p>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h6 class="mb-3">Period Details:</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li class="mb-2">
+                                <strong>Period Name:</strong> {{ object.name }}
+                            </li>
+                            <li class="mb-2">
+                                <strong>Type:</strong>
+                                <span class="badge bg-info">{{ object.get_period_type_display }}</span>
+                            </li>
+                            <li class="mb-2">
+                                <strong>Applies to Stores:</strong>
+                                {% for store in object.stores.all %}
+                                    <span class="badge bg-secondary">{{ store.name }}</span>{% if not forloop.last %}, {% endif %}
+                                {% empty %}
+                                    <span class="text-muted">No stores</span>
+                                {% endfor %}
+                            </li>
+                            <li class="mb-2">
+                                <strong>Date Range:</strong> {{ object.start_date|date:"d M Y" }} - {{ object.end_date|date:"d M Y" }}
+                            </li>
+                            <li class="mb-2">
+                                <strong>Priority:</strong> {{ object.priority }}
+                            </li>
+                            <li class="mb-2">
+                                <strong>Status:</strong>
+                                {% if object.is_currently_active %}
+                                    <span class="badge bg-success">● Active Now</span>
+                                {% elif object.is_future %}
+                                    <span class="badge bg-warning">● Upcoming</span>
+                                {% elif object.is_past %}
+                                    <span class="badge bg-secondary">● Ended</span>
+                                {% endif %}
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning" role="alert">
+                    <h6 class="alert-heading">
+                        <i class="uil-info-circle me-1"></i>What will be deleted:
+                    </h6>
+                    <ul class="mb-0">
+                        <li>The period "{{ object.name }}"</li>
+                        <li>All opening hours for this period ({{ object.opening_hours.count }} days configured)</li>
+                        <li>This action cannot be undone</li>
+                    </ul>
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="text-center mt-4">
+                        <button type="submit" class="btn btn-danger btn-lg me-2">
+                            <i class="uil-trash me-1"></i> Yes, Delete Period
+                        </button>
+                        <a href="{% url 'stores:period_list' %}" class="btn btn-secondary btn-lg">
+                            <i class="uil-x me-1"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

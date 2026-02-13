@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Manage Opening Hours - The Uniform Shoppe{% endblock %}
+
+{% block content %}
+<!-- Page Title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">Manage Opening Hours</h4>
+            <div>
+                <a href="{% url 'stores:store_list' %}" class="btn btn-outline-secondary">
+                    <i class="uil-store me-1"></i> View All Stores
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Info Card -->
+<div class="row">
+    <div class="col-12">
+        <div class="card border-info">
+            <div class="card-body">
+                <h6 class="card-title text-info"><i class="uil-info-circle me-1"></i> About Opening Hours Management</h6>
+                <p class="card-text mb-0">
+                    Select a store below to manage its opening hours. Opening hours are organized by periods (e.g., Term Time, School Holidays, Christmas).
+                    Each period can have different hours for the 7 days of the week.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stores List -->
+<div class="row">
+    {% for store in stores %}
+    <div class="col-xl-6 col-lg-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-start">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title mb-2">{{ store.name }}</h5>
+                        <p class="text-muted mb-3">
+                            <i class="uil-map me-1"></i> {{ store.suburb }}, {{ store.city }}
+                        </p>
+
+                        <!-- Current Period Info -->
+                        {% if store.active_period %}
+                        <div class="alert alert-success mb-3">
+                            <i class="uil-check-circle me-1"></i>
+                            <strong>Active Period:</strong> {{ store.active_period.name }}
+                            <span class="badge bg-success ms-2">{{ store.active_period.get_period_type_display }}</span>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-warning mb-3">
+                            <i class="uil-exclamation-triangle me-1"></i>
+                            <strong>No active period</strong> - Default hours or no hours set
+                        </div>
+                        {% endif %}
+
+                        <!-- Period Statistics -->
+                        <div class="mb-3">
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="border rounded p-2 text-center">
+                                        <h6 class="mb-1 text-muted">Total Periods</h6>
+                                        <h4 class="mb-0">{{ store.total_periods }}</h4>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="border rounded p-2 text-center">
+                                        <h6 class="mb-1 text-muted">Active Now</h6>
+                                        <h4 class="mb-0 {% if store.active_periods_count > 0 %}text-success{% endif %}">
+                                            {{ store.active_periods_count }}
+                                        </h4>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-grid gap-2 d-md-flex">
+                            <a href="{% url 'stores:store_assign_periods' store.pk %}" class="btn btn-success flex-fill">
+                                <i class="uil-calender me-1"></i> Assign Periods
+                            </a>
+                            <a href="{% url 'stores:period_list' %}" class="btn btn-primary flex-fill">
+                                <i class="uil-list-ul me-1"></i> All Periods
+                            </a>
+                            <a href="{% url 'stores:store_detail' store.pk %}" class="btn btn-outline-secondary flex-fill">
+                                <i class="uil-eye me-1"></i> View Store
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Store Status Badge -->
+                    <div class="ms-3">
+                        {% if store.is_active %}
+                        <span class="badge bg-success font-size-12">Active</span>
+                        {% else %}
+                        <span class="badge bg-secondary font-size-12">Inactive</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="uil-store font-size-48 text-muted mb-3"></i>
+                <h5>No Stores Available</h5>
+                <p class="text-muted">Create a store first before managing opening hours.</p>
+                <a href="{% url 'stores:store_create' %}" class="btn btn-primary mt-3">
+                    <i class="uil-plus me-1"></i> Create First Store
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

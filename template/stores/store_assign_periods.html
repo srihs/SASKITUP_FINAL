@@ -1,0 +1,460 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Assign Periods to {{ store.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.period-card {
+    transition: all 0.3s ease;
+    border-left: 4px solid #dee2e6;
+}
+
+.period-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.period-card.assigned {
+    border-left-color: #556ee6;
+    background-color: #f8f9ff;
+}
+
+.period-card.active {
+    border-left-color: #34c38f;
+}
+
+.period-card.upcoming {
+    border-left-color: #50a5f1;
+}
+
+.period-card.past {
+    border-left-color: #6c757d;
+}
+
+.period-checkbox {
+    transform: scale(1.3);
+    margin-right: 10px;
+}
+
+.section-header {
+    background: linear-gradient(135deg, #556ee6 0%, #6f85f5 100%);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.section-header h5 {
+    margin: 0;
+    color: white;
+}
+
+.badge-period-type {
+    font-size: 0.75rem;
+    padding: 0.35em 0.65em;
+}
+
+.store-info-card {
+    background: linear-gradient(135deg, #556ee6 0%, #6f85f5 100%);
+    color: white;
+    border: none;
+}
+
+.store-info-card .card-body {
+    padding: 25px;
+}
+
+.sticky-actions {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding: 20px;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    z-index: 100;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">Assign Periods to Store</h4>
+            <div>
+                <a href="{% url 'stores:store_detail' store.pk %}" class="btn btn-outline-secondary">
+                    <i class="uil-arrow-left me-1"></i> Back to Store
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Store Information -->
+<div class="row">
+    <div class="col-12">
+        <div class="card store-info-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h4 class="mb-1 text-white">{{ store.name }}</h4>
+                        <p class="mb-0 text-white-50">
+                            <i class="uil-map me-1"></i> {{ store.full_address }}
+                        </p>
+                    </div>
+                    <div class="text-end">
+                        {% if store.is_active %}
+                        <span class="badge bg-success-subtle text-success font-size-14">Active Store</span>
+                        {% else %}
+                        <span class="badge bg-secondary-subtle text-secondary font-size-14">Inactive Store</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+
+    <!-- Currently Assigned Periods -->
+    {% if assigned_active or assigned_upcoming or assigned_past %}
+    <div class="row">
+        <div class="col-12">
+            <div class="section-header">
+                <h5><i class="uil-check-circle me-2"></i>Currently Assigned Periods</h5>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Periods -->
+    {% if assigned_active %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <h6 class="text-success mb-3"><i class="uil-clock me-1"></i> Active Now</h6>
+        </div>
+        {% for period in assigned_active %}
+        <div class="col-xl-6 col-lg-12">
+            <div class="card period-card assigned active">
+                <div class="card-body">
+                    <div class="d-flex align-items-start">
+                        <div class="form-check mt-1">
+                            <input type="checkbox"
+                                   class="form-check-input period-checkbox"
+                                   name="periods"
+                                   value="{{ period.id }}"
+                                   id="period_{{ period.id }}"
+                                   checked>
+                        </div>
+                        <div class="flex-grow-1">
+                            <label for="period_{{ period.id }}" class="mb-0" style="cursor: pointer;">
+                                <h6 class="mb-2">{{ period.name }}</h6>
+                                <div class="mb-2">
+                                    <span class="badge bg-success badge-period-type">{{ period.get_period_type_display }}</span>
+                                    <span class="badge bg-info badge-period-type">Priority: {{ period.priority }}</span>
+                                    {% if not period.is_active %}
+                                    <span class="badge bg-warning badge-period-type">Disabled</span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-muted mb-2">
+                                    <i class="uil-calendar-alt me-1"></i>
+                                    {{ period.start_date|date:"d M Y" }} - {{ period.end_date|date:"d M Y" }}
+                                    <span class="ms-2">({{ period.duration_days }} days)</span>
+                                </p>
+                                {% if period.description %}
+                                <p class="text-muted small mb-0">{{ period.description }}</p>
+                                {% endif %}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Upcoming Periods -->
+    {% if assigned_upcoming %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <h6 class="text-primary mb-3"><i class="uil-calendar-alt me-1"></i> Upcoming</h6>
+        </div>
+        {% for period in assigned_upcoming %}
+        <div class="col-xl-6 col-lg-12">
+            <div class="card period-card assigned upcoming">
+                <div class="card-body">
+                    <div class="d-flex align-items-start">
+                        <div class="form-check mt-1">
+                            <input type="checkbox"
+                                   class="form-check-input period-checkbox"
+                                   name="periods"
+                                   value="{{ period.id }}"
+                                   id="period_{{ period.id }}"
+                                   checked>
+                        </div>
+                        <div class="flex-grow-1">
+                            <label for="period_{{ period.id }}" class="mb-0" style="cursor: pointer;">
+                                <h6 class="mb-2">{{ period.name }}</h6>
+                                <div class="mb-2">
+                                    <span class="badge bg-primary badge-period-type">{{ period.get_period_type_display }}</span>
+                                    <span class="badge bg-info badge-period-type">Priority: {{ period.priority }}</span>
+                                    {% if not period.is_active %}
+                                    <span class="badge bg-warning badge-period-type">Disabled</span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-muted mb-2">
+                                    <i class="uil-calendar-alt me-1"></i>
+                                    {{ period.start_date|date:"d M Y" }} - {{ period.end_date|date:"d M Y" }}
+                                    <span class="ms-2">({{ period.duration_days }} days)</span>
+                                </p>
+                                {% if period.description %}
+                                <p class="text-muted small mb-0">{{ period.description }}</p>
+                                {% endif %}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Past Periods -->
+    {% if assigned_past %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <h6 class="text-muted mb-3"><i class="uil-history me-1"></i> Past</h6>
+        </div>
+        {% for period in assigned_past %}
+        <div class="col-xl-6 col-lg-12">
+            <div class="card period-card assigned past">
+                <div class="card-body">
+                    <div class="d-flex align-items-start">
+                        <div class="form-check mt-1">
+                            <input type="checkbox"
+                                   class="form-check-input period-checkbox"
+                                   name="periods"
+                                   value="{{ period.id }}"
+                                   id="period_{{ period.id }}"
+                                   checked>
+                        </div>
+                        <div class="flex-grow-1">
+                            <label for="period_{{ period.id }}" class="mb-0" style="cursor: pointer;">
+                                <h6 class="mb-2 text-muted">{{ period.name }}</h6>
+                                <div class="mb-2">
+                                    <span class="badge bg-secondary badge-period-type">{{ period.get_period_type_display }}</span>
+                                    <span class="badge bg-secondary badge-period-type">Priority: {{ period.priority }}</span>
+                                </div>
+                                <p class="text-muted mb-2">
+                                    <i class="uil-calendar-alt me-1"></i>
+                                    {{ period.start_date|date:"d M Y" }} - {{ period.end_date|date:"d M Y" }}
+                                    <span class="ms-2">({{ period.duration_days }} days)</span>
+                                </p>
+                                {% if period.description %}
+                                <p class="text-muted small mb-0">{{ period.description }}</p>
+                                {% endif %}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <!-- Available Periods -->
+    {% if available_active or available_upcoming or available_past %}
+    <div class="row">
+        <div class="col-12">
+            <div class="section-header" style="background: linear-gradient(135deg, #6c757d 0%, #8a939d 100%);">
+                <h5><i class="uil-plus-circle me-2"></i>Available Periods (Not Assigned)</h5>
+            </div>
+        </div>
+    </div>
+
+    <!-- Available Active Periods -->
+    {% if available_active %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <h6 class="text-success mb-3"><i class="uil-clock me-1"></i> Active Now</h6>
+        </div>
+        {% for period in available_active %}
+        <div class="col-xl-6 col-lg-12">
+            <div class="card period-card active">
+                <div class="card-body">
+                    <div class="d-flex align-items-start">
+                        <div class="form-check mt-1">
+                            <input type="checkbox"
+                                   class="form-check-input period-checkbox"
+                                   name="periods"
+                                   value="{{ period.id }}"
+                                   id="period_{{ period.id }}">
+                        </div>
+                        <div class="flex-grow-1">
+                            <label for="period_{{ period.id }}" class="mb-0" style="cursor: pointer;">
+                                <h6 class="mb-2">{{ period.name }}</h6>
+                                <div class="mb-2">
+                                    <span class="badge bg-success badge-period-type">{{ period.get_period_type_display }}</span>
+                                    <span class="badge bg-info badge-period-type">Priority: {{ period.priority }}</span>
+                                    {% if not period.is_active %}
+                                    <span class="badge bg-warning badge-period-type">Disabled</span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-muted mb-2">
+                                    <i class="uil-calendar-alt me-1"></i>
+                                    {{ period.start_date|date:"d M Y" }} - {{ period.end_date|date:"d M Y" }}
+                                    <span class="ms-2">({{ period.duration_days }} days)</span>
+                                </p>
+                                {% if period.description %}
+                                <p class="text-muted small mb-0">{{ period.description }}</p>
+                                {% endif %}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Available Upcoming Periods -->
+    {% if available_upcoming %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <h6 class="text-primary mb-3"><i class="uil-calendar-alt me-1"></i> Upcoming</h6>
+        </div>
+        {% for period in available_upcoming %}
+        <div class="col-xl-6 col-lg-12">
+            <div class="card period-card upcoming">
+                <div class="card-body">
+                    <div class="d-flex align-items-start">
+                        <div class="form-check mt-1">
+                            <input type="checkbox"
+                                   class="form-check-input period-checkbox"
+                                   name="periods"
+                                   value="{{ period.id }}"
+                                   id="period_{{ period.id }}">
+                        </div>
+                        <div class="flex-grow-1">
+                            <label for="period_{{ period.id }}" class="mb-0" style="cursor: pointer;">
+                                <h6 class="mb-2">{{ period.name }}</h6>
+                                <div class="mb-2">
+                                    <span class="badge bg-primary badge-period-type">{{ period.get_period_type_display }}</span>
+                                    <span class="badge bg-info badge-period-type">Priority: {{ period.priority }}</span>
+                                    {% if not period.is_active %}
+                                    <span class="badge bg-warning badge-period-type">Disabled</span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-muted mb-2">
+                                    <i class="uil-calendar-alt me-1"></i>
+                                    {{ period.start_date|date:"d M Y" }} - {{ period.end_date|date:"d M Y" }}
+                                    <span class="ms-2">({{ period.duration_days }} days)</span>
+                                </p>
+                                {% if period.description %}
+                                <p class="text-muted small mb-0">{{ period.description }}</p>
+                                {% endif %}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Available Past Periods -->
+    {% if available_past %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <h6 class="text-muted mb-3"><i class="uil-history me-1"></i> Past</h6>
+        </div>
+        {% for period in available_past %}
+        <div class="col-xl-6 col-lg-12">
+            <div class="card period-card past">
+                <div class="card-body">
+                    <div class="d-flex align-items-start">
+                        <div class="form-check mt-1">
+                            <input type="checkbox"
+                                   class="form-check-input period-checkbox"
+                                   name="periods"
+                                   value="{{ period.id }}"
+                                   id="period_{{ period.id }}">
+                        </div>
+                        <div class="flex-grow-1">
+                            <label for="period_{{ period.id }}" class="mb-0" style="cursor: pointer;">
+                                <h6 class="mb-2 text-muted">{{ period.name }}</h6>
+                                <div class="mb-2">
+                                    <span class="badge bg-secondary badge-period-type">{{ period.get_period_type_display }}</span>
+                                    <span class="badge bg-secondary badge-period-type">Priority: {{ period.priority }}</span>
+                                </div>
+                                <p class="text-muted mb-2">
+                                    <i class="uil-calendar-alt me-1"></i>
+                                    {{ period.start_date|date:"d M Y" }} - {{ period.end_date|date:"d M Y" }}
+                                    <span class="ms-2">({{ period.duration_days }} days)</span>
+                                </p>
+                                {% if period.description %}
+                                <p class="text-muted small mb-0">{{ period.description }}</p>
+                                {% endif %}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <!-- No Periods Available -->
+    {% if not assigned_active and not assigned_upcoming and not assigned_past and not available_active and not available_upcoming and not available_past %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="uil-calendar-slash font-size-48 text-muted mb-3"></i>
+                    <h5>No Periods Available</h5>
+                    <p class="text-muted">Create periods first before assigning them to stores.</p>
+                    <a href="{% url 'stores:period_create' %}" class="btn btn-primary mt-3">
+                        <i class="uil-plus me-1"></i> Create First Period
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Sticky Action Buttons -->
+    {% if assigned_active or assigned_upcoming or assigned_past or available_active or available_upcoming or available_past %}
+    <div class="sticky-actions">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-0">
+                            <i class="uil-info-circle me-1"></i>
+                            Select periods to assign them to this store. Uncheck to unassign.
+                        </p>
+                    </div>
+                    <div>
+                        <a href="{% url 'stores:store_detail' store.pk %}" class="btn btn-secondary me-2">
+                            <i class="uil-x me-1"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="uil-save me-1"></i> Save Period Assignments
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</form>
+{% endblock %}
