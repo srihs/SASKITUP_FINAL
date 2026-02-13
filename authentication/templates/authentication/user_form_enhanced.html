@@ -77,16 +77,7 @@
             <h4 class="mb-0">
                 {% if form.instance.pk %}Edit User{% else %}Create New User{% endif %}
             </h4>
-            <div class="page-title-right">
-                <ol class="breadcrumb m-0">
-                    <li class="breadcrumb-item"><a href="{% url 'global-dashboard' %}">Dashboard</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'authentication:user-list' %}">User Management</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'authentication:user-list' %}">Users</a></li>
-                    <li class="breadcrumb-item active">
-                        {% if form.instance.pk %}Edit{% else %}Create{% endif %}
-                    </li>
-                </ol>
-            </div>
+            
         </div>
     </div>
 </div>
