@@ -424,8 +424,17 @@
                                     {# NEW Price Management Hub - Choose between Cin7 API or CSV upload #}
                                     <li><a href="{% url 'schools:price-management-hub' %}">Price Update</a></li>
                                     <li><a href="{% url 'schools:cin7-mapping' %}">CIN7 Mapping</a></li>
-                                    <li><a href="{% url 'stores:store_list' %}">Store Locations</a></li>
-                                    <li><a href="{% url 'stores:opening_hours_management' %}">Opening Hours</a></li>
+                                    <li>
+                                        <a href="javascript: void(0);" class="has-arrow">
+                                            <i class="uil-store"></i>
+                                            <span>Stores</span>
+                                        </a>
+                                        <ul class="sub-menu" aria-expanded="false">
+                                            <li><a href="{% url 'stores:store_list' %}">Store Locations</a></li>
+                                            <li><a href="{% url 'stores:period_list' %}">Manage Periods</a></li>
+                                            <li><a href="{% url 'stores:opening_hours_management' %}">Opening Hours Management</a></li>
+                                        </ul>
+                                    </li>
                                 </ul>
                             </li>
                             {% endif %}
