@@ -109,8 +109,7 @@ class StorePeriodCreateView(LoginRequiredMixin, SuperuserRequiredMixin, CreateVi
                 return self.form_invalid(form)
 
     def form_invalid(self, form):
-        """Handle invalid form."""
-        messages.error(self.request, 'Please correct the errors below.')
+        """Handle invalid form - errors are displayed inline in template."""
         return super().form_invalid(form)
 
 
@@ -197,8 +196,7 @@ class StorePeriodUpdateView(LoginRequiredMixin, SuperuserRequiredMixin, UpdateVi
                 return self.form_invalid(form)
 
     def form_invalid(self, form):
-        """Handle invalid form."""
-        messages.error(self.request, 'Please correct the errors below.')
+        """Handle invalid form - errors are displayed inline in template."""
         return super().form_invalid(form)
 
 

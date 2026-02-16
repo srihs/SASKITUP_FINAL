@@ -120,8 +120,7 @@ class StoreCreateView(LoginRequiredMixin, SuperuserRequiredMixin, CreateView):
         return redirect('stores:store_detail', pk=self.object.pk)
 
     def form_invalid(self, form):
-        """Handle invalid form."""
-        messages.error(self.request, 'Please correct the errors below.')
+        """Handle invalid form - errors are displayed inline in template."""
         return super().form_invalid(form)
 
 
@@ -144,8 +143,7 @@ class StoreUpdateView(LoginRequiredMixin, SuperuserRequiredMixin, UpdateView):
         return redirect('stores:store_detail', pk=self.object.pk)
 
     def form_invalid(self, form):
-        """Handle invalid form."""
-        messages.error(self.request, 'Please correct the errors below.')
+        """Handle invalid form - errors are displayed inline in template."""
         return super().form_invalid(form)
 
 
